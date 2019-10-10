@@ -53,16 +53,19 @@ func findLockedFnNames(pkg *packages.Package) []string {
 		lockedTasksPos []token.Pos
 		lockedTaskFns  []*ast.FuncDecl
 		lockedFnInfos  []string
-		lockedLines    = make(map[int]struct{})
 	)
 
 	// Collect locked comments and what line they are on.
 	for _, file := range pkg.Syntax {
+		lockedLines := make(map[int]struct{})
 		for _, group := range file.Comments {
 			for _, comment := range group.List {
 				if comment.Text == "// locked" {
 					commentLine := pkg.Fset.Position(comment.Pos()).Line
 					lockedLines[commentLine] = struct{}{}
+				}
+				if len(lockedLines) == 0 {
+					continue
 				}
 			}
 		}
