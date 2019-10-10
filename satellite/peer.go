@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -99,6 +100,8 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
+	// StripeCustomers returns table for storing stripe customers
+	Customers() stripecoinpayments.Customers
 }
 
 // Config is the global config satellite
