@@ -69,10 +69,10 @@ var (
 		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
-	gracefulExitCmd = &cobra.Command{
+	gracefulExitInitCmd = &cobra.Command{
 		Use:         "exit-satellite",
 		Short:       "Initiate graceful exit",
-		RunE:        cmdGracefulExit,
+		RunE:        cmdGracefulExitInit,
 		Annotations: map[string]string{"type": "helper"},
 	}
 
@@ -106,13 +106,13 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
-	rootCmd.AddCommand(gracefulExitCmd)
+	rootCmd.AddCommand(gracefulExitInitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
-	process.Bind(gracefulExitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {

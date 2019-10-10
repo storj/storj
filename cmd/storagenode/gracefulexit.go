@@ -46,7 +46,7 @@ func (client *gracefulExitClient) close() error {
 	return client.conn.Close()
 }
 
-func cmdGracefulExit(cmd *cobra.Command, args []string) error {
+func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
