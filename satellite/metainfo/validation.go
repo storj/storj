@@ -366,7 +366,7 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
-		return errs.New("no piece hash. NodeID: %v, PieceNum: %d)", piece.NodeId, piece.PieceNum)
+		return errs.New("no piece hash. NodeID: %v, PieceNum: %d", piece.NodeId, piece.PieceNum)
 	}
 
 	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
