@@ -15,12 +15,12 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestGetNonExistingSatellites(t *testing.T) {
+func TestGetNonExitingSatellites(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	totalSatelliteCount := 3
-	existingSatelliteCount := 1
+	exitingSatelliteCount := 1
 	planet, err := testplanet.New(t, totalSatelliteCount, 1, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
@@ -33,9 +33,13 @@ func TestGetNonExistingSatellites(t *testing.T) {
 	err = storagenode.DB.Satellites().InitiateGracefulExit(ctx, exitingSatellite.ID(), time.Now().UTC(), 0)
 	require.NoError(t, err)
 
-	nonExistingSatellites, err := storagenode.GracefulExit.Endpoint.GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
+	nonExitingSatellites, err := storagenode.GracefulExit.Endpoint.GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 	require.NoError(t, err)
-	require.Len(t, nonExistingSatellites.GetSatellites(), totalSatelliteCount-existingSatelliteCount)
+	require.Len(t, nonExitingSatellites.GetSatellites(), totalSatelliteCount-exitingSatelliteCount)
+
+	for _, satellite := range nonExitingSatellites.GetSatellites() {
+		require.NotEqual(t, exitingSatellite.ID(), satellite.NodeId)
+	}
 }
 
 func TestStartExiting(t *testing.T) {
@@ -43,7 +47,7 @@ func TestStartExiting(t *testing.T) {
 	defer ctx.Cleanup()
 
 	totalSatelliteCount := 3
-	const existingSatelliteCount = 2
+	const exitingSatelliteCount = 2
 	planet, err := testplanet.New(t, totalSatelliteCount, 1, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
@@ -51,21 +55,24 @@ func TestStartExiting(t *testing.T) {
 	planet.Start(ctx)
 	storagenode := planet.StorageNodes[0]
 
-	exitingSatellites := [existingSatelliteCount]*testplanet.SatelliteSystem{
-		planet.Satellites[0],
-		planet.Satellites[1],
+	exitingSatelliteIDs := []storj.NodeID{
+		planet.Satellites[0].ID(),
+		planet.Satellites[1].ID(),
 	}
-
 	req := &pb.StartExitRequest{
-		NodeIds: []storj.NodeID{
-			exitingSatellites[0].ID(),
-			exitingSatellites[1].ID(),
-		},
+		NodeIds: exitingSatelliteIDs,
 	}
 
 	resp, err := storagenode.GracefulExit.Endpoint.StartExit(ctx, req)
 	require.NoError(t, err)
 	for _, status := range resp.GetStatuses() {
 		require.True(t, status.GetSuccess())
+	}
+
+	exitStatuses, err := storagenode.DB.Satellites().ListGracefulExits(ctx)
+	require.NoError(t, err)
+	require.Len(t, exitStatuses, exitingSatelliteCount)
+	for _, status := range exitStatuses {
+		require.Contains(t, exitingSatelliteIDs, status.SatelliteID)
 	}
 }

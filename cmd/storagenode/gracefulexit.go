@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -57,15 +58,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// display warning message
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite.This action can not be undone. Are you sure you want to continue? y/n")
-	var confirmInput string
-	for scanner.Scan() {
-		confirmInput = scanner.Text()
-		break
-	}
-	confirmationOptions := map[string]struct{}{"y": {}, "yes": {}, "Y": {}, "Yes": {}}
-	if _, ok := confirmationOptions[confirmInput]; !ok {
+	if !prompt.Confirm("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite.This action can not be undone. Are you sure you want to continue? y/n\n") {
 		return nil
 	}
 
@@ -102,6 +95,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 
 	var selectedSatellite []string
 
+	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		input := scanner.Text()
 		// parse selected satellite from user input
