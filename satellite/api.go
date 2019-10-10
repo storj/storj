@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -42,31 +41,8 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/irreparable"
-	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/vouchers"
 )
-
-// APIConfig is the global config for the satellite API process
-type APIConfig struct {
-	Identity identity.Config
-	Server   server.Config
-	Version  version.Config
-
-	Contact contact.Config
-	Overlay overlay.Config
-
-	Metainfo metainfo.Config
-	Orders   orders.Config
-
-	Repairer repairer.Config
-
-	Rollup         rollup.Config
-	LiveAccounting live.Config
-
-	Mail      mailservice.Config
-	Console   consoleweb.Config
-	Marketing marketingweb.Config
-}
 
 // API is the satellite API process
 //
@@ -144,7 +120,7 @@ type API struct {
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *APIConfig, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -275,11 +251,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup metainfo
 		log.Debug("Satellite API Process setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Metainfo.Database = db
+		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),

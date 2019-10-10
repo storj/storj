@@ -66,7 +66,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 // NewInMemory creates instance of Sqlite in memory satellite database
 func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory")
+	return New(log, "sqlite3://file::memory:?mode=memory&cache=shared")
 }
 
 // Close is used to close db connection

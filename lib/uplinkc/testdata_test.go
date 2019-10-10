@@ -63,7 +63,6 @@ func TestC(t *testing.T) {
 			ctest := ctest
 			testName := filepath.Base(ctest)
 			t.Run(testName, func(t *testing.T) {
-				t.Parallel()
 
 				testexe := ctx.CompileC(t, testcontext.CompileCOptions{
 					Dest:    testName,
