@@ -161,7 +161,7 @@ func ParsePath(path string) (context.Context, string, string) {
 	if len(path) > 0 && path[0] == '/' {
 		path = path[1:]
 	}
-	parts := strings.SplitN(path, "/", 1)
+	parts := strings.SplitN(path, "/", 2)
 	if len(parts) == 1 {
 		return ctx, parts[0], ""
 	}
@@ -219,17 +219,29 @@ func (driver *Driver) ListFiles(cc server.ClientContext) (files []os.FileInfo, e
 
 // OpenFile opens a file in 3 possible modes: read, write, appending write (use appropriate flags)
 func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (fs server.FileStream, err error) {
-	ctx, _, _ := ParsePath(cc.Path())
+	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
 
 	// If we are writing and we are not in append mode, we should remove the file
 	if (flag & os.O_WRONLY) != 0 {
 		flag |= os.O_CREATE
 		if (flag & os.O_APPEND) == 0 {
-			os.Remove(path)
+			//todo: del file
 		}
 	}
-	return &virtualFile{content: []byte{}}, nil
+
+	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	object, err := bucket.OpenObject(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &virtualFile{object: object}, nil
 }
 
 // GetFileInfo gets some info around a file or a directory

@@ -4,29 +4,60 @@
 package ftp
 
 import (
+	"context"
 	"io"
 	"os"
 	"time"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/lib/uplink"
 )
 
 // The virtual file is an example of how you can implement a purely virtual file
 type virtualFile struct {
-	content    []byte // Content of the file
-	readOffset int    // Reading offset
+	ctx        context.Context
+	object     *uplink.Object
+	readOffset int64 // Reading offset
 }
 
 func (f *virtualFile) Close() error {
-	return nil
+	return f.object.Close()
 }
 
-func (f *virtualFile) Read(buffer []byte) (int, error) {
-	n := copy(buffer, f.content[f.readOffset:])
-	f.readOffset += n
-	if n == 0 {
+func (f *virtualFile) Read(buffer []byte) (byteCount int, err error) {
+	defer mon.Task()(&f.ctx)(&err)
+	bytesToRead := int64(len(buffer))
+	if f.readOffset+bytesToRead > f.object.Meta.Size {
+		bytesToRead = f.object.Meta.Size - f.readOffset
+	}
+	if bytesToRead <= 0 {
 		return 0, io.EOF
 	}
+	reader, err := f.object.DownloadRange(f.ctx, f.readOffset, bytesToRead)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errs.Combine(err, reader.Close()) }()
 
-	return n, nil
+	origOffset := f.readOffset
+	for f.readOffset-origOffset <= bytesToRead {
+		bytesRead, err := reader.Read(buffer[f.readOffset:])
+		if err != nil {
+			if err == io.EOF {
+				f.readOffset += int64(bytesRead)
+				break
+			} else {
+				return 0, err
+			}
+		}
+		f.readOffset += int64(bytesRead)
+	}
+
+	if f.readOffset-origOffset != bytesToRead {
+		return int(f.readOffset - origOffset), io.ErrUnexpectedEOF
+	}
+	return int(bytesToRead), io.EOF
 }
 
 func (f *virtualFile) Seek(n int64, w int) (int64, error) {
@@ -53,7 +84,10 @@ func (f virtualFileInfo) Size() int64 {
 }
 
 func (f virtualFileInfo) Mode() os.FileMode {
-	return os.FileMode(0666)
+	if f.isDir {
+		return os.ModePerm | os.ModeDir
+	}
+	return os.ModePerm
 }
 
 func (f virtualFileInfo) IsDir() bool {
