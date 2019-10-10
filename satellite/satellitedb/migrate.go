@@ -1288,7 +1288,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						user_id bytea NOT NULL,
 						customer_id text NOT NULL,
 						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( customer_id )
+						PRIMARY KEY ( user_id ),
+						UNIQUE ( customer_id )
 					);`,
 				},
 			},

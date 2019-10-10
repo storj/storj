@@ -211,7 +211,8 @@ CREATE TABLE stripe_customers (
 	user_id BLOB NOT NULL,
 	customer_id TEXT NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( customer_id )
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
