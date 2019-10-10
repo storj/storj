@@ -6,6 +6,8 @@ package coinpayments
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"net/url"
 	"strconv"
 	"strings"
@@ -100,7 +102,7 @@ func (list TransactionIDList) Encode() string {
 type Transaction struct {
 	ID             TransactionID
 	Address        string
-	Amount         float64
+	Amount         big.Float
 	DestTag        string
 	ConfirmsNeeded int
 	Timeout        time.Duration
@@ -127,10 +129,13 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount, err := strconv.ParseFloat(txRaw.Amount, 64)
+	amount := new(big.Float)
+
+	_, err := fmt.Sscan(txRaw.Amount, amount)
 	if err != nil {
 		return err
 	}
+
 	confirms, err := strconv.ParseInt(txRaw.ConfirmsNeeded, 10, 64)
 	if err != nil {
 		return err
@@ -139,7 +144,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 	*tx = Transaction{
 		ID:             TransactionID(txRaw.TxID),
 		Address:        txRaw.Address,
-		Amount:         amount,
+		Amount:         *amount,
 		DestTag:        txRaw.DestTag,
 		ConfirmsNeeded: int(confirms),
 		Timeout:        time.Second * time.Duration(txRaw.Timeout),
@@ -155,8 +160,8 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 type TransactionInfo struct {
 	Address          string
 	Coin             Currency
-	Amount           float64
-	Received         float64
+	Amount           big.Float
+	Received         big.Float
 	ConfirmsReceived int
 	Status           Status
 	ExpiresAt        time.Time
@@ -180,11 +185,14 @@ func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount, err := strconv.ParseFloat(txInfoRaw.AmountF, 64)
+	amount := new(big.Float)
+	received := new(big.Float)
+
+	_, err := fmt.Sscan(txInfoRaw.AmountF, amount)
 	if err != nil {
 		return err
 	}
-	received, err := strconv.ParseFloat(txInfoRaw.ReceivedF, 64)
+	_, err = fmt.Sscan(txInfoRaw.ReceivedF, amount)
 	if err != nil {
 		return err
 	}
@@ -192,8 +200,8 @@ func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 	*info = TransactionInfo{
 		Address:          txInfoRaw.Address,
 		Coin:             Currency(txInfoRaw.Coin),
-		Amount:           amount,
-		Received:         received,
+		Amount:           *amount,
+		Received:         *received,
 		ConfirmsReceived: txInfoRaw.ConfirmsRecv,
 		Status:           Status(txInfoRaw.Status),
 		ExpiresAt:        time.Unix(txInfoRaw.ExpiresAt, 0),
