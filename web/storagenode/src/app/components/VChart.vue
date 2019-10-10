@@ -85,6 +85,7 @@ export default class VChart extends Vue {
                     display: true,
                     ticks: {
                         beginAtZero: true,
+                        color: '#586C86',
                     },
                     gridLines: {
                         borderDash: [2, 5],
@@ -104,6 +105,12 @@ export default class VChart extends Vue {
                         display: false,
                     },
                 }],
+            },
+
+            layout: {
+                padding: {
+                    left: 25,
+                }
             },
 
             tooltips: {

@@ -7,7 +7,7 @@
         <VChart
             id="bandwidth-chart"
             :chart-data="chartData"
-            :width="400"
+            :width="385"
             :height="200"
             :tooltip-constructor="bandwidthTooltip"
         />
@@ -148,7 +148,7 @@ export default class BandwidthChart extends Vue {
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 5px;
+            margin: 0 0 5px 30px;
             font-family: 'font_medium';
         }
     }

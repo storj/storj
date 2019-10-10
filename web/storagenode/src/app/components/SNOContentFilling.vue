@@ -211,7 +211,7 @@ export default class SNOContentFilling extends Vue {
         background-color: #FFFFFF;
         border: 1px solid #E9EFF4;
         border-radius: 11px;
-        padding: 34px 36px 39px 39px;
+        padding: 32px 30px;
         margin-bottom: 32px;
         position: relative;
 
