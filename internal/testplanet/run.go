@@ -40,7 +40,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
+				schema := strings.ToLower(t.Name() + "/S" + strconv.Itoa(index) + "/" + schemaSuffix)
 				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
@@ -59,7 +59,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			if satelliteDB.PointerDB.URL != "" {
 				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
-					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo-" + schemaSuffix)
+					schema := strings.ToLower(t.Name() + "/Sm" + strconv.Itoa(index) + "/" + schemaSuffix)
 
 					db, err := postgreskv.New(pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema))
 					if err != nil {
