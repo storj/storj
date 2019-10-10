@@ -90,7 +90,7 @@
     </Property>
     <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
 
-      <UIRef Id="CustomInstallDir" />
+    <UIRef Id="CustomInstallDir" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
