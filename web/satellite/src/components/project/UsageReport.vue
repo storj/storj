@@ -15,7 +15,7 @@
             </div>
             <div class="usage-report-container__options-area__option" @click.prevent.self="onCustomDateClick">
                 <p class="usage-report-container__options-area__option__label" @click.prevent.self="onCustomDateClick">Custom Date Range</p>
-                <Datepicker
+                <VDatepicker
                     ref="datePicker"
                     :date="startTime"
                     @change="getDates"
@@ -58,7 +58,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Datepicker from '@/components/project/DatePicker.vue';
+import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
@@ -68,15 +68,15 @@ import { toUnixTimestamp } from '@/utils/time';
 
 @Component({
     components: {
-        Datepicker,
+        VDatepicker,
     },
 })
 export default class UsageReport extends Vue {
-    public startTime: any = {
-        time: '',
+    public readonly startTime = {
+        time: null,
     };
 
-    private readonly dateRange: any;
+    private readonly dateRange;
 
     public constructor() {
         super();
@@ -179,7 +179,7 @@ export default class UsageReport extends Vue {
         window.open(url.href, '_blank');
     }
 
-    public async getDates(datesArray: string[]): Promise<void> {
+    public async getDates(datesArray: Date[]): Promise<void> {
         const now = new Date();
         const firstDate = new Date(datesArray[0]);
         const secondDate = new Date(datesArray[1]);
@@ -240,7 +240,7 @@ export default class UsageReport extends Vue {
 <style scoped lang="scss">
     .usage-report-container {
         position: relative;
-        
+
         &__header {
             display: flex;
             flex-direction: row;
@@ -424,7 +424,7 @@ export default class UsageReport extends Vue {
 
     @media screen and (max-width: 1600px) {
         .usage-report-container {
-            
+
             &__header {
                 
                 &__title {

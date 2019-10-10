@@ -33,7 +33,6 @@ var Libraries = []string{
 var Peers = []string{
 	"storj.io/storj/satellite/...",
 	"storj.io/storj/storagenode/...",
-	"storj.io/storj/bootstrap/...",
 	"storj.io/storj/versioncontrol/...",
 	"storj.io/storj/linksharing/...",
 	"storj.io/storj/certificate/...",

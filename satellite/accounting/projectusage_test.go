@@ -40,6 +40,8 @@ func TestProjectUsageStorage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 		saDB := planet.Satellites[0].DB
 		acctDB := saDB.ProjectAccounting()
 
@@ -97,6 +99,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
@@ -232,7 +236,6 @@ func TestProjectBandwidthTotal(t *testing.T) {
 }
 
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
-
 	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)

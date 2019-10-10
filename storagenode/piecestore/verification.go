@@ -42,7 +42,9 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
 	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: %v", limit.OrderCreation)
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: OrderCreation %v < SystemClock %v", limit.OrderCreation, now)
+	case limit.OrderCreation.Sub(now) > endpoint.config.OrderLimitGracePeriod:
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too far in the future: OrderCreation %v > SystemClock %v", limit.OrderCreation, now)
 	case limit.SatelliteId.IsZero():
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite id")
 	case limit.UplinkPublicKey.IsZero():
