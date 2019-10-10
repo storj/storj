@@ -7819,6 +7819,28 @@ func (obj *postgresImpl) Get_ApiKey_By_Head(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_name.value(), api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
 func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
@@ -12256,6 +12278,28 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Head(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_name.value(), api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
 func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
@@ -16454,6 +16498,17 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
+}
+
 func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -17385,6 +17440,11 @@ type Methods interface {
 
 	Get_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
+		api_key *ApiKey, err error)
+
+	Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+		api_key_name ApiKey_Name_Field,
+		api_key_project_id ApiKey_ProjectId_Field) (
 		api_key *ApiKey, err error)
 
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
