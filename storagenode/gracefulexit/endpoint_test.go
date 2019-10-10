@@ -28,10 +28,11 @@ func TestGetNonExistingSatellites(t *testing.T) {
 	planet.Start(ctx)
 	exitingSatellite := planet.Satellites[0]
 	storagenode := planet.StorageNodes[0]
+
 	// set a satellite to already be exiting
 	storagenode.DB.Satellites().InitiateGracefulExit(ctx, exitingSatellite.ID(), time.Now().UTC(), 0)
 
-	nonExistingSatellites, err := storagenode.GracefulExit.Endpoint.GetSatellitesList(ctx, &pb.GetSatellitesListRequest{})
+	nonExistingSatellites, err := storagenode.GracefulExit.Endpoint.GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 	require.NoError(t, err)
 	require.Len(t, nonExistingSatellites.GetSatellites(), totalSatelliteCount-existingSatelliteCount)
 }
