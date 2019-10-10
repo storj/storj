@@ -4,11 +4,13 @@
 package payments
 
 import (
+	"context"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
 // Accounts exposes all needed functionality to manage payment accounts
 type Accounts interface {
 	// Setup creates payment account for selected user
-	Setup(userID uuid.UUID, email string) error
+	Setup(ctx context.Context, userID uuid.UUID, email string) error
 }

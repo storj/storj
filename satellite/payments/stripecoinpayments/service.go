@@ -9,7 +9,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 )
+
+var mon = monkit.Package()
 
 // Service is an implementation for PaymentsService via Stripe and Coinpayments
 type Service struct {
@@ -24,7 +27,9 @@ func NewService(customers Customers) *Service {
 }
 
 // Setup creates payment account for selected user
-func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) error {
+func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	params := &stripe.CustomerParams{
 		AccountBalance: stripe.Int64(0),
 		Email:          stripe.String(email),

@@ -28,23 +28,3 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 
 	return err
 }
-
-// Insert is a method for inserting stripe customer into the database.
-func (customers *customers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rows, err := customers.db.All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return customers.fromDbxRowCustomerID(rows), nil
-}
-
-func (customers *customers) fromDbxRowCustomerID(rows []*dbx.CustomerId_Row) (ids []string) {
-	for _, row := range rows {
-		ids = append(ids, row.CustomerId)
-	}
-
-	return
-}

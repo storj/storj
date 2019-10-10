@@ -13,7 +13,4 @@ import (
 type Customers interface {
 	// Insert is a method for inserting stripe customer into the database.
 	Insert(ctx context.Context, userID uuid.UUID, customerID string) error
-
-	// GetAllCustomerIDs return all ids of stripe customers stored in DB
-	GetAllCustomerIDs(ctx context.Context) (ids []string, err error)
 }

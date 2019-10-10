@@ -24,23 +24,11 @@ func TestCustomersRepository(t *testing.T) {
 
 		customerID := "customerID"
 		userID, err := uuid.New()
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 
 		t.Run("Insert", func(t *testing.T) {
-			stripeCustomersIDs, err := customers.GetAllCustomerIDs(ctx)
-
-			assert.NoError(t, err)
-			assert.Equal(t, len(stripeCustomersIDs), 0)
-
 			err = customers.Insert(ctx, *userID, customerID)
 			assert.NoError(t, err)
-
-			stripeCustomersIDs, err = customers.GetAllCustomerIDs(ctx)
-
-			assert.NoError(t, err)
-			assert.Equal(t, len(stripeCustomersIDs), 1)
 		})
 	})
 }
