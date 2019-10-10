@@ -25,6 +25,8 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
+                sh 'go env'
+
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
@@ -34,13 +36,12 @@ pipeline {
 
         stage('TestDRPC') {
             parallel {
-
                 stage('Test') {
                     environment {
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorjdrpc?sslmode=disable'
-                        GOFLAGS = '-tags=drpc'
                     }
                     steps {
+                        sh 'go env'
                         sh 'psql -U postgres -c \'create database teststorjdrpc;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
                         sh 'go test -tags drpc -parallel 4 -p 6 -vet=off -timeout 20m -json -race ./... 2>&1 | tee .build/testsdrpc.json | go run ./scripts/xunit.go -out .build/testsdrpc.xml'
@@ -61,9 +62,9 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorjdrpc2?sslmode=disable'
-                        GOFLAGS = '-tags=drpc'
                     }
                     steps {
+                        sh 'go env'
                         sh 'echo which-storj-sim $(which storj-sim)'
                         sh 'psql -U postgres -c \'create database teststorjdrpc2;\''
                         sh 'make test-sim'
