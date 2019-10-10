@@ -11,6 +11,6 @@ import (
 
 // Accounts exposes all needed functionality to manage payment accounts.
 type Accounts interface {
-	// Setup creates payment account for selected user.
+	// Setup creates a payment account for the user.
 	Setup(ctx context.Context, userID uuid.UUID, email string) error
 }
