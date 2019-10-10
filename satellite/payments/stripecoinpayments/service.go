@@ -19,14 +19,14 @@ type Service struct {
 	customers Customers
 }
 
-// NewService is a constructor for PaymentService
+// NewService is a constructor for PaymentService.
 func NewService(customers Customers) *Service {
 	return &Service{
 		customers: customers,
 	}
 }
 
-// Setup creates payment account for selected user
+// Setup creates payment account for selected user.
 func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -11,7 +11,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// customers is an implementation of payments.Accounts
+// customers is an implementation of payments.Accounts.
 type customers struct {
 	db *dbx.DB
 }
