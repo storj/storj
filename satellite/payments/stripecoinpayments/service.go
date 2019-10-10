@@ -31,7 +31,7 @@ func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email strin
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.CustomerParams{
-		Email:          stripe.String(email),
+		Email: stripe.String(email),
 	}
 
 	if _, err := customer.New(params); err != nil {
