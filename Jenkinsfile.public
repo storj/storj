@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --privileged --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
             label 'main'
         }
     }
@@ -59,7 +59,6 @@ pipeline {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
-                        sh 'go run scripts/check-clean-directory.go'
                     }
 
                     post {
@@ -132,6 +131,12 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh 'go run scripts/check-clean-directory.go'
             }
         }
     }
