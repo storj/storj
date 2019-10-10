@@ -31,7 +31,6 @@ func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email strin
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.CustomerParams{
-		AccountBalance: stripe.Int64(0),
 		Email:          stripe.String(email),
 	}
 
