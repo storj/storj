@@ -20,7 +20,7 @@
         <Control Id="IdentityChangeFolder" Type="PushButton" X="20" Y="120" Width="56" Height="17" Text="Browse..." />
         <Control Id="IdentityFolderDesc" Type="Text" X="20" Y="150" Width="320" Height="30" NoPrefix="yes" Text="Select the location of your identity files. You can copy the absolute path from the output of the identity command you ran earlier." />
         <Control Id="IdentityHowto" Type="Hyperlink" X="20" Y="180" Width="320" Height="16">
-          <Text><![CDATA[<a href="https://documentation.storj.io/setup/identity">Learn how to generate an identity for your storage node.</a>]]></Text>
+          <Text><![CDATA[<a href="https://documentation.storj.io/dependencies/identity">Learn how to generate an identity for your storage node.</a>]]></Text>
         </Control>
       </Dialog>
     </UI>

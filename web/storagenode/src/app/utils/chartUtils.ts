@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { GB, KB, MB } from '@/app/utils/converter';
+import { GB, KB, MB, PB, TB } from '@/app/utils/converter';
 import { BandwidthUsed, Stamp } from '@/storagenode/satellite';
 
 /**
@@ -16,13 +16,19 @@ export class ChartUtils {
     public static normalizeChartData(data: number[]): number[] {
         const maxBytes = Math.ceil(Math.max(...data));
 
-        let divider: number = GB;
+        let divider: number = PB;
         switch (true) {
             case maxBytes < MB:
                 divider = KB;
                 break;
             case maxBytes < GB:
                 divider = MB;
+                break;
+            case maxBytes < TB:
+                divider = GB;
+                break;
+            case maxBytes < PB:
+                divider = TB;
                 break;
         }
 
@@ -42,6 +48,10 @@ export class ChartUtils {
             date.setDate(i + 1);
 
             daysDisplayed[i] = date.toLocaleDateString('en-US', {day: 'numeric'});
+        }
+
+        if (daysDisplayed.length === 1) {
+            daysDisplayed.unshift('0');
         }
 
         return daysDisplayed;
@@ -74,6 +84,11 @@ export class ChartUtils {
             bandwidthChartData[i] = BandwidthUsed.emptyWithDate(date);
         }
 
+        if (bandwidthChartData.length === 1) {
+            bandwidthChartData.unshift(BandwidthUsed.emptyWithDate(1));
+            bandwidthChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
+        }
+
         return bandwidthChartData;
     }
 
@@ -102,6 +117,11 @@ export class ChartUtils {
             }
 
             storageChartData[i] = Stamp.emptyWithDate(date);
+        }
+
+        if (storageChartData.length === 1) {
+            storageChartData.unshift(Stamp.emptyWithDate(1));
+            storageChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
         }
 
         return storageChartData;

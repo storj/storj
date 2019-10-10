@@ -47,7 +47,7 @@ func Code(err error) StatusCode {
 	case context.DeadlineExceeded:
 		return DeadlineExceeded
 	default:
-		return drpcerr.Code(err)
+		return StatusCode(drpcerr.Code(err))
 	}
 
 }

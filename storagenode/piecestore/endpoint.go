@@ -67,6 +67,10 @@ type Config struct {
 	Orders  orders.Config
 }
 
+type pingStatsSource interface {
+	WasPinged(when time.Time)
+}
+
 // Endpoint implements uploading, downloading and deleting for a storage node..
 //
 // architecture: Endpoint
@@ -74,10 +78,11 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	signer  signing.Signer
-	trust   *trust.Pool
-	monitor *monitor.Service
-	retain  *retain.Service
+	signer    signing.Signer
+	trust     *trust.Pool
+	monitor   *monitor.Service
+	retain    *retain.Service
+	pingStats pingStatsSource
 
 	store       *pieces.Store
 	orders      orders.DB
@@ -94,15 +99,16 @@ type drpcEndpoint struct{ *Endpoint }
 func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		signer:  signer,
-		trust:   trust,
-		monitor: monitor,
-		retain:  retain,
+		signer:    signer,
+		trust:     trust,
+		monitor:   monitor,
+		retain:    retain,
+		pingStats: pingStats,
 
 		store:       store,
 		orders:      orders,
@@ -122,6 +128,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	endpoint.pingStats.WasPinged(time.Now())
 
 	if delete.Limit.Action != pb.PieceAction_DELETE {
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report rpc status unauthorized or bad request
@@ -170,6 +178,8 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	endpoint.pingStats.WasPinged(time.Now())
 
 	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
@@ -377,6 +387,8 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	startTime := time.Now().UTC()
+
+	endpoint.pingStats.WasPinged(time.Now())
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size

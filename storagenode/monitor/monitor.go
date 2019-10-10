@@ -33,7 +33,7 @@ type Config struct {
 	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
 }
 
-// Service which monitors disk usage and updates kademlia network as necessary.
+// Service which monitors disk usage
 //
 // architecture: Service
 type Service struct {

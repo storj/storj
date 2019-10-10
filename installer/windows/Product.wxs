@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
-  <Product Id="{E97D368F-CB18-45B5-8799-1EBB10728A99}" Name="Storj V3 Storage Node" Language="1033" Version="0.19.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
+  <Product Id="{E97D368F-CB18-45B5-8799-1EBB10728A99}" Name="Storj V3 Storage Node" Language="1033" Version="0.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
@@ -66,7 +66,10 @@
         <RemoveFile Id="ConfigFile" Name="config.yaml" On="uninstall" />
       </Component>
       <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}" Win64="yes">
-        <Shortcut Id="DashboardShortcut"  Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Directory="StorageNodeStartMenuFolder" Target="[System64Folder]cmd.exe" Arguments="/K &quot;&quot;[INSTALLFOLDER]storagenode.exe&quot; dashboard --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --color --log.output stdout&quot;">
+        <!-- We use a standard shortcut to 'cmd.exe /C "start http://localhost:14002"' instead of util:InternetShortcut, 
+             so it appears as an App Shortcut with icon in the Windows Start Menu. In contrast, InternetShortcut does
+             not support icons in the Start Menu. -->
+        <Shortcut Id="DashboardShortcut"  Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Directory="StorageNodeStartMenuFolder" Target="[System64Folder]cmd.exe" Arguments="/C &quot;start http://localhost:14002&quot;">
           <Icon Id="DashboardIco" SourceFile="storj.ico"/>
         </Shortcut>
         <RemoveFolder Id="RemoveStorageNodeMenuFolder" Directory="StorageNodeStartMenuFolder" On="uninstall" />
@@ -76,18 +79,32 @@
     </ComponentGroup>
     
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
-    <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
+    <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
+
+    <Property Id="STORJ_DEFAULTIDENTITYDIR">
+        <DirectorySearch Id='search1' Path='[PersonalFolder]' />
+        <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
+    </Property>
+    <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
+
     <UIRef Id="CustomInstallDir" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
+
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
     <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+
+    <Property Id="WixShellExecTarget" Value='http://localhost:14002' />
+    <CustomAction Id="LaunchSNOBoard" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
-    
+
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
                   ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;"
     />
