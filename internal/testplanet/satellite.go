@@ -222,7 +222,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		}
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, &config, versionInfo, revocationDB)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
