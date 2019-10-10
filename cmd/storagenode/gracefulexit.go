@@ -56,6 +56,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
+	// display warning message
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite.This action can not be undone. Are you sure you want to continue? y/n")
 	var confirmInput string
@@ -103,6 +104,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 
 	for scanner.Scan() {
 		input := scanner.Text()
+		// parse selected satellite from user input
 		inputs := strings.Split(input, " ")
 		selectedSatellite = append(selectedSatellite, inputs...)
 		break
@@ -126,7 +128,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		return errs.New("Invalid satellite domain names")
 	}
 
-	// save satellite for graceful exit into the db
+	// save satellites for graceful exit into the db
 	req := &pb.StartExitRequest{
 		NodeIds: satelliteIDs,
 	}
