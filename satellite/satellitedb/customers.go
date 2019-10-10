@@ -11,12 +11,12 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// customers is an implementation of payments.Accounts.
+// customers is an implementation of stripecoinpayments.Customers.
 type customers struct {
 	db *dbx.DB
 }
 
-// Insert is a method for inserting stripe customer into the database.
+// Insert inserts a stripe customer into the database.
 func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
 	defer mon.Task()(&ctx, userID, customerID)(&err)
 

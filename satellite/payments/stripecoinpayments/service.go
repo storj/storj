@@ -19,16 +19,16 @@ type Service struct {
 	customers Customers
 }
 
-// NewService is a constructor for PaymentService.
+// NewService creates a Service instance.
 func NewService(customers Customers) *Service {
 	return &Service{
 		customers: customers,
 	}
 }
 
-// Setup creates payment account for selected user.
+// Setup creates a payment account for the user.
 func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, userID, email)(&err)
 
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
