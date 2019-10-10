@@ -86,7 +86,7 @@ pipeline {
                     }
 
                     steps {
-                        sh 'make test-libuplink-gomobile'
+                        sh 'make libuplink-gomobile'
                     }
                 }
  
