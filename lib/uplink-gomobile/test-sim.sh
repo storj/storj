@@ -30,7 +30,8 @@ export PATH=$ANDROID_HOME/emulator/:$PATH
 echo "no" | $ANDROID_HOME/tools/bin/avdmanager create avd --name "${AVD_NAME}" -k "system-images;android-24;default;x86_64" --force
 echo "AVD ${AVD_NAME} created."
 
-$ANDROID_HOME/emulator/emulator -avd ${AVD_NAME} -port ${PORT} -no-window -no-accel -no-audio -no-boot-anim 2>&1 &
+# -no-accel
+$ANDROID_HOME/emulator/emulator -avd ${AVD_NAME} -port ${PORT} -no-window -no-audio -no-boot-anim 2>&1 &
 
 # build aar file and move it to android project for testing
 $SCRIPTDIR/build.sh
