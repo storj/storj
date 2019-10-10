@@ -42,7 +42,7 @@ func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
 		{
 			MasterDB:  Database{"Sqlite", DefaultSqliteConn, ""},
-			PointerDB: Database{"Bolt", "", "should use preconfigured URL"},
+			PointerDB: Database{"Redis", "", "missing redis  flag"},
 		},
 		{
 			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},

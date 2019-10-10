@@ -76,6 +76,8 @@ type Planet struct {
 
 	run    errgroup.Group
 	cancel func()
+
+	RedisCleanup func()
 }
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
@@ -270,6 +272,7 @@ func (planet *Planet) Shutdown() error {
 	cancel()
 
 	// shutdown in reverse order
+	planet.RedisCleanup()
 	for i := len(planet.uplinks) - 1; i >= 0; i-- {
 		node := planet.uplinks[i]
 		errlist.Add(node.Shutdown())

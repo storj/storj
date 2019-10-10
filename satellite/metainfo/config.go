@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
+	"storj.io/storj/storage/redis"
 )
 
 const (
@@ -63,6 +64,9 @@ func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) 
 		db, err = boltdb.New(source, BoltPointerBucket)
 	case "postgresql", "postgres":
 		db, err = postgreskv.New(source)
+	case "redis":
+		db, err = redis.NewClientFrom(dbURLString)
+
 	default:
 		err = Error.New("unsupported db scheme: %s", driver)
 	}

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
@@ -58,8 +59,15 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			if satelliteDB.PointerDB.URL != "" {
 				satReconfigure := planetConfig.Reconfigure.Satellite
 				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
-					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
-					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema)
+					driver, _, err := dbutil.SplitConnstr(satelliteDB.PointerDB.URL)
+					if err != nil {
+						t.Fatal(err)
+					}
+					switch driver {
+					case "postgres":
+						schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
+						config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema)
+					}
 					if satReconfigure != nil {
 						satReconfigure(log, index, config)
 					}

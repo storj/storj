@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -34,6 +35,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 // newSatellites initializes satellites
@@ -45,6 +47,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		}
 	}()
 
+	addr, cleanup, err := redisserver.Start()
+	if err != nil {
+		return nil, err
+	}
+	// TODO: add `cleanup()` somewhere better
+	planet.RedisCleanup = cleanup
 	for i := 0; i < count; i++ {
 		prefix := "satellite" + strconv.Itoa(i)
 		log := planet.log.Named(prefix)
@@ -69,6 +77,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return nil, err
 		}
 
+		metainfoDBURL := fmt.Sprintf("redis://%s?db=%d", addr, i+1)
 		config := satellite.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -116,7 +125,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
-				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
+				DatabaseURL:          metainfoDBURL,
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				MaxCommitInterval:    1 * time.Hour,

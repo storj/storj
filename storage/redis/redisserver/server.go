@@ -72,7 +72,7 @@ func Process() (addr string, cleanup func(), err error) {
 		"bind 127.0.0.1",
 		"port " + strconv.Itoa(port),
 		"timeout 0",
-		"databases 2",
+		"databases 10",
 		"dbfilename dump.rdb",
 		"dir " + tmpdir,
 	}
