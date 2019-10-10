@@ -23,11 +23,10 @@ OUTPUT=$PWD
 # go knows where our gopath is
 export GOPATH=$TMP
 
-mkdir "$GOPATH/src"
+mkdir -p "$GOPATH/src/storj.io/storj/"
 
 # symlink doesn't look to be working with gomobile
-# ln -s "$PWD/../storj" "$GOPATH/src/storj.io/storj"
-rsync -am --stats --exclude=".*" "$PWD/../storj" "$GOPATH/src/storj.io/"
+rsync -am --stats --exclude=".*" ./* "$GOPATH/src/storj.io/storj/"
 
 cd "$GOPATH/src/storj.io/storj"
 

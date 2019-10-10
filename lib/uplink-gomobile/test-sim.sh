@@ -10,9 +10,6 @@ fi
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# TODO make it relative to script dir
-make install-sim
-
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
