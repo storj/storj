@@ -10,7 +10,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/admission/admmonkit"
+	"github.com/zeebo/admission/v2/admmonkit"
 	"go.uber.org/zap/zaptest"
 )
 

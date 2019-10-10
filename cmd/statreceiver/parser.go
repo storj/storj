@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/admission/admproto"
+	"github.com/zeebo/admission/v2/admproto"
 
 	"storj.io/storj/internal/memory"
 )
