@@ -35,9 +35,6 @@ pipeline {
             parallel {
 
                 stage('Gomobile tests') {
-                    environment {
-                    }
-
                     steps {
                         sh 'make test-libuplink-gomobile'
                     }
