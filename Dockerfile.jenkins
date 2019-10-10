@@ -1,4 +1,4 @@
-FROM golang:1.13.1
+FROM golang:1.13.1-stretch
 
 # Postgres
 
@@ -24,6 +24,8 @@ ENV PATH "$PATH:/root/bin"
 
 RUN curl -L https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -o /tmp/protoc.zip
 RUN unzip /tmp/protoc.zip -d "$HOME"/protoc
+
+# Android SDK + NDK
 
 # Linters
 
