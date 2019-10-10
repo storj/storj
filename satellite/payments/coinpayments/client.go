@@ -8,8 +8,8 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -100,5 +100,5 @@ func (c *Client) do(ctx context.Context, cmd string, values url.Values) (_ json.
 func (c *Client) hmac(payload []byte) string {
 	mac := hmac.New(sha512.New, []byte(c.creds.PrivateKey))
 	_, _ = mac.Write(payload)
-	return fmt.Sprintf("%x", mac.Sum(nil))
+	return hex.EncodeToString(mac.Sum(nil))
 }
