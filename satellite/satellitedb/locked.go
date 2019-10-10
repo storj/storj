@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -587,6 +588,26 @@ func (m *locked) CreateTables() error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateTables()
+}
+
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) Customers() stripecoinpayments.Customers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCustomers{m.Locker, m.db.Customers()}
+}
+
+// lockedCustomers implements locking wrapper for stripecoinpayments.Customers
+type lockedCustomers struct {
+	sync.Locker
+	db stripecoinpayments.Customers
+}
+
+// Insert is a method for inserting stripe customer into the database.
+func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
 }
 
 // DropSchema drops the schema
