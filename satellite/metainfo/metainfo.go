@@ -460,10 +460,10 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-// filterValidPieces filter out the invalid remote pieces hold by pointer.
+// filterValidPieces filter out the invalid remote pieces held by pointer.
 //
-// The method alwayw return a gRPC status error so the caller can directly
-// returned to the client.
+// The method always return a gRPC status error so the caller can directly
+// return it to the client.
 func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
