@@ -79,14 +79,21 @@
     </ComponentGroup>
     
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
-    <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
+    <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
+
+    <Property Id="STORJ_DEFAULTIDENTITYDIR">
+        <DirectorySearch Id='search1' Path='[PersonalFolder]' />
+        <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
+    </Property>
+    <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
+
+    <UIRef Id="CustomInstallDir" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
-    <UIRef Id="CustomInstallDir" />
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
     <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
