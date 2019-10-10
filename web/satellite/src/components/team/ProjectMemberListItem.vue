@@ -110,8 +110,8 @@ export default class ProjectMemberListItem extends Vue {
 
                 &__owner-status {
                     margin: 0 0 0 20px;
-                    font-size: 14px;
-                    color: #505872;
+                    font-size: 13px;
+                    color: #AFB7C1;
                     font-family: 'font_medium';
                 }
             }
