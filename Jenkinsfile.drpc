@@ -9,11 +9,11 @@ pipeline {
     options {
           timeout(time: 26, unit: 'MINUTES')
     }
+    environment {
+        GOFLAGS = '-tags=drpc'
+    }
     stages {
         stage('BuildDRPC') {
-            environment {
-                GOFLAGS = '-tags=drpc'
-            }
             steps {
                 checkout scm
 
