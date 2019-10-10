@@ -2,15 +2,12 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
             label 'main'
         }
     }
     options {
           timeout(time: 26, unit: 'MINUTES')
-    }
-    environment {
-        NPM_CONFIG_CACHE = '/tmp/npm/cache'
     }
     stages {
         stage('BuildDRPC') {
