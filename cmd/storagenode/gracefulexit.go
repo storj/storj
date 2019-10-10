@@ -63,7 +63,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		confirmInput = scanner.Text()
 		break
 	}
-	confirmationOptions := map[string]struct{}{"y": struct{}{}, "yes": struct{}{}, "Y": struct{}{}, "Yes": struct{}{}}
+	confirmationOptions := map[string]struct{}{"y": {}, "yes": {}, "Y": {}, "Yes": {}}
 	if _, ok := confirmationOptions[confirmInput]; !ok {
 		return nil
 	}
@@ -94,7 +94,10 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t\n")
 	}
 	fmt.Fprintln(w, "Please enter the domain name for each satellite you would like to start graceful exit on with a space in between each domain name and hit enter once you are done:")
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
 	var selectedSatellite []string
 

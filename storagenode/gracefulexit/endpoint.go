@@ -37,7 +37,7 @@ func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, u
 	}
 }
 
-// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
+// GetNonExitingSatellites returns a list of satellites that the storagenode has not begun a graceful exit for.
 func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonExitingSatellitesRequest) (*pb.GetNonExitingSatellitesResponse, error) {
 	e.log.Debug("initialize graceful exit: GetSatellitesList")
 	// get all trusted satellites
