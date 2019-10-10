@@ -13,9 +13,12 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
+      rm -rf "$SCRIPTDIR/libuplink_android/app/libs/"
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
+
+export TMP=$TMP
 
 # start Android emulator, headless version
 PORT=6000
