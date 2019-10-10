@@ -18,7 +18,7 @@ type customers struct {
 
 // Insert is a method for inserting stripe customer into the database.
 func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, userID, customerID)(&err)
 
 	_, err = customers.db.Create_StripeCustomers(
 		ctx,
