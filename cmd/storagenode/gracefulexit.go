@@ -58,7 +58,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// display warning message
-	if !prompt.Confirm("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite.This action can not be undone. Are you sure you want to continue? y/n\n") {
+	if !prompt.Confirm("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite. This action can not be undone. Are you sure you want to continue? y/n\n") {
 		return nil
 	}
 
