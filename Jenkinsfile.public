@@ -7,7 +7,7 @@ pipeline {
         }
     }
     options {
-          timeout(time: 36, unit: 'MINUTES')
+          timeout(time: 30, unit: 'MINUTES')
     }
     environment {
         NPM_CONFIG_CACHE = '/tmp/npm/cache'
@@ -86,7 +86,7 @@ pipeline {
                     }
 
                     steps {
-                        sh 'make libuplink-gomobile'
+                        sh 'make test-libuplink-gomobile'
                     }
                 }
  
