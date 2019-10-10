@@ -13,7 +13,7 @@ pipeline {
         GOFLAGS = '-tags=drpc'
     }
     stages {
-        stage('BuildDRPC') {
+        stage('Build') {
             steps {
                 checkout scm
 
@@ -34,7 +34,7 @@ pipeline {
             }
         }
 
-        stage('TestDRPC') {
+        stage('Test') {
             parallel {
                 stage('Test') {
                     environment {
@@ -53,6 +53,12 @@ pipeline {
                             archiveArtifacts artifacts: '.build/testsdrpc.json'
                             junit '.build/testsdrpc.xml'
                         }
+                    }
+                }
+
+                stage('Sanity Check') {
+                    steps {
+                        sh 'go test -run TestRPCBuild -v ./pkg/rpc'
                     }
                 }
 

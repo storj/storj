@@ -34,7 +34,8 @@ func TestRPCBuild(t *testing.T) {
 		rpcType = "Compiled with GRPC"
 	}
 	require.NotEqual(t, rpcType, "")
-	fmt.Println("TestRPCBuild", rpcType)
+
+	t.Log(rpcType)
 }
 
 func TestDialNode(t *testing.T) {
