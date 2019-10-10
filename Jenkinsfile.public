@@ -34,8 +34,11 @@ pipeline {
         stage('Verification') {
             parallel {
                 stage('Gomobile') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '172.17.0.2'
+                    }
+
                     steps {
-                        sh 'export STORJ_NETWORK_HOST4=172.17.0.2'
                         sh 'make test-libuplink-gomobile'
                     }
                 }
