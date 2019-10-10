@@ -76,7 +76,7 @@ func (d *InfluxDest) Metric(application, instance string, key []byte, val float6
 		break
 	}
 	if !added {
-		// TODO(jeff): log that it was dropped? how?
+		log.Printf("metric dropped: %s", key)
 		return nil
 	}
 
@@ -133,7 +133,6 @@ func (d *InfluxDest) flush() {
 			if d.token != "" {
 				req.Header.Set("Authorization", "Token "+d.token)
 			}
-			log.Printf("Req: %+v", req)
 			resp, err := http.DefaultClient.Do(req)
 			if err == nil {
 				_ = resp.Body.Close()
@@ -141,7 +140,6 @@ func (d *InfluxDest) flush() {
 					err = errs.New("invalid status code: %d", resp.StatusCode)
 				}
 			}
-			log.Printf("Resp: %+v (%v)", resp, err)
 		}
 		if err != nil {
 			log.Printf("failed flushing: %v", err)
