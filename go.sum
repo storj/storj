@@ -535,3 +535,5 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 storj.io/drpc v0.0.6 h1:/LYHeA4Yl5eVkgErMR914hzDS9RyFuNhj2eOEWlh8lw=
 storj.io/drpc v0.0.6/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
+storj.io/drpc v0.0.7-0.20191010012850-1abadc36b033 h1:pThwNPWK9tN1F7AfVcabaD9HNN/ITMK50dNtc1xn5sE=
+storj.io/drpc v0.0.7-0.20191010012850-1abadc36b033/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
