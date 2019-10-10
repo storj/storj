@@ -94,7 +94,6 @@
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
-    <UIRef Id="CustomInstallDir" />
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
     <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
