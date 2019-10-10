@@ -48,7 +48,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 	// filter out satellites that are already exiting
 	exitingSatellites, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	for _, trusted := range trustedSatellites {

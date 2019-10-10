@@ -29,7 +29,7 @@ type gracefulExitClient struct {
 func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitClient, error) {
 	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
-		return &gracefulExitClient{}, err
+		return nil, errs.Wrap(err)
 	}
 	return &gracefulExitClient{conn: conn}, nil
 }
@@ -71,7 +71,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 
 	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	defer func() {
 		if err := client.close(); err != nil {
@@ -82,7 +82,8 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	// get list of satellites
 	satelliteList, err := client.getNonExitingSatellites(ctx)
 	if err != nil {
-		return err
+		fmt.Println("Can't find any non-existing satellites.")
+		return errs.Wrap(err)
 	}
 
 	// display satellite options
@@ -105,7 +106,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 		break
 	}
 	if err != scanner.Err() || err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	// validate user input
@@ -129,7 +130,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}
 	resp, err := client.initGracefulExit(ctx, req)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	for _, status := range resp.Statuses {
 		if !status.GetSuccess() {
