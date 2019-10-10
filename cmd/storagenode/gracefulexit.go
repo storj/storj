@@ -56,16 +56,15 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	// TODO: Display a warning and have user confirm before proceeding
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("test message.y/n")
-	var userInput string
+	fmt.Println("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite.This action can not be undone. Are you sure you want to continue? y/n")
+	var confirmInput string
 	for scanner.Scan() {
-		userInput = scanner.Text()
+		confirmInput = scanner.Text()
 		break
 	}
 	confirmationOptions := map[string]struct{}{"y": struct{}{}, "yes": struct{}{}, "Y": struct{}{}, "Yes": struct{}{}}
-	if _, ok := confirmationOptions[userInput]; !ok {
+	if _, ok := confirmationOptions[confirmInput]; !ok {
 		return nil
 	}
 
