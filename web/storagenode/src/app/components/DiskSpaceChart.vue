@@ -90,10 +90,11 @@ export default class DiskSpaceChart extends Vue {
         const diskSpaceChart = document.getElementById('disk-space-chart');
 
         if (diskSpaceChart) {
+            const tenPixels = 10;
             const position = diskSpaceChart.getBoundingClientRect();
             tooltipEl.style.opacity = '1';
             tooltipEl.style.position = 'absolute';
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 10 + 'px';
+            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - tenPixels + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
 

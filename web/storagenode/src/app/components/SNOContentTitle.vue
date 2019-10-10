@@ -117,7 +117,7 @@ export default class SNOContentTitle extends Vue {
         const storedLastPinged: Date = this.$store.state.node.info.lastPinged;
         const shownLastPinged: number = datesDiffInMinutes(this.timeNow, storedLastPinged);
 
-        return `${shownLastPinged}min ago`;
+        return `${shownLastPinged} min ago`;
     }
 
     public get uptime(): string {
