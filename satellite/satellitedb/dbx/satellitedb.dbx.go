@@ -5980,10 +5980,6 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
-type CustomerId_Row struct {
-	CustomerId string
-}
-
 type Id_LastNet_Address_Protocol_Row struct {
 	Id       []byte
 	LastNet  string
@@ -8356,38 +8352,6 @@ func (obj *postgresImpl) Limited_GracefulExitTransferQueue_By_NodeId_And_Finishe
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, graceful_exit_transfer_queue)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx context.Context) (
-	rows []*CustomerId_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers ORDER BY stripe_customers.created_at")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &CustomerId_Row{}
-		err = __rows.Scan(&row.CustomerId)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -12573,38 +12537,6 @@ func (obj *sqlite3Impl) Limited_GracefulExitTransferQueue_By_NodeId_And_Finished
 
 }
 
-func (obj *sqlite3Impl) All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx context.Context) (
-	rows []*CustomerId_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers ORDER BY stripe_customers.created_at")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &CustomerId_Row{}
-		err = __rows.Scan(&row.CustomerId)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -15088,15 +15020,6 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
-func (rx *Rx) All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx context.Context) (
-	rows []*CustomerId_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx)
-}
-
 func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
@@ -16314,9 +16237,6 @@ type Methods interface {
 	All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
-
-	All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx context.Context) (
-		rows []*CustomerId_Row, err error)
 
 	All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 		user_credit_user_id UserCredit_UserId_Field,

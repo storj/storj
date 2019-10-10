@@ -596,13 +596,6 @@ type lockedCustomers struct {
 	db stripecoinpayments.Customers
 }
 
-// GetAllCustomerIDs return all ids of stripe customers stored in DB
-func (m *lockedCustomers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAllCustomerIDs(ctx)
-}
-
 // Insert is a method for inserting stripe customer into the database.
 func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
 	m.Lock()

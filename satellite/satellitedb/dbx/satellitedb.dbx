@@ -888,7 +888,3 @@ model stripe_customers (
 )
 
 create stripe_customers ( )
-read all (
-	select stripe_customers.customer_id
-    orderby asc stripe_customers.created_at
-)
