@@ -322,7 +322,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJsonError(w, 500, err)
 
 		return
 	}
@@ -408,6 +408,11 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	}
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		server.serveJsonError(w, 500, err)
+
+		return
+	}
 	link := server.config.ExternalAddress + ActivationPath + token
 	userName := user.ShortName
 	if user.ShortName == "" {
