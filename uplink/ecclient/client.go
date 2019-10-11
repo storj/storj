@@ -175,7 +175,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (_ *pb.PieceHash, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -213,42 +213,35 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		)
 		return nil, err
 	}
-	defer func() {
-		if ctx.Err() != nil || err != nil {
-			hash = nil
-			err = errs.Combine(err, upload.Cancel(ctx))
-			return
-		}
-		h, closeErr := upload.Commit(ctx)
-		hash = h
-		err = errs.Combine(err, closeErr)
-	}()
 
 	_, err = sync2.Copy(ctx, upload, data)
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
-	if ctx.Err() == context.Canceled {
-		if parent.Err() == context.Canceled {
-			ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
+	if err != nil {
+		if err == context.Canceled {
+			if parent.Err() == context.Canceled {
+				ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
+			} else {
+				ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
+			}
 		} else {
-			ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
-		}
-		err = context.Canceled
-	} else if err != nil {
-		nodeAddress := "nil"
-		if limit.GetStorageNodeAddress() != nil {
-			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
+			nodeAddress := "nil"
+			if limit.GetStorageNodeAddress() != nil {
+				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
+			}
+
+			ec.log.Debug("Failed uploading piece to node",
+				zap.String("PieceID", pieceID.String()),
+				zap.String("NodeID", storageNodeID.String()),
+				zap.String("Node Address", nodeAddress),
+				zap.Error(err),
+			)
 		}
 
-		ec.log.Debug("Failed uploading piece to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
-			zap.String("Node Address", nodeAddress),
-			zap.Error(err),
-		)
+		return nil, errs.Combine(err, upload.Cancel(ctx))
 	}
 
-	return hash, err
+	return upload.Commit(ctx)
 }
 
 func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {
