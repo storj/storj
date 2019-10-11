@@ -22,7 +22,7 @@ import (
 var (
 	// RolloutErr defines the rollout config error class.
 	RolloutErr = errs.Class("rollout config error")
-	// SeedLegth is the number of bytes in a rollout seed.
+	// SeedLength is the number of bytes in a rollout seed.
 	SeedLength = 32
 
 	hexLenFactor = 2
