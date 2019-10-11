@@ -10,28 +10,22 @@ import { ChartData } from '@/app/types/chartData';
 class DayShowingConditions {
     public readonly day: string;
     public readonly daysArray: string[];
-    public readonly middleDateValue: number;
-    public readonly isDateValueFirstOrLast: boolean;
-    public readonly isAfterEighthDayOfTheMonth: boolean;
 
     public constructor(day: string, daysArray: string[]) {
         this.day = day;
         this.daysArray = daysArray;
-        this.middleDateValue = this.countMiddleDateValue(daysArray);
-        this.isDateValueFirstOrLast = this.isDayFirstOrLast(day, daysArray);
-        this.isAfterEighthDayOfTheMonth = this.isDayAfterEighthDayOfTheMonth(daysArray);
     }
 
-    private countMiddleDateValue(daysArray: string[]): number {
-        return daysArray.length / 2;
+    public countMiddleDateValue(): number {
+        return this.daysArray.length / 2;
     }
 
-    private isDayFirstOrLast(day: string, daysArray: string[]): boolean {
-        return day === daysArray[0] || day === daysArray[daysArray.length - 1];
+    public isDayFirstOrLast(): boolean {
+        return this.day === this.daysArray[0] || this.day === this.daysArray[this.daysArray.length - 1];
     }
 
-    private isDayAfterEighthDayOfTheMonth(daysArray: string[]): boolean {
-        return daysArray.length > 8 && daysArray.length <= 31;
+    public isDayAfterEighthDayOfTheMonth(): boolean {
+        return this.daysArray.length > 8 && this.daysArray.length <= 31;
     }
 }
 
@@ -141,19 +135,19 @@ export default class VChart extends Vue {
     private areDaysShownOnEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
         const isDaysAmountEven = dayShowingConditions.daysArray.length % 2 === 0;
         const isDateValueInMiddleInEvenAmount = dayShowingConditions.day ===
-            dayShowingConditions.daysArray[dayShowingConditions.middleDateValue - 1];
+            dayShowingConditions.daysArray[dayShowingConditions.countMiddleDateValue() - 1];
 
-        return dayShowingConditions.isDateValueFirstOrLast || (isDaysAmountEven
-            && dayShowingConditions.isAfterEighthDayOfTheMonth && isDateValueInMiddleInEvenAmount);
+        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountEven
+            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInEvenAmount);
     }
 
     private areDaysShownOnNotEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
         const isDaysAmountNotEven = dayShowingConditions.daysArray.length % 2 !== 0;
         const isDateValueInMiddleInNotEvenAmount = dayShowingConditions.day
-            === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.middleDateValue)];
+            === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.countMiddleDateValue())];
 
-        return dayShowingConditions.isDateValueFirstOrLast || (isDaysAmountNotEven
-            && dayShowingConditions.isAfterEighthDayOfTheMonth && isDateValueInMiddleInNotEvenAmount);
+        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountNotEven
+            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInNotEvenAmount);
     }
 }
 </script>
