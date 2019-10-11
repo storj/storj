@@ -134,11 +134,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	usersRouter.Handle("/{email}/forgot-password", http.HandlerFunc(server.forgotPasswordRequestHandler)).Methods("GET")
 
 	if server.config.StaticDir != "" {
-		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/activation", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/registrationToken", http.HandlerFunc(server.createRegistrationTokenHandler))
+		router.Handle("/usage-report", http.HandlerFunc(server.bucketUsageReportHandler))
 		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
