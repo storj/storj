@@ -24,7 +24,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
@@ -41,6 +41,10 @@ const (
 
 	applicationJSON    = "application/json"
 	applicationGraphql = "application/graphql"
+
+	ActivationPath             = "activation/?token="
+	PasswordRecoveryPath       = "password-recovery/?token="
+	CancelPasswordRecoveryPath = "cancel-password-recovery/?token="
 )
 
 var (
@@ -93,17 +97,6 @@ type Server struct {
 		success       *template.Template
 		activated     *template.Template
 	}
-}
-
-type RootObject struct {
-	Origin                     string
-	ActivationPath             string
-	PasswordRecoveryPath       string
-	CancelPasswordRecoveryPath string
-	SignInPath                 string
-	LetUsKnowURL               string
-	ContactInfoURL             string
-	TermsAndConditionsURL      string
 }
 
 // NewServer creates new instance of console server
@@ -233,19 +226,6 @@ func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 			ctx = console.WithAuth(ctx, auth)
 		}
 
-		rootObject := RootObject{
-			Origin:                     server.config.ExternalAddress,
-			ActivationPath:             "activation/?token=",
-			PasswordRecoveryPath:       "password-recovery/?token=",
-			CancelPasswordRecoveryPath: "cancel-password-recovery/?token=",
-			SignInPath:                 "login",
-			LetUsKnowURL:               server.config.LetUsKnowURL,
-			ContactInfoURL:             server.config.ContactInfoURL,
-			TermsAndConditionsURL:      server.config.TermsAndConditionsURL,
-		}
-
-		ctx = context.WithValue(ctx, "rootObject", rootObject)
-
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
 }
@@ -361,12 +341,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	rootObject, ok := ctx.Value("rootObject").(RootObject)
-	if !ok {
-		server.log.Error("root object is not set")
-		return
-	}
-	link := rootObject.Origin + rootObject.ActivationPath + token
+	link := server.config.ExternalAddress + ActivationPath + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
@@ -376,7 +351,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&consoleql.AccountActivationEmail{
-			Origin:         rootObject.Origin,
+			Origin:         server.config.ExternalAddress,
 			ActivationLink: link,
 		},
 	)
@@ -453,26 +428,20 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
-
-	rootObject, ok := ctx.Value("rootObject").(RootObject)
-	if !ok {
-		server.log.Error("root object is not set")
-		return
-	}
-	link := rootObject.Origin + rootObject.ActivationPath + token
+	link := server.config.ExternalAddress + ActivationPath + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
 	}
 
-	contactInfoURL := rootObject.ContactInfoURL
-	termsAndConditionsURL := rootObject.TermsAndConditionsURL
+	contactInfoURL := server.config.ContactInfoURL
+	termsAndConditionsURL := server.config.TermsAndConditionsURL
 
 	server.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&consoleql.AccountActivationEmail{
-			Origin:                rootObject.Origin,
+			Origin:                server.config.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
 			ContactInfoURL:        contactInfoURL,
@@ -506,23 +475,22 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 		server.serveJsonError(w, 500, errs.New("failed to generate password recovery token"))
 	}
 
-	rootObject := ctx.Value("rootObject").(RootObject)
-	passwordRecoveryLink := rootObject.Origin + rootObject.PasswordRecoveryPath + recoveryToken
-	cancelPasswordRecoveryLink := rootObject.Origin + rootObject.CancelPasswordRecoveryPath + recoveryToken
+	passwordRecoveryLink := server.config.ExternalAddress + PasswordRecoveryPath + recoveryToken
+	cancelPasswordRecoveryLink := server.config.ExternalAddress + CancelPasswordRecoveryPath + recoveryToken
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
 	}
 
-	contactInfoURL := rootObject.ContactInfoURL
-	letUsKnowURL := rootObject.LetUsKnowURL
-	termsAndConditionsURL := rootObject.TermsAndConditionsURL
+	contactInfoURL := server.config.ContactInfoURL
+	letUsKnowURL := server.config.LetUsKnowURL
+	termsAndConditionsURL := server.config.TermsAndConditionsURL
 
 	server.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&consoleql.ForgotPasswordEmail{
-			Origin:                     rootObject.Origin,
+			Origin:                     server.config.ExternalAddress,
 			ResetLink:                  passwordRecoveryLink,
 			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 			UserName:                   userName,
@@ -531,7 +499,6 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 			ContactInfoURL:             contactInfoURL,
 		},
 	)
-
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project

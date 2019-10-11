@@ -3,15 +3,17 @@
 
 import { AuthToken } from '@/utils/authToken';
 
+/**
+ * BaseRest is an utility which allows to perform web requests
+ */
 export class BaseRest {
-    protected async sendRequest (method: string, path: string, body: any = null): Promise<any> {
+    protected async sendRequest(method: string, path: string, body: any = null): Promise<any> {
         // get the authentication token from local storage if it exists
         const token = AuthToken.get();
-        const path1 = 'http://localhost:10002' + path;
 
-        const response =  await fetch(path1, {
-            method:method,
-            body:body,
+        const response = await fetch(path, {
+            method: method,
+            body: body,
             headers: {
                 authorization: token ? `Bearer ${token}` : '',
                 'Content-Type': 'application/json'
