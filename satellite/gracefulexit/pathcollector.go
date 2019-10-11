@@ -21,7 +21,7 @@ var _ metainfo.Observer = (*PathCollector)(nil)
 // architecture: Observer
 type PathCollector struct {
 	db        DB
-	nodeIDMap map[storj.NodeID]struct{}
+	nodeIDs   map[storj.NodeID]struct{}
 	buffer    []TransferQueueItem
 	log       *zap.Logger
 	batchSize int
@@ -38,9 +38,9 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 	}
 
 	if len(nodeIDs) > 0 {
-		collector.nodeIDMap = make(map[storj.NodeID]struct{}, len(nodeIDs))
+		collector.nodeIDs = make(map[storj.NodeID]struct{}, len(nodeIDs))
 		for _, nodeID := range nodeIDs {
-			collector.nodeIDMap[nodeID] = struct{}{}
+			collector.nodeIDs[nodeID] = struct{}{}
 		}
 	}
 
@@ -54,13 +54,13 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already
 func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	if len(collector.nodeIDMap) == 0 {
+	if len(collector.nodeIDs) == 0 {
 		return nil
 	}
 
 	numPieces := int32(len(pointer.GetRemote().GetRemotePieces()))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if _, ok := collector.nodeIDMap[piece.NodeId]; !ok {
+		if _, ok := collector.nodeIDs[piece.NodeId]; !ok {
 			continue
 		}
 
