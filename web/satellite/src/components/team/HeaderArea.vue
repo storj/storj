@@ -123,12 +123,8 @@ export default class HeaderArea extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
-            return member.user.email;
-        });
-
         try {
-            await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+            await this.$store.dispatch(PM_ACTIONS.DELETE);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${error.message}`);
 
