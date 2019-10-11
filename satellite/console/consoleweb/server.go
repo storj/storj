@@ -6,7 +6,6 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
-	"github.com/prometheus/common/log"
 	"html/template"
 	"mime"
 	"net"
@@ -17,6 +16,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"storj.io/storj/internal/post"
+
+	"github.com/prometheus/common/log"
 
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
@@ -94,6 +97,17 @@ type Server struct {
 	}
 }
 
+type RootObject struct {
+	Origin                     string
+	ActivationPath             string
+	PasswordRecoveryPath       string
+	CancelPasswordRecoveryPath string
+	SignInPath                 string
+	LetUsKnowURL               string
+	ContactInfoURL             string
+	TermsAndConditionsURL      string
+}
+
 // NewServer creates new instance of console server
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
@@ -114,11 +128,20 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	router := mux.NewRouter()
-	//mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
+	router := mux.NewRouter()
 	router.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
+
+	usersRouter := router.PathPrefix("/users").Subrouter()
+	usersRouter.Use(server.authMiddlewareHandler)
+
+	usersRouter.Handle("/token/", http.HandlerFunc(server.tokenRequestHandler)).Methods("POST")
+	usersRouter.Handle("/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
+	usersRouter.Handle("/", http.HandlerFunc(server.deleteAccountRequestHandler)).Methods("DELETE")
+	usersRouter.Handle("/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
+	usersRouter.Handle("/{id}/resend-email/", http.HandlerFunc(server.resendEmailRequestHandler)).Methods("GET")
+	usersRouter.Handle("/{email}/forgot-password/", http.HandlerFunc(server.forgotPasswordRequestHandler)).Methods("GET")
 
 	if server.config.StaticDir != "" {
 		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
@@ -128,16 +151,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-
-		usersRouter := router.PathPrefix("/users").Subrouter()
-		usersRouter.Use(server.authMiddlewareHandler)
-
-		usersRouter.Handle("/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
-		usersRouter.Handle("/", http.HandlerFunc(server.updateAccountRequestHandler)).Methods("PUT", "PATCH")
-		usersRouter.Handle("/", http.HandlerFunc(server.deleteAccount)).Methods("DELETE")
-		usersRouter.Handle("/token/", http.HandlerFunc(server.tokenRequestHandler)).Methods("POST")
-		usersRouter.Handle("/{id}/", http.HandlerFunc(server.getUserByIDRequestHandler)).Methods("GET")
-		usersRouter.Handle("/{id}/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
 
 		router.Handle("/", http.HandlerFunc(server.appHandler))
 	}
@@ -165,6 +178,19 @@ func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 			ctx = console.WithAuth(ctx, auth)
 		}
 
+		rootObject := RootObject{
+			Origin:                     server.config.ExternalAddress,
+			ActivationPath:             "activation/?token=",
+			PasswordRecoveryPath:       "password-recovery/?token=",
+			CancelPasswordRecoveryPath: "cancel-password-recovery/?token=",
+			SignInPath:                 "login",
+			LetUsKnowURL:               server.config.LetUsKnowURL,
+			ContactInfoURL:             server.config.ContactInfoURL,
+			TermsAndConditionsURL:      server.config.TermsAndConditionsURL,
+		}
+
+		ctx = context.WithValue(ctx, "rootObject", rootObject)
+
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
 }
@@ -174,18 +200,26 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	email := ""
-	password := ""
+	type tokenRequestModel struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
-	token, err := server.service.Token(ctx, email, password)
+	var tokenRequest tokenRequestModel
+	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
-		w.WriteHeader(404)
+		server.serveJsonError(w, 400, err)
+	}
+
+	token, err := server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	if err != nil {
+		server.serveJsonError(w, 404, err)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
-		w.WriteHeader(500)
+		server.serveJsonError(w, 500, err)
 		server.log.Debug("Error serializing response: " + err.Error())
 	}
 }
@@ -197,67 +231,26 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 
 	_, err = console.GetAuth(ctx)
 	if err != nil {
-		w.WriteHeader(401)
+		server.serveJsonError(w, 401, err)
 		return
 	}
 
 	type ChangePasswordRequestModel struct {
 		Password    string `json:"password"`
-		NewPassword string `json:"new_password"`
+		NewPassword string `json:"newPassword"`
 	}
 
 	var passwordChange ChangePasswordRequestModel
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 		return
 	}
 
 	err = server.service.ChangePassword(ctx, passwordChange.Password, passwordChange.NewPassword)
 	if err != nil {
-		w.WriteHeader(404)
+		server.serveJsonError(w, 404, err)
 		return
-	}
-
-	w.WriteHeader(200)
-}
-
-func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	params := mux.Vars(r)
-	val, ok := params["id"]
-	if !ok {
-		err = errs.New("id expected")
-
-		w.WriteHeader(400)
-		return
-	}
-
-	id, err := uuid.Parse(val)
-	if err != nil {
-		w.WriteHeader(400)
-		return
-	}
-
-	_, err = console.GetAuth(ctx)
-	if err != nil {
-		w.WriteHeader(401)
-		return
-	}
-
-	user, err := server.service.GetUser(ctx, *id)
-	if err != nil {
-		w.WriteHeader(404)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(user)
-	if err != nil {
-		w.WriteHeader(500)
-		server.log.Debug("Error serializing response: " + err.Error())
 	}
 }
 
@@ -266,16 +259,16 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	type CreateUserModel struct {
+	type createUserRequestModel struct {
 		console.CreateUser
 		Secret         string `json:"secret"`
 		ReferrerUserID string `json:"referrerUserId"`
 	}
 
-	var model CreateUserModel
+	var model createUserRequestModel
 	err = json.NewDecoder(r.Body).Decode(&model)
 	if err != nil {
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 		return
 	}
 
@@ -284,7 +277,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 		log.Error("register: failed to create account",
 			zap.Error(err))
 		log.Debug("register: ", zap.String("rawSecret", model.Secret))
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 
 		return
 	}
@@ -294,7 +287,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 		log.Error("register: failed to create account",
 			zap.Error(err))
 		log.Debug("register: ", zap.String("rawSecret", model.Secret))
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 
 		return
 	}
@@ -305,80 +298,179 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 			zap.Stringer("id", user.ID),
 			zap.String("email", user.Email),
 			zap.Error(err))
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 
 		return
 	}
 
-
-
-		//server.service.CreateUser(ctx, model)
+	rootObject, ok := ctx.Value("rootObject").(RootObject)
+	if !ok {
+		server.log.Error("root object is not set")
+		return
+	}
+	link := rootObject.Origin + rootObject.ActivationPath + token
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
 	}
 
-	func (server *Server) updateAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.AccountActivationEmail{
+			Origin:         rootObject.Origin,
+			ActivationLink: link,
+		},
+	)
 
-	type UpdateUserModel struct {
-		FullName  string `json:"full_name"`
-		ShortName string `json:"short_name"`
-	}
-
-	var updateAccount UpdateUserModel
-	err = json.NewDecoder(r.Body).Decode(&updateAccount)
+	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
-		w.WriteHeader(400)
-		return
+		server.serveJsonError(w, 500, err)
+		server.log.Debug("Error serializing response: " + err.Error())
 	}
-
-	info := console.UserInfo{
-		FullName:  updateAccount.FullName,
-		ShortName: updateAccount.ShortName,
-	}
-
-	err = server.service.UpdateAccount(ctx, info)
-	if err != nil {
-		w.WriteHeader(404)
-		return
-	}
-
-	w.WriteHeader(200)
 }
 
-func (server *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
+func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
+		server.serveJsonError(w, 404, err)
 		w.WriteHeader(401)
 		return
 	}
 
-	type DeleteAccountStruct struct {
+	type deleteAccountRequestModel struct {
 		Password string `json:"password"`
 	}
 
-	var password DeleteAccountStruct
+	var password deleteAccountRequestModel
 	err = json.NewDecoder(r.Body).Decode(&password)
 	if err != nil {
+		server.serveJsonError(w, 404, err)
 		w.WriteHeader(400)
 		return
 	}
 
 	err = server.service.DeleteAccount(ctx, password.Password)
 	if err != nil {
-		w.WriteHeader(404)
+		server.serveJsonError(w, 404, err)
 		return
 	}
 
 	err = json.NewEncoder(w).Encode(auth.User)
 	if err != nil {
+		server.serveJsonError(w, 404, err)
 		w.WriteHeader(500)
 		server.log.Debug("Error serializing response: " + err.Error())
 	}
+}
+
+func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	params := mux.Vars(r)
+	val, ok := params["id"]
+	if !ok {
+		err = errs.New("id expected")
+
+		server.serveJsonError(w, 400, err)
+		return
+	}
+
+	userID, err := uuid.Parse(val)
+	if err != nil {
+		server.serveJsonError(w, 400, err)
+		return
+	}
+
+	user, err := server.service.GetUser(ctx, *userID)
+	if err != nil {
+		server.serveJsonError(w, 404, err)
+		return
+	}
+	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+
+	rootObject, ok := ctx.Value("rootObject").(RootObject)
+	if !ok {
+		server.log.Error("root object is not set")
+		return
+	}
+	link := rootObject.Origin + rootObject.ActivationPath + token
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := rootObject.ContactInfoURL
+	termsAndConditionsURL := rootObject.TermsAndConditionsURL
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.AccountActivationEmail{
+			Origin:                rootObject.Origin,
+			ActivationLink:        link,
+			TermsAndConditionsURL: termsAndConditionsURL,
+			ContactInfoURL:        contactInfoURL,
+		},
+	)
+}
+
+func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	params := mux.Vars(r)
+	email, ok := params["email"]
+	if !ok {
+		err = errs.New("email expected")
+
+		server.serveJsonError(w, 400, err)
+		return
+	}
+
+	user, err := server.service.GetUserByEmail(ctx, email)
+	if err != nil {
+		server.serveJsonError(w, 404, err)
+		return
+	}
+
+	recoveryToken, err := server.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	if err != nil {
+		server.serveJsonError(w, 500, errs.New("failed to generate password recovery token"))
+	}
+
+	rootObject := ctx.Value("rootObject").(RootObject)
+	passwordRecoveryLink := rootObject.Origin + rootObject.PasswordRecoveryPath + recoveryToken
+	cancelPasswordRecoveryLink := rootObject.Origin + rootObject.CancelPasswordRecoveryPath + recoveryToken
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := rootObject.ContactInfoURL
+	letUsKnowURL := rootObject.LetUsKnowURL
+	termsAndConditionsURL := rootObject.TermsAndConditionsURL
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.ForgotPasswordEmail{
+			Origin:                     rootObject.Origin,
+			ResetLink:                  passwordRecoveryLink,
+			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+			UserName:                   userName,
+			LetUsKnowURL:               letUsKnowURL,
+			TermsAndConditionsURL:      termsAndConditionsURL,
+			ContactInfoURL:             contactInfoURL,
+		},
+	)
+
 }
 
 // Run starts the server that host webapp and api endpoint
@@ -629,6 +721,20 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 
 	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
 		server.log.Error("error occurred in console/server", zap.Error(err))
+	}
+}
+
+func (server *Server) serveJsonError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+	if err == nil {
+		return
+	}
+
+	server.log.Error("error occurred in console/server", zap.Error(err))
+
+	err = json.NewEncoder(w).Encode(err.Error())
+	if err != nil {
+		server.log.Error("error while serializing error response")
 	}
 }
 
