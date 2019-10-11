@@ -878,6 +878,97 @@
         ],
         "messages": [
           {
+            "name": "GetNonExitingSatellitesRequest"
+          },
+          {
+            "name": "StartExitRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "NonExitingSatellite",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "domain_name",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "space_used",
+                "type": "double"
+              }
+            ]
+          },
+          {
+            "name": "GetNonExitingSatellitesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellites",
+                "type": "NonExitingSatellite",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "StartExitStatus",
+            "fields": [
+              {
+                "id": 1,
+                "name": "domain_name",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "success",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "StartExitResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "statuses",
+                "type": "StartExitStatus",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "TransferSucceeded",
             "fields": [
               {
@@ -1057,6 +1148,21 @@
           }
         ],
         "services": [
+          {
+            "name": "NodeGracefulExit",
+            "rpcs": [
+              {
+                "name": "GetNonExitingSatellites",
+                "in_type": "GetNonExitingSatellitesRequest",
+                "out_type": "GetNonExitingSatellitesResponse"
+              },
+              {
+                "name": "StartExit",
+                "in_type": "StartExitRequest",
+                "out_type": "StartExitResponse"
+              }
+            ]
+          },
           {
             "name": "SatelliteGracefulExit",
             "rpcs": [
