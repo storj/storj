@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -183,6 +184,13 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByHead(ctx, head)
+}
+
+// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
+func (m *lockedAPIKeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByNameAndProjectID(ctx, name, projectID)
 }
 
 // GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
@@ -580,6 +588,26 @@ func (m *locked) CreateTables() error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateTables()
+}
+
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) Customers() stripecoinpayments.Customers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCustomers{m.Locker, m.db.Customers()}
+}
+
+// lockedCustomers implements locking wrapper for stripecoinpayments.Customers
+type lockedCustomers struct {
+	sync.Locker
+	db stripecoinpayments.Customers
+}
+
+// Insert is a method for inserting stripe customer into the database.
+func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
 }
 
 // DropSchema drops the schema
