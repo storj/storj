@@ -32,6 +32,9 @@ type (
 	// NodeClient is an alias to the drpc client interface
 	NodeClient = pb.DRPCNodeClient
 
+	// NodeGracefulExitClient is an alias to the drpc client interface
+	NodeGracefulExitClient = pb.DRPCNodeGracefulExitClient
+
 	// NodeStatsClient is an alias to the drpc client interface
 	NodeStatsClient = pb.DRPCNodeStatsClient
 
@@ -115,6 +118,16 @@ func NewNodeClient(rc *RawConn) NodeClient {
 // NodeClient returns a NodeClient for this connection
 func (c *Conn) NodeClient() NodeClient {
 	return NewNodeClient(c.raw)
+}
+
+// NewNodeGracefulExitClient returns the drpc version of a NodeGracefulExitClient
+func NewNodeGracefulExitClient(rc *RawConn) NodeGracefulExitClient {
+	return pb.NewDRPCNodeGracefulExitClient(rc)
+}
+
+// NodeGracefulExitClient returns a NodeGracefulExitClient for this connection
+func (c *Conn) NodeGracefulExitClient() NodeGracefulExitClient {
+	return NewNodeGracefulExitClient(c.raw)
 }
 
 // NewNodeStatsClient returns the drpc version of a NodeStatsClient
