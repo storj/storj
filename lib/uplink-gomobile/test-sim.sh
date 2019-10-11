@@ -21,12 +21,6 @@ cleanup(){
 }
 trap cleanup EXIT
 
-# copy test project and build aar file
-cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
-mkdir -p "$TMP/libuplink_android/app/libs/"
-cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
-export TEST_PROJECT="$TMP/libuplink_android/"
-
 # start Android emulator
 AVD_NAME=uplink_test
 
@@ -37,6 +31,12 @@ echo "AVD ${AVD_NAME} created."
 
 # -no-accel needs to be added for Jenkins build 
 $ANDROID_HOME/emulator/emulator-headless -avd ${AVD_NAME} -port ${PORT} -no-boot-anim -no-audio -gpu swiftshader_indirect -no-accel 2>&1 &
+
+# copy test project and build aar file
+cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
+mkdir -p "$TMP/libuplink_android/app/libs/"
+cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
+export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing
 # TODO add max number of checks and timeout
