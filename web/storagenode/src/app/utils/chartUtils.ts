@@ -50,6 +50,10 @@ export class ChartUtils {
             daysDisplayed[i] = date.toLocaleDateString('en-US', {day: 'numeric'});
         }
 
+        if (daysDisplayed.length === 1) {
+            daysDisplayed.unshift('0');
+        }
+
         return daysDisplayed;
     }
 
@@ -80,6 +84,11 @@ export class ChartUtils {
             bandwidthChartData[i] = BandwidthUsed.emptyWithDate(date);
         }
 
+        if (bandwidthChartData.length === 1) {
+            bandwidthChartData.unshift(BandwidthUsed.emptyWithDate(1));
+            bandwidthChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
+        }
+
         return bandwidthChartData;
     }
 
@@ -108,6 +117,11 @@ export class ChartUtils {
             }
 
             storageChartData[i] = Stamp.emptyWithDate(date);
+        }
+
+        if (storageChartData.length === 1) {
+            storageChartData.unshift(Stamp.emptyWithDate(1));
+            storageChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
         }
 
         return storageChartData;

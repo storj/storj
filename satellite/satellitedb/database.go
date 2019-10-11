@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -160,4 +161,9 @@ func (db *DB) Containment() audit.Containment {
 // GracefulExit returns database for graceful exit
 func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
+}
+
+// Customers returns database for dealing with stripe customers.
+func (db *DB) Customers() stripecoinpayments.Customers {
+	return &customers{db: db.db}
 }

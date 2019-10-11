@@ -54,7 +54,7 @@
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <VButton
                     class="delete-project"
-                    label="Delete project"
+                    label="Delete Project"
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"

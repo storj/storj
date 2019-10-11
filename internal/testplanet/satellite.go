@@ -69,6 +69,16 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return nil, err
 		}
 
+		var pointerDB metainfo.PointerDB
+		if planet.config.Reconfigure.NewSatellitePointerDB != nil {
+			pointerDB, err = planet.config.Reconfigure.NewSatellitePointerDB(log.Named("pointerdb"), i)
+		} else {
+			pointerDB, err = metainfo.NewStore(log.Named("pointerdb"), "bolt://"+filepath.Join(storageDir, "pointers.db"))
+		}
+		if err != nil {
+			return nil, err
+		}
+
 		config := satellite.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -116,8 +126,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
-				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
-				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
+				DatabaseURL:          "", // not used
+				MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
@@ -212,7 +222,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		}
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, revocationDB, &config, versionInfo)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -222,6 +232,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return nil, err
 		}
 		planet.databases = append(planet.databases, db)
+		planet.databases = append(planet.databases, pointerDB)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 
