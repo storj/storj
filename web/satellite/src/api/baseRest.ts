@@ -16,8 +16,8 @@ export class BaseRest {
             body: body,
             headers: {
                 authorization: token ? `Bearer ${token}` : '',
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+            },
         });
 
         if (!response.ok) {

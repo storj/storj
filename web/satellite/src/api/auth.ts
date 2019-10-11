@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { User } from '@/types/users';
 import { BaseRest } from '@/api/baseRest';
+import { User } from '@/types/users';
 
 /**
  * AuthApiGql is a graphql implementation of Auth API.
@@ -31,7 +31,7 @@ export class AuthApi extends BaseRest {
         const path = '/users/token';
         const body = {
             email: email,
-            password: password
+            password: password,
         };
         const response = await this.sendRequest('POST', path, JSON.stringify(body));
 
@@ -46,6 +46,7 @@ export class AuthApi extends BaseRest {
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `/users/${email}/forgot-password`;
+
         return await this.sendRequest('GET', path, null);
     }
 
@@ -60,7 +61,7 @@ export class AuthApi extends BaseRest {
         const path = '/users/change-password';
         const body = {
             password: password,
-            newPassword: newPassword
+            newPassword: newPassword,
         };
 
         return await this.sendRequest('POST', path, JSON.stringify(body));
@@ -75,7 +76,7 @@ export class AuthApi extends BaseRest {
     public async delete(password: string): Promise<void> {
         const path = '/users/';
         const body = {
-            password: password
+            password: password,
         };
 
         return await this.sendRequest('DELETE', path, JSON.stringify(body));
@@ -100,7 +101,7 @@ export class AuthApi extends BaseRest {
             fullName: user.fullName,
             shortName: user.shortName,
             email: user.email,
-            partnerId: user.partnerId ? user.partnerId : ''
+            partnerId: user.partnerId ? user.partnerId : '',
         };
 
         const response = await this.sendRequest('POST', path, JSON.stringify(body));
