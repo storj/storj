@@ -28,7 +28,7 @@ export class AuthApi extends BaseRest {
      * @throws Error
      */
     public async token(email: string, password: string): Promise<string> {
-        const path = '/users/token/';
+        const path = '/users/token';
         const body = {
             email: email,
             password: password
@@ -45,7 +45,7 @@ export class AuthApi extends BaseRest {
      * @throws Error
      */
     public async forgotPassword(email: string): Promise<void> {
-        const path = `/users/${email}/forgot-password/`;
+        const path = `/users/${email}/forgot-password`;
         return await this.sendRequest('GET', path, null);
     }
 
@@ -57,7 +57,7 @@ export class AuthApi extends BaseRest {
      * @throws Error
      */
     public async changePassword(password: string, newPassword: string): Promise<void> {
-        const path = '/users/change-password/';
+        const path = '/users/change-password';
         const body = {
             password: password,
             newPassword: newPassword

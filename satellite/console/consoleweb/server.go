@@ -126,12 +126,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	usersRouter := router.PathPrefix("/users").Subrouter()
 	usersRouter.Use(server.authMiddlewareHandler)
 
-	usersRouter.Handle("/token/", http.HandlerFunc(server.tokenRequestHandler)).Methods("POST")
 	usersRouter.Handle("/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
 	usersRouter.Handle("/", http.HandlerFunc(server.deleteAccountRequestHandler)).Methods("DELETE")
-	usersRouter.Handle("/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
-	usersRouter.Handle("/{id}/resend-email/", http.HandlerFunc(server.resendEmailRequestHandler)).Methods("GET")
-	usersRouter.Handle("/{email}/forgot-password/", http.HandlerFunc(server.forgotPasswordRequestHandler)).Methods("GET")
+	usersRouter.Handle("/token", http.HandlerFunc(server.tokenRequestHandler)).Methods("POST")
+	usersRouter.Handle("/change-password", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
+	usersRouter.Handle("/{id}/resend-email", http.HandlerFunc(server.resendEmailRequestHandler)).Methods("GET")
+	usersRouter.Handle("/{email}/forgot-password", http.HandlerFunc(server.forgotPasswordRequestHandler)).Methods("GET")
 
 	if server.config.StaticDir != "" {
 		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
