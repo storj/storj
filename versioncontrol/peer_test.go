@@ -99,8 +99,7 @@ func TestPeer_Run(t *testing.T) {
 			field := reflect.Indirect(versionsValue).Field(i)
 
 			binary := versioncontrol.Binary{
-				Rollout:
-				versioncontrol.Rollout{
+				Rollout: versioncontrol.Rollout{
 					Seed:   "",
 					Cursor: 0,
 				},
@@ -110,7 +109,7 @@ func TestPeer_Run(t *testing.T) {
 
 			config := versioncontrol.Config{
 				Versions: testServiceVersions,
-				Binary: versions,
+				Binary:   versions,
 			}
 
 			peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
