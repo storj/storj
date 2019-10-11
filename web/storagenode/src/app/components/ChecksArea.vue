@@ -49,8 +49,8 @@ export default class ChecksArea extends Vue {
 
 <style scoped lang="scss">
     .checks-area-container {
-        width: 325px;
-        height: 70px;
+        width: 339px;
+        height: 79px;
         background-color: #FFFFFF;
         border: 1px solid #E9EFF4;
         border-radius: 11px;

@@ -53,9 +53,13 @@ export default class BarInfo extends Vue {
 </script>
 
 <style scoped lang="scss">
+    p {
+        margin: 0;
+    }
+
     .remaining-space-container {
-        width: 325px;
-        height: 90px;
+        width: 339px;
+        height: 99px;
         background-color: #FFFFFF;
         border: 1px solid #E9EFF4;
         border-radius: 11px;
@@ -64,14 +68,12 @@ export default class BarInfo extends Vue {
         position: relative;
 
         &__title {
-            margin: 0;
             font-size: 14px;
             line-height: 21px;
             color: #586C86;
         }
 
         &__amount {
-            margin: 0;
             font-size: 32px;
             line-height: 57px;
             color: #535F77;

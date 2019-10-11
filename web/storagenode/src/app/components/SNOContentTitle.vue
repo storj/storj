@@ -66,7 +66,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VInfo from '@/app/components/VInfo.vue';
 import { StatusOnline } from '@/app/store/modules/node';
-import { datesDiffInHoursAndMinutes, datesDiffInMinutes } from '@/app/utils/date';
+import { datesDiffInHoursAndMinutes } from '@/app/utils/date';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.
@@ -115,9 +115,9 @@ export default class SNOContentTitle extends Vue {
 
     public get lastPingedInMinutes(): string {
         const storedLastPinged: Date = this.$store.state.node.info.lastPinged;
-        const shownLastPinged: number = datesDiffInMinutes(this.timeNow, storedLastPinged);
+        const shownLastPinged: string = datesDiffInHoursAndMinutes(this.timeNow, storedLastPinged);
 
-        return `${shownLastPinged} min ago`;
+        return `${shownLastPinged} ago`;
     }
 
     public get uptime(): string {

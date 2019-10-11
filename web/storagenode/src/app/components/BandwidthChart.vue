@@ -7,7 +7,7 @@
             id="bandwidth-chart"
             :chart-data="chartData"
             :width="400"
-            :height="200"
+            :height="240"
             :tooltip-constructor="bandwidthTooltip"
         />
     </div>
