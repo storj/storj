@@ -158,4 +158,4 @@ export default class VChart extends Vue {
 }
 </script>
 
-<style lang="scss"></style>
+<style scoped lang="scss"></style>

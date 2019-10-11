@@ -29,10 +29,10 @@ export default class PayoutArea extends Vue {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .payout-container {
         background-color: #FFFFFF;
-        padding: 45px 32px 46px 40px;
+        padding: 40px;
         display: flex;
         justify-content: flex-start;
         align-items: center;
@@ -72,8 +72,8 @@ export default class PayoutArea extends Vue {
             border: 1px solid #E8E8E8;
             border-radius: 12px;
             position: absolute;
-            top: 48px;
-            right: 32px;
+            top: 42px;
+            right: 40px;
             color: #535F77;
 
             &:hover {

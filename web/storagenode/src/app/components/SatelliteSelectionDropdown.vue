@@ -50,7 +50,7 @@ export default class SatelliteSelectionDropdown extends Vue {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .satellite-selection-choice-container {
         position: absolute;
         top: 50px;
@@ -71,31 +71,28 @@ export default class SatelliteSelectionDropdown extends Vue {
         &__satellite-choice {
             position: relative;
             display: flex;
-            width: calc(100% - 28px);
+            width: calc(100% - 36px);
             align-items: center;
             justify-content: flex-start;
             margin-left: 8px;
             border-radius: 12px;
-            padding: 0 0 0 12px;
+            padding: 10px;
 
             &__image {
                 position: absolute;
+                top: 13px;
                 left: 10px;
             }
 
             &__name {
                 font-size: 14px;
-                line-height: 40px;
+                line-height: 21px;
             }
 
             &:hover {
                 background-color: #EBECF0;
                 cursor: pointer;
             }
-        }
-
-        &__all-satellites {
-            padding: 0 0 0 12px;
         }
     }
 
