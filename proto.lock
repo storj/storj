@@ -894,6 +894,21 @@
                 "id": 3,
                 "name": "replacement_piece_hash",
                 "type": "orders.PieceHash"
+              },
+              {
+                "id": 4,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },

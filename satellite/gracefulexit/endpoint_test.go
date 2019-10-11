@@ -4,6 +4,7 @@
 package gracefulexit_test
 
 import (
+	"context"
 	"io"
 	"strconv"
 	"testing"
@@ -22,11 +23,12 @@ import (
 	"storj.io/storj/uplink"
 )
 
-const numMessages = 6
+const numObjects = 6
 
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numMessages, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
+		failedCount := 0
 		for {
 			response, err := processClient.Recv()
 			if err == io.EOF {
@@ -44,14 +46,15 @@ func TestSuccess(t *testing.T) {
 					pieceID = m.TransferPiece.PieceId
 				}
 
-				if pieceID != m.TransferPiece.PieceId {
+				if failedCount > 0 || pieceID != m.TransferPiece.PieceId {
 					success := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Succeeded{
 							Succeeded: &pb.TransferSucceeded{
+								PieceId:           m.TransferPiece.PieceId,
 								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.PieceId},
 								AddressedOrderLimit: &pb.AddressedOrderLimit{
 									Limit: &pb.OrderLimit{
-										PieceId: m.TransferPiece.PieceId,
+										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
 									},
 								},
 							},
@@ -60,6 +63,7 @@ func TestSuccess(t *testing.T) {
 					err = processClient.Send(success)
 					require.NoError(t, err)
 				} else {
+					failedCount++
 					failed := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Failed{
 							Failed: &pb.TransferFailed{
@@ -83,14 +87,14 @@ func TestSuccess(t *testing.T) {
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
-		require.EqualValues(t, numMessages, progress.PiecesTransferred)
+		require.EqualValues(t, numPieces, progress.PiecesTransferred)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.EqualValues(t, 0, progress.PiecesFailed)
 	})
 }
 
 func TestFailure(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		for {
 			response, err := processClient.Recv()
 			if err == io.EOF {
@@ -130,26 +134,26 @@ func TestFailure(t *testing.T) {
 	})
 }
 
-func testTransfers(t *testing.T, messageCount int, verifier func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer)) {
+func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
+	successThreshold := 8
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 8,
+		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-		exitingNode := planet.StorageNodes[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
 			MinThreshold:     4,
 			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     8,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
 		}
 
-		for i := 0; i < messageCount; i++ {
+		for i := 0; i < objects; i++ {
 			err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 		}
@@ -157,6 +161,9 @@ func testTransfers(t *testing.T, messageCount int, verifier func(ctx *testcontex
 		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
 		require.Len(t, exitingNodeIDs, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, objects)
+		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
@@ -192,9 +199,8 @@ func testTransfers(t *testing.T, messageCount int, verifier func(ctx *testcontex
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), numMessages, 0)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects, 0)
 		require.NoError(t, err)
-		require.Len(t, incompleteTransfers, messageCount)
 
 		// connect to satellite again to start receiving transfers
 		c, err = client.Process(ctx, grpc.EmptyCallOption{})
@@ -203,6 +209,52 @@ func testTransfers(t *testing.T, messageCount int, verifier func(ctx *testcontex
 			err = errs.Combine(err, c.CloseSend())
 		}()
 
-		verifier(ctx, satellite, c, exitingNode)
+		verifier(ctx, satellite, c, exitingNode, len(incompleteTransfers))
 	})
+}
+
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
+	satellite := planet.Satellites[0]
+	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
+	if err != nil {
+		return nil, err
+	}
+
+	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
+	for _, sn := range planet.StorageNodes {
+		pieceCountMap[sn.ID()] = 0
+	}
+
+	for _, key := range keys {
+		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
+		if err != nil {
+			return nil, err
+		}
+		pieces := pointer.GetRemote().GetRemotePieces()
+		for _, piece := range pieces {
+			pieceCountMap[piece.NodeId]++
+		}
+	}
+
+	var exitingNodeID storj.NodeID
+	lastCount := 0
+	for k, v := range pieceCountMap {
+		if exitingNodeID.IsZero() {
+			exitingNodeID = k
+			lastCount = v
+			continue
+		}
+		if v > lastCount {
+			exitingNodeID = k
+			lastCount = v
+		}
+	}
+
+	for _, sn := range planet.StorageNodes {
+		if sn.ID() == exitingNodeID {
+			return sn, nil
+		}
+	}
+
+	return nil, nil
 }

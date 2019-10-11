@@ -276,12 +276,16 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 	remote := pointer.GetRemote()
 
+	pieces := remote.GetRemotePieces()
 	var nodePiece *pb.RemotePiece
-	for _, piece := range remote.GetRemotePieces() {
+	excludedNodeIDs := make([]storj.NodeID, len(pieces))
+	for i, piece := range pieces {
 		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
 			nodePiece = piece
 		}
+		excludedNodeIDs[i] = piece.NodeId
 	}
+
 	if nodePiece == nil {
 		endpoint.log.Debug("piece no longer held by node.", zap.String("node ID", nodeID.String()), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
@@ -320,6 +324,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		RequestedCount: 1,
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
+		ExcludedNodes:  excludedNodeIDs,
 	}
 
 	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
@@ -334,9 +339,10 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", newNode.Id.String()), zap.String("replacement node ID", newNode.Id.String()),
 		zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
+	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
+
 	parts := storj.SplitPath(storj.Path(incomplete.Path))
 	if len(parts) < 2 {
-		pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
 		return Error.New("invalid path for %v %v.", zap.String("node ID", incomplete.NodeID.String()), zap.String("pieceID", pieceID.String()))
 	}
 
@@ -349,7 +355,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	transferMsg := &pb.SatelliteMessage{
 		Message: &pb.SatelliteMessage_TransferPiece{
 			TransferPiece: &pb.TransferPiece{
-				PieceId:             limit.Limit.PieceId,
+				PieceId:             pieceID, // original piece ID
 				AddressedOrderLimit: limit,
 				PrivateKey:          privateKey,
 			},
@@ -359,7 +365,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	pending.put(limit.Limit.PieceId, &pendingTransfer{
+	pending.put(pieceID, &pendingTransfer{
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
 		satelliteMessage: transferMsg,
@@ -377,14 +383,16 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.New("Original piece hash cannot be nil.")
 	}
 
-	pieceID := message.Succeeded.AddressedOrderLimit.Limit.PieceId
+	pieceID := message.Succeeded.PieceId
 	endpoint.log.Debug("transfer succeeded.", zap.String("piece ID", pieceID.String()))
 
 	// TODO validation
 
-	transfer, ok := pending.get(message.Succeeded.OriginalPieceHash.PieceId)
+	transfer, ok := pending.get(pieceID)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", pieceID.String()))
+
+		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properly
 	}
 
 	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
@@ -419,6 +427,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	transfer, ok := pending.get(pieceID)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", pieceID.String()))
+
+		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
 	}
 	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
 	if err != nil {
