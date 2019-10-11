@@ -455,6 +455,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
 
+	system.Marketing.Listener = api.Marketing.Listener
+	system.Marketing.Endpoint = api.Marketing.Endpoint
+
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	return system
 }
