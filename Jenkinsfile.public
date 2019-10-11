@@ -79,17 +79,6 @@ pipeline {
                         }
                     }
                 }
-
-                stage('Tests Gomobile') {
-                    environment {
-                        // docker container IP
-                        STORJ_NETWORK_HOST4 = '172.17.0.2'
-                    }
-
-                    steps {
-                        sh 'make test-libuplink-gomobile'
-                    }
-                }
  
                 stage('Integration') {
                     environment {
@@ -132,6 +121,17 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+
+        stage('Tests Gomobile') {
+            environment {
+                // docker container IP
+                STORJ_NETWORK_HOST4 = '172.17.0.2'
+            }
+
+            steps {
+                sh 'make test-libuplink-gomobile'
             }
         }
     }
