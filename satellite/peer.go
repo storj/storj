@@ -134,6 +134,8 @@ type Config struct {
 	Version version.Config
 
 	GracefulExit gracefulexit.Config
+
+	Admin AdminConfig
 }
 
 // Peer is the satellite
@@ -378,6 +380,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		)
 		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
 
+		apiKeys, err := adminKeys(config.Admin, peer.DB.Console().APIKeys())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
@@ -385,7 +392,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
 			peer.DB.PeerIdentities(),
-			peer.DB.Console().APIKeys(),
+			apiKeys,
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),

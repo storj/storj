@@ -10,6 +10,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
@@ -51,6 +52,7 @@ const (
 // Action specifies the specific operation being performed that the Macaroon will validate
 type Action struct {
 	Op            ActionType
+	ProjectID     []byte
 	Bucket        []byte
 	EncryptedPath []byte
 	Time          time.Time
@@ -167,6 +169,34 @@ func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowed 
 	return allowed, err
 }
 
+// GetProjectID returns a project id the APIKey directly specifies, if any.
+// This just returns the first ProjectID found. If multiple are specified then
+// the APIKey checks will fail later and the macaroon will not work.
+// APIKeys usually do not specify project ids, as the project they map to is
+// normally determined by the macaroon head.
+// Returns nil, nil if no ProjectID was found (common case)
+func (a *APIKey) GetProjectID(ctx context.Context) (_ *uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, cavbuf := range a.mac.Caveats() {
+		var cav Caveat
+		err := proto.Unmarshal(cavbuf, &cav)
+		if err != nil {
+			return nil, ErrFormat.New("invalid caveat format: %v", err)
+		}
+		if len(cav.ProjectId) > 0 {
+			var rv uuid.UUID
+			n := copy(rv[:], cav.ProjectId)
+			if n != len(rv) || n != len(cav.ProjectId) {
+				return nil, ErrFormat.New("invalid project id length: %d", len(cav.ProjectId))
+			}
+			return &rv, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // Restrict generates a new APIKey with the provided Caveat attached.
 func (a *APIKey) Restrict(caveat Caveat) (*APIKey, error) {
 	buf, err := proto.Marshal(&caveat)
@@ -267,6 +297,10 @@ func (c *Caveat) Allows(action Action) bool {
 		if !found {
 			return false
 		}
+	}
+
+	if len(c.ProjectId) > 0 && !bytes.Equal(action.ProjectID, c.ProjectId) {
+		return false
 	}
 
 	return true

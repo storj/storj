@@ -49,7 +49,7 @@ var (
 //
 // architecture: Database
 type APIKeys interface {
-	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
+	GetByKey(ctx context.Context, key *macaroon.APIKey) (*console.APIKeyInfo, error)
 }
 
 // Revocations is the revocations store methods used by the endpoint

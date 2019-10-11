@@ -66,6 +66,8 @@ type APIConfig struct {
 	Mail      mailservice.Config
 	Console   consoleweb.Config
 	Marketing marketingweb.Config
+
+	Admin AdminConfig
 }
 
 // API is the satellite API process
@@ -271,15 +273,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup metainfo
 		log.Debug("Satellite API Process setting up metainfo")
+
 		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
 		peer.Metainfo.Database = db
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
+
+		apiKeys, err := adminKeys(config.Admin, peer.DB.Console().APIKeys())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
@@ -287,7 +297,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
 			peer.DB.PeerIdentities(),
-			peer.DB.Console().APIKeys(),
+			apiKeys,
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),

@@ -1,3 +1,9 @@
+# the macaroon head to expect for admin keys. In hex
+# admin.admin-head: ""
+
+# the macaroon secret to expect for admin keys. In hex
+# admin.admin-secret: ""
+
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 

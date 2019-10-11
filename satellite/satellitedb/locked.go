@@ -186,6 +186,13 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	return m.db.GetByHead(ctx, head)
 }
 
+// GetByKey retrieves APIKeyInfo for given key
+func (m *lockedAPIKeys) GetByKey(ctx context.Context, key *macaroon.APIKey) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByKey(ctx, key)
+}
+
 // GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
 func (m *lockedAPIKeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*console.APIKeyInfo, error) {
 	m.Lock()

@@ -30,4 +30,9 @@ message Caveat {
   // nonce is set to some random bytes so that you can make arbitrarily
   // many restricted macaroons with the same (or no) restrictions.
   bytes nonce = 30;
+
+  // If set, require that access happen on the specified project. Most
+  // macaroons are already restricted to a project, so specifying a
+  // different project will disable the macaroon entirely.
+  bytes project_id = 40;
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -65,7 +66,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at 
+		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at
 		FROM api_keys ak
 		WHERE ak.project_id = ?
 		AND ak.name LIKE ?
@@ -149,6 +150,12 @@ func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.API
 	}
 
 	return fromDBXAPIKey(ctx, dbKey)
+}
+
+// GetByKey implements satellite.APIKeys
+func (keys *apikeys) GetByKey(ctx context.Context, key *macaroon.APIKey) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return keys.GetByHead(ctx, key.Head())
 }
 
 // GetByNameAndProjectID implements satellite.APIKeys

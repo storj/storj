@@ -59,6 +59,11 @@
                 "id": 30,
                 "name": "nonce",
                 "type": "bytes"
+              },
+              {
+                "id": 40,
+                "name": "project_id",
+                "type": "bytes"
               }
             ],
             "messages": [

@@ -143,11 +143,13 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
 	}
 
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	keyInfo, err := endpoint.apiKeys.GetByKey(ctx, key)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
+
+	action.ProjectID = keyInfo.ProjectID[:]
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
