@@ -151,6 +151,19 @@ func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.API
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
+// GetByNameAndProjectID implements satellite.APIKeys
+func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbKey, err := keys.methods.Get_ApiKey_By_Name_And_ProjectId(ctx,
+		dbx.ApiKey_Name(name),
+		dbx.ApiKey_ProjectId(projectID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return fromDBXAPIKey(ctx, dbKey)
+}
+
 // Create implements satellite.APIKeys
 func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

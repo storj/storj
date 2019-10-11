@@ -370,6 +370,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
 				process.Extra = append(process.Extra, "SCOPE="+runScopeData)
+				if scope, err := uplink.ParseScope(runScopeData); err == nil {
+					process.Extra = append(process.Extra, "API_KEY="+scope.APIKey.Serialize())
+				}
 			}
 
 			accessKey := vip.GetString("minio.access-key")
