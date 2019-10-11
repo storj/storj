@@ -417,12 +417,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.DB = api.DB
 
 	system.Dialer = api.Dialer
-	system.Server = api.Server
-	system.Version = peer.Version
 
 	system.Contact.Service = api.Contact.Service
 	system.Contact.Endpoint = api.Contact.Endpoint
-	system.Contact.KEndpoint = api.Contact.KEndpoint
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
@@ -431,14 +428,14 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Discovery.Service = peer.Discovery.Service
 
 	system.Metainfo.Database = api.Metainfo.Database
-	system.Metainfo.Service = api.Metainfo.Service
+	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
 	system.Metainfo.Loop = peer.Metainfo.Loop
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
 	system.Orders.Endpoint = api.Orders.Endpoint
-	system.Orders.Service = api.Orders.Service
+	system.Orders.Service = peer.Orders.Service
 
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = peer.Repair.Repairer
@@ -457,21 +454,6 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
-
-	system.LiveAccounting.Service = api.LiveAccounting.Service
-
-	system.Mail.Service = api.Mail.Service
-
-	system.Vouchers.Endpoint = api.Vouchers.Endpoint
-
-	system.Console.Listener = api.Console.Listener
-	system.Console.Service = api.Console.Service
-	system.Console.Endpoint = api.Console.Endpoint
-
-	system.Marketing.Listener = api.Marketing.Listener
-	system.Marketing.Endpoint = api.Marketing.Endpoint
-
-	system.NodeStats.Endpoint = api.NodeStats.Endpoint
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	return system
