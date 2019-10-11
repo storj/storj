@@ -30,5 +30,16 @@ func TestCustomersRepository(t *testing.T) {
 			err = customers.Insert(ctx, *userID, customerID)
 			assert.NoError(t, err)
 		})
+
+		t.Run("Can not insert duplicate customerID", func(t *testing.T) {
+			err = customers.Insert(ctx, *userID, customerID)
+			assert.Error(t, err)
+		})
+
+		t.Run("GetCustomerID", func(t *testing.T) {
+			id, err := customers.GetCustomerID(ctx, *userID)
+			assert.NoError(t, err)
+			assert.Equal(t, id, customerID)
+		})
 	})
 }

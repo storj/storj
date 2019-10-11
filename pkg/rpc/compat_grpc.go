@@ -33,6 +33,9 @@ type (
 	// NodeClient is an alias to the grpc client interface
 	NodeClient = pb.NodeClient
 
+	// NodeGracefulExitClient is an alias to the grpc client interface
+	NodeGracefulExitClient = pb.NodeGracefulExitClient
+
 	// NodeStatsClient is an alias to the grpc client interface
 	NodeStatsClient = pb.NodeStatsClient
 
@@ -116,6 +119,16 @@ func NewNodeClient(rc *RawConn) NodeClient {
 // NodeClient returns a NodeClient for this connection
 func (c *Conn) NodeClient() NodeClient {
 	return NewNodeClient(c.raw)
+}
+
+// NewNodeGracefulExitClient returns the grpc version of a NodeGracefulExitClient
+func NewNodeGracefulExitClient(rc *RawConn) NodeGracefulExitClient {
+	return pb.NewNodeGracefulExitClient(rc)
+}
+
+// NodeGracefulExitClient returns a NodeGracefulExitClient for this connection
+func (c *Conn) NodeGracefulExitClient() NodeGracefulExitClient {
+	return NewNodeGracefulExitClient(c.raw)
 }
 
 // NewNodeStatsClient returns the grpc version of a NodeStatsClient
