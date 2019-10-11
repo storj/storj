@@ -52,7 +52,7 @@ func (service *Service) Balance(ctx context.Context, userID uuid.UUID) (_ int64,
 
 	customerID, err := service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return
+		return 0, err
 	}
 
 	c, err := customer.Get(customerID, nil)
