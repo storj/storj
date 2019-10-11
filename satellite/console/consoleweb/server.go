@@ -41,19 +41,22 @@ const (
 	applicationJSON    = "application/json"
 	applicationGraphql = "application/graphql"
 
+	// ActivationPath is a path template for activation query.
 	ActivationPath             = "activation/?token="
+	// PasswordRecoveryPath is a path template for password recovery query.
 	PasswordRecoveryPath       = "password-recovery/?token="
+	// CancelPasswordRecoveryPath is a path template for cancel password recovery query.
 	CancelPasswordRecoveryPath = "cancel-password-recovery/?token="
 )
 
 var (
-	// Error is satellite console error type
+	// Error is satellite console error type.
 	Error = errs.Class("satellite console error")
 
 	mon = monkit.Package()
 )
 
-// Config contains configuration for console web server
+// Config contains configuration for console web server.
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
@@ -74,7 +77,7 @@ type Config struct {
 	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
-// Server represents console web server
+// Server represents console web server.
 //
 // architecture: Endpoint
 type Server struct {
@@ -98,7 +101,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -153,7 +156,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
-// Run starts the server that host webapp and api endpoint
+// Run starts the server that host webapp and api endpoint.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -182,12 +185,12 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function
+// appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
@@ -209,7 +212,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// authMiddlewareHandler performs initial authorization before every request
+// authMiddlewareHandler performs initial authorization before every request.
 func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -229,7 +232,7 @@ func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 	})
 }
 
-// tokenRequestHandler authenticates User by credentials and returns auth token
+// tokenRequestHandler authenticates User by credentials and returns auth token.
 func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -258,7 +261,7 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// changeAccountPasswordRequestHandler updates password for a given user
+// changeAccountPasswordRequestHandler updates password for a given user.
 func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -285,7 +288,7 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 	w.WriteHeader(200)
 }
 
-// createNewUserRequestHandler gets password hash value and creates new inactive User
+// createNewUserRequestHandler gets password hash value and creates new inactive User.
 func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -308,7 +311,6 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJsonError(w, 400, err)
-
 		return
 	}
 
@@ -316,14 +318,12 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJsonError(w, 400, err)
-
 		return
 	}
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		server.serveJsonError(w, 500, err)
-
 		return
 	}
 
@@ -348,7 +348,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	}
 }
 
-// deleteAccountRequestHandler deletes User
+// deleteAccountRequestHandler deletes User.
 func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -383,7 +383,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 	}
 }
 
-// resendEmailRequestHandler resend activation email for given email
+// resendEmailRequestHandler resend activation email for given email.
 func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -410,7 +410,6 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		server.serveJsonError(w, 500, err)
-
 		return
 	}
 	link := server.config.ExternalAddress + ActivationPath + token
@@ -436,7 +435,7 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	w.WriteHeader(200)
 }
 
-// forgotPasswordRequestHandler creates reset password token and send user email
+// forgotPasswordRequestHandler creates reset password token and send user email.
 func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -490,7 +489,7 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 	w.WriteHeader(200)
 }
 
-// bucketUsageReportHandler generate bucket usage report page for project
+// bucketUsageReportHandler generate bucket usage report page for project.
 func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -547,7 +546,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// accountActivationHandler is web app http handler function
+// accountActivationHandler is web app http handler function.
 func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -589,7 +588,7 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 	response.Secret = token.Secret.String()
 }
 
-// accountActivationHandler is web app http handler function
+// accountActivationHandler is web app http handler function.
 func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -696,7 +695,7 @@ func (server *Server) serveJsonError(w http.ResponseWriter, status int, err erro
 	}
 }
 
-// grapqlHandler is graphql endpoint http handler function
+// grapqlHandler is graphql endpoint http handler function.
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -747,7 +746,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
-// seoHandler used to communicate with web crawlers and other web robots
+// seoHandler used to communicate with web crawlers and other web robots.
 func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
@@ -760,7 +759,7 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gzipHandler is used to gzip static content to minify resources if browser support such decoding
+// gzipHandler is used to gzip static content to minify resources if browser support such decoding.
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
@@ -801,7 +800,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates
+// initializeTemplates is used to initialize all templates.
 func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
