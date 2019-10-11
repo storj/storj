@@ -121,7 +121,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Contact: contact.Config{
 				Interval: defaultInterval,
-				MaxSleep: 0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

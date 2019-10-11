@@ -309,6 +309,7 @@ type TransferSucceeded struct {
 	AddressedOrderLimit  *AddressedOrderLimit `protobuf:"bytes,1,opt,name=addressed_order_limit,json=addressedOrderLimit,proto3" json:"addressed_order_limit,omitempty"`
 	OriginalPieceHash    *PieceHash           `protobuf:"bytes,2,opt,name=original_piece_hash,json=originalPieceHash,proto3" json:"original_piece_hash,omitempty"`
 	ReplacementPieceHash *PieceHash           `protobuf:"bytes,3,opt,name=replacement_piece_hash,json=replacementPieceHash,proto3" json:"replacement_piece_hash,omitempty"`
+	PieceId              PieceID              `protobuf:"bytes,4,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
