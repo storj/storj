@@ -35,7 +35,7 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 
 	idRow, err := customers.db.Get_StripeCustomers_CustomerId_By_UserId(ctx, dbx.StripeCustomers_UserId(userID[:]))
 	if err != nil {
-		return
+		return "", err
 	}
 
 	return idRow.CustomerId, nil
