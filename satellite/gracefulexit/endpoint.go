@@ -336,7 +336,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		return Error.New("could not find a node to transfer this piece to. nodeID %v, path %v, pieceNum %v.", nodeID.String(), zap.ByteString("path", incomplete.Path), incomplete.PieceNum)
 	}
 	newNode := newNodes[0]
-	endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", newNode.Id.String()), zap.String("replacement node ID", newNode.Id.String()),
+	endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", nodeID.String()), zap.String("replacement node ID", newNode.Id.String()),
 		zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
