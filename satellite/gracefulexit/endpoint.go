@@ -302,6 +302,9 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		endpoint.log.Debug("piece has more pieces than required. removing node from pointer.", zap.String("node ID", nodeID.String()), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path)
 		if err != nil {
