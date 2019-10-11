@@ -1,14 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseRest } from '@/api/baseRest';
 import { User } from '@/types/users';
+import { Http } from '@/utils/http';
 
 /**
  * AuthApiGql is a graphql implementation of Auth API.
  * Exposes all auth-related functionality
  */
-export class AuthApi extends BaseRest {
+export class AuthApi {
+    private http: Http = new Http();
+
     /**
      * Used to resend an registration confirmation email
      *
@@ -17,7 +19,7 @@ export class AuthApi extends BaseRest {
      */
     public async resendEmail(userId: string): Promise<void> {
         const path = `/users/${userId}/resend-email`;
-        await this.sendRequest('GET', path, null);
+        await this.http.get(path);
     }
 
     /**
@@ -33,7 +35,7 @@ export class AuthApi extends BaseRest {
             email: email,
             password: password,
         };
-        const response = await this.sendRequest('POST', path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body));
 
         return await response.json();
     }
@@ -47,7 +49,7 @@ export class AuthApi extends BaseRest {
     public async forgotPassword(email: string): Promise<void> {
         const path = `/users/${email}/forgot-password`;
 
-        return await this.sendRequest('GET', path, null);
+        return await this.http.get(path);
     }
 
     /**
@@ -64,7 +66,7 @@ export class AuthApi extends BaseRest {
             newPassword: newPassword,
         };
 
-        return await this.sendRequest('POST', path, JSON.stringify(body));
+        return await this.http.post(path, JSON.stringify(body));
     }
 
     /**
@@ -79,7 +81,7 @@ export class AuthApi extends BaseRest {
             password: password,
         };
 
-        return await this.sendRequest('DELETE', path, JSON.stringify(body));
+        return await this.http.delete(path, JSON.stringify(body));
     }
 
     // TODO: remove secret after Vanguard release
@@ -87,8 +89,9 @@ export class AuthApi extends BaseRest {
      * Used to create account
      *
      * @param user - stores user information
+     * @param password - stores user password
      * @param secret - registration token used in Vanguard release
-     * @param refUserId - referral id to participate in bonus program
+     * @param referrerUserId - referral id to participate in bonus program
      * @returns id of created user
      * @throws Error
      */
@@ -104,7 +107,7 @@ export class AuthApi extends BaseRest {
             partnerId: user.partnerId ? user.partnerId : '',
         };
 
-        const response = await this.sendRequest('POST', path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body));
         const result = await response.json();
 
         return result.id;

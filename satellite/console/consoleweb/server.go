@@ -42,9 +42,9 @@ const (
 	applicationGraphql = "application/graphql"
 
 	// ActivationPath is a path template for activation query.
-	ActivationPath             = "activation/?token="
+	ActivationPath = "activation/?token="
 	// PasswordRecoveryPath is a path template for password recovery query.
-	PasswordRecoveryPath       = "password-recovery/?token="
+	PasswordRecoveryPath = "password-recovery/?token="
 	// CancelPasswordRecoveryPath is a path template for cancel password recovery query.
 	CancelPasswordRecoveryPath = "cancel-password-recovery/?token="
 )
@@ -137,11 +137,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	usersRouter.Handle("/{email}/forgot-password", http.HandlerFunc(server.forgotPasswordRequestHandler)).Methods("GET")
 
 	if server.config.StaticDir != "" {
-		router.Handle("/activation", http.HandlerFunc(server.accountActivationHandler))
-		router.Handle("/password-recovery", http.HandlerFunc(server.passwordRecoveryHandler))
-		router.Handle("/cancel-password-recovery", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		router.Handle("/registrationToken", http.HandlerFunc(server.createRegistrationTokenHandler))
-		router.Handle("/usage-report", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
@@ -257,7 +257,7 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
-		server.log.Error("Error serializing response: " + err.Error())
+		server.log.Error("Error serializing response: " + Error.Wrap(err).Error())
 	}
 }
 
@@ -309,14 +309,12 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	secret, err := console.RegistrationSecretFromBase64(model.Secret)
 	if err != nil {
-		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	user, err := server.service.CreateUser(ctx, model.CreateUser, secret, model.ReferrerUserID)
 	if err != nil {
-		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJSONError(w, 400, err)
 		return
 	}
@@ -344,7 +342,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
-		server.log.Debug("Error serializing response: " + err.Error())
+		server.log.Error("Error serializing response: " + Error.Wrap(err).Error())
 	}
 }
 
@@ -379,7 +377,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(auth.User)
 	if err != nil {
-		server.log.Error("Error serializing response: " + err.Error())
+		server.log.Error("Error serializing response: " + Error.Wrap(err).Error())
 	}
 }
 
@@ -536,7 +534,6 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
 		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
@@ -687,11 +684,11 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 
-	server.log.Error("error occurred in console/server", zap.Error(err))
+	server.log.Error(Error.Wrap(err).Error())
 
 	err = json.NewEncoder(w).Encode(err.Error())
 	if err != nil {
-		server.log.Error("error while serializing error response")
+		server.log.Error(Error.New("error while serializing error response").Error())
 	}
 }
 
