@@ -7,8 +7,8 @@
         <VChart
             id="disk-space-chart"
             :chart-data="chartData"
-            :width="385"
-            :height="200"
+            :width="400"
+            :height="240"
             :tooltip-constructor="diskSpaceTooltip"
         />
     </div>

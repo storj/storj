@@ -206,8 +206,8 @@ export default class SNOContentFilling extends Vue {
     }
 
     .chart-container {
-        width: 325px;
-        height: 257px;
+        width: 339px;
+        height: 336px;
         background-color: #FFFFFF;
         border: 1px solid #E9EFF4;
         border-radius: 11px;
