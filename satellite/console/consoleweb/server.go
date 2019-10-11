@@ -17,18 +17,16 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/storj/internal/post"
-
-	"github.com/prometheus/common/log"
-
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
+	"github.com/prometheus/common/log"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -218,6 +216,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
 // authMiddlewareHandler performs initial authorization before every request
 func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
