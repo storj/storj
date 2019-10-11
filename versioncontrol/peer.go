@@ -5,19 +5,27 @@ package versioncontrol
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
-	"net"
-	"net/http"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"net"
+	"net/http"
+	"reflect"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 )
 
-// Config is all the configuration parameters for a Version Control Server
+var (
+	Error      = errs.Class("rollout config error")
+	SeedLength = 32
+
+	hexLenFactor = 2
+)
+
+// Config is all the configuration parameters for a Version Control Server.
 type Config struct {
 	Address  string `user:"true" help:"public address to listen on" default:":8080"`
 	Versions ServiceVersions
@@ -25,7 +33,7 @@ type Config struct {
 	Binary Versions
 }
 
-// ServiceVersions provides a list of allowed Versions per Service
+// ServiceVersions provides a list of allowed Versions per Service.
 type ServiceVersions struct {
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
@@ -34,7 +42,8 @@ type ServiceVersions struct {
 	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
-// Versions represents versions for all binaries
+// Versions represents versions for all binaries.
+// TODO: this name is inconsistent with the internal/version pkg's analogue, `Processes`.
 type Versions struct {
 	Satellite   Binary
 	Storagenode Binary
@@ -43,24 +52,24 @@ type Versions struct {
 	Identity    Binary
 }
 
-// Binary represents versions for single binary
+// Binary represents versions for single binary.
+// TODO: This name is inconsistent with the internal/version pkg's analogue, `Process`.
 type Binary struct {
 	Minimum   Version
 	Suggested Version
 	Rollout   Rollout
 }
 
-// Version single version
+// Version single version.
 type Version struct {
 	Version string `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string `user:"true" help:"URL for specific binary" default:""`
 }
 
-// Rollout represents the state of a version rollout.
+// Rollout represents the state of a version rollout of a binary to the suggested version.
 type Rollout struct {
-	Seed   string  `user:"true" help:"random 32 byte, base64-encoded string"`
-	Cursor int     `user:"true" help:"percentage of nodes which should roll-out to the target version"`
-	Target Version `user:"true" help:"target release version to be rolled-out"`
+	Seed   string  `user:"true" help:"random 32 byte, hex-encoded string"`
+	Cursor int     `user:"true" help:"percentage of nodes which should roll-out to the target version" default:"0"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -79,7 +88,7 @@ type Peer struct {
 	response []byte
 }
 
-// HandleGet contains the request handler for the version control web server
+// HandleGet contains the request handler for the version control web server.
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	// Only handle GET Requests
 	if r.Method != http.MethodGet {
@@ -197,4 +206,39 @@ func configToProcess(binary Binary) version.Process {
 			URL:     binary.Suggested.URL,
 		},
 	}
+}
+
+// ValidateRollouts validates the rollout field of each field in the Versions struct.
+func (versions Versions) ValidateRollouts() error {
+	value := reflect.ValueOf(versions)
+	fieldCount := value.NumField()
+	validationErrs := errs.Group{}
+	for i := 1; i < fieldCount; i++ {
+		binary, ok := value.Field(i).Interface().(Binary)
+		if !ok {
+			continue
+		}
+		if err := binary.Rollout.Validate(); err != nil {
+			validationErrs.Add(err)
+		}
+	}
+	return validationErrs.Err()
+}
+
+// Validate validates the rollout seed and cursor config values.
+func (rollout Rollout) Validate() error {
+	seedLen := len(rollout.Seed)
+	if seedLen != SeedLength*hexLenFactor {
+		return Error.New("invalid seed length: %d", seedLen)
+	}
+
+	if rollout.Cursor < 0 || rollout.Cursor > 100 {
+		return Error.New("invalid cursor percentage: %d", rollout.Cursor)
+	}
+
+	_, err := hex.DecodeString(rollout.Seed)
+	if err != nil {
+		return Error.New("invalid seed: %s", rollout.Seed)
+	}
+	return nil
 }

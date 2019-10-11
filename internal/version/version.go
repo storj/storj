@@ -4,7 +4,6 @@
 package version
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -71,6 +70,7 @@ type AllowedVersions struct {
 }
 
 // Processes describes versions for each binary.
+// TODO: this name is inconsistent with the versioncontrol server pkg's analogue, `Versions`.
 type Processes struct {
 	Satellite   Process `json:"satellite"`
 	Storagenode Process `json:"storagenode"`
@@ -94,12 +94,9 @@ type Version struct {
 
 // Rollout represents the state of a version rollout.
 type Rollout struct {
-	Seed   rolloutSeed `json:"seed"`
-	Cursor int32       `json:"cursor"`
-	Target Version     `json:"target"`
+	Seed   string  `json:"seed"`
+	Cursor string  `json:"cursor"`
 }
-
-type rolloutSeed [32]byte
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
@@ -178,14 +175,6 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 		Timestamp:  v.Timestamp,
 		Release:    v.Release,
 	}, nil
-}
-
-func (seed rolloutSeed) MarshalJSON() ([]byte, error) {
-	seedSlice := seed[:]
-	if bytes.Equal(seedSlice, zeroSeed[:]) {
-		return json.Marshal("")
-	}
-	return json.Marshal(seedSlice)
 }
 
 // isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
