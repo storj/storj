@@ -7,12 +7,13 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"net"
 	"net/http"
 	"reflect"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
