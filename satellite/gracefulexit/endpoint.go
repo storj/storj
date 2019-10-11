@@ -138,6 +138,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	// TODO should we error if the node is DQ'd?
 
 	nodeID := peer.ID
 	endpoint.log.Debug("graceful exit process.", zap.String("nodeID", nodeID.String()))
