@@ -192,7 +192,7 @@ func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Sscan(txInfoRaw.ReceivedF, amount)
+	_, err = fmt.Sscan(txInfoRaw.ReceivedF, received)
 	if err != nil {
 		return err
 	}
