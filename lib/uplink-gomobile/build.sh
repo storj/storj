@@ -11,6 +11,8 @@ then
       exit 1
 fi
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
@@ -26,7 +28,7 @@ export GOPATH=$TMP
 mkdir -p "$GOPATH/src/storj.io/storj/"
 
 # symlink doesn't look to be working with gomobile
-rsync -am --stats --exclude=".*" ./* "$GOPATH/src/storj.io/storj/"
+rsync -am --stats --exclude=".*" $SCRIPTDIR/../../* "$GOPATH/src/storj.io/storj/"
 
 cd "$GOPATH/src/storj.io/storj"
 

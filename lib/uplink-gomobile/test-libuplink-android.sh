@@ -1,10 +1,7 @@
 #!/bin/bash
 set -ueo pipefail
 
-SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-cd "$SCRIPTDIR/libuplink_android"
+cd "$TEST_PROJECT"
 
 # Might be easier way than -Pandroid.testInstrumentationRunnerArguments
-./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.scope=$GATEWAY_0_SCOPE -PbuildDir=$TMP/build-gomobile
-./gradlew clean
+./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.scope=$GATEWAY_0_SCOPE

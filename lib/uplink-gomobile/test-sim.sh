@@ -13,14 +13,11 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
-      rm -rf "$SCRIPTDIR/libuplink_android/app/libs/"
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
 
-export TMP=$TMP
-
-# start Android emulator, headless version
+# start Android emulator
 PORT=6000
 SERIAL=emulator-${PORT}
 AVD_NAME=uplink_test
@@ -32,10 +29,11 @@ echo "AVD ${AVD_NAME} created."
 
 $ANDROID_HOME/emulator/emulator -avd ${AVD_NAME} -port ${PORT} -no-window -no-accel -no-audio -no-boot-anim 2>&1 &
 
-# build aar file and move it to android project for testing
-$SCRIPTDIR/build.sh
-mkdir -p "$SCRIPTDIR/libuplink_android/app/libs/"
-mv -f libuplink-android* "$SCRIPTDIR/libuplink_android/app/libs/"
+# copy test project and build aar file
+cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
+mkdir -p "$TMP/libuplink_android/app/libs/"
+cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
+export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing
 # TODO add max number of checks and timeout
