@@ -5982,6 +5982,10 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+type CustomerId_Row struct {
+	CustomerId string
+}
+
 type Id_LastNet_Address_Protocol_Row struct {
 	Id       []byte
 	LastNet  string
@@ -8345,6 +8349,27 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx co
 		return nil, obj.makeErr(err)
 	}
 	return graceful_exit_transfer_queue, nil
+
+}
+
+func (obj *postgresImpl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field) (
+	row *CustomerId_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customers_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CustomerId_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.CustomerId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -12511,6 +12536,27 @@ func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx con
 
 }
 
+func (obj *sqlite3Impl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field) (
+	row *CustomerId_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customers_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CustomerId_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.CustomerId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -15873,6 +15919,16 @@ func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
 }
 
+func (rx *Rx) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field) (
+	row *CustomerId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripeCustomers_CustomerId_By_UserId(ctx, stripe_customers_user_id)
+}
+
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
@@ -16636,6 +16692,10 @@ type Methods interface {
 	Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
 		storagenode_storage_tally *StoragenodeStorageTally, err error)
+
+	Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
+		stripe_customers_user_id StripeCustomers_UserId_Field) (
+		row *CustomerId_Row, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (

@@ -101,7 +101,7 @@ type DB interface {
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
 	// StripeCustomers returns table for storing stripe customers
-	Customers() stripecoinpayments.Customers
+	Customers() stripecoinpayments.CustomersDB
 }
 
 // Config is the global config satellite

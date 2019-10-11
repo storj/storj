@@ -13,4 +13,7 @@ import (
 type Accounts interface {
 	// Setup creates a payment account for the user.
 	Setup(ctx context.Context, userID uuid.UUID, email string) error
+
+	// Balance returns an integer amount in cents that represents the current balance of payment account.
+	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
 }
