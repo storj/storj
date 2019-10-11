@@ -202,6 +202,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			GracefulExit: gracefulexit.Config{
 				ChoreBatchSize: 10,
 				ChoreInterval:  defaultInterval,
+
+				EndpointBatchSize:   100,
+				EndpointMaxFailures: 5,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {

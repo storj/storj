@@ -985,6 +985,21 @@
                 "id": 3,
                 "name": "replacement_piece_hash",
                 "type": "orders.PieceHash"
+              },
+              {
+                "id": 4,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -4501,6 +4516,10 @@
               {
                 "name": "DELETE",
                 "integer": 6
+              },
+              {
+                "name": "PUT_GRACEFUL_EXIT",
+                "integer": 7
               }
             ]
           },
