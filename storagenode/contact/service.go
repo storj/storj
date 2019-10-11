@@ -26,8 +26,6 @@ type Config struct {
 
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
-	// MaxSleep should remain at default value to decrease traffic congestion to satellite
-	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s" hidden:"true"`
 }
 
 // Service is the contact service between storage nodes and satellites
