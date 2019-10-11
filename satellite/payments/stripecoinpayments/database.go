@@ -10,7 +10,10 @@ import (
 )
 
 // Customers is interface for working with stripe customers table.
-type Customers interface {
+type CustomersDB interface {
 	// Insert inserts a stripe customer into the database.
 	Insert(ctx context.Context, userID uuid.UUID, customerID string) error
+
+	// GetCustomerID return stripe customers id.
+	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
 }

@@ -591,19 +591,26 @@ func (m *locked) CreateTables() error {
 }
 
 // StripeCustomers returns table for storing stripe customers
-func (m *locked) Customers() stripecoinpayments.Customers {
+func (m *locked) Customers() stripecoinpayments.CustomersDB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedCustomers{m.Locker, m.db.Customers()}
 }
 
-// lockedCustomers implements locking wrapper for stripecoinpayments.Customers
+// lockedCustomers implements locking wrapper for stripecoinpayments.CustomersDB
 type lockedCustomers struct {
 	sync.Locker
-	db stripecoinpayments.Customers
+	db stripecoinpayments.CustomersDB
 }
 
-// Insert is a method for inserting stripe customer into the database.
+// GetCustomerID return stripe customers id.
+func (m *lockedCustomers) GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCustomerID(ctx, userID)
+}
+
+// Insert inserts a stripe customer into the database.
 func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
 	m.Lock()
 	defer m.Unlock()
