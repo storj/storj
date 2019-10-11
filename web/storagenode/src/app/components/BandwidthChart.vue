@@ -7,7 +7,7 @@
             id="bandwidth-chart"
             :chart-data="chartData"
             :width="400"
-            :height="200"
+            :height="240"
             :tooltip-constructor="bandwidthTooltip"
         />
     </div>
@@ -18,7 +18,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
-import { ChartUtils } from '@/app/utils/chartUtils';
+import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthUsed } from '@/storagenode/satellite';
 
@@ -132,6 +132,10 @@ export default class BandwidthChart extends Vue {
 </script>
 
 <style lang="scss">
+    p {
+        margin: 0;
+    }
+
     #bandwidth-tooltip {
         background-color: #FFFFFF;
         width: auto;
