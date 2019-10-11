@@ -6,7 +6,7 @@
         <div class="team-area__header">
             <HeaderArea
                 :header-state="headerState"
-                :selected-project-members-count="selectedProjectMembers.length"
+                :selected-project-members-count="selectedProjectMembersLength"
                 @onSuccessDelete="resetPaginator"
             />
         </div>
@@ -116,19 +116,19 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public get projectMembersCount(): number {
-        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
+        return this.$store.state.projectMembersModule.page.projectMembers.length;
     }
 
     public get totalPageCount(): number {
         return this.$store.state.projectMembersModule.page.pageCount;
     }
 
-    public get selectedProjectMembers(): ProjectMember[] {
-        return this.$store.getters.selectedProjectMembers;
+    public get selectedProjectMembersLength(): number {
+        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
     }
 
     public get headerState(): number {
-        if (this.selectedProjectMembers.length > 0) {
+        if (this.selectedProjectMembersLength > 0) {
             return ProjectMemberHeaderState.ON_SELECT;
         }
 
