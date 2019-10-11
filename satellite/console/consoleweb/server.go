@@ -163,6 +163,62 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
+// Run starts the server that host webapp and api endpoint
+func (server *Server) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = server.initializeTemplates()
+	if err != nil {
+		// TODO: should it return error if some template can not be initialized or just log about it?
+		return Error.Wrap(err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		<-ctx.Done()
+		return server.server.Shutdown(context.Background())
+	})
+	group.Go(func() error {
+		defer cancel()
+		return server.server.Serve(server.listener)
+	})
+
+	return group.Wait()
+}
+
+// Close closes server and underlying listener
+func (server *Server) Close() error {
+	return server.server.Close()
+}
+
+// appHandler is web app http handler function
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	cspValues := []string{
+		"default-src 'self'",
+		"script-src 'self' *.stripe.com cdn.segment.com",
+		"frame-src 'self' *.stripe.com",
+		"img-src 'self' data:",
+	}
+
+	header.Set(contentType, "text/html; charset=UTF-8")
+	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+	header.Set("X-Content-Type-Options", "nosniff")
+
+	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
+		server.log.Error("satellite/console/server: index template could not be executed")
+		server.serveError(w, r, http.StatusNotFound)
+		return
+	}
+}
+// authMiddlewareHandler performs initial authorization before every request
 func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -195,6 +251,7 @@ func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
 	})
 }
 
+// tokenRequestHandler authenticates User by credentials and returns auth token
 func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -224,6 +281,7 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// changeAccountPasswordRequestHandler updates password for a given user
 func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -254,6 +312,7 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 	}
 }
 
+// createNewUserRequestHandler gets password hash value and creates new inactive User
 func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -330,6 +389,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	}
 }
 
+// deleteAccountRequestHandler deletes User
 func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -368,6 +428,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 	}
 }
 
+// resendEmailRequestHandler resend activation email for given email
 func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -420,6 +481,7 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	)
 }
 
+// forgotPasswordRequestHandler creates reset password token and send user email
 func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -471,62 +533,6 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 		},
 	)
 
-}
-
-// Run starts the server that host webapp and api endpoint
-func (server *Server) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = server.initializeTemplates()
-	if err != nil {
-		// TODO: should it return error if some template can not be initialized or just log about it?
-		return Error.Wrap(err)
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	var group errgroup.Group
-	group.Go(func() error {
-		<-ctx.Done()
-		return server.server.Shutdown(context.Background())
-	})
-	group.Go(func() error {
-		defer cancel()
-		return server.server.Serve(server.listener)
-	})
-
-	return group.Wait()
-}
-
-// Close closes server and underlying listener
-func (server *Server) Close() error {
-	return server.server.Close()
-}
-
-// appHandler is web app http handler function
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	header := w.Header()
-
-	cspValues := []string{
-		"default-src 'self'",
-		"script-src 'self' *.stripe.com cdn.segment.com",
-		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
-	}
-
-	header.Set(contentType, "text/html; charset=UTF-8")
-	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
-	header.Set("X-Content-Type-Options", "nosniff")
-
-	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
-		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, r, http.StatusNotFound)
-		return
-	}
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project

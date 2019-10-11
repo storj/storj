@@ -1,14 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
 import { User } from '@/types/users';
+import { BaseRest } from '@/api/baseRest';
 
 /**
  * AuthApiGql is a graphql implementation of Auth API.
  * Exposes all auth-related functionality
  */
-export class AuthApi extends BaseGql {
+export class AuthApi extends BaseRest {
     /**
      * Used to resend an registration confirmation email
      *
@@ -16,16 +16,8 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async resendEmail(userId: string): Promise<void> {
-        const query =
-            `query ($userId: String!){
-                resendAccountActivationEmail(id: $userId)
-            }`;
-
-        const variables = {
-            userId,
-        };
-
-        await this.query(query, variables);
+        const path = `/users/${userId}/resend-email`;
+        await this.sendRequest('GET', path, null);
     }
 
     /**
@@ -36,21 +28,14 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async token(email: string, password: string): Promise<string> {
-        const query =
-            ` query ($email: String!, $password: String!) {
-                token(email: $email, password: $password) {
-                    token
-                }
-            }`;
-
-        const variables = {
-            email,
-            password,
+        const path = '/users/token/';
+        const body = {
+            email: email,
+            password: password
         };
+        const response = await this.sendRequest('POST', path, JSON.stringify(body));
 
-        const response = await this.query(query, variables);
-
-        return response.data.token.token;
+        return await response.json();
     }
 
     /**
@@ -60,16 +45,8 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async forgotPassword(email: string): Promise<void> {
-        const query =
-            `query($email: String!) {
-                forgotPassword(email: $email)
-            }`;
-
-        const variables = {
-            email,
-        };
-
-        await this.query(query, variables);
+        const path = `/users/${email}/forgot-password/`;
+        return await this.sendRequest('GET', path, null);
     }
 
     /**
@@ -80,22 +57,13 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async changePassword(password: string, newPassword: string): Promise<void> {
-        const query =
-            `mutation($password: String!, $newPassword: String!) {
-                changePassword (
-                    password: $password,
-                    newPassword: $newPassword
-                ) {
-                   email
-                }
-            }`;
-
-        const variables = {
-            password,
-            newPassword,
+        const path = '/users/change-password/';
+        const body = {
+            password: password,
+            newPassword: newPassword
         };
 
-        await this.mutate(query, variables);
+        return await this.sendRequest('POST', path, JSON.stringify(body));
     }
 
     /**
@@ -105,18 +73,12 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async delete(password: string): Promise<void> {
-        const query =
-            `mutation ($password: String!){
-                deleteAccount(password: $password) {
-                    email
-                }
-            }`;
-
-        const variables = {
-            password,
+        const path = '/users/';
+        const body = {
+            password: password
         };
 
-        await this.mutate(query, variables);
+        return await this.sendRequest('DELETE', path, JSON.stringify(body));
     }
 
     // TODO: remove secret after Vanguard release
@@ -130,34 +92,20 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async create(user: User, password: string, secret: string, referrerUserId: string = ''): Promise<string> {
-        const query =
-            `mutation($email: String!, $password: String!, $fullName: String!, $shortName: String!,
-                     $partnerID: String!, $referrerUserId: String!, $secret: String!) {
-                createUser(
-                    input: {
-                        email: $email,
-                        password: $password,
-                        fullName: $fullName,
-                        shortName: $shortName,
-                        partnerId: $partnerID
-                    },
-                    referrerUserId: $referrerUserId,
-                    secret: $secret,
-                ) {email, id}
-            }`;
-
-        const variables = {
-            email: user.email,
+        const path = '/users/';
+        const body = {
+            secret: secret,
+            referrerUserId: referrerUserId ? referrerUserId : '',
+            password: password,
             fullName: user.fullName,
             shortName: user.shortName,
-            partnerID: user.partnerId ? user.partnerId : '',
-            referrerUserId: referrerUserId ? referrerUserId : '',
-            password,
-            secret,
+            email: user.email,
+            partnerId: user.partnerId ? user.partnerId : ''
         };
 
-        const response = await this.mutate(query, variables);
+        const response = await this.sendRequest('POST', path, JSON.stringify(body));
+        const result = await response.json();
 
-        return response.data.createUser.id;
+        return result.id;
     }
 }
