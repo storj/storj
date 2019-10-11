@@ -19,7 +19,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
-	"github.com/prometheus/common/log"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -255,7 +254,6 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
-		server.serveJsonError(w, 500, err)
 		server.log.Debug("Error serializing response: " + err.Error())
 	}
 }
@@ -266,18 +264,12 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = console.GetAuth(ctx)
-	if err != nil {
-		server.serveJsonError(w, 401, err)
-		return
-	}
-
-	type ChangePasswordRequestModel struct {
+	type changePasswordRequestModel struct {
 		Password    string `json:"password"`
 		NewPassword string `json:"newPassword"`
 	}
 
-	var passwordChange ChangePasswordRequestModel
+	var passwordChange changePasswordRequestModel
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
 		server.serveJsonError(w, 400, err)
@@ -289,6 +281,8 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 		server.serveJsonError(w, 404, err)
 		return
 	}
+
+	w.WriteHeader(200)
 }
 
 // createNewUserRequestHandler gets password hash value and creates new inactive User
@@ -312,9 +306,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	secret, err := console.RegistrationSecretFromBase64(model.Secret)
 	if err != nil {
-		log.Error("register: failed to create account",
-			zap.Error(err))
-		log.Debug("register: ", zap.String("rawSecret", model.Secret))
+		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJsonError(w, 400, err)
 
 		return
@@ -322,9 +314,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	user, err := server.service.CreateUser(ctx, model.CreateUser, secret, model.ReferrerUserID)
 	if err != nil {
-		log.Error("register: failed to create account",
-			zap.Error(err))
-		log.Debug("register: ", zap.String("rawSecret", model.Secret))
+		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
 		server.serveJsonError(w, 400, err)
 
 		return
@@ -332,10 +322,6 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		log.Error("register: failed to generate activation token",
-			zap.Stringer("id", user.ID),
-			zap.String("email", user.Email),
-			zap.Error(err))
 		server.serveJsonError(w, 400, err)
 
 		return
@@ -358,7 +344,6 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
-		server.serveJsonError(w, 500, err)
 		server.log.Debug("Error serializing response: " + err.Error())
 	}
 }
@@ -371,8 +356,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
-		w.WriteHeader(401)
+		server.serveJsonError(w, 401, err)
 		return
 	}
 
@@ -383,8 +367,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 	var password deleteAccountRequestModel
 	err = json.NewDecoder(r.Body).Decode(&password)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
-		w.WriteHeader(400)
+		server.serveJsonError(w, 400, err)
 		return
 	}
 
@@ -396,8 +379,6 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(auth.User)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
-		w.WriteHeader(500)
 		server.log.Debug("Error serializing response: " + err.Error())
 	}
 }
@@ -410,9 +391,7 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	params := mux.Vars(r)
 	val, ok := params["id"]
 	if !ok {
-		err = errs.New("id expected")
-
-		server.serveJsonError(w, 400, err)
+		server.serveJsonError(w, 400, errs.New("id expected"))
 		return
 	}
 
@@ -427,6 +406,7 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 		server.serveJsonError(w, 404, err)
 		return
 	}
+
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	link := server.config.ExternalAddress + ActivationPath + token
 	userName := user.ShortName
@@ -447,6 +427,8 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 			ContactInfoURL:        contactInfoURL,
 		},
 	)
+
+	w.WriteHeader(200)
 }
 
 // forgotPasswordRequestHandler creates reset password token and send user email
@@ -499,6 +481,8 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 			ContactInfoURL:             contactInfoURL,
 		},
 	)
+
+	w.WriteHeader(200)
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -698,9 +682,6 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 
 func (server *Server) serveJsonError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
-	if err == nil {
-		return
-	}
 
 	server.log.Error("error occurred in console/server", zap.Error(err))
 
