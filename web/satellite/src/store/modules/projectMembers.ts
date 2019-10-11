@@ -98,10 +98,12 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
 
                 await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({rootGetters, state}: any): Promise<void> {
+            deleteProjectMembers: async function ({rootGetters, state, commit}: any): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
                 await api.delete(projectId, state.selectedProjectMembersEmails);
+
+                commit(CLEAR_SELECTION);
             },
             fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
