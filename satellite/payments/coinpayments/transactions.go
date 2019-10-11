@@ -129,7 +129,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount := new(big.Float)
+	amount := new(big.Float).SetPrec(big.MaxPrec)
 
 	_, err := fmt.Sscan(txRaw.Amount, amount)
 	if err != nil {
@@ -185,8 +185,8 @@ func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount := new(big.Float)
-	received := new(big.Float)
+	amount := new(big.Float).SetPrec(big.MaxPrec)
+	received := new(big.Float).SetPrec(big.MaxPrec)
 
 	_, err := fmt.Sscan(txInfoRaw.AmountF, amount)
 	if err != nil {
