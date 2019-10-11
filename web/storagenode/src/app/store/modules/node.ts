@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { datesDiffInMinutes } from '@/app/utils/date';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
@@ -40,6 +41,8 @@ export const node = {
         info: {
             id: '',
             status: StatusOffline,
+            lastPinged: new Date(),
+            startedAt: new Date(),
             version: '',
             wallet: '',
             isLastVersion: false
@@ -89,7 +92,10 @@ export const node = {
 
             state.info.status = StatusOffline;
 
-            if (getDateDiffMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
+            state.info.startedAt = nodeInfo.startedAt;
+            state.info.lastPinged = nodeInfo.lastPinged;
+
+            if (datesDiffInMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
                 state.info.status = StatusOnline;
             }
         },
@@ -150,15 +156,4 @@ function calculateSuccessRatio(successCount: number, totalCount: number) : numbe
     }
 
     return successCount / totalCount * 100;
-}
-
-/**
- * returns difference between two dates in minutes
- * @param d1 - holds first date
- * @param d2 - holds second date
- */
-function getDateDiffMinutes(d1: Date, d2: Date): number {
-    const diff = d1.getTime() - d2.getTime();
-
-    return Math.floor(diff / 1000 / 60);
 }

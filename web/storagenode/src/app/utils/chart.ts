@@ -36,18 +36,51 @@ export class ChartUtils {
     }
 
     /**
+     * gets chart data dimension depending on data size
+     * @param data - holds array of chart data in numeric form
+     * @returns dataDimension - string of data dimension
+     */
+    public static getChartDataDimension(data: number[]): string {
+        const maxBytes = Math.ceil(Math.max(...data));
+
+        let dataDimension: string = '';
+        switch (true) {
+            case maxBytes < MB:
+                dataDimension = 'KB';
+                break;
+            case maxBytes < GB:
+                dataDimension = 'MB';
+                break;
+            case maxBytes < TB:
+                dataDimension = 'GB';
+                break;
+            case maxBytes < PB:
+                dataDimension = 'TB';
+                break;
+            default:
+                dataDimension = 'PB';
+        }
+
+        return dataDimension;
+    }
+
+    /**
      * Used to display correct number of days on chart's labels
-     * @param date - holds specific day of the month
+     *
      * @returns daysDisplayed - array of days converted to a string by using the current or specified locale
      */
-    public static daysDisplayedOnChart(date: Date): string[] {
-        const daysDisplayed = Array<string>(date.getDate());
+    public static daysDisplayedOnChart(): string[] {
+        const daysDisplayed = Array<string>(new Date().getDate());
 
         for (let i = 0; i < daysDisplayed.length; i++) {
             const date = new Date();
             date.setDate(i + 1);
 
-            daysDisplayed[i] = date.toLocaleDateString('en-US', {day: 'numeric'});
+            daysDisplayed[i] = date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}).toUpperCase();
+        }
+
+        if (daysDisplayed.length === 1) {
+            daysDisplayed.unshift('0');
         }
 
         return daysDisplayed;
@@ -80,6 +113,11 @@ export class ChartUtils {
             bandwidthChartData[i] = BandwidthUsed.emptyWithDate(date);
         }
 
+        if (bandwidthChartData.length === 1) {
+            bandwidthChartData.unshift(BandwidthUsed.emptyWithDate(1));
+            bandwidthChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
+        }
+
         return bandwidthChartData;
     }
 
@@ -108,6 +146,11 @@ export class ChartUtils {
             }
 
             storageChartData[i] = Stamp.emptyWithDate(date);
+        }
+
+        if (storageChartData.length === 1) {
+            storageChartData.unshift(Stamp.emptyWithDate(1));
+            storageChartData[0].intervalStart.setUTCHours(0, 0, 0, 0);
         }
 
         return storageChartData;

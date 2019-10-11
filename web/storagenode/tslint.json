@@ -13,7 +13,6 @@
     "align": [true, "parameters", "statements"],
     "array-type": [true, "array-simple"],
     "arrow-return-shorthand": true,
-    "check-format": true,
     "class-name": true,
     "comment-format": [true, "check-space"],
     "comment-type": [true, "doc", "singleline"],

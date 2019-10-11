@@ -21,15 +21,17 @@ pipeline {
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
+
                 // download dependencies
                 sh 'go mod download'
 
+                sh 'service postgresql start'
+
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
-
-                sh 'service postgresql start'
             }
         }
+
 
         stage('Verification') {
             parallel {
