@@ -9,8 +9,6 @@ import "node.proto";
 
 package overlay;
 
-// TODO: add fields that validate who is requesting the info
-
 message InfoResponse {
     node.NodeType type = 2;
     node.NodeOperator operator = 3;

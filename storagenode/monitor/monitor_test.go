@@ -20,12 +20,12 @@ func TestMonitor(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var freeBandwidth int64
+		var freeBandwidthInit int64
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.Pause()
 
 			// assume that all storage nodes have the same initial values
-			freeBandwidth = storageNode.Local().Capacity.FreeBandwidth
+			freeBandwidthInit = storageNode.Local().Capacity.FreeBandwidth
 		}
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
@@ -37,11 +37,11 @@ func TestMonitor(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.TriggerWait()
 
-			bw := storageNode.Local().Capacity.FreeBandwidth
+			freeBandwidthNew := storageNode.Local().Capacity.FreeBandwidth
 			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
 			require.NoError(t, err)
 			if stats.UsedSpace > 0 {
-				assert.Equal(t, freeBandwidth-stats.UsedBandwidth, bw)
+				assert.Equal(t, freeBandwidthInit-stats.UsedBandwidth, freeBandwidthNew)
 				nodeAssertions++
 			}
 		}
