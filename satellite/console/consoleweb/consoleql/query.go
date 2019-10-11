@@ -25,12 +25,6 @@ const (
 	ActiveRewardQuery = "activeReward"
 	// CreditUsageQuery is a query name for credit usage related to an user
 	CreditUsageQuery = "creditUsage"
-	// TokenQuery is a query name for token
-	TokenQuery = "token"
-	// ForgotPasswordQuery is a query name for password recovery request
-	ForgotPasswordQuery = "forgotPassword"
-	// ResendAccountActivationEmailQuery is a query name for password recovery request
-	ResendAccountActivationEmailQuery = "resendAccountActivationEmail"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
