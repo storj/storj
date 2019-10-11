@@ -12,6 +12,7 @@ export class Dashboard {
         public diskSpace: DiskSpaceInfo,
         public bandwidth: BandwidthInfo,
         public lastPinged: Date,
+        public startedAt: Date,
         public version: Version,
         public isUpToDate: boolean) {}
 }
