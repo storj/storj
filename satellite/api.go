@@ -469,9 +469,6 @@ func (peer *API) Close() error {
 	if peer.Metainfo.Endpoint2 != nil {
 		errlist.Add(peer.Metainfo.Endpoint2.Close())
 	}
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
-	}
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())
 	}
