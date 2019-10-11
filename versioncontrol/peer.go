@@ -20,7 +20,9 @@ import (
 )
 
 var (
-	Error      = errs.Class("rollout config error")
+	// RolloutErr defines the rollout config error class.
+	RolloutErr = errs.Class("rollout config error")
+	// SeedLegth is the number of bytes in a rollout seed.
 	SeedLength = 32
 
 	hexLenFactor = 2
@@ -69,8 +71,8 @@ type Version struct {
 
 // Rollout represents the state of a version rollout of a binary to the suggested version.
 type Rollout struct {
-	Seed   string  `user:"true" help:"random 32 byte, hex-encoded string"`
-	Cursor int     `user:"true" help:"percentage of nodes which should roll-out to the target version" default:"0"`
+	Seed   string `user:"true" help:"random 32 byte, hex-encoded string"`
+	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the target version" default:"0"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -112,6 +114,10 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 // New creates a new VersionControl Server.
 func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
+	if err := config.Binary.ValidateRollouts(); err != nil {
+		return nil, err
+	}
+
 	peer = &Peer{
 		Log: log,
 	}
@@ -230,16 +236,16 @@ func (versions Versions) ValidateRollouts() error {
 func (rollout Rollout) Validate() error {
 	seedLen := len(rollout.Seed)
 	if seedLen != SeedLength*hexLenFactor {
-		return Error.New("invalid seed length: %d", seedLen)
+		return RolloutErr.New("invalid seed length: %d", seedLen)
 	}
 
 	if rollout.Cursor < 0 || rollout.Cursor > 100 {
-		return Error.New("invalid cursor percentage: %d", rollout.Cursor)
+		return RolloutErr.New("invalid cursor percentage: %d", rollout.Cursor)
 	}
 
 	_, err := hex.DecodeString(rollout.Seed)
 	if err != nil {
-		return Error.New("invalid seed: %s", rollout.Seed)
+		return RolloutErr.New("invalid seed: %s", rollout.Seed)
 	}
 	return nil
 }
