@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package versioncontrol_test
 
 import (
@@ -12,9 +15,6 @@ import (
 
 func TestVersions_ValidateRollouts(t *testing.T) {
 	versions := versioncontrol.Versions{
-		Bootstrap:   versioncontrol.Binary{
-			Rollout: randRollout(t),
-		},
 		Satellite:   versioncontrol.Binary{
 			Rollout: randRollout(t),
 		},
