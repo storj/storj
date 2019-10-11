@@ -47,7 +47,7 @@ func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email strin
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
-func (service *Service) Balance(ctx context.Context, userID uuid.UUID) (balance int64, err error) {
+func (service *Service) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	customerID, err := service.customers.GetCustomerID(ctx, userID)
