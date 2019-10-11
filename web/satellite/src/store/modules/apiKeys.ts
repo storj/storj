@@ -108,8 +108,10 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
 
                 return apiKey;
             },
-            deleteApiKey: async function({ state }: any): Promise<void> {
+            deleteApiKey: async function({state, commit}: any): Promise<void> {
                 return await api.delete(state.selectedApiKeysIds);
+
+                commit(CLEAR_SELECTION);
             },
             setApiKeysSearchQuery: function ({commit}, search: string) {
                 commit(SET_SEARCH_QUERY, search);
