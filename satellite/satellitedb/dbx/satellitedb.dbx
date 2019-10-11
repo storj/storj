@@ -875,12 +875,6 @@ read one (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 )
-read limitoffset (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at = null
-	orderby asc graceful_exit_transfer_queue.queued_at
-)
 
 //--- satellite payments ---//
 
