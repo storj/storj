@@ -72,7 +72,7 @@ import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
-import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
+import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 declare interface ClearSearch {
@@ -132,6 +132,7 @@ export default class HeaderArea extends Vue {
             return;
         }
 
+        this.$emit('onSuccessDelete');
         this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
         this.isDeleteClicked = false;
 

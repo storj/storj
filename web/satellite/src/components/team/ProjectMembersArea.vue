@@ -7,6 +7,7 @@
             <HeaderArea
                 :header-state="headerState"
                 :selected-project-members-count="selectedProjectMembers.length"
+                @onSuccessDelete="resetPaginator"
             />
         </div>
         <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
@@ -115,7 +116,7 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public get projectMembersCount(): number {
-        return this.$store.state.projectMembersModule.page.projectMembers.length;
+        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
     }
 
     public get totalPageCount(): number {
@@ -159,6 +160,10 @@ export default class ProjectMembersArea extends Vue {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
+        this.resetPaginator();
+    }
+
+    public resetPaginator(): void {
         if (this.totalPageCount > 1) {
             this.$refs.pagination.resetPageIndex();
         }
