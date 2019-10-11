@@ -71,12 +71,12 @@ export default class SatelliteSelectionDropdown extends Vue {
         &__satellite-choice {
             position: relative;
             display: flex;
-            width: calc(100% - 40px);
+            width: calc(100% - 36px);
             align-items: center;
             justify-content: flex-start;
             margin-left: 8px;
             border-radius: 12px;
-            padding: 12px;
+            padding: 10px;
 
             &__image {
                 position: absolute;
