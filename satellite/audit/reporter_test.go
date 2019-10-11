@@ -39,7 +39,7 @@ func TestReportPendingAudits(t *testing.T) {
 		overlay := satellite.Overlay.Service
 		containment := satellite.DB.Containment()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, &report)
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
@@ -66,7 +66,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
-		failed, err := audits.Reporter.RecordAudits(ctx, &report)
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		require.Zero(t, failed)
 

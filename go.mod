@@ -101,7 +101,7 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/stripe/stripe-go v60.17.0+incompatible
+	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
@@ -126,5 +126,5 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
-	storj.io/drpc v0.0.6
+	storj.io/drpc v0.0.7-0.20191010012850-1abadc36b033
 )

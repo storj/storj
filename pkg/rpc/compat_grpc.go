@@ -27,9 +27,6 @@ type (
 	// IrreparableInspectorClient is an alias to the grpc client interface
 	IrreparableInspectorClient = pb.IrreparableInspectorClient
 
-	// KadInspectorClient is an alias to the grpc client interface
-	KadInspectorClient = pb.KadInspectorClient
-
 	// MetainfoClient is an alias to the grpc client interface
 	MetainfoClient = pb.MetainfoClient
 
@@ -53,6 +50,9 @@ type (
 
 	// PiecestoreClient is an alias to the grpc client interface
 	PiecestoreClient = pb.PiecestoreClient
+
+	// SatelliteGracefulExitClient is an alias to the grpc client interface
+	SatelliteGracefulExitClient = pb.SatelliteGracefulExitClient
 
 	// VouchersClient is an alias to the grpc client interface
 	VouchersClient = pb.VouchersClient
@@ -96,16 +96,6 @@ func NewIrreparableInspectorClient(rc *RawConn) IrreparableInspectorClient {
 // IrreparableInspectorClient returns a IrreparableInspectorClient for this connection
 func (c *Conn) IrreparableInspectorClient() IrreparableInspectorClient {
 	return NewIrreparableInspectorClient(c.raw)
-}
-
-// NewKadInspectorClient returns the grpc version of a KadInspectorClient
-func NewKadInspectorClient(rc *RawConn) KadInspectorClient {
-	return pb.NewKadInspectorClient(rc)
-}
-
-// KadInspectorClient returns a KadInspectorClient for this connection
-func (c *Conn) KadInspectorClient() KadInspectorClient {
-	return NewKadInspectorClient(c.raw)
 }
 
 // NewMetainfoClient returns the grpc version of a MetainfoClient
@@ -186,6 +176,16 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewSatelliteGracefulExitClient returns the grpc version of a SatelliteGracefulExitClient
+func NewSatelliteGracefulExitClient(rc *RawConn) SatelliteGracefulExitClient {
+	return pb.NewSatelliteGracefulExitClient(rc)
+}
+
+// SatelliteGracefulExitClient returns a SatelliteGracefulExitClient for this connection
+func (c *Conn) SatelliteGracefulExitClient() SatelliteGracefulExitClient {
+	return NewSatelliteGracefulExitClient(c.raw)
 }
 
 // NewVouchersClient returns the grpc version of a VouchersClient

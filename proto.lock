@@ -848,6 +848,251 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:gracefulexit.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "TransferFailed.Error",
+            "enum_fields": [
+              {
+                "name": "NOT_FOUND"
+              },
+              {
+                "name": "STORAGE_NODE_UNAVAILABLE",
+                "integer": 1
+              },
+              {
+                "name": "UNKNOWN",
+                "integer": 2
+              }
+            ]
+          },
+          {
+            "name": "ExitFailed.Reason",
+            "enum_fields": [
+              {
+                "name": "VERIFICATION_FAILED"
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "TransferSucceeded",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addressed_order_limit",
+                "type": "metainfo.AddressedOrderLimit"
+              },
+              {
+                "id": 2,
+                "name": "original_piece_hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 3,
+                "name": "replacement_piece_hash",
+                "type": "orders.PieceHash"
+              }
+            ]
+          },
+          {
+            "name": "TransferFailed",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "error",
+                "type": "Error"
+              }
+            ]
+          },
+          {
+            "name": "StorageNodeMessage",
+            "fields": [
+              {
+                "id": 1,
+                "name": "succeeded",
+                "type": "TransferSucceeded"
+              },
+              {
+                "id": 2,
+                "name": "failed",
+                "type": "TransferFailed"
+              }
+            ]
+          },
+          {
+            "name": "NotReady"
+          },
+          {
+            "name": "TransferPiece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "addressed_order_limit",
+                "type": "metainfo.AddressedOrderLimit"
+              }
+            ]
+          },
+          {
+            "name": "DeletePiece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ExitCompleted",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exit_complete_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "ExitFailed",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exit_failure_signature",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "reason",
+                "type": "Reason"
+              }
+            ]
+          },
+          {
+            "name": "SatelliteMessage",
+            "fields": [
+              {
+                "id": 1,
+                "name": "not_ready",
+                "type": "NotReady"
+              },
+              {
+                "id": 2,
+                "name": "transfer_piece",
+                "type": "TransferPiece"
+              },
+              {
+                "id": 3,
+                "name": "delete_piece",
+                "type": "DeletePiece"
+              },
+              {
+                "id": 4,
+                "name": "exit_completed",
+                "type": "ExitCompleted"
+              },
+              {
+                "id": 5,
+                "name": "exit_failed",
+                "type": "ExitFailed"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "SatelliteGracefulExit",
+            "rpcs": [
+              {
+                "name": "Process",
+                "in_type": "StorageNodeMessage",
+                "out_type": "SatelliteMessage",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "metainfo.proto"
+          },
+          {
+            "path": "orders.proto"
+          }
+        ],
+        "package": {
+          "name": "gracefulexit"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:inspector.proto",
       "def": {
         "messages": [

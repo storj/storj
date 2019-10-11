@@ -42,6 +42,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -98,6 +99,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -361,29 +363,6 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	}
 
 	return convertDBNode(ctx, node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (_ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
-	FROM nodes
-	WHERE id = ?
-		AND disqualified IS NULL
-		AND type = ?
-		AND total_audit_count >= ?
-		AND total_uptime_count >= ?
-		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
-	var bytes *[]byte
-	err = row.Scan(&bytes)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 // KnownOffline filters a set of nodes to offline nodes

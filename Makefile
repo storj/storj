@@ -142,6 +142,8 @@ storagenode-console:
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
 		-w /go/src/storj.io/storj/web/storagenode \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
 		node:10.15.1 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
@@ -273,6 +275,10 @@ OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 fr
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+
+.PHONY: sign-windows-installer
+sign-windows-installer: 
+	storj-sign release/${TAG}/storagenode_windows_amd64.msi
 
 .PHONY: libuplink
 libuplink:
