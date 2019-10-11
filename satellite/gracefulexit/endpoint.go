@@ -209,7 +209,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				for _, inc := range incomplete {
-					err = endpoint.processIncomplete(ctx, stream, pending, nodeID, inc)
+					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
 						return Error.Wrap(err)
 					}
@@ -270,7 +270,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	return nil
 }
 
-func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, nodeID storj.NodeID, incomplete *TransferQueueItem) error {
+func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, incomplete *TransferQueueItem) error {
+	nodeID := incomplete.NodeID
 	pointer, err := endpoint.metainfo.Get(ctx, string(incomplete.Path))
 	if err != nil {
 		return Error.Wrap(err)

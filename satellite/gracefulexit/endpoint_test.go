@@ -237,16 +237,16 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	var exitingNodeID storj.NodeID
-	lastCount := 0
+	maxCount := 0
 	for k, v := range pieceCountMap {
 		if exitingNodeID.IsZero() {
 			exitingNodeID = k
-			lastCount = v
+			maxCount = v
 			continue
 		}
-		if v > lastCount {
+		if v > maxCount {
 			exitingNodeID = k
-			lastCount = v
+			maxCount = v
 		}
 	}
 
