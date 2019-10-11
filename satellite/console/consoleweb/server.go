@@ -715,9 +715,9 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject := make(map[string]interface{})
 
 	rootObject["origin"] = server.config.ExternalAddress
-	rootObject[consoleql.ActivationPath] = "activation/?token="
-	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
-	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
+	rootObject[consoleql.ActivationPath] = ActivationPath
+	rootObject[consoleql.PasswordRecoveryPath] = PasswordRecoveryPath
+	rootObject[consoleql.CancelPasswordRecoveryPath] = CancelPasswordRecoveryPath
 	rootObject[consoleql.SignInPath] = "login"
 	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
 	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
