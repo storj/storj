@@ -42,7 +42,7 @@ export default class Dashboard extends Vue {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .page {
         background-color: #F4F6F9;
         display: flex;
@@ -53,6 +53,6 @@ export default class Dashboard extends Vue {
 
     .content {
         width: 822px;
-        padding-top: 31px;
+        padding-top: 28px;
     }
 </style>
