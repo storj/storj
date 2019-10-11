@@ -10,16 +10,18 @@ fi
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+PORT=6000
+SERIAL=emulator-${PORT}
+
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
+      $ANDROID_HOME/platform-tools/adb -s ${SERIAL} emu kill
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
 
 # start Android emulator
-PORT=6000
-SERIAL=emulator-${PORT}
 AVD_NAME=uplink_test
 
 export PATH=$ANDROID_HOME/emulator/:$PATH
@@ -27,7 +29,8 @@ export PATH=$ANDROID_HOME/emulator/:$PATH
 echo "no" | $ANDROID_HOME/tools/bin/avdmanager create avd --name "${AVD_NAME}" -k "system-images;android-24;default;x86_64" --force
 echo "AVD ${AVD_NAME} created."
 
-$ANDROID_HOME/emulator/emulator -avd ${AVD_NAME} -port ${PORT} -no-window -no-accel -no-audio -no-boot-anim 2>&1 &
+# -no-accel needs to be added for Jenkins build 
+$ANDROID_HOME/emulator/emulator-headless -avd ${AVD_NAME} -port ${PORT} -no-boot-anim -no-audio -gpu swiftshader_indirect -no-accel 2>&1 &
 
 # copy test project and build aar file
 cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
@@ -37,7 +40,11 @@ export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing
 # TODO add max number of checks and timeout
-while [ "`adb shell getprop sys.boot_completed | tr -d '\r' `" != "1" ] ; do sleep 3; done
+while [ "`adb shell getprop sys.boot_completed | tr -d '\r' `" != "1" ] ;
+do
+      echo "waiting for emulator"
+      sleep 3
+done
 
 # start integration tests
 export STORJ_NETWORK_DIR=$TMP
@@ -50,5 +57,3 @@ storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
 # run tests
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR/test-libuplink-android.sh"
 storj-sim -x --host $STORJ_NETWORK_HOST4 network destroy
-
-$ANDROID_HOME/platform-tools/adb -s ${SERIAL} emu kill
