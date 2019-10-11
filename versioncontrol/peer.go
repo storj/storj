@@ -243,8 +243,7 @@ func (rollout Rollout) Validate() error {
 		return RolloutErr.New("invalid cursor percentage: %d", rollout.Cursor)
 	}
 
-	_, err := hex.DecodeString(rollout.Seed)
-	if err != nil {
+	if _, err := hex.DecodeString(rollout.Seed); err != nil {
 		return RolloutErr.New("invalid seed: %s", rollout.Seed)
 	}
 	return nil

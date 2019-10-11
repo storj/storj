@@ -93,8 +93,8 @@ type Version struct {
 
 // Rollout represents the state of a version rollout.
 type Rollout struct {
-	Seed   string  `json:"seed"`
-	Cursor string  `json:"cursor"`
+	Seed   string `json:"seed"`
+	Cursor string `json:"cursor"`
 }
 
 // NewSemVer parses a given version and returns an instance of SemVer or
