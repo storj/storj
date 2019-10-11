@@ -36,7 +36,6 @@ var (
 	Build Info
 
 	versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
-	zeroSeed     = [32]byte{}
 )
 
 // Info is the versioning information for a binary
