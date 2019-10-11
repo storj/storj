@@ -33,6 +33,16 @@ export class Bucket {
         this.since = since;
         this.before = before;
     }
+
+    public formattedBucketName(): string {
+        const name = this.bucketName;
+
+        if (name.length < 12) {
+            return name;
+        }
+
+        return name.slice(0, 12) + '...';
+    }
 }
 
 /**
