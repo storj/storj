@@ -254,24 +254,6 @@ read one (
     where user.id = ?
 )
 
-// add payment method id to indentify if it has been set up
-model user_payment (
-    key    user_id
-    unique customer_id
-
-    field user_id       user.id   cascade
-    field customer_id   blob
-
-    field created_at    timestamp ( autoinsert )
-)
-
-create user_payment ( )
-
-read one (
-    select user_payment
-    where  user_payment.user_id = ?
-)
-
 model project (
     key id
 
@@ -307,40 +289,6 @@ read all (
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
-)
-
-model project_payment (
-    key id
-
-    field id                blob
-
-    field project_id        project.id              cascade
-    field payer_id          user_payment.user_id    cascade
-    field payment_method_id blob
-    field is_default        bool ( updatable )
-
-    field created_at        timestamp  ( autoinsert )
-)
-
-create project_payment ( )
-update project_payment ( where project_payment.id = ? )
-delete project_payment ( where project_payment.id = ? )
-
-read one (
-    select project_payment
-    where project_payment.id = ? )
-read one (
-    select project_payment
-    where project_payment.project_id = ?
-    where project_payment.is_default = true
-)
-read all (
-    select project_payment
-    where project_payment.project_id = ?
-)
-read all (
-    select project_payment
-    where project_payment.payer_id = ?
 )
 
 model project_invoice_stamp (
@@ -933,3 +881,16 @@ read limitoffset (
 	where graceful_exit_transfer_queue.finished_at = null
 	orderby asc graceful_exit_transfer_queue.queued_at
 )
+
+//--- satellite payments ---//
+
+model stripe_customers (
+    key user_id
+    unique customer_id
+
+    field user_id     blob
+    field customer_id text
+    field created_at  timestamp ( autoinsert )
+)
+
+create stripe_customers ( )

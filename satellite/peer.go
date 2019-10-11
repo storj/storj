@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -99,6 +100,8 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
+	// StripeCustomers returns table for storing stripe customers
+	Customers() stripecoinpayments.Customers
 }
 
 // Config is the global config satellite
@@ -243,7 +246,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, versionInfo version.Info, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -377,12 +380,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
@@ -777,10 +776,6 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
 	}
 
 	if peer.Discovery.Service != nil {

@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -127,7 +128,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
 
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
@@ -148,7 +156,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, liveAccounting.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, revocationDB, liveAccounting, &runCfg.Config, version.Build)
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, version.Build, &runCfg.Config)
 	if err != nil {
 		return err
 	}
