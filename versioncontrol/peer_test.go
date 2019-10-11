@@ -21,14 +21,6 @@ var rolloutErrScenarios = []struct {
 	errContains string
 }{
 	{
-		"empty seed",
-		versioncontrol.Rollout{
-			Seed:   "",
-			Cursor: 0,
-		},
-		"invalid seed length",
-	},
-	{
 		"short seed",
 		versioncontrol.Rollout{
 			// 31 byte seed
@@ -75,22 +67,57 @@ var rolloutErrScenarios = []struct {
 
 func TestPeer_Run(t *testing.T) {
 	testVersion := "v0.0.1"
-	for i := 0; i < 100; i++ {
-		config := versioncontrol.Config{
-			Versions: versioncontrol.ServiceVersions{
-				Gateway:     testVersion,
-				Identity:    testVersion,
-				Satellite:   testVersion,
-				Storagenode: testVersion,
-				Uplink:      testVersion,
-			},
-			Binary: validRandVersions(t),
-		}
-
-		peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
-		require.NoError(t, err)
-		require.NotNil(t, peer)
+	testServiceVersions := versioncontrol.ServiceVersions{
+		Gateway:     testVersion,
+		Identity:    testVersion,
+		Satellite:   testVersion,
+		Storagenode: testVersion,
+		Uplink:      testVersion,
 	}
+
+	t.Run("random rollouts", func(t *testing.T) {
+		for i := 0; i < 100; i++ {
+			config := versioncontrol.Config{
+				Versions: testServiceVersions,
+				Binary:   validRandVersions(t),
+			}
+
+			peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
+			require.NoError(t, err)
+			require.NotNil(t, peer)
+		}
+	})
+
+	t.Run("empty rollout seed", func(t *testing.T) {
+		versionsType := reflect.TypeOf(versioncontrol.Versions{})
+		fieldCount := versionsType.NumField()
+
+		// test invalid rollout for each binary
+		for i := 1; i < fieldCount; i++ {
+			versions := versioncontrol.Versions{}
+			versionsValue := reflect.ValueOf(&versions)
+			field := reflect.Indirect(versionsValue).Field(i)
+
+			binary := versioncontrol.Binary{
+				Rollout:
+				versioncontrol.Rollout{
+					Seed:   "",
+					Cursor: 0,
+				},
+			}
+
+			field.Set(reflect.ValueOf(binary))
+
+			config := versioncontrol.Config{
+				Versions: testServiceVersions,
+				Binary: versions,
+			}
+
+			peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
+			require.NoError(t, err)
+			require.NotNil(t, peer)
+		}
+	})
 }
 
 func TestPeer_Run_error(t *testing.T) {
@@ -127,7 +154,7 @@ func TestPeer_Run_error(t *testing.T) {
 
 func TestVersions_ValidateRollouts(t *testing.T) {
 	versions := validRandVersions(t)
-	err := versions.ValidateRollouts()
+	err := versions.ValidateRollouts(zaptest.NewLogger(t))
 	require.NoError(t, err)
 }
 
@@ -138,7 +165,7 @@ func TestRollout_Validate(t *testing.T) {
 			Cursor: i,
 		}
 
-		err := rollout.Validate()
+		err := rollout.Validate("test", zaptest.NewLogger(t))
 		require.NoError(t, err)
 	}
 }
@@ -147,7 +174,7 @@ func TestRollout_Validate_error(t *testing.T) {
 	for _, scenario := range rolloutErrScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			err := scenario.rollout.Validate()
+			err := scenario.rollout.Validate("test", zaptest.NewLogger(t))
 			require.Error(t, err)
 			require.True(t, versioncontrol.RolloutErr.Has(err))
 			require.Contains(t, err.Error(), scenario.errContains)

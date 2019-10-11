@@ -114,7 +114,7 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 // New creates a new VersionControl Server.
 func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
-	if err := config.Binary.ValidateRollouts(); err != nil {
+	if err := config.Binary.ValidateRollouts(log); err != nil {
 		return nil, err
 	}
 
@@ -216,7 +216,7 @@ func configToProcess(binary Binary) version.Process {
 }
 
 // ValidateRollouts validates the rollout field of each field in the Versions struct.
-func (versions Versions) ValidateRollouts() error {
+func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 	value := reflect.ValueOf(versions)
 	fieldCount := value.NumField()
 	validationErrs := errs.Group{}
@@ -225,7 +225,7 @@ func (versions Versions) ValidateRollouts() error {
 		if !ok {
 			continue
 		}
-		if err := binary.Rollout.Validate(); err != nil {
+		if err := binary.Rollout.Validate(value.Type().Field(i).Name, log); err != nil {
 			validationErrs.Add(err)
 		}
 	}
@@ -233,8 +233,13 @@ func (versions Versions) ValidateRollouts() error {
 }
 
 // Validate validates the rollout seed and cursor config values.
-func (rollout Rollout) Validate() error {
+func (rollout Rollout) Validate(binary string, log *zap.Logger) error {
 	seedLen := len(rollout.Seed)
+	if seedLen == 0 {
+		log.Warn("empty seed", zap.String("binary", binary))
+		return nil
+	}
+
 	if seedLen != SeedLength*hexLenFactor {
 		return RolloutErr.New("invalid seed length: %d", seedLen)
 	}
