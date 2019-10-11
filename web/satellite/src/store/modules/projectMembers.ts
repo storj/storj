@@ -78,6 +78,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
                     return;
                 }
 
+                projectMember.isSelected = false;
                 state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
                     return projectMemberEmail !== projectMember.user.email;
                 });

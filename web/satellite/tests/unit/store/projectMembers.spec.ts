@@ -92,6 +92,11 @@ describe('mutations', () => {
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
         expect(state.selectedProjectMembersEmails.length).toBe(1);
+
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.selectedProjectMembersEmails.length).toBe(0);
     });
 
     it('clear selection', function () {
@@ -270,6 +275,11 @@ describe('actions', async () => {
 
         expect(state.page.projectMembers[1].isSelected).toBe(true);
         expect(state.selectedProjectMembersEmails.length).toBe(2);
+
+        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.selectedProjectMembersEmails.length).toBe(1);
     });
 
     it('clear selection', function () {

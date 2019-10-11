@@ -35,9 +35,10 @@
                         is-white="true"
                         :on-press="onClearSelection"
                     />
+                    <span class="header-selected-members__info-text"><b>{{selectedProjectMembersCount}}</b> users selected</span>
                 </div>
                 <div class="header-after-delete-click" v-if="areSelectedProjectMembersBeingDeleted">
-                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
+                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{selectedProjectMembersCount}}</b> {{userCountTitle}}?</span>
                     <div class="header-after-delete-click__button-area">
                         <VButton
                             class="button deletion"
@@ -208,6 +209,11 @@ export default class HeaderArea extends Vue {
         align-items: flex-end;
         height: 85px;
         justify-content: center;
+
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
+        }
     }
 
     .button {
