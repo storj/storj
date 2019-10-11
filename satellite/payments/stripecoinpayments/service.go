@@ -18,13 +18,13 @@ var mon = monkit.Package()
 // ErrorStripe is stripe error type
 var ErrorStripe = errs.Class("stripe API error")
 
-// Service is an implementation for PaymentsService via Stripe and Coinpayments
+// Service is an implementation for payment service via Stripe and Coinpayments
 type Service struct {
-	customers Customers
+	customers CustomersDB
 }
 
 // NewService creates a Service instance.
-func NewService(customers Customers) *Service {
+func NewService(customers CustomersDB) *Service {
 	return &Service{
 		customers: customers,
 	}
@@ -44,4 +44,21 @@ func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email strin
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return service.customers.Insert(ctx, userID, email)
+}
+
+// Balance returns an integer amount in cents that represents the current balance of payment account.
+func (service *Service) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := service.customers.GetCustomerID(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	c, err := customer.Get(customerID, nil)
+	if err != nil {
+		return 0, ErrorStripe.Wrap(err)
+	}
+
+	return c.Balance, nil
 }

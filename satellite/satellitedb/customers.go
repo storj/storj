@@ -11,7 +11,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// customers is an implementation of stripecoinpayments.Customers.
+// customers is an implementation of stripecoinpayments.CustomersDB.
 type customers struct {
 	db *dbx.DB
 }
@@ -27,4 +27,16 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 	)
 
 	return err
+}
+
+// GetCustomerID return stripe customers id.
+func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID) (customerID string, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	idRow, err := customers.db.Get_StripeCustomers_CustomerId_By_UserId(ctx, dbx.StripeCustomers_UserId(userID[:]))
+	if err != nil {
+		return "", err
+	}
+
+	return idRow.CustomerId, nil
 }

@@ -894,3 +894,7 @@ model stripe_customers (
 )
 
 create stripe_customers ( )
+read one (
+	select stripe_customers.customer_id
+	where stripe_customers.user_id = ?
+)
