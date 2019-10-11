@@ -1098,15 +1098,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	}
 
 	exitStatus := overlay.ExitStatus{NodeID: id}
-	if info.ExitInitiatedAt != nil {
-		exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
-	}
-	if info.ExitLoopCompletedAt != nil {
-		exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
-	}
-	if info.ExitFinishedAt != nil {
-		exitStatus.ExitFinishedAt = info.ExitFinishedAt
-	}
+	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
+	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
+	exitStatus.ExitFinishedAt = info.ExitFinishedAt
 
 	node := &overlay.NodeDossier{
 		Node: pb.Node{

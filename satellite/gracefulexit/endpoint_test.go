@@ -83,9 +83,9 @@ func TestSuccess(t *testing.T) {
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
-		require.Equal(t, int64(numMessages), progress.PiecesTransferred)
+		require.EqualValues(t, numMessages, progress.PiecesTransferred)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
-		require.Equal(t, int64(0), progress.PiecesFailed)
+		require.EqualValues(t, 0, progress.PiecesFailed)
 	})
 }
 
