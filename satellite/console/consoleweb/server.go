@@ -257,7 +257,7 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
-		server.log.Error(Error.Wrap(err))
+		server.log.Error(Error.Wrap(err).Error())
 	}
 }
 
@@ -342,7 +342,7 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
-		server.log.Error(Error.Wrap(err))
+		server.log.Error(Error.Wrap(err).Error())
 	}
 }
 
@@ -377,7 +377,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(auth.User)
 	if err != nil {
-		server.log.Error(Error.Wrap(err))
+		server.log.Error(Error.Wrap(err).Error())
 	}
 }
 
