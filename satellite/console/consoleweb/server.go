@@ -246,12 +246,12 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 	var tokenRequest tokenRequestModel
 	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 	}
 
 	token, err := server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
+		server.serveJSONError(w, 404, err)
 		return
 	}
 
@@ -275,13 +275,13 @@ func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter,
 	var passwordChange changePasswordRequestModel
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	err = server.service.ChangePassword(ctx, passwordChange.Password, passwordChange.NewPassword)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
+		server.serveJSONError(w, 404, err)
 		return
 	}
 
@@ -303,27 +303,27 @@ func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http
 	var model createUserRequestModel
 	err = json.NewDecoder(r.Body).Decode(&model)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	secret, err := console.RegistrationSecretFromBase64(model.Secret)
 	if err != nil {
 		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	user, err := server.service.CreateUser(ctx, model.CreateUser, secret, model.ReferrerUserID)
 	if err != nil {
 		server.log.Debug("register: ", zap.String("rawSecret", model.Secret))
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		server.serveJsonError(w, 500, err)
+		server.serveJSONError(w, 500, err)
 		return
 	}
 
@@ -356,7 +356,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
-		server.serveJsonError(w, 401, err)
+		server.serveJSONError(w, 401, err)
 		return
 	}
 
@@ -367,13 +367,13 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 	var password deleteAccountRequestModel
 	err = json.NewDecoder(r.Body).Decode(&password)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	err = server.service.DeleteAccount(ctx, password.Password)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
+		server.serveJSONError(w, 404, err)
 		return
 	}
 
@@ -391,25 +391,25 @@ func (server *Server) resendEmailRequestHandler(w http.ResponseWriter, r *http.R
 	params := mux.Vars(r)
 	val, ok := params["id"]
 	if !ok {
-		server.serveJsonError(w, 400, errs.New("id expected"))
+		server.serveJSONError(w, 400, errs.New("id expected"))
 		return
 	}
 
 	userID, err := uuid.Parse(val)
 	if err != nil {
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	user, err := server.service.GetUser(ctx, *userID)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
+		server.serveJSONError(w, 404, err)
 		return
 	}
 
 	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		server.serveJsonError(w, 500, err)
+		server.serveJSONError(w, 500, err)
 		return
 	}
 	link := server.config.ExternalAddress + ActivationPath + token
@@ -446,19 +446,19 @@ func (server *Server) forgotPasswordRequestHandler(w http.ResponseWriter, r *htt
 	if !ok {
 		err = errs.New("email expected")
 
-		server.serveJsonError(w, 400, err)
+		server.serveJSONError(w, 400, err)
 		return
 	}
 
 	user, err := server.service.GetUserByEmail(ctx, email)
 	if err != nil {
-		server.serveJsonError(w, 404, err)
+		server.serveJSONError(w, 404, err)
 		return
 	}
 
 	recoveryToken, err := server.service.GeneratePasswordRecoveryToken(ctx, user.ID)
 	if err != nil {
-		server.serveJsonError(w, 500, errs.New("failed to generate password recovery token"))
+		server.serveJSONError(w, 500, errs.New("failed to generate password recovery token"))
 	}
 
 	passwordRecoveryLink := server.config.ExternalAddress + PasswordRecoveryPath + recoveryToken
@@ -684,7 +684,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 	}
 }
 
-func (server *Server) serveJsonError(w http.ResponseWriter, status int, err error) {
+func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 
 	server.log.Error("error occurred in console/server", zap.Error(err))
