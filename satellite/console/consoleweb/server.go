@@ -254,7 +254,7 @@ func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
-		server.log.Debug("Error serializing response: " + err.Error())
+		server.log.Error("Error serializing response: " + err.Error())
 	}
 }
 
@@ -379,7 +379,7 @@ func (server *Server) deleteAccountRequestHandler(w http.ResponseWriter, r *http
 
 	err = json.NewEncoder(w).Encode(auth.User)
 	if err != nil {
-		server.log.Debug("Error serializing response: " + err.Error())
+		server.log.Error("Error serializing response: " + err.Error())
 	}
 }
 
