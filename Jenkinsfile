@@ -18,7 +18,7 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
-      node('windows') { 
+      node('windows') {
         checkout scm
 
         unstash "storagenode-binaries"
