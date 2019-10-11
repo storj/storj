@@ -8,11 +8,11 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import { ChartData } from '@/app/types/chartData';
 
 class DayShowingConditions {
-    public day: string;
-    public daysArray: string[];
-    public middleDateValue: number;
-    public isDateValueFirstOrLast: boolean;
-    public isAfterEighthDayOfTheMonth: boolean;
+    public readonly day: string;
+    public readonly daysArray: string[];
+    public readonly middleDateValue: number;
+    public readonly isDateValueFirstOrLast: boolean;
+    public readonly isAfterEighthDayOfTheMonth: boolean;
 
     public constructor(day: string, daysArray: string[]) {
         this.day = day;
