@@ -7,7 +7,7 @@
             <HeaderArea
                 :header-state="headerState"
                 :selected-project-members-count="selectedProjectMembersLength"
-                @onSuccessDelete="resetPaginator"
+                @onSuccessAction="resetPaginator"
             />
         </div>
         <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">

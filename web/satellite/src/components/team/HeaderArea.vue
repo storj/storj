@@ -120,6 +120,7 @@ export default class HeaderArea extends Vue {
         this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         this.isDeleteClicked = false;
 
+        this.$emit('onSuccessAction');
         this.$refs.headerComponent.clearSearch();
     }
 
@@ -132,7 +133,7 @@ export default class HeaderArea extends Vue {
             return;
         }
 
-        this.$emit('onSuccessDelete');
+        this.$emit('onSuccessAction');
         this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
         this.isDeleteClicked = false;
 
