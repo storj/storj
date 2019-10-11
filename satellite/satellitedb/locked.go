@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -183,6 +184,13 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByHead(ctx, head)
+}
+
+// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
+func (m *lockedAPIKeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByNameAndProjectID(ctx, name, projectID)
 }
 
 // GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
@@ -582,6 +590,26 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) Customers() stripecoinpayments.Customers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCustomers{m.Locker, m.db.Customers()}
+}
+
+// lockedCustomers implements locking wrapper for stripecoinpayments.Customers
+type lockedCustomers struct {
+	sync.Locker
+	db stripecoinpayments.Customers
+}
+
+// Insert is a method for inserting stripe customer into the database.
+func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
+}
+
 // DropSchema drops the schema
 func (m *locked) DropSchema(schema string) error {
 	m.Lock()
@@ -837,7 +865,7 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit.
+// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
 func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -849,13 +877,6 @@ func (m *lockedOverlayCache) GetExitingNodesLoopIncomplete(ctx context.Context) 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetExitingNodesLoopIncomplete(ctx)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.IsVetted(ctx, id, criteria)
 }
 
 // KnownOffline filters a set of nodes to offline nodes
