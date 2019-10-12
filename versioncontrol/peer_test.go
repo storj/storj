@@ -130,7 +130,7 @@ func TestPeer_Run_error(t *testing.T) {
 			for i := 1; i < fieldCount; i++ {
 				versions := versioncontrol.Versions{}
 				versionsValue := reflect.ValueOf(&versions)
-				field := reflect.Indirect(versionsValue).Field(i)
+				field := reflect.Indirect(versionsValue).Field(i -1)
 
 				binary := versioncontrol.Binary{
 					Rollout: scenario.rollout,
