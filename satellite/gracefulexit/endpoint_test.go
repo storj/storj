@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -25,13 +24,19 @@ import (
 
 const numObjects = 6
 
+// exitProcessClient is used so we can pass the graceful exit process clients regardless of implementation.
+type exitProcessClient interface {
+	Send(*pb.StorageNodeMessage) error
+	Recv() (*pb.SatelliteMessage, error)
+}
+
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
 		for {
 			response, err := processClient.Recv()
-			if err == io.EOF {
+			if errs.Is(err, io.EOF) {
 				// Done
 				break
 			}
@@ -94,10 +99,10 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		for {
 			response, err := processClient.Recv()
-			if err == io.EOF {
+			if errs.Is(err, io.EOF) {
 				// Done
 				break
 			}
@@ -134,7 +139,7 @@ func TestFailure(t *testing.T) {
 	})
 }
 
-func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient pb.SatelliteGracefulExit_ProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
+func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 8
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -174,7 +179,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 
 		client := conn.SatelliteGracefulExitClient()
 
-		c, err := client.Process(ctx, grpc.EmptyCallOption{})
+		c, err := client.Process(ctx)
 		require.NoError(t, err)
 
 		response, err := c.Recv()
@@ -203,7 +208,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		require.NoError(t, err)
 
 		// connect to satellite again to start receiving transfers
-		c, err = client.Process(ctx, grpc.EmptyCallOption{})
+		c, err = client.Process(ctx)
 		require.NoError(t, err)
 		defer func() {
 			err = errs.Combine(err, c.CloseSend())
