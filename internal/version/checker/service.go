@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package versioncontrol
+package checker
 
 import (
 	"context"
@@ -11,18 +11,14 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/versioncontrol/client"
 )
 
-var mon = monkit.Package()
-
 // Config contains the necessary Information to check the Software Version
-type ServiceConfig struct {
-	vc_client.Config
+type Config struct {
+	ClientConfig
 
 	CheckInterval time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
@@ -32,8 +28,8 @@ type ServiceConfig struct {
 // architecture: Service
 type Service struct {
 	log     *zap.Logger
-	config  ServiceConfig
-	client  *vc_client.Client
+	config  Config
+	client  *Client
 	info    version.Info
 	service string
 
@@ -45,11 +41,11 @@ type Service struct {
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(log *zap.Logger, config ServiceConfig, info version.Info, service string) (client *Service) {
+func NewService(log *zap.Logger, config Config, info version.Info, service string) (client *Service) {
 	return &Service{
 		log:     log,
 		config:  config,
-		client:  vc_client.New(config.Config),
+		client:  New(config.ClientConfig),
 		info:    info,
 		service: service,
 		Loop:    sync2.NewCycle(config.CheckInterval),
@@ -68,7 +64,7 @@ func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, log *zap.Logger, config ServiceConfig, info version.Info, service string) (err error) {
+func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info version.Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return NewService(log, config, info, service).CheckVersion(ctx)
 }

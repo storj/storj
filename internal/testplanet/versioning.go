@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -59,8 +60,8 @@ func (planet *Planet) NewVersionInfo() version.Info {
 }
 
 // NewVersionConfig returns the Version Config for this planet with tuned metrics.
-func (planet *Planet) NewVersionConfig() versioncontrol.ServiceConfig {
-	config := versioncontrol.ServiceConfig{
+func (planet *Planet) NewVersionConfig() checker.Config {
+	config := checker.Config{
 		CheckInterval: time.Minute * 5,
 	}
 

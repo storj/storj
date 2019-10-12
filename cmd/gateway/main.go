@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
+	"github.com/jbenet/go-base58"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
@@ -21,13 +21,13 @@ import (
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
-	"storj.io/storj/versioncontrol"
 )
 
 // GatewayFlags configuration flags
@@ -39,7 +39,7 @@ type GatewayFlags struct {
 
 	uplink.Config
 
-	Version versioncontrol.ServiceConfig
+	Version checker.Config
 }
 
 var (
@@ -141,7 +141,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = versioncontrol.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
+	err = checker.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
 	if err != nil {
 		return err
 	}

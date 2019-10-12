@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"storj.io/storj/internal/version/checker"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -43,7 +44,6 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	"storj.io/storj/versioncontrol"
 )
 
 var (
@@ -92,7 +92,7 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version versioncontrol.ServiceConfig
+	Version checker.Config
 
 	Bandwidth bandwidth.Config
 
@@ -117,7 +117,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *versioncontrol.Service
+	Version *checker.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -180,7 +180,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = versioncontrol.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server

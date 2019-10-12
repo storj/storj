@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"storj.io/storj/internal/version/checker"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -21,7 +22,6 @@ import (
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	"storj.io/storj/versioncontrol"
 )
 
 var (
@@ -43,7 +43,7 @@ type Service struct {
 	pieceStore     *pieces.Store
 	contact        *contact.Service
 
-	version   *versioncontrol.Service
+	version   *checker.Service
 	pingStats *contact.PingStats
 
 	allocatedBandwidth memory.Size
@@ -55,7 +55,7 @@ type Service struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *versioncontrol.Service,
+func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {

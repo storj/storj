@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package vc_client_test
+package checker_test
 
 import (
 	"fmt"
@@ -13,8 +13,8 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/versioncontrol"
-	vc_client "storj.io/storj/versioncontrol/client"
 )
 
 func TestClient_All(t *testing.T) {
@@ -24,11 +24,11 @@ func TestClient_All(t *testing.T) {
 	peer := newTestPeer(t, ctx)
 	defer ctx.Check(peer.Close)
 
-	clientConfig := vc_client.Config{
+	clientConfig := checker.ClientConfig{
 		ServerAddress:  "http://" + peer.Addr(),
 		RequestTimeout: 0,
 	}
-	client := vc_client.New(clientConfig)
+	client := checker.New(clientConfig)
 
 	{
 		versions, err := client.All(ctx)
@@ -57,11 +57,11 @@ func TestClient_Process(t *testing.T) {
 	peer := newTestPeer(t, ctx)
 	defer ctx.Check(peer.Close)
 
-	clientConfig := vc_client.Config{
+	clientConfig := checker.ClientConfig{
 		ServerAddress:  "http://" + peer.Addr(),
 		RequestTimeout: 0,
 	}
-	client := vc_client.New(clientConfig)
+	client := checker.New(clientConfig)
 
 	processesType := reflect.TypeOf(version.Processes{})
 	fieldCount := processesType.NumField()

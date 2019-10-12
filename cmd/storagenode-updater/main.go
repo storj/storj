@@ -28,7 +28,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/sync2"
-	vc_client "storj.io/storj/versioncontrol/client"
+	"storj.io/storj/internal/version/checker"
 )
 
 var (
@@ -126,11 +126,11 @@ var Error = errs.Class("version update error")
 
 func update(ctx context.Context) (err error) {
 	// TODO: use config struct binding
-	clientConfig := vc_client.Config{
+	clientConfig := checker.ClientConfig{
 		ServerAddress:  versionURL,
 		RequestTimeout: time.Minute,
 	}
-	client := vc_client.New(clientConfig)
+	client := checker.New(clientConfig)
 
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package vc_client
+package checker
 
 import (
 	"context"
@@ -23,7 +23,7 @@ var (
 	Error = errs.Class("version control client error")
 )
 
-type Config struct {
+type ClientConfig struct {
 	ServerAddress  string        `help:"server address to check its version against" default:"https://version.storj.io"`
 	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
 }
@@ -32,11 +32,11 @@ type Config struct {
 //
 // architecture: Client
 type Client struct {
-	config Config
+	config ClientConfig
 }
 
 // New constructs a new verson control server client.
-func New(config Config) *Client {
+func New(config ClientConfig) *Client {
 	return &Client{
 		config: config,
 	}
