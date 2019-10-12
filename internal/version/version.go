@@ -123,6 +123,13 @@ func (rb *RolloutBytes) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (rb rolloutBytes) UnmarshalJSON(b []byte) error {
+	if _, err := hex.Decode(rb[:], b); err != nil {
+		return err
+	}
+	return nil
+}
+
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
 func NewSemVer(v string) (sv SemVer, err error) {
