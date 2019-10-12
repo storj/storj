@@ -118,7 +118,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
-		Difficulty:  9,
+		Difficulty:  0,
 		Concurrency: 1,
 	})
 	if err != nil {
