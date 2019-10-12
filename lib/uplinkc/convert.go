@@ -6,6 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -34,6 +35,19 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 		created:      C.int64_t(object.Created.Unix()),
 		modified:     C.int64_t(object.Modified.Unix()),
 		expires:      C.int64_t(object.Expires.Unix()),
+	}
+}
+
+func newCaveat(caveat *macaroon.Caveat) C.Caveat {
+	return C.Caveat{
+		disallow_reads:   C.bool(caveat.DisallowReads),
+		disallow_writes:  C.bool(caveat.DisallowWrites),
+		disallow_lists:   C.bool(caveat.DisallowLists),
+		disallow_deletes: C.bool(caveat.DisallowDeletes),
+		allowed_paths:    C.CaveatPathsRef{universe.Add(caveat.AllowedPaths)},
+		not_after:        C.int64_t(caveat.NotAfter.Unix()),
+		not_before:       C.int64_t(caveat.NotBefore.Unix()),
+		nonce:            C.CaveatNonceRef{universe.Add(caveat.Nonce)},
 	}
 }
 
