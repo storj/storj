@@ -49,7 +49,7 @@ func NewService(log *zap.Logger, config ServiceConfig, info version.Info, servic
 	return &Service{
 		log:     log,
 		config:  config,
-		client:  vc_client.New(config.Client),
+		client:  vc_client.New(config.Config),
 		info:    info,
 		service: service,
 		Loop:    sync2.NewCycle(config.CheckInterval),
