@@ -17,7 +17,6 @@
 
 # VSCode
 /.vscode
-debug
 
 # Visual Studio
 /.vs
