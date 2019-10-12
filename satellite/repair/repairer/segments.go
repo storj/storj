@@ -78,7 +78,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
-		return storj.ErrObjectNotFound.Has(err), Error.Wrap(err)
+		mon.Meter("repair_unnecessary").Mark(1)
+		repairer.log.Sugar().Debugf("segment %v was deleted", path)
+		return true, nil
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
