@@ -124,6 +124,12 @@ contact.external-address: ""
 # how often to run the transfer queue chore.
 # graceful-exit.chore-interval: 30s
 
+# size of the buffer used to batch transfer queue reads and sends to the storage node.
+# graceful-exit.endpoint-batch-size: 100
+
+# maximum number of transfer failures per piece.
+# graceful-exit.endpoint-max-failures: 3
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
