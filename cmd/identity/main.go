@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/versioncontrol"
 )
 
 const (
@@ -63,7 +64,7 @@ var (
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 
-		Version version.Config
+		Version versioncontrol.ServiceConfig
 	}
 
 	identityDir, configDir string
@@ -90,7 +91,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err := versioncontrol.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err = versioncontrol.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}

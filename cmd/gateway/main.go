@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/versioncontrol"
 )
 
 // GatewayFlags configuration flags
@@ -38,7 +39,7 @@ type GatewayFlags struct {
 
 	uplink.Config
 
-	Version version.Config
+	Version versioncontrol.ServiceConfig
 }
 
 var (
@@ -140,7 +141,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = version.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
+	err = versioncontrol.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
 	if err != nil {
 		return err
 	}

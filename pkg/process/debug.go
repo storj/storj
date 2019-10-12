@@ -15,7 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
-	"storj.io/storj/internal/version"
+	"storj.io/storj/versioncontrol"
 )
 
 var (
@@ -36,7 +36,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	mux.Handle("/version/", http.StripPrefix("/version", version.NewDebugHandler(logger.Named("version"))))
+	mux.Handle("/version/", http.StripPrefix("/version", versioncontrol.NewDebugHandler(logger.Named("version"))))
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
 	mux.HandleFunc("/metrics", prometheus)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

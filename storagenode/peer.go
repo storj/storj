@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/versioncontrol"
 )
 
 var (
@@ -91,7 +92,7 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version version.Config
+	Version versioncontrol.ServiceConfig
 
 	Bandwidth bandwidth.Config
 
@@ -116,7 +117,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *versioncontrol.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -179,7 +180,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = versioncontrol.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/versioncontrol"
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
@@ -131,7 +132,7 @@ type Config struct {
 
 	Marketing marketingweb.Config
 
-	Version version.Config
+	Version versioncontrol.ServiceConfig
 
 	GracefulExit gracefulexit.Config
 }
@@ -149,7 +150,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *versioncontrol.Service
 
 	// services and endpoints
 	Contact struct {
@@ -255,7 +256,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = versioncontrol.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server

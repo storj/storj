@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +18,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -30,7 +28,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/internal/version"
+	vc_client "storj.io/storj/versioncontrol/client"
 )
 
 var (
@@ -125,33 +123,30 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 // TODO: move us
 var Error = errs.Class("version update error")
+
 func update(ctx context.Context) (err error) {
+	// TODO: use config struct binding
+	clientConfig := vc_client.Config{
+		ServerAddress:  versionURL,
+		RequestTimeout: time.Minute,
+	}
+	client := vc_client.New(clientConfig)
+
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {
 		return err
 	}
 	log.Println("downloading versions from", versionURL)
-	versions, err := queryVersionControlServer()
+	process, err := client.Process(ctx, serviceName)
 	if err != nil {
 		return err
-	}
-
-	processesValue := reflect.ValueOf(versions.Processes)
-	processField := processesValue.FieldByName(strings.Title(serviceName))
-
-	processErr := Error.New("invalid service name: %s", serviceName)
-	if processField == (reflect.Value{}) {
-		return processErr
-	}
-	process, ok := processField.Interface().(version.Process)
-	if !ok {
-		return processErr
 	}
 
 	downloadURL := process.Suggested.URL
 	downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
 	downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
 
+	// TODO: check rollout
 	suggestedVersion, err := semver.Parse(process.Suggested.Version)
 	if err != nil {
 		return Error.Wrap(err)
@@ -208,9 +203,9 @@ func update(ctx context.Context) (err error) {
 	} else {
 		log.Printf("%s version is up to date\n", serviceName)
 	}
+
 	return nil
 }
-
 
 func binaryVersion(location string) (semver.Version, error) {
 	out, err := exec.Command(location, "version").Output()
@@ -231,25 +226,6 @@ func binaryVersion(location string) (semver.Version, error) {
 		}
 	}
 	return semver.Version{}, errs.New("unable to determine binary version")
-}
-
-func queryVersionControlServer() (versions version.AllowedVersions, err error) {
-	resp, err := http.Get(versionURL)
-	if err != nil {
-		return versions, err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return versions, err
-	}
-
-	err = json.Unmarshal(body, &versions)
-	if err != nil {
-		return versions, err
-	}
-	return versions, nil
 }
 
 func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {

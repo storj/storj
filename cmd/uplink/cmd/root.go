@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/versioncontrol"
 )
 
 // UplinkFlags configuration flags
@@ -29,7 +30,7 @@ type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 	uplink.Config
 
-	Version version.Config
+	Version versioncontrol.ServiceConfig
 }
 
 var (
@@ -86,7 +87,7 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
 func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project, err error) {
-	err = version.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
+	err = versioncontrol.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}

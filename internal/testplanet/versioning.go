@@ -59,10 +59,12 @@ func (planet *Planet) NewVersionInfo() version.Info {
 }
 
 // NewVersionConfig returns the Version Config for this planet with tuned metrics.
-func (planet *Planet) NewVersionConfig() version.Config {
-	return version.Config{
-		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
-		RequestTimeout: time.Second * 15,
-		CheckInterval:  time.Minute * 5,
+func (planet *Planet) NewVersionConfig() versioncontrol.ServiceConfig {
+	config := versioncontrol.ServiceConfig{
+		CheckInterval: time.Minute * 5,
 	}
+
+	config.ServerAddress = fmt.Sprintf("http://%s/", planet.VersionControl.Addr())
+	config.RequestTimeout = time.Second * 15
+	return config
 }
