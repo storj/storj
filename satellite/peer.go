@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/versioncontrol"
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
@@ -56,6 +55,7 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
+	"storj.io/storj/versioncontrol"
 )
 
 var mon = monkit.Package()
