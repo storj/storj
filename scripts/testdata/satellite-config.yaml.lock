@@ -136,8 +136,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console' or 'json'
-# log.encoding: console
+# configures log encoding. can either be 'console', 'pretty', or 'json'
+# log.encoding: pretty
 
 # the minimum log level to log
 # log.level: info
