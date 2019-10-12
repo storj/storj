@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -56,7 +57,7 @@ var (
 	interval       string
 	versionURL     string
 	binaryLocation string
-	snServiceName  string
+	serviceName    string
 	logPath        string
 )
 
@@ -67,7 +68,7 @@ func init() {
 	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
 	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
 
-	runCmd.Flags().StringVar(&snServiceName, "service-name", "storagenode", "storage node OS service name")
+	runCmd.Flags().StringVar(&serviceName, "service-name", "storagenode", "storage node OS service name")
 	runCmd.Flags().StringVar(&logPath, "log", "", "path to log file, if empty standard output will be used")
 }
 
@@ -97,74 +98,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		cancel()
 	}()
 
-	update := func(ctx context.Context) (err error) {
-		currentVersion, err := binaryVersion(binaryLocation)
-		if err != nil {
-			return err
-		}
-		log.Println("downloading versions from", versionURL)
-		suggestedVersion, downloadURL, err := suggestedVersion()
-		if err != nil {
-			return err
-		}
-
-		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
-		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
-
-		if currentVersion.Compare(suggestedVersion) < 0 {
-			tempArchive, err := ioutil.TempFile(os.TempDir(), "storagenode")
-			if err != nil {
-				return errs.New("cannot create temporary archive: %v", err)
-			}
-			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
-
-			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
-			err = downloadArchive(ctx, tempArchive, downloadURL)
-			if err != nil {
-				return err
-			}
-			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
-
-			extension := filepath.Ext(binaryLocation)
-			if extension != "" {
-				extension = "." + extension
-			}
-
-			dir := filepath.Dir(binaryLocation)
-			backupExec := filepath.Join(dir, "storagenode.old."+currentVersion.String()+extension)
-
-			if err = os.Rename(binaryLocation, backupExec); err != nil {
-				return err
-			}
-
-			err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
-			if err != nil {
-				return err
-			}
-
-			downloadedVersion, err := binaryVersion(binaryLocation)
-			if err != nil {
-				return err
-			}
-
-			if suggestedVersion.Compare(downloadedVersion) != 0 {
-				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
-			}
-
-			log.Println("restarting service", snServiceName)
-			err = restartSNService(snServiceName)
-			if err != nil {
-				return errs.New("unable to restart service: %v", err)
-			}
-			log.Println("service", snServiceName, "restarted successfully")
-
-			// TODO remove old binary ??
-		} else {
-			log.Println("storage node version is up to date")
-		}
-		return nil
-	}
-
 	loopInterval, err := time.ParseDuration(interval)
 	if err != nil {
 		return errs.New("unable to parse interval parameter: %v", err)
@@ -190,6 +123,95 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// TODO: move us
+var Error = errs.Class("version update error")
+func update(ctx context.Context) (err error) {
+	currentVersion, err := binaryVersion(binaryLocation)
+	if err != nil {
+		return err
+	}
+	log.Println("downloading versions from", versionURL)
+	versions, err := queryVersionControlServer()
+	if err != nil {
+		return err
+	}
+
+	processesValue := reflect.ValueOf(versions.Processes)
+	processField := processesValue.FieldByName(strings.Title(serviceName))
+
+	processErr := Error.New("invalid service name: %s", serviceName)
+	if processField == (reflect.Value{}) {
+		return processErr
+	}
+	process, ok := processField.Interface().(version.Process)
+	if !ok {
+		return processErr
+	}
+
+	downloadURL := process.Suggested.URL
+	downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
+	downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
+
+	suggestedVersion, err := semver.Parse(process.Suggested.Version)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if currentVersion.Compare(suggestedVersion) < 0 {
+		tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
+		if err != nil {
+			return errs.New("cannot create temporary archive: %v", err)
+		}
+		defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+
+		log.Println("start downloading", downloadURL, "to", tempArchive.Name())
+		err = downloadArchive(ctx, tempArchive, downloadURL)
+		if err != nil {
+			return err
+		}
+		log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
+
+		extension := filepath.Ext(binaryLocation)
+		if extension != "" {
+			extension = "." + extension
+		}
+
+		dir := filepath.Dir(binaryLocation)
+		backupExec := filepath.Join(dir, serviceName+".old."+currentVersion.String()+extension)
+
+		if err = os.Rename(binaryLocation, backupExec); err != nil {
+			return err
+		}
+
+		err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
+		if err != nil {
+			return err
+		}
+
+		downloadedVersion, err := binaryVersion(binaryLocation)
+		if err != nil {
+			return err
+		}
+
+		if suggestedVersion.Compare(downloadedVersion) != 0 {
+			return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+		}
+
+		log.Println("restarting service", serviceName)
+		err = restartSNService(serviceName)
+		if err != nil {
+			return errs.New("unable to restart service: %v", err)
+		}
+		log.Println("service", serviceName, "restarted successfully")
+
+		// TODO remove old binary ??
+	} else {
+		log.Printf("%s version is up to date\n", serviceName)
+	}
+	return nil
+}
+
+
 func binaryVersion(location string) (semver.Version, error) {
 	out, err := exec.Command(location, "version").Output()
 	if err != nil {
@@ -211,30 +233,23 @@ func binaryVersion(location string) (semver.Version, error) {
 	return semver.Version{}, errs.New("unable to determine binary version")
 }
 
-func suggestedVersion() (ver semver.Version, url string, err error) {
+func queryVersionControlServer() (versions version.AllowedVersions, err error) {
 	resp, err := http.Get(versionURL)
 	if err != nil {
-		return ver, url, err
+		return versions, err
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return ver, url, err
+		return versions, err
 	}
 
-	var response version.AllowedVersions
-	err = json.Unmarshal(body, &response)
+	err = json.Unmarshal(body, &versions)
 	if err != nil {
-		return ver, url, err
+		return versions, err
 	}
-
-	suggestedVersion := response.Processes.Storagenode.Suggested
-	ver, err = semver.Make(suggestedVersion.Version)
-	if err != nil {
-		return ver, url, err
-	}
-	return ver, suggestedVersion.URL, nil
+	return versions, nil
 }
 
 func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {
