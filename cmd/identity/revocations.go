@@ -27,8 +27,8 @@ var (
 	}
 
 	revCfg struct {
-		//RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)"`
-		RevocationDBURL string `default:"redis://127.0.0.1:6379?db=0&password=abc123" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6379?db=2&password=abc123)"`
+		//todo should this be the same url? why might they be different?
+		RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)"`
 	}
 )
 
@@ -41,6 +41,7 @@ func init() {
 func cmdRevocations(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	if len(args) > 0 {
+		// TODO add a check for redis? what args might there be?
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
 

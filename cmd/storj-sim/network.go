@@ -85,6 +85,11 @@ func networkExec(flags *Flags, args []string, command string) error {
 		if err != nil {
 			return err
 		}
+		//address, cleanup, err := redisserver.Start()
+		//if err != nil {
+		//	return err
+		//}
+		// figure out how to pass address to _ and cleanup to _
 	}
 
 	err = processes.Exec(ctx, command)
@@ -244,7 +249,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
-				//"--server.extensions.revocation=false",
 				"--server.extensions.revocation=true",
 				"--server.use-peer-ca-whitelist=false",
 
