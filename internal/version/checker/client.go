@@ -20,9 +20,11 @@ import (
 var (
 	mon = monkit.Package()
 
+	// Error is the error class for version control client errors.
 	Error = errs.Class("version control client error")
 )
 
+// ClientConfig is the config struct for the version control client.
 type ClientConfig struct {
 	ServerAddress  string        `help:"server address to check its version against" default:"https://version.storj.io"`
 	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
@@ -69,6 +71,8 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 	return ver, err
 }
 
+// OldMinimum returns the version with the given name at the root-level of the version control response.
+// NB: This will be deprecated eventually in favor of what is currently the `processes` root-level object.
 func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver version.SemVer, err error) {
 	defer mon.Task()(&ctx, serviceName)(&err)
 
@@ -79,6 +83,7 @@ func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver v
 	return getFieldString(&versions, serviceName), nil
 }
 
+// Process returns the version info for the named process from the version control server response.
 func (client *Client) Process(ctx context.Context, processName string) (process version.Process, err error) {
 	defer mon.Task()(&ctx, processName)(&err)
 

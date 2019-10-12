@@ -121,9 +121,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// TODO: move us
-var Error = errs.Class("version update error")
-
+// TODO: refactor
 func update(ctx context.Context) (err error) {
 	// TODO: use config struct binding
 	clientConfig := checker.ClientConfig{
@@ -149,7 +147,7 @@ func update(ctx context.Context) (err error) {
 	// TODO: check rollout
 	suggestedVersion, err := semver.Parse(process.Suggested.Version)
 	if err != nil {
-		return Error.Wrap(err)
+		return checker.Error.Wrap(err)
 	}
 
 	if currentVersion.Compare(suggestedVersion) < 0 {

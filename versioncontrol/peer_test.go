@@ -96,7 +96,7 @@ func TestPeer_Run(t *testing.T) {
 		for i := 1; i < fieldCount; i++ {
 			versions := versioncontrol.Versions{}
 			versionsValue := reflect.ValueOf(&versions)
-			field := versionsValue.Elem().Field(i-1)
+			field := versionsValue.Elem().Field(i - 1)
 
 			binary := versioncontrol.Binary{
 				Rollout: versioncontrol.Rollout{

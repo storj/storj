@@ -164,4 +164,3 @@ func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func isAcceptedVersion(test version.SemVer, target version.SemVer) bool {
 	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
 }
-
