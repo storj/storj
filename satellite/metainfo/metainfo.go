@@ -452,6 +452,42 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 	return &pb.ListSegmentsResponseOld{Items: segmentItems, More: more}, nil
 }
 
+// AdminSegmentAudit provides a mechanism to page through all segments in a project
+func (endpoint *Endpoint) AdminSegmentAudit(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:   macaroon.ActionList,
+		Time: time.Now(),
+		// TODO: break req.Prefix apart and put bucket/prefix into the action if available
+	})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	entries := append(make([]string, 0, 2), keyInfo.ProjectID.String())
+	if len(req.Prefix) != 0 {
+		entries = append(entries, string(req.Prefix))
+	}
+	prefix := storj.JoinPaths(entries...)
+
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	segmentItems := make([]*pb.ListSegmentsResponseOld_Item, len(items))
+	for i, item := range items {
+		segmentItems[i] = &pb.ListSegmentsResponseOld_Item{
+			Path:     []byte(item.Path),
+			Pointer:  item.Pointer,
+			IsPrefix: item.IsPrefix,
+		}
+	}
+
+	return &pb.ListSegmentsResponseOld{Items: segmentItems, More: more}, nil
+}
+
 func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	entries := make([]string, 0)
 	entries = append(entries, projectID.String())

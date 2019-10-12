@@ -4023,6 +4023,11 @@
                 "out_type": "SetAttributionResponseOld"
               },
               {
+                "name": "AdminSegmentAudit",
+                "in_type": "ListSegmentsRequestOld",
+                "out_type": "ListSegmentsResponseOld"
+              },
+              {
                 "name": "ProjectInfo",
                 "in_type": "ProjectInfoRequest",
                 "out_type": "ProjectInfoResponse"

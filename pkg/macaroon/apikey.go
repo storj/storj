@@ -256,6 +256,12 @@ func (c *Caveat) Allows(action Action) bool {
 	}
 
 	if len(c.AllowedPaths) > 0 && action.Op != ActionProjectInfo {
+		// if there's no bucket provided by the action, then the action potentially
+		// spans multiple buckets
+		if len(action.Bucket) == 0 {
+			return false
+		}
+
 		found := false
 		for _, path := range c.AllowedPaths {
 			if bytes.Equal(action.Bucket, path.Bucket) &&

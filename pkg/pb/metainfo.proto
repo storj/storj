@@ -47,6 +47,8 @@ service Metainfo {
     rpc ListSegmentsOld(ListSegmentsRequestOld) returns (ListSegmentsResponseOld);
     rpc SetAttributionOld(SetAttributionRequestOld) returns (SetAttributionResponseOld);
 
+    rpc AdminSegmentAudit(ListSegmentsRequestOld) returns (ListSegmentsResponseOld);
+
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
 }
 
