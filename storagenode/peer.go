@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"storj.io/storj/internal/version/checker"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"

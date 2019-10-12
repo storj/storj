@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
-	"storj.io/storj/internal/version/checker"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,6 +17,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"

@@ -5,7 +5,6 @@ package console
 
 import (
 	"context"
-	"storj.io/storj/internal/version/checker"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
