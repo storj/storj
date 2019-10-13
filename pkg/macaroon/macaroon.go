@@ -29,6 +29,15 @@ func NewUnrestricted(secret []byte) (*Macaroon, error) {
 	}, nil
 }
 
+// NewUnrestrictedFixedHead creates a new macaroon with a fixed head and a
+// generated tail
+func NewUnrestrictedFixedHead(secret []byte, head []byte) (*Macaroon, error) {
+	return &Macaroon{
+		head: head,
+		tail: sign(secret, head),
+	}, nil
+}
+
 func sign(secret []byte, data []byte) []byte {
 	signer := hmac.New(sha256.New, secret)
 	_, err := signer.Write(data)
