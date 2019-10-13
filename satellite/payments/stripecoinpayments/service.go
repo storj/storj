@@ -5,7 +5,6 @@ package stripecoinpayments
 
 import (
 	"github.com/stripe/stripe-go/client"
-
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
