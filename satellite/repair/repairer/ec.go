@@ -70,6 +70,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
+	mon.IntVal("ECRepairer_Get_nonNilLimits").Observe(int64(nonNilLimits))
+
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
 
 	var successfulPieces, inProgress int
