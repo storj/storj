@@ -104,7 +104,6 @@ func (m *GetNonExitingSatellitesRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetNonExitingSatellitesRequest proto.InternalMessageInfo
 
-// StartExitRequest
 type StartExitRequest struct {
 	NodeIds              []NodeID `protobuf:"bytes,1,rep,name=node_ids,json=nodeIds,proto3,customtype=NodeID" json:"node_ids"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -136,6 +135,7 @@ func (m *StartExitRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StartExitRequest proto.InternalMessageInfo
 
+// NonExitingSatellite contains information that's needed for a storagenode to start graceful exit
 type NonExitingSatellite struct {
 	NodeId               NodeID   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
 	DomainName           string   `protobuf:"bytes,2,opt,name=domain_name,json=domainName,proto3" json:"domain_name,omitempty"`
@@ -221,6 +221,7 @@ func (m *GetNonExitingSatellitesResponse) GetSatellites() []*NonExitingSatellite
 	return nil
 }
 
+// StartExitStatus indicates the result of graceful exit initialization from a storagenode
 type StartExitStatus struct {
 	DomainName           string   `protobuf:"bytes,1,opt,name=domain_name,json=domainName,proto3" json:"domain_name,omitempty"`
 	Success              bool     `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
