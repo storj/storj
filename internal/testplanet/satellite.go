@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -119,11 +118,6 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					UptimeReputationDQ:           0.6,
 				},
 				UpdateStatsBatchSize: 100,
-			},
-			Discovery: discovery.Config{
-				RefreshInterval:    1 * time.Second,
-				RefreshLimit:       100,
-				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
