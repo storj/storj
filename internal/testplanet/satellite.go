@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -211,6 +212,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 				EndpointBatchSize:   100,
 				EndpointMaxFailures: 5,
+			},
+			Metrics: metrics.Config{
+				Interval: defaultInterval,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
