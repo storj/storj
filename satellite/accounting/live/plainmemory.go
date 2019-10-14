@@ -37,6 +37,7 @@ func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
 func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal, ok := pmac.spaceDeltas[projectID]
@@ -49,7 +50,8 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
@@ -61,7 +63,8 @@ func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Contex
 // ResetTotals reset all space-used totals for all projects back to zero. This
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
-func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) error {
+func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	pmac.log.Debug("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]int64)

@@ -34,6 +34,7 @@ func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounti
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
 func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	val, err := cache.client.Get(ctx, []byte(projectID.String()))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -48,14 +49,16 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return cache.client.IncrBy(ctx, []byte(projectID.String()), inlineSpaceUsed+remoteSpaceUsed)
 }
 
 // ResetTotals reset all space-used totals for all projects back to zero. This
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
-func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) error {
+func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	cache.log.Debug("Resetting real-time accounting data")
 	return cache.client.FlushDB()
 }

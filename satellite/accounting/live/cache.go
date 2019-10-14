@@ -8,9 +8,12 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/accounting"
 )
+
+var mon = monkit.Package()
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
