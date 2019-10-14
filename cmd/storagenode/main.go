@@ -77,7 +77,7 @@ var (
 	}
 	gracefulExitStatusCmd = &cobra.Command{
 		Use:         "exit-status",
-		Short:       " Display graceful exit status",
+		Short:       "Display graceful exit status",
 		RunE:        cmdGracefulExitStatus,
 		Annotations: map[string]string{"type": "helper"},
 	}

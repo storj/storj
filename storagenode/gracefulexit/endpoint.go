@@ -137,11 +137,15 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		Progress: make([]*pb.ExitProgress, 0, len(exitProgress)),
 	}
 	for _, progress := range exitProgress {
-		// TODO: check completion receipt, if it exits, we should just return 100%
 		var percentCompleted float32
-		if progress.StartingDiskUsage != 0 {
-			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
+		if progress.CompletionReceipt != nil {
+			percentCompleted = float32(100)
+		} else {
+			if progress.StartingDiskUsage != 0 {
+				percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
+			}
 		}
+
 		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
 		if err != nil {
 			e.log.Debug("graceful exit: get satellite domian name", zap.String("satelliteID", progress.SatelliteID.String()), zap.Error(err))
