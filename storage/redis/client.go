@@ -6,6 +6,7 @@ package redis
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/url"
 	"sort"
 	"strconv"
@@ -21,8 +22,7 @@ import (
 var (
 	// Error is a redis error
 	Error = errs.Class("redis error")
-
-	mon = monkit.Package()
+	mon   = monkit.Package()
 )
 
 // TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay.
@@ -50,7 +50,6 @@ func NewClient(address, password string, db int) (*Client, error) {
 	if err := client.db.Ping().Err(); err != nil {
 		return nil, Error.New("ping failed: %v", err)
 	}
-
 	return client, nil
 }
 
@@ -71,7 +70,6 @@ func NewClientFrom(address string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
 
@@ -128,9 +126,14 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	}
 
 	results, err := client.db.MGet(keyStrings...).Result()
+	if len(results) == 0 && err.Error() == "ERR wrong number of arguments for 'mget' command" {
+		fmt.Println("No Revocations Present")
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	values := []storage.Value{}
 	for _, result := range results {
 		if result == nil {

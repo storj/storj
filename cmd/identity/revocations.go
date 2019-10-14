@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -39,10 +38,10 @@ func init() {
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	if len(args) > 0 {
-		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
-	}
-
+	//if len(args) > 0 {
+	//	revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
+	//}
+	revCfg.RevocationDBURL = "redis://127.0.0.1:6379?db=2"
 	revDB, err := revocation.NewDB(revCfg.RevocationDBURL)
 	if err != nil {
 		return err
