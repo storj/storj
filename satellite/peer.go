@@ -769,9 +769,7 @@ func (peer *Peer) Close() error {
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
 	}
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
-	}
+
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())
 	}
