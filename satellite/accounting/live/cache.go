@@ -17,7 +17,7 @@ type Config struct {
 	StorageBackend string `help:"what to use for storing real-time accounting data" default:"plainmemory"`
 }
 
-// NewCache creates a new live.Service instance of the type specified in
+// NewCache creates a new accounting.LiveAccounting instance using the type specified backend in
 // the provided config.
 func NewCache(log *zap.Logger, config Config) (accounting.LiveAccounting, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)

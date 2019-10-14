@@ -62,12 +62,12 @@ func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Contex
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
 func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) error {
-	pmac.log.Info("Resetting real-time accounting data")
+	pmac.log.Debug("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]int64)
 	pmac.spaceMapLock.Unlock()
 	return nil
 }
 
-// Close matches the accounting.LiveAccounting interface
+// Close matches the accounting.LiveAccounting interface.
 func (pmac *plainMemoryLiveAccounting) Close() error { return nil }

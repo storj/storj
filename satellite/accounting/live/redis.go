@@ -56,11 +56,11 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
 func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) error {
-	cache.log.Info("Resetting real-time accounting data")
+	cache.log.Debug("Resetting real-time accounting data")
 	return cache.client.FlushDB()
 }
 
-// Close the DB connection
+// Close the DB connection.
 func (cache *redisLiveAccounting) Close() error {
 	return cache.client.Close()
 }
