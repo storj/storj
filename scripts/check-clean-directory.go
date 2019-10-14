@@ -32,8 +32,6 @@ func main() {
 	// TODO: shouldn't this be already up to date?
 	leftover = ignorePrefix(leftover, "web/satellite/package-lock.json")
 
-	leftover = ignorePrefix(leftover, ".gradle")
-
 	if len(leftover) != 0 {
 		fmt.Println("Files left-over after running tests:")
 		for _, file := range leftover {
