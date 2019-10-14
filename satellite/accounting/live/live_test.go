@@ -31,8 +31,7 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := cache.(*plainMemoryLiveAccounting)
-	assert.True(t, ok)
+	assert.IsType(t, &plainMemoryLiveAccounting{}, cache)
 
 	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
@@ -69,8 +68,7 @@ func TestRedisLiveAccounting(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := cache.(*redisLiveAccounting)
-	assert.True(t, ok)
+	assert.IsType(t, &redisLiveAccounting{}, cache)
 
 	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
@@ -173,8 +171,7 @@ func TestResetTotals(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := cache.(*plainMemoryLiveAccounting)
-	assert.True(t, ok)
+	assert.IsType(t, &plainMemoryLiveAccounting{}, cache)
 
 	projectID := testrand.UUID()
 	err = cache.AddProjectStorageUsage(ctx, projectID, 0, -20)
