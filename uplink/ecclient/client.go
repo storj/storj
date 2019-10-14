@@ -218,14 +218,14 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
 	if err != nil {
-		if err == context.Canceled {
+		if errs2.IsCanceled(err) {
 			if parent.Err() == context.Canceled {
 				ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
 			} else {
 				ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
 			}
 		} else {
-			nodeAddress := "nil"
+			nodeAddress := ""
 			if limit.GetStorageNodeAddress() != nil {
 				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 			}
