@@ -5,7 +5,7 @@ package live
 
 import (
 	"context"
-	"encoding/json"
+	"strconv"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
@@ -33,39 +33,23 @@ func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounti
 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
-func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (inlineTotal, remoteTotal int64, err error) {
-	marshalled, err := cache.client.Get(ctx, []byte(projectID.String()))
+func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
+	val, err := cache.client.Get(ctx, []byte(projectID.String()))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return 0, 0, nil
+			return 0, nil
 		}
-		return 0, 0, err
+		return 0, err
 	}
-	var curVal spaceUsedAccounting
-	err = json.Unmarshal(marshalled, &curVal)
-	if err != nil {
-		return 0, 0, err
-	}
-	return curVal.InlineSpace, curVal.RemoteSpace, nil
+	intval, err := strconv.Atoi(string(val))
+	return int64(intval), err
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added InlineSpaceUsed bytes of inline space usage
-// and RemoteSpaceUsed bytes of remote space usage.
+// project has just added inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
 func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
-	curInlineTotal, curRemoteTotal, err := cache.GetProjectStorageUsage(ctx, projectID)
-	if err != nil {
-		return err
-	}
-	totalSpaceUsed := spaceUsedAccounting{
-		InlineSpace: curInlineTotal + inlineSpaceUsed,
-		RemoteSpace: curRemoteTotal + remoteSpaceUsed,
-	}
-	marshalled, err := json.Marshal(totalSpaceUsed)
-	if err != nil {
-		return err
-	}
-	return cache.client.Put(ctx, []byte(projectID.String()), marshalled)
+	return cache.client.IncrBy(ctx, []byte(projectID.String()), inlineSpaceUsed+remoteSpaceUsed)
 }
 
 // ResetTotals reset all space-used totals for all projects back to zero. This

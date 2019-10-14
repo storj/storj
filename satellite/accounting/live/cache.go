@@ -17,11 +17,6 @@ type Config struct {
 	StorageBackend string `help:"what to use for storing real-time accounting data" default:"plainmemory"`
 }
 
-type spaceUsedAccounting struct {
-	InlineSpace int64
-	RemoteSpace int64
-}
-
 // NewCache creates a new live.Service instance of the type specified in
 // the provided config.
 func NewCache(log *zap.Logger, config Config) (accounting.LiveAccounting, error) {

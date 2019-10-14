@@ -23,36 +23,38 @@ type plainMemoryLiveAccounting struct {
 	log *zap.Logger
 
 	spaceMapLock sync.RWMutex
-	spaceDeltas  map[uuid.UUID]spaceUsedAccounting
+	spaceDeltas  map[uuid.UUID]int64
 }
 
 func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, error) {
 	pmac := &plainMemoryLiveAccounting{log: log}
 	pmac.spaceMapLock.Lock()
-	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting, 0)
+	pmac.spaceDeltas = make(map[uuid.UUID]int64, 0)
 	pmac.spaceMapLock.Unlock()
 	return pmac, nil
 }
 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
-func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (inlineTotal, remoteTotal int64, err error) {
+func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
-	curVal := pmac.spaceDeltas[projectID]
-	return curVal.InlineSpace, curVal.RemoteSpace, nil
+	curVal, ok := pmac.spaceDeltas[projectID]
+	if !ok {
+		return 0, nil
+	}
+	return curVal, nil
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added InlineSpaceUsed bytes of inline space usage
-// and RemoteSpaceUsed bytes of remote space usage.
+// project has just added inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
 func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
-	curVal.InlineSpace += inlineSpaceUsed
-	curVal.RemoteSpace += remoteSpaceUsed
-	pmac.spaceDeltas[projectID] = curVal
+	newTotal := curVal + inlineSpaceUsed + remoteSpaceUsed
+	pmac.spaceDeltas[projectID] = newTotal
 	return nil
 }
 
@@ -62,7 +64,7 @@ func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Contex
 func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) error {
 	pmac.log.Info("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
-	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting)
+	pmac.spaceDeltas = make(map[uuid.UUID]int64)
 	pmac.spaceMapLock.Unlock()
 	return nil
 }

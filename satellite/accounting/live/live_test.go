@@ -39,10 +39,9 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 
 	// make sure all of the "projects" got all space updates and got right totals
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
-		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
-		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
+		assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
 	}
 }
 
@@ -69,20 +68,18 @@ func TestRedisLiveAccounting(t *testing.T) {
 
 	// make sure all of the "projects" got all space updates and got right totals
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
-		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
-		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
+		assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
 	}
 
 	err = cache.ResetTotals(ctx)
 	require.NoError(t, err)
 
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
-		assert.EqualValues(t, 0, inlineUsed)
-		assert.EqualValues(t, 0, remoteUsed)
+		assert.EqualValues(t, 0, spaceUsed)
 	}
 }
 
@@ -107,8 +104,8 @@ func TestRedisCacheConcurrency(t *testing.T) {
 		inlineAmount  = 10
 		remoteAmount  = 10
 	)
-	expectedInlineSum := inlineAmount * numConcurrent
-	expectedRemoteSum := inlineAmount * numConcurrent
+	expectedSum := (inlineAmount * numConcurrent) + (remoteAmount * numConcurrent)
+
 	var group errgroup.Group
 	for i := 0; i < numConcurrent; i++ {
 		group.Go(func() error {
@@ -117,11 +114,10 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	}
 	require.NoError(t, group.Wait())
 
-	inlineSum, remoteSum, err := cache.GetProjectStorageUsage(ctx, projectID)
+	spaceUsed, err := cache.GetProjectStorageUsage(ctx, projectID)
 	require.NoError(t, err)
 
-	require.EqualValues(t, expectedInlineSum, inlineSum)
-	require.EqualValues(t, expectedRemoteSum, remoteSum)
+	require.EqualValues(t, expectedSum, spaceUsed)
 }
 
 func TestResetTotals(t *testing.T) {
