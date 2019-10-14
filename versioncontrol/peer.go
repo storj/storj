@@ -149,14 +149,32 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes = version.Processes{}
-	peer.Versions.Processes.Satellite = configToProcess(config.Binary.Satellite)
-	peer.Versions.Processes.Storagenode = configToProcess(config.Binary.Storagenode)
-	peer.Versions.Processes.Uplink = configToProcess(config.Binary.Uplink)
-	peer.Versions.Processes.Gateway = configToProcess(config.Binary.Gateway)
-	peer.Versions.Processes.Identity = configToProcess(config.Binary.Identity)
+	peer.Versions.Processes.Satellite, err = configToProcess(config.Binary.Satellite)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Storagenode, err = configToProcess(config.Binary.Storagenode)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Uplink, err = configToProcess(config.Binary.Uplink)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Gateway, err = configToProcess(config.Binary.Gateway)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Identity, err = configToProcess(config.Binary.Identity)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
 
 	peer.response, err = json.Marshal(peer.Versions)
-
 	if err != nil {
 		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
 	}
@@ -202,8 +220,8 @@ func (peer *Peer) Close() (err error) {
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Listener.Addr().String() }
 
-func configToProcess(binary Binary) version.Process {
-	return version.Process{
+func configToProcess(binary Binary) (version.Process, error) {
+	process := version.Process{
 		Minimum: version.Version{
 			Version: binary.Minimum.Version,
 			URL:     binary.Minimum.URL,
@@ -212,7 +230,14 @@ func configToProcess(binary Binary) version.Process {
 			Version: binary.Suggested.Version,
 			URL:     binary.Suggested.URL,
 		},
+		Rollout: version.Rollout{},
 	}
+
+	seedJSONBytes := []byte("\""+binary.Rollout.Seed+"\"")
+	if err := json.Unmarshal(seedJSONBytes, &process.Rollout.Seed); err != nil {
+		return version.Process{}, err
+	}
+	return process, nil
 }
 
 // ValidateRollouts validates the rollout field of each field in the Versions struct.

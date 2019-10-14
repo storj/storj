@@ -4,6 +4,7 @@
 package version
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -36,6 +37,7 @@ var (
 	Build Info
 
 	versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
+	quote        = byte('"')
 )
 
 // Info is the versioning information for a binary
@@ -93,8 +95,28 @@ type Version struct {
 
 // Rollout represents the state of a version rollout.
 type Rollout struct {
-	Seed   string `json:"seed"`
-	Cursor string `json:"cursor"`
+	Seed   RolloutBytes `json:"seed"`
+	Cursor RolloutBytes `json:"cursor"`
+}
+
+// RolloutBytes implements json un/marshalling using hex de/encoding.
+type RolloutBytes [32]byte
+
+// MarshalJSON hex-encodes RolloutBytes and pre/appends JSON string literal quotes.
+func (rb RolloutBytes) MarshalJSON() ([]byte, error) {
+	hexBytes := make([]byte, hex.EncodedLen(len(rb)))
+	hex.Encode(hexBytes, rb[:])
+	encoded := append([]byte{quote}, hexBytes...)
+	encoded = append(encoded, quote)
+	return encoded, nil
+}
+
+// UnmarshalJSON drops the JSON string literal quotes and hex-decodes RolloutBytes .
+func (rb *RolloutBytes) UnmarshalJSON(b []byte) error {
+	if _, err := hex.Decode(rb[:], b[1:len(b)-1]); err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewSemVer parses a given version and returns an instance of SemVer or
