@@ -25,7 +25,7 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 
 	// Chore config values
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"5s"`
 }
 
 // Service is the contact service between storage nodes and satellites

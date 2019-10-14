@@ -27,9 +27,6 @@ func TestGetSignee(t *testing.T) {
 
 	planet.Start(ctx)
 
-	// make sure nodes are refreshed in db
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 	trust := planet.StorageNodes[0].Storage2.Trust
 
 	canceledContext, cancel := context.WithCancel(ctx)
