@@ -45,7 +45,6 @@ func main() {
 		file := os.Args[1]
 		if err := ioutil.WriteFile(file, []byte(outputStr+"\n"), lockFilePerms); err != nil {
 			log.Fatalf("error while writing to file \"%s\": %s", file, err)
-			os.Exit(1)
 		}
 	} else {
 		fmt.Println(outputStr)
