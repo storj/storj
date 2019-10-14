@@ -1022,6 +1022,23 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	}
 	return exitingNodes, nil
 }
+func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(cache.db.Rebind("select id, exit_initiated_at, exit_loop_completed_at, exit_finished_at from nodes where id = ?"), nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+	exitStatus := &overlay.ExitStatus{}
+	if rows.Next() {
+		err = rows.Scan(&exitStatus.NodeID, &exitStatus.ExitInitiatedAt, &exitStatus.ExitLoopCompletedAt, &exitStatus.ExitFinishedAt)
+	}
+
+	return exitStatus, Error.Wrap(err)
+}
 
 // UpdateExitStatus is used to update a node's graceful exit status.
 func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
@@ -1080,6 +1097,11 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Patch: info.Patch,
 	}
 
+	exitStatus := overlay.ExitStatus{NodeID: id}
+	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
+	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
+	exitStatus.ExitFinishedAt = info.ExitFinishedAt
+
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -1108,6 +1130,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Contained:    info.Contained,
 		Disqualified: info.Disqualified,
 		PieceCount:   info.PieceCount,
+		ExitStatus:   exitStatus,
 	}
 
 	return node, nil

@@ -94,15 +94,6 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the amount of nodes refreshed in parallel
-# discovery.refresh-concurrency: 8
-
-# the interval at which the cache refreshes itself in seconds
-# discovery.refresh-interval: 1s
-
-# the amount of nodes read from the overlay in a single pagination call
-# discovery.refresh-limit: 100
-
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 
@@ -123,6 +114,12 @@ contact.external-address: ""
 
 # how often to run the transfer queue chore.
 # graceful-exit.chore-interval: 30s
+
+# size of the buffer used to batch transfer queue reads and sends to the storage node.
+# graceful-exit.endpoint-batch-size: 100
+
+# maximum number of transfer failures per piece.
+# graceful-exit.endpoint-max-failures: 3
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
@@ -197,7 +194,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.loop.coalesce-duration: 5s
 
 # maximum time allowed to pass between creating and committing a segment
-# metainfo.max-commit-interval: 1h0m0s
+# metainfo.max-commit-interval: 48h0m0s
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB

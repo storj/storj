@@ -55,10 +55,11 @@ message TransferSucceeded {
   metainfo.AddressedOrderLimit addressed_order_limit   = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
+  bytes piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID  
 }
 
 message TransferFailed {
-  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
   enum Error {
       NOT_FOUND                 = 0;
       STORAGE_NODE_UNAVAILABLE  = 1;
@@ -77,21 +78,21 @@ message StorageNodeMessage {
 message NotReady {}
 
 message TransferPiece {
-  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the current piece-id
+  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
   bytes private_key = 2 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
+
   // addressed_order_limit contains the new piece id.
   metainfo.AddressedOrderLimit addressed_order_limit =3;              
 }
 
 message DeletePiece {
-  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
 }
 
 message ExitCompleted {
   // when everything is completed
   bytes exit_complete_signature = 1;
 }
-
 
 message ExitFailed {
   enum Reason {
