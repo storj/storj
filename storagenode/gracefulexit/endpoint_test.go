@@ -76,3 +76,31 @@ func TestStartExiting(t *testing.T) {
 		require.Contains(t, exitingSatelliteIDs, status.SatelliteID)
 	}
 }
+
+func TestGetExitProgress(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	totalSatelliteCount := 3
+	planet, err := testplanet.New(t, totalSatelliteCount, 1, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+	exitingSatellite := planet.Satellites[0]
+	storagenode := planet.StorageNodes[0]
+
+	// start graceful exit
+	err = storagenode.DB.Satellites().InitiateGracefulExit(ctx, exitingSatellite.ID(), time.Now().UTC(), 100)
+	require.NoError(t, err)
+	err = storagenode.DB.Satellites().UpdateGracefulExit(ctx, exitingSatellite.ID(), 20)
+	require.NoError(t, err)
+
+	// check graceful exit progress
+	resp, err := storagenode.GracefulExit.Endpoint.GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.GetProgress(), 1)
+	progress := resp.GetProgress()[0]
+	require.Equal(t, progress.GetDomainName(), exitingSatellite.Addr())
+	require.Equal(t, progress.NodeId, exitingSatellite.ID())
+	require.Equal(t, float32(20), progress.GetPercentComplete())
+}

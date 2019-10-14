@@ -43,6 +43,10 @@ func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.
 	return client.conn.NodeGracefulExitClient().StartExit(ctx, req)
 }
 
+func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
+	return client.conn.NodeGracefulExitClient().GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+}
+
 func (client *gracefulExitClient) close() error {
 	return client.conn.Close()
 }
@@ -137,5 +141,48 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Printf("Started graceful exit on satellite: %s\n", status.GetDomainName())
 	}
+	return nil
+}
+
+func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	} else {
+		zap.S().Info("Node ID: ", ident.ID)
+	}
+
+	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() {
+		if err := client.close(); err != nil {
+			zap.S().Debug("closing graceful exit client failed", err)
+		}
+	}()
+
+	// call get status to get status for all satellites' that are in exiting
+	progresses, err := client.getExitProgress(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(progresses) < 1 {
+		fmt.Println("No graceful exit in progress.")
+		return nil
+	}
+
+	// display exit progress
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+	fmt.Fprintln(w, "Domain Name\tNode ID\tPercent Complete\t")
+
+	for _, progress := range progresses.GetProgress() {
+		fmt.Fprintln(w, progress.GetDomainName()+"\t"+progress.NodeId.String()+"\t"+fmt.Sprintf("%f", progress.GetPercentComplete())+"\t\n")
+	}
+
 	return nil
 }

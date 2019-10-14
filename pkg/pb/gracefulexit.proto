@@ -16,7 +16,8 @@ service NodeGracefulExit {
   rpc GetNonExitingSatellites(GetNonExitingSatellitesRequest) returns (GetNonExitingSatellitesResponse);
   // StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
   rpc StartExit(StartExitRequest) returns (StartExitResponse);
- 
+  // GetGracefulExitProgress returns graceful exit status on each satellite for a given storagenode
+  rpc GetExitProgress(GetExitProgressRequest) returns (GetExitProgressResponse);
 }
 
 message GetNonExitingSatellitesRequest{}
@@ -46,6 +47,18 @@ message StartExitResponse {
   repeated StartExitStatus statuses = 1;
 }
 
+message GetExitProgressRequest {}
+
+message GetExitProgressResponse {
+ repeated ExitProgress progress = 1;
+}
+
+message ExitProgress {
+    string domain_name = 1;
+    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    float percent_complete = 3;
+}
+
 service SatelliteGracefulExit {
  // Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
   rpc Process(stream StorageNodeMessage) returns (stream SatelliteMessage);
@@ -55,7 +68,7 @@ message TransferSucceeded {
   metainfo.AddressedOrderLimit addressed_order_limit   = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
-  bytes piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID  
+  bytes piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
 }
 
 message TransferFailed {
@@ -82,7 +95,7 @@ message TransferPiece {
   bytes private_key = 2 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 
   // addressed_order_limit contains the new piece id.
-  metainfo.AddressedOrderLimit addressed_order_limit =3;              
+  metainfo.AddressedOrderLimit addressed_order_limit =3;
 }
 
 message DeletePiece {
