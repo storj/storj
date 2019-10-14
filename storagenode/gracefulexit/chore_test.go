@@ -45,12 +45,11 @@ func TestChore(t *testing.T) {
 
 		exitProgress, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
 		require.NoError(t, err)
-		var finished int
+
 		for _, progress := range exitProgress {
-			if progress.SatelliteID == satellite1.ID() && progress.FinishedAt != nil {
-				finished++
+			if progress.SatelliteID == satellite1.ID() {
+				require.NotNil(t, progress.FinishedAt)
 			}
 		}
-		require.Equal(t, 1, finished)
 	})
 }

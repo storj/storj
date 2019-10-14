@@ -50,7 +50,7 @@ func NewChore(log *zap.Logger, config Config, satelliteDB satellites.DB) *Chore 
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	retval := chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
+	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		chore.log.Info("running graceful exit chore.")
@@ -91,7 +91,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		return nil
 	})
 
-	return retval
+	return err
 }
 
 // Close closes chore.
