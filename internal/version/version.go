@@ -20,7 +20,10 @@ import (
 
 // SemVerRegex is the regular expression used to parse a semantic version.
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
-const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
+const (
+	SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
+	quote              = byte('"')
+)
 
 var (
 	mon = monkit.Package()
@@ -37,7 +40,6 @@ var (
 	Build Info
 
 	versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
-	quote        = byte('"')
 )
 
 // Info is the versioning information for a binary

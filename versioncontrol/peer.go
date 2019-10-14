@@ -19,14 +19,11 @@ import (
 	"storj.io/storj/internal/version"
 )
 
-var (
-	// RolloutErr defines the rollout config error class.
-	RolloutErr = errs.Class("rollout config error")
-	// SeedLength is the number of bytes in a rollout seed.
-	SeedLength = 32
+// SeedLength is the number of bytes in a rollout seed.
+const SeedLength = 32
 
-	hexLenFactor = 2
-)
+// RolloutErr defines the rollout config error class.
+var RolloutErr = errs.Class("rollout config error")
 
 // Config is all the configuration parameters for a Version Control Server.
 type Config struct {
@@ -266,7 +263,7 @@ func (rollout Rollout) Validate(binary string, log *zap.Logger) error {
 		return nil
 	}
 
-	if seedLen != SeedLength*hexLenFactor {
+	if seedLen != hex.EncodedLen(SeedLength) {
 		return RolloutErr.New("invalid seed length: %d", seedLen)
 	}
 
