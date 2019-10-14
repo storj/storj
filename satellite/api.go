@@ -81,9 +81,8 @@ type API struct {
 	Version *version.Service
 
 	Contact struct {
-		Service   *contact.Service
-		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
@@ -216,11 +215,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup vouchers
