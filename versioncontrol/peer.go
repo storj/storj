@@ -274,7 +274,7 @@ func percentageToCursor(pct int) version.RolloutBytes {
 	return cursor
 }
 
-func configToProcess(binary Binary) (_ version.Process, err error) {
+func configToProcess(binary Binary) (version.Process, error) {
 	process := version.Process{
 		Minimum: version.Version{
 			Version: binary.Minimum.Version,
