@@ -22,7 +22,8 @@ import (
 var (
 	// Error is a redis error
 	Error = errs.Class("redis error")
-	mon   = monkit.Package()
+
+	mon = monkit.Package()
 )
 
 // TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay.
