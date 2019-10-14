@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -78,9 +79,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
-		mon.Meter("repair_unnecessary").Mark(1)
-		repairer.log.Sugar().Debugf("segment %v was deleted", path)
-		return true, nil
+		if storage.ErrKeyNotFound.Has(err) {
+			mon.Meter("repair_unnecessary").Mark(1)
+			repairer.log.Sugar().Debugf("segment %v was deleted", path)
+			return true, nil
+		} else {
+			return false, Error.Wrap(err)
+		}
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
