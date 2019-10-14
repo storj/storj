@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/storagenode"
 )
 
@@ -65,8 +66,7 @@ func TestOnlyInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tallySvc := planet.Satellites[0].Accounting.Tally
-		tallySvc.Loop.Pause()
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
@@ -82,7 +82,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedBucketName := "testbucket"
-		expectedTally := accounting.BucketTally{
+		expectedTally := &accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID,
 			ObjectCount:    1,
@@ -95,20 +95,19 @@ func TestOnlyInline(t *testing.T) {
 		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
-		// Run calculate twice to test unique constraint issue
+		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			latestTally, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-			require.NoError(t, err)
-			assert.Len(t, actualNodeData, 0)
-
-			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
+			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
-			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, len(actualBucketData), 1)
-			for bucketID, actualTally := range actualBucketData {
-				assert.Contains(t, bucketID, expectedBucketName)
-				assert.Equal(t, expectedTally, *actualTally)
+			now := time.Now().Add(time.Duration(i) * time.Second)
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, obs.Bucket)
+			require.NoError(t, err)
+
+			assert.Equal(t, 1, len(obs.Bucket))
+			for _, actualTally := range obs.Bucket {
+				assert.Equal(t, expectedTally, actualTally)
 			}
 		}
 	})
@@ -133,20 +132,21 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		require.NoError(t, err)
 
-		assert.NoError(t, err)
-		_, actualNodeData, _, err := tallySvc.CalculateAtRestData(ctx)
+		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+		err = planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
 		uplinkRS := uplinkConfig.GetRedundancyScheme()
-		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
-			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
+		if !correctRedundencyScheme(len(obs.Node), uplinkRS) {
+			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(obs.Node))
 		}
 
 		// Confirm the correct number of bytes were stored on each node
-		for _, actualTotalBytes := range actualNodeData {
-			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
+		for _, actualTotalBytes := range obs.Node {
+			assert.Equal(t, expectedTotalBytes, int64(actualTotalBytes))
 		}
 	})
 }
@@ -187,19 +187,16 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				err = metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
-				// create expected bucket tally for the pointer just created
 				bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
 				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
 				newTally.BucketName = []byte(tt.bucketName)
 				newTally.ProjectID = *projectID
 				expectedBucketTallies[bucketID] = newTally
 
-				// test: calculate at rest data
-				tallySvc := satellitePeer.Accounting.Tally
-				_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
+				obs := tally.NewObserver(satellitePeer.Log.Named("observer"))
+				err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
 				require.NoError(t, err)
-
-				assert.Equal(t, expectedBucketTallies, actualBucketData)
+				require.Equal(t, expectedBucketTallies, obs.Bucket)
 			})
 		}
 	})

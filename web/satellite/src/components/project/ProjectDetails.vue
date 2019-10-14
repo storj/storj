@@ -32,7 +32,7 @@
                         height="10vh"
                         is-multiline="true"
                         :init-value="storedDescription"
-                        @setData="setNewDescription" 
+                        @setData="setNewDescription"
                     />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <VButton
@@ -54,7 +54,7 @@
             <div class="project-details__button-area" id="deleteProjectPopupButton">
                 <VButton
                     class="delete-project"
-                    label="Delete project"
+                    label="Delete Project"
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"
@@ -128,7 +128,9 @@ export default class ProjectDetailsArea extends Vue {
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to update project description. ${error.message}`);
+
+            return;
         }
 
         this.toggleEditing();
@@ -235,6 +237,8 @@ export default class ProjectDetailsArea extends Vue {
                     line-height: 21px;
                     color: #354049;
                     width: 100%;
+                    max-height: 25vh;
+                    overflow-y: scroll;
                     word-break: break-word;
                 }
             }

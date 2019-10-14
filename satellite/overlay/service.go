@@ -53,8 +53,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// IsVetted returns whether or not the node reaches reputable thresholds
-	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -79,6 +77,8 @@ type DB interface {
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
 	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+
+	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -131,6 +131,14 @@ type UpdateRequest struct {
 	UptimeDQ     float64
 }
 
+// ExitStatus is used for reading graceful exit status.
+type ExitStatus struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     *time.Time
+	ExitLoopCompletedAt *time.Time
+	ExitFinishedAt      *time.Time
+}
+
 // ExitStatusRequest is used to update a node's graceful exit status.
 type ExitStatusRequest struct {
 	NodeID              storj.NodeID
@@ -150,6 +158,7 @@ type NodeDossier struct {
 	Contained    bool
 	Disqualified *time.Time
 	PieceCount   int64
+	ExitStatus   ExitStatus
 }
 
 // NodeStats contains statistics about a node.
@@ -347,20 +356,6 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 		return Error.Wrap(err)
 	}
 	return service.db.UpdateAddress(ctx, &value, service.config.Node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		AuditCount:  service.config.Node.AuditCount,
-		UptimeCount: service.config.Node.UptimeCount,
-	}
-	reputable, err = service.db.IsVetted(ctx, nodeID, criteria)
-	if err != nil {
-		return false, err
-	}
-	return reputable, nil
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction

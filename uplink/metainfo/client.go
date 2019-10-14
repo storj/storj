@@ -52,7 +52,7 @@ func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey) *Client {
 
 // Dial dials to metainfo endpoint with the specified api key.
 func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey) (*Client, error) {
-	conn, err := dialer.DialAddressInsecure(ctx, address)
+	conn, err := dialer.DialAddressInsecureBestEffort(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

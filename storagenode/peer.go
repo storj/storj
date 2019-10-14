@@ -6,6 +6,7 @@ package storagenode
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -27,8 +28,10 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -151,6 +154,10 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -223,7 +230,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"), peer.Contact.Service, peer.Storage2.Trust)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
@@ -349,9 +356,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		assets := consoleassets.FileSystem
+		if config.Console.StaticDir != "" {
+			// a specific directory has been configured. use it
+			assets = http.Dir(config.Console.StaticDir)
+		}
+
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
+			assets,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
@@ -370,6 +383,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
+	}
+
+	{ // setup graceful exit service
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+			peer.Storage2.BlobsCache,
+		)
+		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)

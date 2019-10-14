@@ -179,6 +179,99 @@ func TestReverifyFailMissingShare(t *testing.T) {
 	})
 }
 
+// TestReverifyFailMissingShareHashesNotVerified tests that if piece hashes were not verified for a pointer,
+// a node that fails an audit for that pointer does not get marked as failing an audit, but is removed from
+// the pointer.
+func TestReverifyFailMissingShareNotVerified(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		origNumPieces := len(pieces)
+		rootPieceID := pointer.GetRemote().RootPieceId
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            pieces[0].NodeId,
+			PieceID:           rootPieceID,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			Path:              path,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		// update pointer to have PieceHashesVerified false
+		err = satellite.Metainfo.Service.Delete(ctx, path)
+		require.NoError(t, err)
+		pointer.PieceHashesVerified = false
+		err = satellite.Metainfo.Service.Put(ctx, path, pointer)
+		require.NoError(t, err)
+
+		// delete the piece from the first node
+		piece := pieces[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Reverify(ctx, path)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		// expect no failed audit
+		require.Len(t, report.Fails, 0)
+
+		// expect that bad node is no longer in the pointer
+		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
+		for _, p := range pointer.GetRemote().GetRemotePieces() {
+			assert.NotEqual(t, p.NodeId, pieces[0].NodeId)
+		}
+	})
+}
+
 func TestReverifyFailBadData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -473,7 +566,9 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		// reverify the new path
 		report, err = audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
 
 		// expect that the node was removed from containment since the segment it was contained for has been deleted
 		_, err = containment.Get(ctx, nodeID)
@@ -557,7 +652,9 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// reverify the path that was not modified
 		report, err := audits.Verifier.Reverify(ctx, reverifyPath)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
 
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)

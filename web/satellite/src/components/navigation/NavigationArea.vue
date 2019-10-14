@@ -68,11 +68,10 @@ export default class NavigationArea extends Vue {
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Profile),
         RouteConfig.Account.with(RouteConfig.Billing),
-        RouteConfig.Account.with(RouteConfig.PaymentMethods),
     ];
 
     public onLogoClick(): void {
-        location.reload();
+        this.$router.push(RouteConfig.ProjectOverview.path);
     }
 
     public get isProjectNotSelected(): boolean {
