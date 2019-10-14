@@ -16,6 +16,8 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
+      # cleanup pkg/mod directory
+      go clean -modcache
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -25,7 +27,9 @@ OUTPUT=$PWD
 # go knows where our gopath is
 export GOPATH=$TMP
 
-mkdir -p "$GOPATH/src/storj.io/storj/"
+mkdir -p "$GOPATH/pkg" "$GOPATH/src/storj.io/storj/"
+# link pkg/mod to avoid redownloading modules
+ln -s $HOME/go/pkg/mod $TMP/pkg/mod
 
 # symlink doesn't look to be working with gomobile
 rsync -am --stats --exclude=".*" $SCRIPTDIR/../../* "$GOPATH/src/storj.io/storj/"
@@ -47,6 +51,3 @@ export PATH=$GOPATH/bin:$PATH
 $GOPATH/bin/gomobile init
 
 $GOPATH/bin/gomobile bind -v -target android -o "$OUTPUT/libuplink-android.aar" -javapkg io.storj.libuplink storj.io/storj/lib/uplink-gomobile
-
-# cleanup pkg/mod directory
-go clean -modcache
