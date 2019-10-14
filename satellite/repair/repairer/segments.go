@@ -83,9 +83,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 			mon.Meter("repair_unnecessary").Mark(1)
 			repairer.log.Sugar().Debugf("segment %v was deleted", path)
 			return true, nil
-		} else {
-			return false, Error.Wrap(err)
 		}
+		return false, Error.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
