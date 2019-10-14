@@ -27,9 +27,12 @@ var (
 )
 
 func main() {
-	pkgs, _ := packages.Load(&packages.Config{
+	pkgs, err := packages.Load(&packages.Config{
 		Mode: packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
 	}, "storj.io/storj/...")
+	if err != nil {
+		log.Fatalf("error while loading packages: %s", err)
+	}
 
 	var lockedFnNames []string
 	for _, pkg := range pkgs {
