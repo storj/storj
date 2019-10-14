@@ -99,7 +99,10 @@ func (chore *Chore) Close() error {
 	chore.Loop.Close()
 	chore.exitingMap.Range(func(key interface{}, value interface{}) bool {
 		worker := value.(*Worker)
-		worker.Close()
+		err := worker.Close()
+		if err != nil {
+			worker.log.Error("worker failed on close.", zap.Error(err))
+		}
 		chore.exitingMap.Delete(key)
 		return true
 	})

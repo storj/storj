@@ -34,7 +34,7 @@ func TestChore(t *testing.T) {
 		_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 		require.NoError(t, err)
 
-		exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 10000)
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 10000)
 		require.NoError(t, err)
 
 		exitProgress, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
