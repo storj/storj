@@ -89,42 +89,33 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 }
 
 // StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
-func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb.StartExitResponse, error) {
-	e.log.Debug("initialize graceful exit: StartExit", zap.Int("satellite count", len(req.NodeIds)))
-	// save satellites info into db
-	resp := &pb.StartExitResponse{}
-	for _, satelliteID := range req.NodeIds {
-		e.log.Debug("initialize graceful exit: StartExit", zap.String("satellite ID", satelliteID.String()))
+func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb.ExitProgress, error) {
+	e.log.Debug("initialize graceful exit: StartExit", zap.String("satellite ID", req.NodeId.String()))
 
-		status := &pb.StartExitStatus{
-			Success: false,
-		}
-		domain, err := e.trust.GetAddress(ctx, satelliteID)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		status.DomainName = domain
-
-		// get space usage by satellites
-		spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, satelliteID)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		err = e.satellites.InitiateGracefulExit(ctx, satelliteID, time.Now().UTC(), spaceUsed)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		status.Success = true
-		resp.Statuses = append(resp.Statuses, status)
+	domain, err := e.trust.GetAddress(ctx, req.NodeId)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		return nil, errs.Wrap(err)
 	}
 
-	return resp, nil
+	// get space usage by satellites
+	spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		return nil, errs.Wrap(err)
+	}
+
+	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), spaceUsed)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		return nil, errs.Wrap(err)
+	}
+
+	return &pb.ExitProgress{
+		DomainName:      domain,
+		NodeId:          req.NodeId,
+		PercentComplete: float32(0),
+	}, nil
 }
 
 func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressRequest) (*pb.GetExitProgressResponse, error) {

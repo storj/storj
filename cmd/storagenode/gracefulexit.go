@@ -39,7 +39,7 @@ func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (
 	return client.conn.NodeGracefulExitClient().GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 }
 
-func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.StartExitRequest) (*pb.StartExitResponse, error) {
+func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.StartExitRequest) (*pb.ExitProgress, error) {
 	return client.conn.NodeGracefulExitClient().StartExit(ctx, req)
 }
 
@@ -83,6 +83,11 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		return errs.Wrap(err)
 	}
 
+	if len(satelliteList.GetSatellites()) < 1 {
+		fmt.Println("Can't find any non-existing satellites.")
+		return nil
+	}
+
 	// display satellite options
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
@@ -92,13 +97,8 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t\n")
 	}
 	fmt.Fprintln(w, "Please enter the domain name for each satellite you would like to start graceful exit on with a space in between each domain name and hit enter once you are done:")
-	err = w.Flush()
-	if err != nil {
-		return errs.Wrap(err)
-	}
 
 	var selectedSatellite []string
-
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		input := scanner.Text()
@@ -127,20 +127,36 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// save satellites for graceful exit into the db
-	req := &pb.StartExitRequest{
-		NodeIds: satelliteIDs,
+	progresses := make([]*pb.ExitProgress, 0, len(satelliteIDs))
+	var errgroup errs.Group
+	for _, id := range satelliteIDs {
+		req := &pb.StartExitRequest{
+			NodeId: id,
+		}
+		resp, err := client.initGracefulExit(ctx, req)
+		if err != nil {
+			zap.S().Debug("initializing graceful exit failed", zap.String("Satellite ID", id.String()), zap.Error(err))
+			errgroup.Add(err)
+			continue
+		}
+		progresses = append(progresses, resp)
 	}
-	resp, err := client.initGracefulExit(ctx, req)
+
+	if len(progresses) < 1 {
+		fmt.Println("Failed to initialize graceful exit. Please try again later.")
+		return errgroup.Err()
+	}
+
+	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\t")
+
+	for _, progress := range progresses {
+		fmt.Fprintf(w, "%s\t%s\t%f\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete())
+	}
+	err = w.Flush()
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	for _, status := range resp.Statuses {
-		if !status.GetSuccess() {
-			fmt.Printf("Failed to start graceful exit on satellite: %s\n", status.GetDomainName())
-			continue
-		}
-		fmt.Printf("Started graceful exit on satellite: %s\n", status.GetDomainName())
-	}
+
 	return nil
 }
 

@@ -885,9 +885,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "node_ids",
+                "name": "node_id",
                 "type": "bytes",
-                "is_repeated": true,
                 "options": [
                   {
                     "name": "(gogoproto.customtype)",
@@ -938,32 +937,6 @@
                 "id": 1,
                 "name": "satellites",
                 "type": "NonExitingSatellite",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "StartExitStatus",
-            "fields": [
-              {
-                "id": 1,
-                "name": "domain_name",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "success",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "StartExitResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "statuses",
-                "type": "StartExitStatus",
                 "is_repeated": true
               }
             ]
@@ -1218,7 +1191,7 @@
               {
                 "name": "StartExit",
                 "in_type": "StartExitRequest",
-                "out_type": "StartExitResponse"
+                "out_type": "ExitProgress"
               },
               {
                 "name": "GetExitProgress",

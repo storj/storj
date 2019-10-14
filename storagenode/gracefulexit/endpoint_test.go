@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
 
 func TestGetNonExitingSatellites(t *testing.T) {
@@ -47,7 +46,6 @@ func TestStartExiting(t *testing.T) {
 	defer ctx.Cleanup()
 
 	totalSatelliteCount := 3
-	const exitingSatelliteCount = 2
 	planet, err := testplanet.New(t, totalSatelliteCount, 1, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
@@ -55,26 +53,21 @@ func TestStartExiting(t *testing.T) {
 	planet.Start(ctx)
 	storagenode := planet.StorageNodes[0]
 
-	exitingSatelliteIDs := []storj.NodeID{
-		planet.Satellites[0].ID(),
-		planet.Satellites[1].ID(),
-	}
+	exitingSatelliteID := planet.Satellites[0].ID()
+
 	req := &pb.StartExitRequest{
-		NodeIds: exitingSatelliteIDs,
+		NodeId: exitingSatelliteID,
 	}
 
 	resp, err := storagenode.GracefulExit.Endpoint.StartExit(ctx, req)
 	require.NoError(t, err)
-	for _, status := range resp.GetStatuses() {
-		require.True(t, status.GetSuccess())
-	}
+	// check progress is 0
+	require.Equal(t, float32(0), resp.GetPercentComplete())
 
 	exitStatuses, err := storagenode.DB.Satellites().ListGracefulExits(ctx)
 	require.NoError(t, err)
-	require.Len(t, exitStatuses, exitingSatelliteCount)
-	for _, status := range exitStatuses {
-		require.Contains(t, exitingSatelliteIDs, status.SatelliteID)
-	}
+	require.Len(t, exitStatuses, 1)
+	require.Equal(t, exitingSatelliteID, exitStatuses[0].SatelliteID)
 }
 
 func TestGetExitProgress(t *testing.T) {
