@@ -49,16 +49,18 @@ func TestRollout_MarshalJSON_UnmarshalJSON(t *testing.T) {
 
 	for i := 0; i < len(version.RolloutBytes{}); i++ {
 		expectedRollout.Seed[i] = byte(i)
-		expectedRollout.Cursor[i] = byte(i*2)
+		expectedRollout.Cursor[i] = byte(i * 2)
 	}
 
 	_, err := json.Marshal(actualRollout.Seed)
-	emptyJsonRollout, err := json.Marshal(actualRollout)
+	require.NoError(t, err)
+
+	emptyJSONRollout, err := json.Marshal(actualRollout)
 	require.NoError(t, err)
 
 	jsonRollout, err := json.Marshal(expectedRollout)
 	require.NoError(t, err)
-	require.NotEqual(t, emptyJsonRollout, jsonRollout)
+	require.NotEqual(t, emptyJSONRollout, jsonRollout)
 
 	err = json.Unmarshal(jsonRollout, &actualRollout)
 	require.NoError(t, err)
