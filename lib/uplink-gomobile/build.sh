@@ -16,8 +16,6 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
-      # cleanup pkg/mod directory
-      go clean -modcache
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
