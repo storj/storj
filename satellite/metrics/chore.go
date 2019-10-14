@@ -23,8 +23,7 @@ var (
 
 // Config contains configurable values for metrics collection.
 type Config struct {
-	// TODO: confirm reasonable interval.
-	Interval time.Duration `help:"the time between each metrics run" releaseDefault:"120h" devDefault:"10m"`
+	Interval time.Duration `help:"the time between each metrics run" releaseDefault:"15m" devDefault:"15m"`
 }
 
 // Chore implements the metrics chore.
