@@ -346,6 +346,17 @@ public class LibuplinkInstrumentedTest {
     }
 
     @Test
+    public void testEncryptionAccess() throws Exception {
+        APIKey apiKey = SCOPE.apiKey();
+        EncryptionAccess encryptionAccess = new EncryptionAccess();
+        encryptionAccess.setDefaultKey("Test".getBytes());
+        EncryptionRestrictions restrictions = new EncryptionRestrictions();
+        restrictions.add(new EncryptionRestriction("test-bucket", "test-file"));
+        EncryptionAccess restrictedAccess = encryptionAccess.restrict(apiKey, restrictions);
+        assertNotEquals(encryptionAccess.serialize(), restrictedAccess.serialize());
+    }
+
+    @Test
     public void testEncryptionAccessFromPassphrase() throws Exception {
         Config config = new Config();
         config.setSkipPeerCAWhitelist(true);
