@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -115,6 +116,10 @@ type API struct {
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
+	}
+
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
 	}
 }
 
@@ -410,6 +415,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		)
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
+	}
+
+	{ // setup graceful exit
+		log.Debug("Satellite API Process setting up graceful exit endpoint")
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(peer.Log.Named("gracefulexit:endpoint"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Overlay.Service, peer.Metainfo.Service, peer.Orders.Service, config.GracefulExit)
+		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}
 
 	return peer, nil

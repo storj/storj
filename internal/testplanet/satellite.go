@@ -67,19 +67,14 @@ type SatelliteSystem struct {
 	Version *version.Service
 
 	Contact struct {
-		Service   *contact.Service
-		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
-	}
-
-	Discovery struct {
-		Service *discovery.Discovery
 	}
 
 	Metainfo struct {
@@ -153,7 +148,8 @@ type SatelliteSystem struct {
 	}
 
 	GracefulExit struct {
-		Chore *gracefulexit.Chore
+		Chore    *gracefulexit.Chore
+		Endpoint *gracefulexit.Endpoint
 	}
 }
 
@@ -422,8 +418,6 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.Inspector = api.Overlay.Inspector
 
-	system.Discovery.Service = peer.Discovery.Service
-
 	system.Metainfo.Database = api.Metainfo.Database
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
@@ -456,6 +450,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Marketing.Endpoint = api.Marketing.Endpoint
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
+	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 	return system
 }
 
