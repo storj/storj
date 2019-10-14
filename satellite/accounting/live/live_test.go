@@ -43,6 +43,15 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
 	}
+
+	err = cache.ResetTotals(ctx)
+	require.NoError(t, err)
+
+	for _, projID := range projectIDs {
+		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		require.NoError(t, err)
+		assert.EqualValues(t, 0, spaceUsed)
+	}
 }
 
 func TestRedisLiveAccounting(t *testing.T) {
@@ -120,6 +129,39 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	require.EqualValues(t, expectedSum, spaceUsed)
 }
 
+func TestPlainMemoryCacheConcurrency(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	config := Config{
+		StorageBackend: "plainmemory",
+	}
+	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	require.NoError(t, err)
+
+	projectID := testrand.UUID()
+
+	const (
+		numConcurrent = 100
+		inlineAmount  = 10
+		remoteAmount  = 10
+	)
+	expectedSum := (inlineAmount * numConcurrent) + (remoteAmount * numConcurrent)
+
+	var group errgroup.Group
+	for i := 0; i < numConcurrent; i++ {
+		group.Go(func() error {
+			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
+		})
+	}
+	require.NoError(t, group.Wait())
+
+	spaceUsed, err := cache.GetProjectStorageUsage(ctx, projectID)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expectedSum, spaceUsed)
+}
+
 func TestResetTotals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -147,7 +189,6 @@ func populateCache(ctx context.Context, cache accounting.LiveAccounting) (projec
 	)
 	// make a largish list of varying values
 	someValues := make([]int64, valuesListSize)
-	sum = int64(0)
 	for i := range someValues {
 		someValues[i] = int64((i + 1) * valueMultiplier)
 		sum += someValues[i] * 2
