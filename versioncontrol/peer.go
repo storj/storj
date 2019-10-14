@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net"
 	"net/http"
 	"reflect"
@@ -217,26 +218,6 @@ func (peer *Peer) Close() (err error) {
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Listener.Addr().String() }
 
-func configToProcess(binary Binary) (version.Process, error) {
-	process := version.Process{
-		Minimum: version.Version{
-			Version: binary.Minimum.Version,
-			URL:     binary.Minimum.URL,
-		},
-		Suggested: version.Version{
-			Version: binary.Suggested.Version,
-			URL:     binary.Suggested.URL,
-		},
-		Rollout: version.Rollout{},
-	}
-
-	seedJSONBytes := []byte("\""+binary.Rollout.Seed+"\"")
-	if err := json.Unmarshal(seedJSONBytes, &process.Rollout.Seed); err != nil {
-		return version.Process{}, err
-	}
-	return process, nil
-}
-
 // ValidateRollouts validates the rollout field of each field in the Versions struct.
 func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 	value := reflect.ValueOf(versions)
@@ -275,4 +256,43 @@ func (rollout Rollout) Validate(binary string, log *zap.Logger) error {
 		return RolloutErr.New("invalid seed: %s", rollout.Seed)
 	}
 	return nil
+}
+
+func percentageToCursor(pct int) version.RolloutBytes {
+	// NB: convert the max value to a number, multiply by the percentage, convert back.
+	var maxInt, maskInt big.Int
+	var maxBytes version.RolloutBytes
+	for i := 0; i < len(maxBytes); i++ {
+		maxBytes[i] = 255
+	}
+	maxInt.SetBytes(maxBytes[:])
+	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
+
+	var cursor version.RolloutBytes
+	copy(cursor[:], maskInt.Bytes())
+
+	return cursor
+}
+
+func configToProcess(binary Binary) (_ version.Process, err error) {
+	process := version.Process{
+		Minimum: version.Version{
+			Version: binary.Minimum.Version,
+			URL:     binary.Minimum.URL,
+		},
+		Suggested: version.Version{
+			Version: binary.Suggested.Version,
+			URL:     binary.Suggested.URL,
+		},
+		Rollout: version.Rollout{
+			Cursor: percentageToCursor(binary.Rollout.Cursor),
+		},
+	}
+
+	seedBytes, err := hex.DecodeString(binary.Rollout.Seed)
+	if err != nil {
+		return version.Process{}, err
+	}
+	copy(process.Rollout.Seed[:], seedBytes)
+	return process, nil
 }
