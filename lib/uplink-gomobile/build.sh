@@ -25,9 +25,9 @@ OUTPUT=$PWD
 # go knows where our gopath is
 export GOPATH=$TMP
 
-mkdir -p "$GOPATH/pkg" "$GOPATH/src/storj.io/storj/"
+mkdir -p "$GOPATH/pkg/mod/" "$GOPATH/src/storj.io/storj/"
 # link pkg/mod to avoid redownloading modules
-ln -s $HOME/go/pkg/mod $TMP/pkg/mod
+ln -s $HOME/go/pkg/mod/* $GOPATH/pkg/mod/
 
 # symlink doesn't look to be working with gomobile
 rsync -am --stats --exclude=".*" $SCRIPTDIR/../../* "$GOPATH/src/storj.io/storj/"
