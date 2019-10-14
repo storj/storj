@@ -34,7 +34,7 @@ func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounti
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
 func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, projectID)(&err)
 	val, err := cache.client.Get(ctx, []byte(projectID.String()))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -50,7 +50,7 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
 func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
 	return cache.client.IncrBy(ctx, []byte(projectID.String()), inlineSpaceUsed+remoteSpaceUsed)
 }
 

@@ -37,7 +37,7 @@ func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
 func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, projectID)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal, ok := pmac.spaceDeltas[projectID]
@@ -51,7 +51,7 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
 func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
