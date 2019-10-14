@@ -74,11 +74,15 @@ func NewEncryptionAccessWithDefaultKey(defaultKey []byte) (_ *EncryptionAccess, 
 // Restrict creates a new EncryptionAccess with no default key, where the key material
 // in the new access is just enough to allow someone to access all of the given
 // restrictions but no more.
-func (e *EncryptionAccess) Restrict(apiKey *APIKey, restrictions *EncryptionRestrictions) (_ *EncryptionAccess, err error) {
-	_, ea, err := e.lib.Restrict(*apiKey.lib, restrictions.restrictions...)
-	return &EncryptionAccess{
-		lib: ea,
-	}, nil
+func (e *EncryptionAccess) Restrict(satelliteAddr string, apiKey *APIKey, restrictions *EncryptionRestrictions) (_ *Scope, err error) {
+	libAPIKey, ea, err := e.lib.Restrict(*apiKey.lib, restrictions.restrictions...)
+	return &Scope{
+		lib: &libuplink.Scope{
+			SatelliteAddr:    satelliteAddr,
+			APIKey:           libAPIKey,
+			EncryptionAccess: ea,
+		},
+	}, err
 }
 
 // Import merges the other encryption access context into this one. In cases
