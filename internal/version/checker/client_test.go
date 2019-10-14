@@ -4,7 +4,9 @@
 package checker_test
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
@@ -16,6 +18,8 @@ import (
 	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/versioncontrol"
 )
+
+var testHexSeed = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 func TestClient_All(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -73,6 +77,13 @@ func TestClient_Process(t *testing.T) {
 
 		require.Equal(t, expectedVersionStr, process.Minimum.Version)
 		require.Equal(t, expectedVersionStr, process.Suggested.Version)
+
+		actualHexSeed := hex.EncodeToString(process.Rollout.Seed[:])
+		require.NoError(t, err)
+
+		require.Equal(t, testHexSeed, actualHexSeed)
+		// TODO: find a better way to test this
+		require.NotEmpty(t, process.Rollout.Cursor)
 	}
 }
 
@@ -119,9 +130,17 @@ func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
 			Suggested: versioncontrol.Version{
 				Version: versionString,
 			},
+			Rollout: versioncontrol.Rollout{
+				Seed:   testHexSeed,
+				Cursor: newTestCursorPercent(i),
+			},
 		}
 
 		field.Set(reflect.ValueOf(binary))
 	}
 	return versions
+}
+
+func newTestCursorPercent(i int) int {
+	return int(math.Mod(float64(i*10), 100))
 }
