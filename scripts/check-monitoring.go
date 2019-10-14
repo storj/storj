@@ -61,7 +61,7 @@ func findLockedFnNames(pkg *packages.Package) []string {
 		lockedLines := make(map[int]struct{})
 		for _, group := range file.Comments {
 			for _, comment := range group.List {
-				if comment.Text == "// locked" {
+				if comment.Text == "//locked" {
 					commentLine := pkg.Fset.Position(comment.Pos()).Line
 					lockedLines[commentLine] = struct{}{}
 				}
