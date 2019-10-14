@@ -170,7 +170,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if len(progresses) < 1 {
+	if len(progresses.GetProgress()) < 1 {
 		fmt.Println("No graceful exit in progress.")
 		return nil
 	}
@@ -181,8 +181,9 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "Domain Name\tNode ID\tPercent Complete\t")
 
 	for _, progress := range progresses.GetProgress() {
-		fmt.Fprintln(w, progress.GetDomainName()+"\t"+progress.NodeId.String()+"\t"+fmt.Sprintf("%f", progress.GetPercentComplete())+"\t\n")
+		fmt.Fprintf(w, "%s\t%s\t%f\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete())
 	}
+	w.Flush()
 
 	return nil
 }

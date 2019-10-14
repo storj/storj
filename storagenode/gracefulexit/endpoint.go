@@ -148,7 +148,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 
 		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
 		if err != nil {
-			e.log.Debug("graceful exit: get satellite domian name", zap.String("satelliteID", progress.SatelliteID.String()), zap.Error(err))
+			e.log.Debug("graceful exit: get satellite domain name", zap.String("satelliteID", progress.SatelliteID.String()), zap.Error(err))
 			continue
 		}
 		resp.Progress = append(resp.Progress,
