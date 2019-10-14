@@ -99,7 +99,7 @@ func NewEncryptionRestriction(bucket, path string) *EncryptionRestriction {
 	return &EncryptionRestriction{
 		lib: &libuplink.EncryptionRestriction{
 			Bucket:     bucket,
-			PathPrefix: storj.Path(path),
+			PathPrefix: path,
 		},
 	}
 }
