@@ -229,7 +229,7 @@ func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
 	if err != nil {
 		panic(err)
 	}
-	return bytes.Compare(hash.Sum(nil), rollout.Cursor[:]) < 0
+	return bytes.Compare(hash.Sum(nil), rollout.Cursor[:]) <= 0
 }
 
 func init() {
