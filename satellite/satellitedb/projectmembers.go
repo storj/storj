@@ -205,7 +205,7 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	case 2:
 		return "u.email"
 	case 3:
-		return "u.created_at"
+		return "pm.created_at"
 	default:
 		return "u.full_name"
 	}

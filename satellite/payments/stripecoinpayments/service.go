@@ -4,61 +4,40 @@
 package stripecoinpayments
 
 import (
-	"context"
-
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/customer"
+	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/satellite/payments"
 )
 
 var mon = monkit.Package()
 
-// ErrorStripe is stripe error type
+// ErrorStripe is stripe error type.
 var ErrorStripe = errs.Class("stripe API error")
 
-// Service is an implementation for payment service via Stripe and Coinpayments
+// Config stores needed information for payment service initialization
+type Config struct {
+	secretKey string
+}
+
+// Service is an implementation for payment service via Stripe and Coinpayments.
 type Service struct {
-	customers CustomersDB
+	customers    CustomersDB
+	stripeClient *client.API
 }
 
 // NewService creates a Service instance.
-func NewService(customers CustomersDB) *Service {
+func NewService(config Config, customers CustomersDB) *Service {
+	stripeClient := client.New(config.secretKey, nil)
+
 	return &Service{
-		customers: customers,
+		customers:    customers,
+		stripeClient: stripeClient,
 	}
 }
 
-// Setup creates a payment account for the user.
-func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
-	defer mon.Task()(&ctx, userID, email)(&err)
-
-	params := &stripe.CustomerParams{
-		Email: stripe.String(email),
-	}
-
-	if _, err := customer.New(params); err != nil {
-		return ErrorStripe.Wrap(err)
-	}
-
-	// TODO: delete customer from stripe, if db insertion fails
-	return service.customers.Insert(ctx, userID, email)
-}
-
-// Balance returns an integer amount in cents that represents the current balance of payment account.
-func (service *Service) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	customerID, err := service.customers.GetCustomerID(ctx, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	c, err := customer.Get(customerID, nil)
-	if err != nil {
-		return 0, ErrorStripe.Wrap(err)
-	}
-
-	return c.Balance, nil
+// Accounts exposes all needed functionality to manage payment accounts.
+func (service *Service) Accounts() payments.Accounts {
+	return &accounts{service: service}
 }
