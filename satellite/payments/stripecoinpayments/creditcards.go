@@ -23,7 +23,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 
 	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	params := &stripe.PaymentMethodListParams{
@@ -45,7 +45,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	}
 
 	if err = paymentMethodsIterator.Err(); err != nil {
-		return nil, ErrorStripe.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return cards, nil
