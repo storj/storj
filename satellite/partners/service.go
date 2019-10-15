@@ -17,7 +17,7 @@ var (
 	Error = errs.Class("partners error class")
 
 	// ErrNotExist is returned when a particular partner does not exist.
-	ErrNotExist = errs.Class("partner not exist")
+	ErrNotExist = errs.Class("partner does not exist")
 
 	mon = monkit.Package()
 )
