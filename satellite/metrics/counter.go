@@ -35,10 +35,10 @@ func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, po
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if streamMeta.NumberOfSegments > 1 || streamMeta.NumberOfSegments == 1 && pointer.Type == pb.Pointer_REMOTE {
-		counter.RemoteDependent++
-	} else {
+	if streamMeta.NumberOfSegments == 1 && pointer.Type == pb.Pointer_INLINE {
 		counter.Inline++
+	} else {
+		counter.RemoteDependent++
 	}
 	counter.Total++
 
