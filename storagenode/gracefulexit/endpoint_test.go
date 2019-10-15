@@ -41,7 +41,7 @@ func TestGetNonExitingSatellites(t *testing.T) {
 	}
 }
 
-func TestStartExiting(t *testing.T) {
+func TestInitiateGracefulExit(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -55,14 +55,15 @@ func TestStartExiting(t *testing.T) {
 
 	exitingSatelliteID := planet.Satellites[0].ID()
 
-	req := &pb.StartExitRequest{
+	req := &pb.InitiateGracefulExitRequest{
 		NodeId: exitingSatelliteID,
 	}
 
-	resp, err := storagenode.GracefulExit.Endpoint.StartExit(ctx, req)
+	resp, err := storagenode.GracefulExit.Endpoint.InitiateGracefulExit(ctx, req)
 	require.NoError(t, err)
 	// check progress is 0
 	require.EqualValues(t, 0, resp.GetPercentComplete())
+	require.False(t, resp.GetSuccessful())
 
 	exitStatuses, err := storagenode.DB.Satellites().ListGracefulExits(ctx)
 	require.NoError(t, err)
