@@ -112,7 +112,9 @@ func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err erro
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
-
+	if len(keys) == 0 {
+		return nil, nil
+	}
 	marshaledRevs, err := db.store.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)

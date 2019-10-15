@@ -6,7 +6,6 @@ package redis
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net/url"
 	"sort"
 	"strconv"
@@ -127,10 +126,6 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	}
 
 	results, err := client.db.MGet(keyStrings...).Result()
-	if len(results) == 0 && err.Error() == "ERR wrong number of arguments for 'mget' command" {
-		fmt.Println("No Revocations Present")
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

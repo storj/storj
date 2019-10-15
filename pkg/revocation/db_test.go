@@ -151,3 +151,38 @@ func TestRevocationDB_Put_error(t *testing.T) {
 		}
 	})
 }
+
+func TestRevocationDB_List(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		require.NoError(t, err)
+		keys2, chain2, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
+		require.NoError(t, err)
+
+		// test list no revocations, should not error
+		revs, err := revDB.List(ctx)
+		assert.NoError(t, err)
+		assert.Nil(t, revs)
+
+		// list 1,2 revocations
+		firstRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
+		require.NoError(t, err)
+
+		err = revDB.Put(ctx, chain, firstRevocation)
+		require.NoError(t, err)
+		revs, err = revDB.List(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(revs))
+
+		secondRevocation, err := extensions.NewRevocationExt(keys2[peertls.CAIndex], chain2[peertls.LeafIndex])
+		require.NoError(t, err)
+		err = revDB.Put(ctx, chain2, secondRevocation)
+		require.NoError(t, err)
+		revs, err = revDB.List(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(revs))
+	})
+}
