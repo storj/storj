@@ -707,6 +707,72 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 	return limits, piecePrivateKey, nil
 }
 
+// CreateGracefulExitPutOrderLimit creates an order limit for graceful exit put transfers.
+func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, bucketID []byte, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	orderExpiration := time.Now().UTC().Add(service.orderExpiration)
+
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	serialNumber, err := service.createSerial(ctx)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	node, err := service.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	if node.Disqualified != nil {
+		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeDisqualified.New("%v", nodeID)
+	}
+
+	if !service.overlay.IsOnline(node) {
+		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
+	}
+
+	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+		SerialNumber:     serialNumber,
+		SatelliteId:      service.satellite.ID(),
+		SatelliteAddress: service.satelliteAddress,
+		UplinkPublicKey:  piecePublicKey,
+		StorageNodeId:    nodeID,
+		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
+		Action:           pb.PieceAction_PUT_GRACEFUL_EXIT,
+		Limit:            int64(shareSize),
+		OrderCreation:    time.Now().UTC(),
+		OrderExpiration:  orderExpiration,
+	})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	limit = &pb.AddressedOrderLimit{
+		Limit:              orderLimit,
+		StorageNodeAddress: node.Address,
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return limit, piecePrivateKey, nil
+}
+
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
 func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)

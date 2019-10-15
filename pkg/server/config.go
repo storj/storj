@@ -26,8 +26,7 @@ type Config struct {
 func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, revDB extensions.RevocationDB, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Ensure revDB is not nil, since we call Close() below we do not want a
-	// panic
+	// Ensure revDB is not nil, since we call Close() below we do not want a panic
 	if revDB == nil {
 		return Error.New("revDB cannot be nil in call to Run")
 	}

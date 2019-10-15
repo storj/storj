@@ -177,6 +177,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				zap.String("Segment Path", path),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
+			continue
 		}
 
 		if errs2.IsRPC(share.Error, rpcstatus.NotFound) {
