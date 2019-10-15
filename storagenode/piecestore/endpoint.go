@@ -685,7 +685,8 @@ func min(a, b int64) int64 {
 
 // ignoreEOF ignores io.EOF error.
 func ignoreEOF(err error) error {
-	if err == io.EOF {
+	// gRPC gives us an io.EOF but dRPC gives us a wrapped io.EOF
+	if errs.Is(err, io.EOF) {
 		return nil
 	}
 	return err
