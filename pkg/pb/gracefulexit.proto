@@ -41,7 +41,6 @@ message StartExitStatus {
   string domain_name = 1;
   bool success = 2;
 }
-
 message StartExitResponse {
   repeated StartExitStatus statuses = 1;
 }

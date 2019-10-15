@@ -132,6 +132,13 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@echo "Running ${@}"
 	@./scripts/test-sim-backwards.sh
 
+.PHONY: check-monitoring
+check-monitoring: ## Check for locked monkit calls that have changed
+	@echo "Running ${@}"
+	@go run ./scripts/check-monitoring.go | diff -U0 ./monkit.lock - \
+	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go generate ./scripts/check-monitoring.go\` to update monkit.lock file." \
+	&& exit 1)
+
 ##@ Build
 
 .PHONY: storagenode-console
