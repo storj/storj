@@ -6,14 +6,14 @@
         <div class="sort-header-container__name-item" @click="onHeaderItemClick(ApiKeyOrderBy.NAME)">
             <p class="sort-header-container__name-item__title">Key Name</p>
             <VerticalArrows
-                :isActive="areApiKeysSortedByName"
+                :is-active="areApiKeysSortedByName"
                 :direction="getSortDirection"
             />
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
             <p class="sort-header-container__date-item__title">Created</p>
             <VerticalArrows
-                :isActive="areApiKeysSortedByDate"
+                :is-active="areApiKeysSortedByDate"
                 :direction="getSortDirection"
             />
         </div>

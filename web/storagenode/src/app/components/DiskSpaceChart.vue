@@ -3,6 +3,7 @@
 
 <template>
     <div class="chart">
+        <p class="disk-space-chart__data-dimension">{{chartDataDimension}}*h</p>
         <VChart
             id="disk-space-chart"
             :chart-data="chartData"
@@ -45,9 +46,19 @@ export default class DiskSpaceChart extends Vue {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
 
+    public get chartDataDimension(): string {
+        if (!this.allStamps.length) {
+            return '';
+        }
+
+        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
+            return elem.atRestTotal;
+        }));
+    }
+
     public get chartData(): ChartData {
         let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const daysCount = ChartUtils.daysDisplayedOnChart();
         const chartBackgroundColor = '#F2F6FC';
         const chartBorderColor = '#1F49A3';
         const chartBorderWidth = 2;
@@ -106,6 +117,16 @@ export default class DiskSpaceChart extends Vue {
 <style lang="scss">
     p {
         margin: 0;
+    }
+
+    .disk-space-chart {
+
+        &__data-dimension {
+            font-size: 13px;
+            color: #586c86;
+            margin: 0 0 5px 30px;
+            font-family: 'font_medium';
+        }
     }
 
     #disk-space-tooltip {

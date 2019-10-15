@@ -8352,42 +8352,6 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx co
 
 }
 
-func (obj *postgresImpl) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	limit int, offset int64) (
-	rows []*GracefulExitTransferQueue, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is NULL ORDER BY graceful_exit_transfer_queue.queued_at LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		graceful_exit_transfer_queue := &GracefulExitTransferQueue{}
-		err = __rows.Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, graceful_exit_transfer_queue)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
 	stripe_customers_user_id StripeCustomers_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -12572,42 +12536,6 @@ func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx con
 
 }
 
-func (obj *sqlite3Impl) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	limit int, offset int64) (
-	rows []*GracefulExitTransferQueue, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is NULL ORDER BY graceful_exit_transfer_queue.queued_at LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		graceful_exit_transfer_queue := &GracefulExitTransferQueue{}
-		err = __rows.Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, graceful_exit_transfer_queue)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
 	stripe_customers_user_id StripeCustomers_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -16082,17 +16010,6 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	limit int, offset int64) (
-	rows []*GracefulExitTransferQueue, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, graceful_exit_transfer_queue_node_id, limit, offset)
-}
-
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
@@ -16818,11 +16735,6 @@ type Methods interface {
 		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
-
-	Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		limit int, offset int64) (
-		rows []*GracefulExitTransferQueue, err error)
 
 	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,

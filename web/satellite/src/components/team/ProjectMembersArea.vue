@@ -151,12 +151,12 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-        this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-        this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
+        await this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+        await this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
         if (this.totalPageCount > 1) {
