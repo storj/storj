@@ -128,11 +128,6 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	return false
 }
 
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
-func isAcceptedVersion(test SemVer, target SemVer) bool {
-	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
-}
-
 // DebugHandler implements version info endpoint.
 type DebugHandler struct {
 	log *zap.Logger
