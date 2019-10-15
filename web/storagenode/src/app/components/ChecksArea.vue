@@ -47,15 +47,15 @@ export default class ChecksArea extends Vue {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .checks-area-container {
-        width: 325px;
-        height: 70px;
+        width: 339px;
+        height: 79px;
         background-color: #FFFFFF;
         border: 1px solid #E9EFF4;
         border-radius: 11px;
-        padding: 34px 36px 39px 39px;
-        margin-bottom: 32px;
+        padding: 32px 30px;
+        margin-bottom: 13px;
         position: relative;
 
         &__header {
@@ -64,8 +64,9 @@ export default class ChecksArea extends Vue {
 
             &__title {
                 font-size: 14px;
+                line-height: 21px;
                 color: #586C86;
-                margin-right: 5px;
+                margin: 0 5px 0 0;
             }
 
             .checks-area-image {
@@ -85,6 +86,12 @@ export default class ChecksArea extends Vue {
             font-size: 32px;
             line-height: 57px;
             color: #535F77;
+            margin: 0;
         }
+    }
+
+    /deep/ .info__message-box {
+        min-width: 190px;
+        white-space: normal;
     }
 </style>

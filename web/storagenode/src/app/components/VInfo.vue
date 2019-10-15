@@ -8,6 +8,11 @@
             <div class="info__message-box__text">
                 <p class="info__message-box__text__regular-text">{{text}}</p>
                 <p class="info__message-box__text__bold-text">{{boldText}}</p>
+                <p class="info__message-box__text__bold-text">{{extraBoldText}}</p>
+            </div>
+            <div class="info__message-box__green-text" v-if="greenText">
+                <p class="info__message-box__green-text__text">{{greenText}}</p>
+                <p class="info__message-box__green-text__text">{{extraGreenText}}</p>
             </div>
         </div>
     </div>
@@ -29,6 +34,12 @@ export default class VInfo extends Vue {
     private readonly text: string;
     @Prop({default: ''})
     private readonly boldText: string;
+    @Prop({default: ''})
+    private readonly extraBoldText: string;
+    @Prop({default: ''})
+    private readonly greenText: string;
+    @Prop({default: ''})
+    private readonly extraGreenText: string;
     @Prop({default: false})
     private readonly isExtraPadding: boolean;
     @Prop({default: false})
@@ -62,6 +73,11 @@ export default class VInfo extends Vue {
 </script>
 
 <style scoped lang="scss">
+    p {
+        margin-block-start: 0;
+        margin-block-end: 0;
+    }
+
     .info {
         position: relative;
 
@@ -71,9 +87,9 @@ export default class VInfo extends Vue {
             transform: translate(-50%);
             height: auto;
             width: auto;
-            min-width: 210px;
+            white-space: nowrap;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             text-align: center;
             background-image: url('../../../static/images/Message.png');
@@ -92,17 +108,22 @@ export default class VInfo extends Vue {
                     font-size: 12px;
                     line-height: 16px;
                     font-family: 'font_bold';
-                    margin-block-start: 0;
-                    margin-block-end: 0;
                 }
 
                 &__regular-text {
                     color: #5A6E87;
                     font-size: 12px;
                     line-height: 16px;
-                    margin-block-start: 0;
-                    margin-block-end: 0;
                 }
+            }
+
+            &__green-text {
+                font-size: 12px;
+                line-height: 16px;
+                font-family: 'font_medium';
+                color: #00CE7D;
+                width: auto;
+                margin-left: 10px;
             }
         }
     }

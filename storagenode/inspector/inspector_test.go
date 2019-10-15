@@ -29,8 +29,6 @@ func TestInspectorStats(t *testing.T) {
 
 	planet.Start(ctx)
 
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 	var availableBandwidth int64
 	var availableSpace int64
 	for _, storageNode := range planet.StorageNodes {
