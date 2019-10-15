@@ -41,9 +41,9 @@ type Config struct {
 func NewChore(log *zap.Logger, config Config, satelliteDB satellites.DB) *Chore {
 	return &Chore{
 		log:         log,
-		Loop:        *sync2.NewCycle(config.ChoreInterval),
-		config:      config,
 		satelliteDB: satelliteDB,
+		config:      config,
+		Loop:        *sync2.NewCycle(config.ChoreInterval),
 		limiter:     *sync2.NewLimiter(config.NumWorkers),
 	}
 }

@@ -40,7 +40,7 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 	// TODO actually process the order limits
 	// https://storjlabs.atlassian.net/browse/V3-2613
 
-	err = worker.satelliteDB.CompleteGracefulExit(ctx, satelliteID, time.Now().UTC(), satellites.ExitSucceeded, []byte{})
+	err = worker.satelliteDB.CompleteGracefulExit(ctx, satelliteID, time.Now(), satellites.ExitSucceeded, []byte{})
 	return errs.Wrap(err)
 }
 
