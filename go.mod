@@ -7,7 +7,6 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad
@@ -74,7 +73,6 @@ require (
 	github.com/minio/minio-go v6.0.3+incompatible
 	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
-	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
 	github.com/nats-io/go-nats-streaming v0.4.2 // indirect
@@ -96,7 +94,7 @@ require (
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cast v1.3.0
-	github.com/spf13/cobra v0.0.3
+	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect

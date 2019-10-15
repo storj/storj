@@ -202,12 +202,8 @@ export default class ApiKeysArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
-    public mounted(): void {
-        this.$store.dispatch(FETCH, this.FIRST_PAGE);
-    }
-
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
