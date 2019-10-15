@@ -1339,8 +1339,8 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 		updateReq.AuditWeight,
 		dbNode.TotalAuditCount,
 	)
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha) //locked
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)   //locked
 
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
