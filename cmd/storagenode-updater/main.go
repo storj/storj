@@ -146,6 +146,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 		downloadURL := newVersion.URL
 		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
 		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
+		// TODO: consolidate semver.Version and version.SemVer
 		suggestedVersion, err := semver.Parse(newVersion.Version)
 
 		if err != nil {

@@ -55,6 +55,10 @@ func TestAutoUpdater(t *testing.T) {
 					Version: "0.19.5",
 					URL:     ts.URL + "/download",
 				},
+				Rollout: versioncontrol.Rollout{
+					Seed:   "0000000000000000000000000000000000000000000000000000000000000000",
+					Cursor: 100,
+				},
 			},
 		},
 	}
@@ -69,15 +73,17 @@ func TestAutoUpdater(t *testing.T) {
 	args = append(args, "run")
 	args = append(args, "main.go")
 	args = append(args, "run")
-	args = append(args, "--version-url")
+	args = append(args, "--server-address")
 	args = append(args, "http://"+peer.Addr())
 	args = append(args, "--binary-location")
 	args = append(args, tmpExec)
-	args = append(args, "--interval")
-	args = append(args, "0")
+	args = append(args, "--check-interval")
+	args = append(args, "0s")
 
 	out, err := exec.Command("go", args...).CombinedOutput()
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		t.Fatal(err)
+	}
 
 	result := string(out)
 	if !assert.Contains(t, result, "restarted successfully") {
