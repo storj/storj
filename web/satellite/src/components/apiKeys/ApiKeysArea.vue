@@ -203,7 +203,7 @@ export default class ApiKeysArea extends Vue {
     };
 
     public async mounted(): Promise<void> {
-        await this.$store.dispatch(FETCH, 1)
+        await this.$store.dispatch(FETCH, 1);
     }
 
     public async beforeDestroy(): Promise<void> {
