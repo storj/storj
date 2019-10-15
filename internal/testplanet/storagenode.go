@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
@@ -121,6 +122,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Contact: contact.Config{
 				Interval: defaultInterval,
+			},
+			GracefulExit: gracefulexit.Config{
+				ChoreInterval: time.Second * 1,
+				NumWorkers:    3,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
