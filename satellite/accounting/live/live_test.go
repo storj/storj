@@ -5,6 +5,7 @@ package live
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -160,7 +161,7 @@ func TestPlainMemoryCacheConcurrency(t *testing.T) {
 	require.EqualValues(t, expectedSum, spaceUsed)
 }
 
-func TestResetTotals(t *testing.T) {
+func TestNegativeSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -174,8 +175,13 @@ func TestResetTotals(t *testing.T) {
 	assert.IsType(t, &plainMemoryLiveAccounting{}, cache)
 
 	projectID := testrand.UUID()
-	err = cache.AddProjectStorageUsage(ctx, projectID, 0, -20)
-	require.NoError(t, err)
+	inline := int64(-10)
+	remote := int64(-20)
+
+	expectedError := fmt.Sprintf("live-accounting: Used space amounts must be greater than 0. Inline: %d, Remote: %d", inline, remote)
+
+	err = cache.AddProjectStorageUsage(ctx, projectID, inline, remote)
+	require.EqualError(t, err, expectedError)
 }
 
 func populateCache(ctx context.Context, cache accounting.LiveAccounting) (projectIDs []uuid.UUID, sum int64, _ error) {

@@ -13,7 +13,11 @@ import (
 	"storj.io/storj/satellite/accounting"
 )
 
-var mon = monkit.Package()
+var (
+	// Error is the default error class for live-accounting
+	Error = errs.Class("live-accounting")
+	mon   = monkit.Package()
+)
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
@@ -36,6 +40,6 @@ func NewCache(log *zap.Logger, config Config) (accounting.LiveAccounting, error)
 	case "redis":
 		return newRedisLiveAccounting(log, config.StorageBackend)
 	default:
-		return nil, errs.New("unrecognized live accounting backend specifier %q", backendType)
+		return nil, Error.New("unrecognized live accounting backend specifier %q", backendType)
 	}
 }

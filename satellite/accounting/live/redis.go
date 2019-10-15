@@ -23,7 +23,7 @@ type redisLiveAccounting struct {
 func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounting, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return &redisLiveAccounting{
 		log:    log,
@@ -40,10 +40,10 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 		if storage.ErrKeyNotFound.Has(err) {
 			return 0, nil
 		}
-		return 0, err
+		return 0, Error.Wrap(err)
 	}
 	intval, err := strconv.Atoi(string(val))
-	return int64(intval), err
+	return int64(intval), Error.Wrap(err)
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
@@ -51,6 +51,9 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 // and remoteSpaceUsed bytes of remote space usage.
 func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
+	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
+		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
+	}
 	return cache.client.IncrBy(ctx, []byte(projectID.String()), inlineSpaceUsed+remoteSpaceUsed)
 }
 
