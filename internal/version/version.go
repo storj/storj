@@ -28,7 +28,9 @@ const (
 var (
 	mon = monkit.Package()
 
+	// VerError is the error class for version-related errors.
 	VerError = errs.Class("version error")
+
 	// the following fields are set by linker flags. if any of them
 	// are set and fail to parse, the program will fail to start
 	buildTimestamp  string // unix seconds since epoch
@@ -201,11 +203,6 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 		Timestamp:  v.Timestamp,
 		Release:    v.Release,
 	}, nil
-}
-
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
-func isAcceptedVersion(test SemVer, target SemVer) bool {
-	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
 }
 
 func init() {
