@@ -77,6 +77,8 @@ type DB interface {
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
 	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+
+	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -129,6 +131,14 @@ type UpdateRequest struct {
 	UptimeDQ     float64
 }
 
+// ExitStatus is used for reading graceful exit status.
+type ExitStatus struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     *time.Time
+	ExitLoopCompletedAt *time.Time
+	ExitFinishedAt      *time.Time
+}
+
 // ExitStatusRequest is used to update a node's graceful exit status.
 type ExitStatusRequest struct {
 	NodeID              storj.NodeID
@@ -148,6 +158,7 @@ type NodeDossier struct {
 	Contained    bool
 	Disqualified *time.Time
 	PieceCount   int64
+	ExitStatus   ExitStatus
 }
 
 // NodeStats contains statistics about a node.
