@@ -84,7 +84,7 @@ func (db *StaticDB) ByID(ctx context.Context, id string) (Partner, error) {
 
 // ByUserAgent returns partner definition corresponding to an user agent string.
 func (db *StaticDB) ByUserAgent(ctx context.Context, agent string) (Partner, error) {
-	partner, ok := db.byID[CanonicalUserAgent(agent)]
+	partner, ok := db.byUserAgent[CanonicalUserAgent(agent)]
 	if !ok {
 		return Partner{}, ErrNotExist.New("%q", agent)
 	}
