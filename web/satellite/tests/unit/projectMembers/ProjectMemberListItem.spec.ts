@@ -38,6 +38,7 @@ describe('', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(store.getters.selectedProject.ownerId).toBe(member.user.id);
+        expect(wrapper.findAll('.user-container__base-info__name-area__owner-status').length).toBe(1);
     });
 
     it('should render correctly with item row highlighted', function () {
