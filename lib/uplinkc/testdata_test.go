@@ -33,11 +33,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 	)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
-
 	planet.Start(ctx)
-
-	// make sure nodes are refreshed in db
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	run(ctx, planet)
 }

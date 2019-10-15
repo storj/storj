@@ -67,22 +67,19 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 		MinDifficulty: endpoint.minDifficulty,
 	})
 	if err != nil {
-		msg := "error claiming authorization"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		endpoint.log.Error(zap.Error(err).String)
+		return nil, internalErr(zap.Error(err).String)
 	}
 
 	difficulty, err := peerIdent.ID.Difficulty()
 	if err != nil {
-		msg := "error checking difficulty"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		endpoint.log.Error(zap.Error(err).String)
+		return nil, internalErr(zap.Error(err).String)
 	}
 	token, err := authorization.ParseToken(req.AuthToken)
 	if err != nil {
-		msg := "error parsing auth token"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		endpoint.log.Error(zap.Error(err).String)
+		return nil, internalErr(zap.Error(err).String)
 	}
 	tokenFormatter := authorization.Authorization{
 		Token: *token,
