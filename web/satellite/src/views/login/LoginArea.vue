@@ -25,6 +25,7 @@ export default class Login extends Vue {
     private email: string = '';
     private password: string = '';
     private authToken: string = '';
+    private isLoading: boolean = false;
 
     private readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
@@ -53,9 +54,17 @@ export default class Login extends Vue {
     }
 
     public async onLogin(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
         const self = this;
 
         if (!self.validateFields()) {
+            this.isLoading = false;
+
             return;
         }
 
@@ -63,6 +72,7 @@ export default class Login extends Vue {
             this.authToken = await this.auth.token(this.email, this.password);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.isLoading = false;
 
             return;
         }
@@ -72,6 +82,7 @@ export default class Login extends Vue {
         setTimeout(() => {
             AuthToken.set(this.authToken);
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+            this.isLoading = false;
             this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
         }, 2000);
     }

@@ -35,8 +35,8 @@
                 />
                 <HeaderlessInput
                     class="full-input mt"
-                    label="Confirm password"
-                    placeholder="Confirm password"
+                    label="Confirm Password"
+                    placeholder="Confirm Password"
                     width="100%"
                     ref="confirmPasswordInput"
                     is-password="true"

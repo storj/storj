@@ -154,6 +154,7 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
+	time.Sleep(6 * time.Second) //hack: this is so the contact chore can send the satellite the capacity info on its second iteration after 5s
 	errRun := cmd.Run()
 
 	cancel()
@@ -370,6 +371,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
 				process.Extra = append(process.Extra, "SCOPE="+runScopeData)
+				if scope, err := uplink.ParseScope(runScopeData); err == nil {
+					process.Extra = append(process.Extra, "API_KEY="+scope.APIKey.Serialize())
+				}
 			}
 
 			accessKey := vip.GetString("minio.access-key")

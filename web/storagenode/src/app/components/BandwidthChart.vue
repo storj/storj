@@ -3,11 +3,12 @@
 
 <template>
     <div class="chart">
+        <p class="bandwidth-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
             id="bandwidth-chart"
             :chart-data="chartData"
             :width="400"
-            :height="200"
+            :height="240"
             :tooltip-constructor="bandwidthTooltip"
         />
     </div>
@@ -18,7 +19,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
-import { ChartUtils } from '@/app/utils/chartUtils';
+import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthUsed } from '@/storagenode/satellite';
 
@@ -53,9 +54,19 @@ export default class BandwidthChart extends Vue {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
 
+    public get chartDataDimension(): string {
+        if (!this.allBandwidth.length) {
+            return '';
+        }
+
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
+            return elem.summary();
+        }));
+    }
+
     public get chartData(): ChartData {
         let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const daysCount = ChartUtils.daysDisplayedOnChart();
         const chartBackgroundColor = '#F2F6FC';
         const chartBorderColor = '#1F49A3';
         const chartBorderWidth = 2;
@@ -97,7 +108,7 @@ export default class BandwidthChart extends Vue {
                                    </div>
                                    <div class='tooltip-body'>
                                        <div class='tooltip-body__info'>
-                                           <p>NORMAL</p>
+                                           <p>USAGE</p>
                                            <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
                                            <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
                                        </div>
@@ -132,6 +143,20 @@ export default class BandwidthChart extends Vue {
 </script>
 
 <style lang="scss">
+    p {
+        margin: 0;
+    }
+
+    .bandwidth-chart {
+
+        &__data-dimension {
+            font-size: 13px;
+            color: #586c86;
+            margin: 0 0 5px 30px;
+            font-family: 'font_medium';
+        }
+    }
+
     #bandwidth-tooltip {
         background-color: #FFFFFF;
         width: auto;

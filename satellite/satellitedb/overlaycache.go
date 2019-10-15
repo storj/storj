@@ -42,6 +42,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -98,6 +99,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -361,29 +363,6 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	}
 
 	return convertDBNode(ctx, node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (_ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
-	FROM nodes
-	WHERE id = ?
-		AND disqualified IS NULL
-		AND type = ?
-		AND total_audit_count >= ?
-		AND total_uptime_count >= ?
-		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
-	var bytes *[]byte
-	err = row.Scan(&bytes)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 // KnownOffline filters a set of nodes to offline nodes
@@ -1043,6 +1022,23 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	}
 	return exitingNodes, nil
 }
+func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(cache.db.Rebind("select id, exit_initiated_at, exit_loop_completed_at, exit_finished_at from nodes where id = ?"), nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+	exitStatus := &overlay.ExitStatus{}
+	if rows.Next() {
+		err = rows.Scan(&exitStatus.NodeID, &exitStatus.ExitInitiatedAt, &exitStatus.ExitLoopCompletedAt, &exitStatus.ExitFinishedAt)
+	}
+
+	return exitStatus, Error.Wrap(err)
+}
 
 // UpdateExitStatus is used to update a node's graceful exit status.
 func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
@@ -1101,6 +1097,11 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Patch: info.Patch,
 	}
 
+	exitStatus := overlay.ExitStatus{NodeID: id}
+	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
+	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
+	exitStatus.ExitFinishedAt = info.ExitFinishedAt
+
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -1129,6 +1130,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Contained:    info.Contained,
 		Disqualified: info.Disqualified,
 		PieceCount:   info.PieceCount,
+		ExitStatus:   exitStatus,
 	}
 
 	return node, nil

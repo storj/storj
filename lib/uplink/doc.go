@@ -33,7 +33,7 @@ API Keys
 
 An API key is a "macaroon" (see https://ai.google/research/pubs/pub41892). As such, API keys
 can be restricted such that users of the restricted API key only have access to a subset of
-what the parent API key allowed. It is possible to restrict a macarron to specific operations,
+what the parent API key allowed. It is possible to restrict a macaroon to specific operations,
 buckets, paths, path prefixes, or time windows.
 
 If you need a valid API key, please visit your chosen Satellite's web interface.
