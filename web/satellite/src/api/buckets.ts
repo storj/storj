@@ -58,17 +58,8 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
             return new BucketPage();
         }
 
-        const bucketPage: BucketPage = new BucketPage();
+        const buckets: Bucket[] = page.bucketUsages.map(key => new Bucket(key.bucketName, key.storage, key.egress, key.objectCount, key.since, key.before));
 
-        bucketPage.buckets = page.bucketUsages.map(key => new Bucket(key.bucketName, key.storage, key.egress, key.objectCount, key.since, key.before));
-
-        bucketPage.search = page.search;
-        bucketPage.limit = page.limit;
-        bucketPage.offset = page.offset;
-        bucketPage.pageCount = page.pageCount;
-        bucketPage.currentPage = page.currentPage;
-        bucketPage.totalCount = page.totalCount;
-
-        return bucketPage;
+        return new BucketPage(buckets, page.search, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
 }

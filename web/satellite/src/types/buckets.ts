@@ -35,13 +35,11 @@ export class Bucket {
     }
 
     public formattedBucketName(): string {
-        const name = this.bucketName;
-
-        if (name.length < 12) {
-            return name;
+        if (this.bucketName.length < 12) {
+            return this.bucketName;
         }
 
-        return name.slice(0, 12) + '...';
+        return this.bucketName.slice(0, 12) + '...';
     }
 }
 
