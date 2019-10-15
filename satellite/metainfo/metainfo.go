@@ -552,13 +552,18 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		// We repair when the number of healthy files is less than or equal to the repair threshold
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 		if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+			endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
+				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+				zap.Int("validPieces", len(remotePieces)),
+				zap.Int("invalidPieces", len(invalidPieces)),
+				zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
+			)
+
 			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
 				len(remote.RemotePieces),
 			)
-			endpoint.log.Debug(errMsg)
-
 			if len(invalidPieces) > 0 {
 				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
 
@@ -573,13 +578,18 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		}
 
 		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+				zap.Int("validPieces", len(remotePieces)),
+				zap.Int("invalidPieces", len(invalidPieces)),
+				zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
+			)
+
 			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.SuccessThreshold,
 				len(remote.RemotePieces),
 			)
-			endpoint.log.Debug(errMsg)
-
 			if len(invalidPieces) > 0 {
 				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
 
