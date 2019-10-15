@@ -95,7 +95,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
 
 	for _, satellite := range satelliteList.GetSatellites() {
-		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t\n")
+		fmt.Fprintf(w, "%s\t%s\t%s\t\n", satellite.GetDomainName(), satellite.NodeId.String(), memory.Size(satellite.GetSpaceUsed()).Base10String())
 	}
 	fmt.Fprintln(w, "Please enter a space delimited list of satellite domain names you would like to gracefully exit. Press enter to continue:")
 
