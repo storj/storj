@@ -5,7 +5,6 @@ package contact
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -28,12 +27,11 @@ type Chore struct {
 
 	trust *trust.Pool
 
-	maxSleep time.Duration
-	Loop     *sync2.Cycle
+	Loop *sync2.Cycle
 }
 
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
 	return &Chore{
 		log:     log,
 		service: service,
@@ -41,8 +39,7 @@ func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, t
 
 		trust: trust,
 
-		maxSleep: maxSleep,
-		Loop:     sync2.NewCycle(interval),
+		Loop: sync2.NewCycle(interval),
 	}
 }
 
@@ -52,9 +49,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	chore.log.Info("Storagenode contact chore starting up")
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		if err := chore.randomDurationSleep(ctx); err != nil {
-			return err
-		}
 		if err := chore.pingSatellites(ctx); err != nil {
 			chore.log.Error("pingSatellites failed", zap.Error(err))
 		}
@@ -93,20 +87,6 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	}
 
 	return group.Wait()
-}
-
-// randomDurationSleep sleeps for random interval in [0;maxSleep)
-// returns error if context was cancelled
-func (chore *Chore) randomDurationSleep(ctx context.Context) error {
-	if chore.maxSleep <= 0 {
-		return nil
-	}
-	jitter := time.Duration(rand.Int63n(int64(chore.maxSleep)))
-	if !sync2.Sleep(ctx, jitter) {
-		return ctx.Err()
-	}
-
-	return nil
 }
 
 // Close stops the contact chore
