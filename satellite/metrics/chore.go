@@ -61,9 +61,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependentObjectCount)
-		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount)
-		mon.IntVal("total_object_count").Observe(chore.Counter.TotalObjectCount)
+		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependent)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.Inline)
+		mon.IntVal("total_object_count").Observe(chore.Counter.Total)
 
 		return nil
 	})

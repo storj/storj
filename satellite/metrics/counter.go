@@ -17,9 +17,9 @@ import (
 //
 // architecture: Observer
 type Counter struct {
-	RemoteDependentObjectCount int64
-	InlineObjectCount          int64
-	TotalObjectCount           int64
+	RemoteDependent int64
+	Inline          int64
+	Total           int64
 }
 
 // NewCounter instantiates a new counter to be subscribed to the metainfo loop.
@@ -36,11 +36,11 @@ func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, po
 	}
 
 	if streamMeta.NumberOfSegments > 1 || streamMeta.NumberOfSegments == 1 && pointer.Type == pb.Pointer_REMOTE {
-		counter.RemoteDependentObjectCount++
+		counter.RemoteDependent++
 	} else {
-		counter.InlineObjectCount++
+		counter.Inline++
 	}
-	counter.TotalObjectCount++
+	counter.Total++
 
 	return nil
 }

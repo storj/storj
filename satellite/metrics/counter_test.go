@@ -48,9 +48,9 @@ func TestCounterInlineAndRemote(t *testing.T) {
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount)
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependentObjectCount)
-		require.EqualValues(t, 4, metricsChore.Counter.TotalObjectCount)
+		require.EqualValues(t, 2, metricsChore.Counter.Inline)
+		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
+		require.EqualValues(t, 4, metricsChore.Counter.Total)
 	})
 }
 
@@ -74,9 +74,9 @@ func TestCounterInlineOnly(t *testing.T) {
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount)
-		require.EqualValues(t, 0, metricsChore.Counter.RemoteDependentObjectCount)
-		require.EqualValues(t, 2, metricsChore.Counter.TotalObjectCount)
+		require.EqualValues(t, 2, metricsChore.Counter.Inline)
+		require.EqualValues(t, 0, metricsChore.Counter.RemoteDependent)
+		require.EqualValues(t, 2, metricsChore.Counter.Total)
 	})
 }
 
@@ -103,8 +103,8 @@ func TestCounterRemoteOnly(t *testing.T) {
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 0, metricsChore.Counter.InlineObjectCount)
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependentObjectCount)
-		require.EqualValues(t, 2, metricsChore.Counter.TotalObjectCount)
+		require.EqualValues(t, 0, metricsChore.Counter.Inline)
+		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
+		require.EqualValues(t, 2, metricsChore.Counter.Total)
 	})
 }
