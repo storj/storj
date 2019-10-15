@@ -25,8 +25,8 @@ type Partner struct {
 // UserAgent returns partners cano user agent.
 func (p *Partner) UserAgent() string { return p.Name }
 
-// CanonicalUserAgent returns canonicalizes the user name, which is suitable for lookups.
-func CanonicalUserAgent(useragent string) string { return strings.ToLower(useragent) }
+// CanonicalUserAgentProduct returns canonicalizes the user agent product, which is suitable for lookups.
+func CanonicalUserAgentProduct(product string) string { return strings.ToLower(product) }
 
 // ListFromJSONFile loads a json definition of partners.
 func ListFromJSONFile(path string) (*List, error) {

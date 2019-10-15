@@ -47,7 +47,7 @@ func NewStaticDB(list *List) (*StaticDB, error) {
 			db.byID[p.ID] = p
 		}
 
-		useragent := CanonicalUserAgent(p.UserAgent())
+		useragent := CanonicalUserAgentProduct(p.UserAgent())
 		if _, exists := db.byUserAgent[useragent]; exists {
 			errg.Add(Error.New("user agent %q already exists", useragent))
 		} else {
@@ -81,9 +81,9 @@ func (db *StaticDB) ByID(ctx context.Context, id string) (Partner, error) {
 	return partner, nil
 }
 
-// ByUserAgent returns partner definition corresponding to an user agent string.
+// ByUserAgent returns partner definition corresponding to an user agent product string.
 func (db *StaticDB) ByUserAgent(ctx context.Context, agent string) (Partner, error) {
-	partner, ok := db.byUserAgent[CanonicalUserAgent(agent)]
+	partner, ok := db.byUserAgent[CanonicalUserAgentProduct(agent)]
 	if !ok {
 		return Partner{}, ErrNotExist.New("%q", agent)
 	}
