@@ -16,7 +16,7 @@ service NodeGracefulExit {
   rpc GetNonExitingSatellites(GetNonExitingSatellitesRequest) returns (GetNonExitingSatellitesResponse);
   // InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
   rpc InitiateGracefulExit(InitiateGracefulExitRequest) returns (ExitProgress);
-  // GetExitProgress returns graceful exit status on each satellite for a given storagenode
+  // GetExitProgress returns graceful exit status on each satellite for a given storagenode.
   rpc GetExitProgress(GetExitProgressRequest) returns (GetExitProgressResponse);
 }
 

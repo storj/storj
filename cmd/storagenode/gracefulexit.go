@@ -63,7 +63,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// display warning message
-	if !prompt.Confirm("Please be aware that by starting a graceful exit on a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite. This action can not be undone. Are you sure you want to continue? y/n\n") {
+	if !prompt.Confirm("Please be aware that by starting a graceful exit from a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite. This action can not be undone. Are you sure you want to continue? y/n\n") {
 		return nil
 	}
 
@@ -80,12 +80,12 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	// get list of satellites
 	satelliteList, err := client.getNonExitingSatellites(ctx)
 	if err != nil {
-		fmt.Println("Can't find any non-existing satellites.")
+		fmt.Println("Can't find any non-exiting satellites.")
 		return errs.Wrap(err)
 	}
 
 	if len(satelliteList.GetSatellites()) < 1 {
-		fmt.Println("Can't find any non-existing satellites.")
+		fmt.Println("Can't find any non-exiting satellites.")
 		return nil
 	}
 

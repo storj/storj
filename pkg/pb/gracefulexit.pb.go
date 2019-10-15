@@ -1105,7 +1105,7 @@ type DRPCNodeGracefulExitClient interface {
 	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	InitiateGracefulExit(ctx context.Context, in *InitiateGracefulExitRequest) (*ExitProgress, error)
-	// GetExitProgress returns graceful exit status on each satellite for a given storagenode
+	// GetExitProgress returns graceful exit status on each satellite for a given storagenode.
 	GetExitProgress(ctx context.Context, in *GetExitProgressRequest) (*GetExitProgressResponse, error)
 }
 
@@ -1151,7 +1151,7 @@ type DRPCNodeGracefulExitServer interface {
 	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	InitiateGracefulExit(context.Context, *InitiateGracefulExitRequest) (*ExitProgress, error)
-	// GetExitProgress returns graceful exit status on each satellite for a given storagenode
+	// GetExitProgress returns graceful exit status on each satellite for a given storagenode.
 	GetExitProgress(context.Context, *GetExitProgressRequest) (*GetExitProgressResponse, error)
 }
 
@@ -1359,7 +1359,7 @@ type NodeGracefulExitClient interface {
 	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error)
 	// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	InitiateGracefulExit(ctx context.Context, in *InitiateGracefulExitRequest, opts ...grpc.CallOption) (*ExitProgress, error)
-	// GetExitProgress returns graceful exit status on each satellite for a given storagenode
+	// GetExitProgress returns graceful exit status on each satellite for a given storagenode.
 	GetExitProgress(ctx context.Context, in *GetExitProgressRequest, opts ...grpc.CallOption) (*GetExitProgressResponse, error)
 }
 
@@ -1404,7 +1404,7 @@ type NodeGracefulExitServer interface {
 	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	InitiateGracefulExit(context.Context, *InitiateGracefulExitRequest) (*ExitProgress, error)
-	// GetExitProgress returns graceful exit status on each satellite for a given storagenode
+	// GetExitProgress returns graceful exit status on each satellite for a given storagenode.
 	GetExitProgress(context.Context, *GetExitProgressRequest) (*GetExitProgressResponse, error)
 }
 
