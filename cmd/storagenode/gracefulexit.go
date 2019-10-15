@@ -183,7 +183,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
 	// call get status to get status for all satellites' that are in exiting
 	progresses, err := client.getExitProgress(ctx)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	if len(progresses.GetProgress()) < 1 {
@@ -199,7 +199,10 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
 	for _, progress := range progresses.GetProgress() {
 		fmt.Fprintf(w, "%s\t%s\t%f\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete())
 	}
-	w.Flush()
+	err := w.Flush()
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
 	return nil
 }

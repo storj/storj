@@ -118,6 +118,7 @@ func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb
 	}, nil
 }
 
+// GetExitProgress returns graceful exit progress on each satellite that a storagde node has started exiting.
 func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressRequest) (*pb.GetExitProgressResponse, error) {
 	exitProgress, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
@@ -131,10 +132,8 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		var percentCompleted float32
 		if progress.CompletionReceipt != nil {
 			percentCompleted = float32(100)
-		} else {
-			if progress.StartingDiskUsage != 0 {
-				percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
-			}
+		} else if progress.StartingDiskUsage != 0 {
+			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
 		}
 
 		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
