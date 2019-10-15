@@ -1,3 +1,5 @@
+#!/usr/bin/env groovy
+
 node('node') {
   properties([disableConcurrentBuilds()])
   try {

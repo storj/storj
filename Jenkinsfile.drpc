@@ -1,3 +1,5 @@
+#!/usr/bin/env groovy
+
 pipeline {
     agent {
         dockerfile {
@@ -84,11 +86,7 @@ pipeline {
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()
-        }
-        success {
-            setBuildStatus("Build succeeded", "SUCCESS");
-        }
-        failure {
+
             setBuildStatus("Build failed", "FAILURE");
         }
     }
