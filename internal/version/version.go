@@ -4,9 +4,13 @@
 package version
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // semVerRegex is the regular expression used to parse a semantic version.
@@ -202,6 +207,31 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 	}, nil
 }
 
+func PercentageToCursor(pct int) RolloutBytes {
+	// NB: convert the max value to a number, multiply by the percentage, convert back.
+	var maxInt, maskInt big.Int
+	var maxBytes RolloutBytes
+	for i := 0; i < len(maxBytes); i++ {
+		maxBytes[i] = 255
+	}
+	maxInt.SetBytes(maxBytes[:])
+	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
+
+	var cursor RolloutBytes
+	copy(cursor[:], maskInt.Bytes())
+
+	return cursor
+}
+
+func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
+	hash := hmac.New(sha256.New, rollout.Seed[:])
+	_, err := hash.Write(nodeID[:])
+	if err != nil {
+		panic(err)
+	}
+	return bytes.Compare(hash.Sum(nil), rollout.Cursor[:]) < 0
+}
+
 func init() {
 	if buildVersion == "" && buildTimestamp == "" && buildCommitHash == "" && buildRelease == "" {
 		return
@@ -226,5 +256,4 @@ func init() {
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
-
 }

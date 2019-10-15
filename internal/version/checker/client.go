@@ -17,6 +17,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -121,4 +122,19 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 		return version.Process{}, processNameErr
 	}
 	return process, nil
+}
+
+func (client *Client) ShouldUpdate(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
+	defer mon.Task()(&ctx, processName)(&err)
+
+	process, err := client.Process(ctx, processName)
+	if err != nil {
+		return false, version.Version{}, err
+	}
+
+	shouldUpdate := version.ShouldUpdate(process.Rollout, nodeID)
+	if shouldUpdate {
+		return true, process.Suggested, nil
+	}
+	return false, version.Version{}, nil
 }

@@ -5,11 +5,15 @@ package version_test
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestSemVer_Compare(t *testing.T) {
@@ -65,4 +69,37 @@ func TestRollout_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	err = json.Unmarshal(jsonRollout, &actualRollout)
 	require.NoError(t, err)
 	require.Equal(t, expectedRollout, actualRollout)
+}
+
+func TestShouldUpdate(t *testing.T) {
+	// NB: total and acceptable tolerance are negatively correlated.
+	total := 10000
+	tolerance := total * 2 / 100 // 2%
+
+	for p := 10; p < 100; p += 10 {
+		var updates int
+		percentage := p
+		cursor := version.PercentageToCursor(percentage)
+
+		rollout := version.Rollout{
+			Seed:   version.RolloutBytes{},
+			Cursor: cursor,
+		}
+		rand.Read(rollout.Seed[:])
+
+		for i := 0; i < total; i++ {
+			var nodeID storj.NodeID
+			_, err := rand.Read(nodeID[:])
+			require.NoError(t, err)
+
+			if version.ShouldUpdate(rollout, nodeID) {
+				updates++
+			}
+		}
+
+		assert.Condition(t, func() bool {
+			diff := updates - (total * percentage / 100)
+			return int(math.Abs(float64(diff))) < tolerance
+		})
+	}
 }

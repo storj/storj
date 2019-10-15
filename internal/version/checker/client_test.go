@@ -6,7 +6,6 @@ package checker_test
 import (
 	"encoding/hex"
 	"fmt"
-	"math"
 	"reflect"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -87,6 +87,35 @@ func TestClient_Process(t *testing.T) {
 	}
 }
 
+func TestClient_ShouldUpdate(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	peer := newTestPeer(t, ctx)
+	defer ctx.Check(peer.Close)
+
+	clientConfig := checker.ClientConfig{
+		ServerAddress:  "http://" + peer.Addr(),
+		RequestTimeout: 0,
+	}
+	client := checker.New(clientConfig)
+
+	processesType := reflect.TypeOf(version.Processes{})
+	fieldCount := processesType.NumField()
+
+	for i := 1; i < fieldCount; i++ {
+		field := processesType.Field(i - 1)
+
+		expectedVersionStr := fmt.Sprintf("v%d.%d.%d", i, i+1, i+2)
+
+		// NB: test cursor is 100%; rollout/nodeID should-update calculation is tested elsewhere.
+		shouldUpdate, ver, err := client.ShouldUpdate(ctx, field.Name, storj.NodeID{})
+		require.NoError(t, err)
+		require.True(t, shouldUpdate)
+		require.Equal(t, expectedVersionStr, ver.Version)
+	}
+}
+
 func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 	t.Helper()
 
@@ -132,15 +161,11 @@ func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
 			},
 			Rollout: versioncontrol.Rollout{
 				Seed:   testHexSeed,
-				Cursor: newTestCursorPercent(i),
+				Cursor: 100,
 			},
 		}
 
 		field.Set(reflect.ValueOf(binary))
 	}
 	return versions
-}
-
-func newTestCursorPercent(i int) int {
-	return int(math.Mod(float64(i*10), 100))
 }

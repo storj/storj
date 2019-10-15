@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"net"
 	"net/http"
 	"reflect"
@@ -267,22 +266,6 @@ func (rollout Rollout) Validate() error {
 	return nil
 }
 
-func percentageToCursor(pct int) version.RolloutBytes {
-	// NB: convert the max value to a number, multiply by the percentage, convert back.
-	var maxInt, maskInt big.Int
-	var maxBytes version.RolloutBytes
-	for i := 0; i < len(maxBytes); i++ {
-		maxBytes[i] = 255
-	}
-	maxInt.SetBytes(maxBytes[:])
-	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
-
-	var cursor version.RolloutBytes
-	copy(cursor[:], maskInt.Bytes())
-
-	return cursor
-}
-
 func configToProcess(binary Binary) (version.Process, error) {
 	process := version.Process{
 		Minimum: version.Version{
@@ -294,7 +277,7 @@ func configToProcess(binary Binary) (version.Process, error) {
 			URL:     binary.Suggested.URL,
 		},
 		Rollout: version.Rollout{
-			Cursor: percentageToCursor(binary.Rollout.Cursor),
+			Cursor: version.PercentageToCursor(binary.Rollout.Cursor),
 		},
 	}
 
