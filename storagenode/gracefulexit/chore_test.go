@@ -28,7 +28,7 @@ func TestChore(t *testing.T) {
 
 		exitStatus := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
-			ExitInitiatedAt: time.Now().UTC(),
+			ExitInitiatedAt: time.Now(),
 		}
 
 		_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
