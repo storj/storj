@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -290,10 +291,10 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		buffer, readErr := ioutil.ReadAll(downloader)
-		require.Equal(t, 0, len(buffer))
 		closeErr := downloader.Close()
 		err = errs.Combine(readErr, closeErr)
 		if tt.err != "" {
+			assert.Equal(t, 0, len(buffer))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
 		} else {
