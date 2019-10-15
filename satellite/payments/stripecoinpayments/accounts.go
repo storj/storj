@@ -15,6 +15,7 @@ import (
 // accounts is an implementation of payments.Accounts.
 type accounts struct {
 	service *Service
+	userID  uuid.UUID
 }
 
 // CreditCards exposes all needed functionality to manage account credit cards.
@@ -23,8 +24,8 @@ func (accounts *accounts) CreditCards() payments.CreditCards {
 }
 
 // Setup creates a payment account for the user.
-func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
-	defer mon.Task()(&ctx, userID, email)(&err)
+func (accounts *accounts) Setup(ctx context.Context, email string) (err error) {
+	defer mon.Task()(&ctx, accounts.userID, email)(&err)
 
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
@@ -35,14 +36,14 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return accounts.service.customers.Insert(ctx, userID, email)
+	return accounts.service.customers.Insert(ctx, accounts.userID, email)
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
-func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+func (accounts *accounts) Balance(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx, accounts.userID)(&err)
 
-	customerID, err := accounts.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := accounts.service.customers.GetCustomerID(ctx, accounts.userID)
 	if err != nil {
 		return 0, err
 	}
