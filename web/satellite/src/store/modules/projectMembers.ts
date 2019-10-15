@@ -136,7 +136,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
         },
         getters: {
-            selectedProjectMembers: (state: any) =>
+            selectedProjectMembers: (state: ProjectMembersState) =>
                 state.page.projectMembers.filter((member: ProjectMember) =>
                     state.selectedProjectMembersEmails.includes(member.user.email)),
         },
