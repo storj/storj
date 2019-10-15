@@ -6,6 +6,7 @@ package stripecoinpayments
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
 	"storj.io/storj/satellite/payments"
@@ -14,13 +15,14 @@ import (
 // creditCards is an implementation of payments.CreditCards.
 type creditCards struct {
 	service *Service
+	userID  uuid.UUID
 }
 
 // List returns a list of PaymentMethods for a given Customer.
 func (creditCards *creditCards) List(ctx context.Context) (cards []payments.CreditCard, err error) {
-	defer mon.Task()(&ctx, creditCards.service.userID)(&err)
+	defer mon.Task()(&ctx, creditCards.userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.service.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +54,9 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 
 // Add is used to save new credit card and attach it to payment account.
 func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err error) {
-	defer mon.Task()(&ctx, creditCards.service.userID, cardToken)(&err)
+	defer mon.Task()(&ctx, creditCards.userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.service.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
 	if err != nil {
 		return err
 	}

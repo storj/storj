@@ -26,7 +26,6 @@ type Config struct {
 type Service struct {
 	customers    CustomersDB
 	stripeClient *client.API
-	userID       uuid.UUID
 }
 
 // NewService creates a Service instance.
@@ -41,7 +40,5 @@ func NewService(config Config, customers CustomersDB) *Service {
 
 // Accounts exposes all needed functionality to manage payment accounts.
 func (service *Service) Accounts(userID uuid.UUID) payments.Accounts {
-	service.userID = userID
-
 	return &accounts{service: service}
 }
