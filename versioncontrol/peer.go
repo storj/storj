@@ -23,10 +23,11 @@ import (
 // seedLength is the number of bytes in a rollout seed.
 const seedLength = 32
 
-// RolloutErr defines the rollout config error class.
 var (
-	RolloutErr   = errs.Class("rollout config error")
-	emptySeedErr = RolloutErr.New("empty seed")
+	// RolloutErr defines the rollout config error class.
+	RolloutErr = errs.Class("rollout config error")
+	// EmptySeedErr is used when the rollout contains an empty seed value.
+	EmptySeedErr = RolloutErr.New("empty seed")
 )
 
 // Config is all the configuration parameters for a Version Control Server.
@@ -233,7 +234,7 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 			continue
 		}
 		if err := binary.Rollout.Validate(); err != nil {
-			if err == emptySeedErr {
+			if err == EmptySeedErr {
 				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i).Name))
 				continue
 			}
@@ -247,7 +248,7 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 func (rollout Rollout) Validate() error {
 	seedLen := len(rollout.Seed)
 	if seedLen == 0 {
-		return emptySeedErr
+		return EmptySeedErr
 	}
 
 	if seedLen != hex.EncodedLen(seedLength) {
