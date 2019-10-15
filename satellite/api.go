@@ -27,11 +27,11 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -41,30 +41,8 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/irreparable"
-	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/vouchers"
 )
-
-// APIConfig is the global config for the satellite API process
-type APIConfig struct {
-	Identity identity.Config
-	Server   server.Config
-	Version  version.Config
-
-	Contact contact.Config
-	Overlay overlay.Config
-
-	Metainfo metainfo.Config
-	Orders   orders.Config
-
-	Repairer repairer.Config
-
-	Rollup rollup.Config
-
-	Mail      mailservice.Config
-	Console   consoleweb.Config
-	Marketing marketingweb.Config
-}
 
 // API is the satellite API process
 //
@@ -138,10 +116,14 @@ type API struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
+
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+	}
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *APIConfig, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -264,11 +246,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup metainfo
 		log.Debug("Satellite API Process setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Metainfo.Database = db
+		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
@@ -433,6 +411,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
 
+	{ // setup graceful exit
+		log.Debug("Satellite API Process setting up graceful exit endpoint")
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(peer.Log.Named("gracefulexit:endpoint"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Overlay.Service, peer.Metainfo.Service, peer.Orders.Service, config.GracefulExit)
+		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+	}
+
 	return peer, nil
 }
 
@@ -485,9 +470,6 @@ func (peer *API) Close() error {
 	}
 	if peer.Metainfo.Endpoint2 != nil {
 		errlist.Add(peer.Metainfo.Endpoint2.Close())
-	}
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
 	}
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())
