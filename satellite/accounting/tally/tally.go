@@ -37,13 +37,13 @@ type Service struct {
 	Loop sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
-	liveAccounting          accounting.LiveAccounting
+	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 }
 
 // New creates a new tally Service
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.LiveAccounting, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: *sync2.NewCycle(interval),

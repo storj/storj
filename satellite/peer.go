@@ -207,7 +207,7 @@ type Peer struct {
 	}
 
 	LiveAccounting struct {
-		Cache accounting.LiveAccounting
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -240,7 +240,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, versionInfo version.Info, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,

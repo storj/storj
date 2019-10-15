@@ -95,7 +95,7 @@ type API struct {
 	}
 
 	LiveAccounting struct {
-		Cache accounting.LiveAccounting
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -123,7 +123,7 @@ type API struct {
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *Config, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,

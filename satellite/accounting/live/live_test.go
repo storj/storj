@@ -176,7 +176,7 @@ func TestNegativeSpaceUsed(t *testing.T) {
 	require.EqualError(t, err, expectedError)
 }
 
-func populateCache(ctx context.Context, cache accounting.LiveAccounting) (projectIDs []uuid.UUID, sum int64, _ error) {
+func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uuid.UUID, sum int64, _ error) {
 	const (
 		valuesListSize  = 1000
 		valueMultiplier = 4096

@@ -35,12 +35,12 @@ var (
 // architecture: Service
 type ProjectUsage struct {
 	projectAccountingDB ProjectAccounting
-	liveAccounting      LiveAccounting
+	liveAccounting      Cache
 	maxAlphaUsage       memory.Size
 }
 
 // NewProjectUsage created new instance of project usage service
-func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting LiveAccounting, maxAlphaUsage memory.Size) *ProjectUsage {
+func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting Cache, maxAlphaUsage memory.Size) *ProjectUsage {
 	return &ProjectUsage{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,

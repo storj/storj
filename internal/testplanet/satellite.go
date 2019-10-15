@@ -121,7 +121,7 @@ type SatelliteSystem struct {
 	}
 
 	LiveAccounting struct {
-		Cache accounting.LiveAccounting
+		Cache accounting.Cache
 	}
 
 	Mail struct {
