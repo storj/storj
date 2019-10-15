@@ -22,37 +22,17 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-func TestPlainMemoryLiveAccounting(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	config := live.Config{
-		StorageBackend: "memory",
+func TestLiveAccountingCache(t *testing.T) {
+	tests := []struct {
+		backend string
+	}{
+		{
+			backend: "memory",
+		},
+		{
+			backend: "redis",
+		},
 	}
-	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
-	require.NoError(t, err)
-
-	projectIDs, sum, err := populateCache(ctx, cache)
-	require.NoError(t, err)
-
-	// make sure all of the "projects" got all space updates and got right totals
-	for _, projID := range projectIDs {
-		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
-		require.NoError(t, err)
-		assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
-	}
-
-	err = cache.ResetTotals(ctx)
-	require.NoError(t, err)
-
-	for _, projID := range projectIDs {
-		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
-		require.NoError(t, err)
-		assert.EqualValues(t, 0, spaceUsed)
-	}
-}
-
-func TestRedisLiveAccounting(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -60,29 +40,35 @@ func TestRedisLiveAccounting(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	config := live.Config{
-		StorageBackend: "redis://" + address + "?db=0",
-	}
-	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		var config live.Config
+		if tt.backend == "redis" {
+			config = live.Config{
+				StorageBackend: "redis://" + address + "?db=0",
+			}
+		}
 
-	projectIDs, sum, err := populateCache(ctx, cache)
-	require.NoError(t, err)
-
-	// make sure all of the "projects" got all space updates and got right totals
-	for _, projID := range projectIDs {
-		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 		require.NoError(t, err)
-		assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
-	}
 
-	err = cache.ResetTotals(ctx)
-	require.NoError(t, err)
-
-	for _, projID := range projectIDs {
-		spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+		projectIDs, sum, err := populateCache(ctx, cache)
 		require.NoError(t, err)
-		assert.EqualValues(t, 0, spaceUsed)
+
+		// make sure all of the "projects" got all space updates and got right totals
+		for _, projID := range projectIDs {
+			spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+			require.NoError(t, err)
+			assert.Equalf(t, sum, spaceUsed, "projectID %v", projID)
+		}
+
+		err = cache.ResetTotals(ctx)
+		require.NoError(t, err)
+
+		for _, projID := range projectIDs {
+			spaceUsed, err := cache.GetProjectStorageUsage(ctx, projID)
+			require.NoError(t, err)
+			assert.EqualValues(t, 0, spaceUsed)
+		}
 	}
 }
 
