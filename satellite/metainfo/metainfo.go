@@ -534,9 +534,14 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
 			if expectedPieceSize != lastPieceSize {
-				errMsg := fmt.Sprintf("expected piece size is different from provided (%d != %d)", expectedPieceSize, lastPieceSize)
-				endpoint.log.Debug(errMsg)
-				return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+				endpoint.log.Debug("expected piece size is different from provided",
+					zap.Int64("expectedSize", expectedPieceSize),
+					zap.Int64("actualSize", lastPieceSize),
+				)
+				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"expected piece size is different from provided (%d != %d)",
+					expectedPieceSize, lastPieceSize,
+				)
 			}
 		} else {
 			errMsg := "all pieces needs to have the same size"
