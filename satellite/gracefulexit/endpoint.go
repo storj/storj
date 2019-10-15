@@ -357,7 +357,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	transferMsg := &pb.SatelliteMessage{
 		Message: &pb.SatelliteMessage_TransferPiece{
 			TransferPiece: &pb.TransferPiece{
-				OriginalPieceId:     pieceID, // original piece ID
+				OriginalPieceId:     pieceID,
 				AddressedOrderLimit: limit,
 				PrivateKey:          privateKey,
 			},
