@@ -6,6 +6,7 @@ package piecestore
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -14,6 +15,8 @@ import (
 	"storj.io/storj/pkg/signing"
 )
 
+const pieceHashExpiration = 2 * time.Hour
+
 var (
 	// ErrInternal is an error class for internal errors.
 	ErrInternal = errs.Class("internal")
@@ -21,6 +24,8 @@ var (
 	ErrProtocol = errs.Class("protocol")
 	// ErrVerifyUntrusted is an error in case there is a trust issue.
 	ErrVerifyUntrusted = errs.Class("untrusted")
+	// ErrStorageNodeInvalidResponse is an error when a storage node returns a response with invalid data
+	ErrStorageNodeInvalidResponse = errs.Class("storage node has returned an invalid response")
 )
 
 // VerifyPieceHash verifies piece hash which is sent by peer.
@@ -38,6 +43,12 @@ func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerId
 
 	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
 		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report rpc status bad message
+	}
+
+	if hash.Timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+		return ErrStorageNodeInvalidResponse.New("piece has timestamp is too old (%v). Required to be not older than %s",
+			hash.Timestamp, pieceHashExpiration,
+		)
 	}
 
 	return nil
