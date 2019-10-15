@@ -29,6 +29,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -102,7 +103,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	loopFunc := func(ctx context.Context) (err error) {
-		if err := update(ctx); err != nil {
+		// TODO: get nodeID; add config bindings for identity files.
+		if err := update(ctx, nodeID); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
 		}
@@ -122,7 +124,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 // TODO: refactor
-func update(ctx context.Context) (err error) {
+func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 	// TODO: use config struct binding
 	clientConfig := checker.ClientConfig{
 		ServerAddress:  versionURL,
@@ -134,72 +136,74 @@ func update(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	log.Println("downloading versions from", versionURL)
-	process, err := client.Process(ctx, serviceName)
+	shouldUpdate, newVersion, err := client.ShouldUpdate(ctx, serviceName, nodeID)
 	if err != nil {
 		return err
 	}
 
-	downloadURL := process.Suggested.URL
-	downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
-	downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
+	if shouldUpdate {
+		downloadURL := newVersion.URL
+		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
+		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
+		suggestedVersion, err := semver.Parse(newVersion.Version)
 
-	// TODO: check rollout
-	suggestedVersion, err := semver.Parse(process.Suggested.Version)
-	if err != nil {
-		return checker.Error.Wrap(err)
-	}
-
-	if currentVersion.Compare(suggestedVersion) < 0 {
-		tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
 		if err != nil {
-			return errs.New("cannot create temporary archive: %v", err)
-		}
-		defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
-
-		log.Println("start downloading", downloadURL, "to", tempArchive.Name())
-		err = downloadArchive(ctx, tempArchive, downloadURL)
-		if err != nil {
-			return err
-		}
-		log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
-
-		extension := filepath.Ext(binaryLocation)
-		if extension != "" {
-			extension = "." + extension
+			return checker.Error.Wrap(err)
 		}
 
-		dir := filepath.Dir(binaryLocation)
-		backupExec := filepath.Join(dir, serviceName+".old."+currentVersion.String()+extension)
+		if currentVersion.Compare(suggestedVersion) < 0 {
+			tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
+			if err != nil {
+				return errs.New("cannot create temporary archive: %v", err)
+			}
+			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
 
-		if err = os.Rename(binaryLocation, backupExec); err != nil {
-			return err
+			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
+			err = downloadArchive(ctx, tempArchive, downloadURL)
+			if err != nil {
+				return err
+			}
+			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
+
+			extension := filepath.Ext(binaryLocation)
+			if extension != "" {
+				extension = "." + extension
+			}
+
+			dir := filepath.Dir(binaryLocation)
+			backupExec := filepath.Join(dir, serviceName+".old."+currentVersion.String()+extension)
+
+			if err = os.Rename(binaryLocation, backupExec); err != nil {
+				return err
+			}
+
+			err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
+			if err != nil {
+				return err
+			}
+
+			downloadedVersion, err := binaryVersion(binaryLocation)
+			if err != nil {
+				return err
+			}
+
+			if suggestedVersion.Compare(downloadedVersion) != 0 {
+				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+			}
+
+			log.Println("restarting service", serviceName)
+			err = restartSNService(serviceName)
+			if err != nil {
+				return errs.New("unable to restart service: %v", err)
+			}
+			log.Println("service", serviceName, "restarted successfully")
+
+			// TODO remove old binary ??
+		} else {
+			log.Printf("%s version is up to date\n", serviceName)
 		}
-
-		err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
-		if err != nil {
-			return err
-		}
-
-		downloadedVersion, err := binaryVersion(binaryLocation)
-		if err != nil {
-			return err
-		}
-
-		if suggestedVersion.Compare(downloadedVersion) != 0 {
-			return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
-		}
-
-		log.Println("restarting service", serviceName)
-		err = restartSNService(serviceName)
-		if err != nil {
-			return errs.New("unable to restart service: %v", err)
-		}
-		log.Println("service", serviceName, "restarted successfully")
-
-		// TODO remove old binary ??
-	} else {
-		log.Printf("%s version is up to date\n", serviceName)
 	}
 
 	return nil
