@@ -988,7 +988,7 @@
               },
               {
                 "id": 4,
-                "name": "piece_id",
+                "name": "original_piece_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -1008,7 +1008,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "piece_id",
+                "name": "original_piece_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -1051,7 +1051,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "piece_id",
+                "name": "original_piece_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -1091,7 +1091,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "piece_id",
+                "name": "original_piece_id",
                 "type": "bytes",
                 "options": [
                   {
