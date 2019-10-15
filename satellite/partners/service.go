@@ -9,7 +9,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -18,8 +17,6 @@ var (
 
 	// ErrNotExist is returned when a particular partner does not exist.
 	ErrNotExist = errs.Class("partner does not exist")
-
-	mon = monkit.Package()
 )
 
 // DB allows access to partners database.
