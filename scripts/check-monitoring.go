@@ -67,10 +67,10 @@ func findLockedFnNames(pkg *packages.Package) []string {
 					commentLine := pkg.Fset.Position(comment.Pos()).Line
 					lockedLines[commentLine] = struct{}{}
 				}
-				if len(lockedLines) == 0 {
-					continue
-				}
 			}
+		}
+		if len(lockedLines) == 0 {
+			continue
 		}
 
 		// Find calls to monkit functions we're interested in that are on the
