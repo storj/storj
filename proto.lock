@@ -5113,62 +5113,6 @@
         ],
         "messages": [
           {
-            "name": "QueryRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "target",
-                "type": "node.Node"
-              },
-              {
-                "id": 3,
-                "name": "limit",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "pingback",
-                "type": "bool"
-              },
-              {
-                "id": 5,
-                "name": "vouchers",
-                "type": "vouchers.Voucher",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "QueryResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "response",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "PingRequest"
-          },
-          {
-            "name": "PingResponse"
-          },
-          {
-            "name": "InfoRequest"
-          },
-          {
             "name": "InfoResponse",
             "fields": [
               {
@@ -5214,37 +5158,12 @@
             ]
           }
         ],
-        "services": [
-          {
-            "name": "Nodes",
-            "rpcs": [
-              {
-                "name": "Query",
-                "in_type": "QueryRequest",
-                "out_type": "QueryResponse"
-              },
-              {
-                "name": "Ping",
-                "in_type": "PingRequest",
-                "out_type": "PingResponse"
-              },
-              {
-                "name": "RequestInfo",
-                "in_type": "InfoRequest",
-                "out_type": "InfoResponse"
-              }
-            ]
-          }
-        ],
         "imports": [
           {
             "path": "gogo.proto"
           },
           {
             "path": "node.proto"
-          },
-          {
-            "path": "vouchers.proto"
           }
         ],
         "package": {
