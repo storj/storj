@@ -88,26 +88,26 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 	}, nil
 }
 
-// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
-func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb.ExitProgress, error) {
-	e.log.Debug("initialize graceful exit: StartExit", zap.String("satellite ID", req.NodeId.String()))
+// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
+func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
+	e.log.Debug("initialize graceful exit: start", zap.String("satellite ID", req.NodeId.String()))
 
 	domain, err := e.trust.GetAddress(ctx, req.NodeId)
 	if err != nil {
-		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		e.log.Debug("initialize graceful exit: retrieve satellite address", zap.Error(err))
 		return nil, errs.Wrap(err)
 	}
 
 	// get space usage by satellites
 	spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
 	if err != nil {
-		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		e.log.Debug("initialize graceful exit: retrieve space used", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
 		return nil, errs.Wrap(err)
 	}
 
 	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), spaceUsed)
 	if err != nil {
-		e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
+		e.log.Debug("initialize graceful exit: save info into satellites table", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
 		return nil, errs.Wrap(err)
 	}
 
@@ -129,23 +129,28 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		Progress: make([]*pb.ExitProgress, 0, len(exitProgress)),
 	}
 	for _, progress := range exitProgress {
-		var percentCompleted float32
-		if progress.CompletionReceipt != nil {
-			percentCompleted = float32(100)
-		} else if progress.StartingDiskUsage != 0 {
-			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
-		}
-
 		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
 		if err != nil {
 			e.log.Debug("graceful exit: get satellite domain name", zap.String("satelliteID", progress.SatelliteID.String()), zap.Error(err))
 			continue
 		}
+
+		var percentCompleted float32
+		var hasCompleted bool
+
+		if progress.StartingDiskUsage != 0 {
+			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
+		}
+		if progress.CompletionReceipt != nil {
+			hasCompleted = true
+		}
+
 		resp.Progress = append(resp.Progress,
 			&pb.ExitProgress{
 				DomainName:      domain,
 				NodeId:          progress.SatelliteID,
 				PercentComplete: percentCompleted,
+				Successful:      hasCompleted,
 			},
 		)
 	}

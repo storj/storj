@@ -62,7 +62,7 @@ func TestStartExiting(t *testing.T) {
 	resp, err := storagenode.GracefulExit.Endpoint.StartExit(ctx, req)
 	require.NoError(t, err)
 	// check progress is 0
-	require.Equal(t, float32(0), resp.GetPercentComplete())
+	require.EqualValues(t, 0, resp.GetPercentComplete())
 
 	exitStatuses, err := storagenode.DB.Satellites().ListGracefulExits(ctx)
 	require.NoError(t, err)
@@ -95,5 +95,5 @@ func TestGetExitProgress(t *testing.T) {
 	progress := resp.GetProgress()[0]
 	require.Equal(t, progress.GetDomainName(), exitingSatellite.Addr())
 	require.Equal(t, progress.NodeId, exitingSatellite.ID())
-	require.Equal(t, float32(20), progress.GetPercentComplete())
+	require.EqualValues(t, 20, progress.GetPercentComplete())
 }

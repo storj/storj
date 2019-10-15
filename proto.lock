@@ -881,7 +881,7 @@
             "name": "GetNonExitingSatellitesRequest"
           },
           {
-            "name": "StartExitRequest",
+            "name": "InitiateGracefulExitRequest",
             "fields": [
               {
                 "id": 1,
@@ -982,6 +982,11 @@
                 "id": 3,
                 "name": "percent_complete",
                 "type": "float"
+              },
+              {
+                "id": 4,
+                "name": "successful",
+                "type": "bool"
               }
             ]
           },
@@ -1189,8 +1194,8 @@
                 "out_type": "GetNonExitingSatellitesResponse"
               },
               {
-                "name": "StartExit",
-                "in_type": "StartExitRequest",
+                "name": "InitiateGracefulExit",
+                "in_type": "InitiateGracefulExitRequest",
                 "out_type": "ExitProgress"
               },
               {

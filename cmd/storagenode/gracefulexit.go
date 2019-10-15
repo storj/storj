@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -39,8 +40,8 @@ func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (
 	return client.conn.NodeGracefulExitClient().GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 }
 
-func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.StartExitRequest) (*pb.ExitProgress, error) {
-	return client.conn.NodeGracefulExitClient().StartExit(ctx, req)
+func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
+	return client.conn.NodeGracefulExitClient().InitiateGracefulExit(ctx, req)
 }
 
 func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
@@ -96,7 +97,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	for _, satellite := range satelliteList.GetSatellites() {
 		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t\n")
 	}
-	fmt.Fprintln(w, "Please enter the domain name for each satellite you would like to start graceful exit on with a space in between each domain name and hit enter once you are done:")
+	fmt.Fprintln(w, "Please enter a space delimited list of satellite domain names you would like to gracefully exit. Press enter to continue:")
 
 	var selectedSatellite []string
 	scanner := bufio.NewScanner(os.Stdin)
@@ -130,7 +131,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	progresses := make([]*pb.ExitProgress, 0, len(satelliteIDs))
 	var errgroup errs.Group
 	for _, id := range satelliteIDs {
-		req := &pb.StartExitRequest{
+		req := &pb.InitiateGracefulExitRequest{
 			NodeId: id,
 		}
 		resp, err := client.initGracefulExit(ctx, req)
@@ -147,11 +148,8 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		return errgroup.Err()
 	}
 
-	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\t")
+	displayExitProgress(w, progresses)
 
-	for _, progress := range progresses {
-		fmt.Fprintf(w, "%s\t%s\t%f\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete())
-	}
 	err = w.Flush()
 	if err != nil {
 		return errs.Wrap(err)
@@ -160,7 +158,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
+func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
@@ -193,16 +191,27 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) error {
 
 	// display exit progress
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer func() {
 
-	fmt.Fprintln(w, "Domain Name\tNode ID\tPercent Complete\t")
+		err = w.Flush()
+		if err != nil {
+			err = errs.Wrap(err)
+		}
 
-	for _, progress := range progresses.GetProgress() {
-		fmt.Fprintf(w, "%s\t%s\t%f\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete())
-	}
-	err := w.Flush()
-	if err != nil {
-		return errs.Wrap(err)
-	}
+	}()
 
+	displayExitProgress(w, progresses.GetProgress())
 	return nil
+}
+
+func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
+	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful")
+
+	for _, progress := range progresses {
+		isSuccessful := "N"
+		if progress.Successful {
+			isSuccessful = "Y"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%f\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful)
+	}
 }
