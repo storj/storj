@@ -6,7 +6,6 @@ package partners
 
 import (
 	"context"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,29 +16,27 @@ var (
 	// Error is the default error class for partners package.
 	Error = errs.Class("partners error class")
 
+	// ErrNotExist is returned when a particular partner does not exist.
+	ErrNotExist = errs.Class("partner not exist")
+
 	mon = monkit.Package()
 )
 
-// Partner contains information about a partner.
-type Partner struct {
-	Name string
-	ID   string
-}
-
-// UserAgent returns partners cano user agent.
-func (p *Partner) UserAgent() string { return p.Name }
-
-// CanonicalUserAgent returns canonicalizes the user name, which is suitable for lookups.
-func CanonicalUserAgent(useragent string) string { return strings.ToLower(useragent) }
-
 // DB allows access to partners database.
+//
+// architecture: Database
 type DB interface {
+	// ByName returns partner definitions for a given name.
 	ByName(ctx context.Context, name string) ([]Partner, error)
+	// ByID returns partner definition corresponding to an id.
 	ByID(ctx context.Context, id string) (Partner, error)
+	// ByUserAgent returns partner definition corresponding to an user agent string.
 	ByUserAgent(ctx context.Context, agent string) (Partner, error)
 }
 
 // Service allows manipulating and accessing partner information.
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 	db  DB

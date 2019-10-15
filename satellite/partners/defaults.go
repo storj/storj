@@ -3,8 +3,17 @@
 
 package partners
 
-// OpenSource lists Storj default open-source partners.
-var OpenSource = List{
+// DefaultDB is current default settings.
+var DefaultDB = func() DB {
+	db, err := NewStaticDB(&Default)
+	if err != nil {
+		panic(err)
+	}
+	return db
+}()
+
+// Default lists Storj default open-source partners.
+var Default = List{
 	Partners: []Partner{{
 		Name: "Blocknify",
 		ID:   "120bf202-8252-437e-ac12-0e364bee852e",
