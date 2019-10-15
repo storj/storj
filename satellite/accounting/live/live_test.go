@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package live
+package live_test
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
@@ -25,14 +26,11 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	config := Config{
-		StorageBackend: "plainmemory",
+	config := live.Config{
+		StorageBackend: "memory",
 	}
-	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
-
-	// ensure we are using the expected underlying type
-	assert.IsType(t, &plainMemoryLiveAccounting{}, cache)
 
 	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
@@ -62,14 +60,11 @@ func TestRedisLiveAccounting(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	config := Config{
+	config := live.Config{
 		StorageBackend: "redis://" + address + "?db=0",
 	}
-	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
-
-	// ensure we are using the expected underlying type
-	assert.IsType(t, &redisLiveAccounting{}, cache)
 
 	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
@@ -99,10 +94,10 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	config := Config{
+	config := live.Config{
 		StorageBackend: "redis://" + address + "?db=0",
 	}
-	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	projectID := testrand.UUID()
@@ -132,10 +127,10 @@ func TestPlainMemoryCacheConcurrency(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	config := Config{
-		StorageBackend: "plainmemory",
+	config := live.Config{
+		StorageBackend: "memory",
 	}
-	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	projectID := testrand.UUID()
@@ -165,14 +160,11 @@ func TestNegativeSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	config := Config{
-		StorageBackend: "plainmemory:",
+	config := live.Config{
+		StorageBackend: "memory:",
 	}
-	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
-
-	// ensure we are using the expected underlying type
-	assert.IsType(t, &plainMemoryLiveAccounting{}, cache)
 
 	projectID := testrand.UUID()
 	inline := int64(-10)

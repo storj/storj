@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// plainMemoryLiveAccounting represents an live.Service-implementing
+// memoryLiveAccounting represents an accounting.Cache-implementing
 // instance using plain memory (no coordination with other servers). It can be
 // used to coordinate tracking of how much space a project has used.
 //
@@ -19,15 +19,15 @@ import (
 // the accounting cache does not matter significantly. For production, an
 // implementation that allows multiple servers to participate together would
 // be preferable.
-type plainMemoryLiveAccounting struct {
+type memoryLiveAccounting struct {
 	log *zap.Logger
 
 	spaceMapLock sync.RWMutex
 	spaceDeltas  map[uuid.UUID]int64
 }
 
-func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, error) {
-	pmac := &plainMemoryLiveAccounting{log: log}
+func newMemoryLiveAccounting(log *zap.Logger) (*memoryLiveAccounting, error) {
+	pmac := &memoryLiveAccounting{log: log}
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]int64, 0)
 	pmac.spaceMapLock.Unlock()
@@ -36,11 +36,11 @@ func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, 
 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
-func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
+func (mac *memoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	pmac.spaceMapLock.Lock()
-	defer pmac.spaceMapLock.Unlock()
-	curVal, ok := pmac.spaceDeltas[projectID]
+	mac.spaceMapLock.Lock()
+	defer mac.spaceMapLock.Unlock()
+	curVal, ok := mac.spaceDeltas[projectID]
 	if !ok {
 		return 0, nil
 	}
@@ -50,30 +50,30 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+func (mac *memoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
 	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
 		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
 	}
-	pmac.spaceMapLock.Lock()
-	defer pmac.spaceMapLock.Unlock()
-	curVal := pmac.spaceDeltas[projectID]
+	mac.spaceMapLock.Lock()
+	defer mac.spaceMapLock.Unlock()
+	curVal := mac.spaceDeltas[projectID]
 	newTotal := curVal + inlineSpaceUsed + remoteSpaceUsed
-	pmac.spaceDeltas[projectID] = newTotal
+	mac.spaceDeltas[projectID] = newTotal
 	return nil
 }
 
 // ResetTotals reset all space-used totals for all projects back to zero. This
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
-func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) (err error) {
+func (mac *memoryLiveAccounting) ResetTotals(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	pmac.log.Debug("Resetting real-time accounting data")
-	pmac.spaceMapLock.Lock()
-	pmac.spaceDeltas = make(map[uuid.UUID]int64)
-	pmac.spaceMapLock.Unlock()
+	mac.log.Debug("Resetting real-time accounting data")
+	mac.spaceMapLock.Lock()
+	mac.spaceDeltas = make(map[uuid.UUID]int64)
+	mac.spaceMapLock.Unlock()
 	return nil
 }
 
 // Close matches the accounting.LiveAccounting interface.
-func (pmac *plainMemoryLiveAccounting) Close() error { return nil }
+func (mac *memoryLiveAccounting) Close() error { return nil }
