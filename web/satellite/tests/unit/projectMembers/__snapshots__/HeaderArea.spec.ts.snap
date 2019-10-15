@@ -25,7 +25,7 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
     <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <!---->
       <!---->
-      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete 1 user?</span>
+      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>1</b> user?</span>
         <div class="header-after-delete-click__button-area">
           <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
           <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
@@ -46,7 +46,7 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
     <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <!---->
       <!---->
-      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete 2 users?</span>
+      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>2</b> users?</span>
         <div class="header-after-delete-click__button-area">
           <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
           <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
@@ -86,7 +86,7 @@ exports[`Team HeaderArea renders correctly with selected users 1`] = `
       <!---->
       <div class="header-selected-members">
         <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
-        <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
+        <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub> <span class="header-selected-members__info-text"><b>2</b> users selected</span>
       </div>
       <!---->
     </vheader-stub>
