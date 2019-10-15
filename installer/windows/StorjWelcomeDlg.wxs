@@ -2,28 +2,141 @@
 <!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
 
 
+
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <UI>
-            <Dialog Id="StorjWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
-                <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" >
-                    <Publish Property="WixUI_InstallMode" Value="Update">Installed AND PATCH</Publish>
-                </Control>
-                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
-                    <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
-                </Control>
-                <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
-                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
-                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
-                <Control Id="Description" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="This is our custom description" >
+            <Dialog Id="StorjWelcomeDlg" Width="580" Height="440"  Title="!(loc.WelcomeDlg_Title)">
+
+                <Control Id="Title" Type="Text" X="225" Y="20" Width="320" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgTitle)" />
+
+
+                <Control Id="PrerequisitesIntro" Type="Text" X="225" Y="60" Width="320" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}To set up your storage node you will need the following:" />
+
+
+
+
+
+
+                <Control Id="prerequisites_title_id" Type="Text" X="230" Y="90" Width="320" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Make sure you meet prerequisites" >
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
-                <Control Id="PatchDescription" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeUpdateDlgDescriptionUpdate)" >
+
+                <Control Id="prerequisites_name_id" Type="Text" X="230" Y="103" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="Check that you meet connection and hardware requirements." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="prerequisites_link_id" Type="Hyperlink" X="230" Y="123" Width="320" Height="16" Transparent="yes">
+
+                    <Text><![CDATA[<a href="    https://documentation.storj.io/before-you-begin/prerequisites">Learn more about the prerequisites...</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+
+
+
+
+                <Control Id="token_title_id" Type="Text" X="230" Y="148" Width="320" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}An authorization token" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="token_name_id" Type="Text" X="230" Y="161" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="Make sure you have received an email with your personal single-use authorization token." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="token_link_id" Type="Hyperlink" X="230" Y="181" Width="320" Height="16" Transparent="yes">
+
+                    <Text><![CDATA[<a href="https://documentation.storj.io/dependencies/identity">Learn more about the authorization token...</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+
+
+
+
+                <Control Id="identity_title_id" Type="Text" X="230" Y="206" Width="320" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}An identity file" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="identity_name_id" Type="Text" X="230" Y="219" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="This is your node's unique identifier on the network." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="identity_link_id" Type="Hyperlink" X="230" Y="239" Width="320" Height="16" Transparent="yes">
+
+                    <Text><![CDATA[<a href="https://documentation.storj.io/dependencies/identity">Learn how to generate an identity for your storage node...</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+
+
+
+
+                <Control Id="wallet_title_id" Type="Text" X="230" Y="264" Width="320" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}An ERC20 compatible wallet address" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="wallet_name_id" Type="Text" X="230" Y="277" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="This is where you will get paid. You can use a Ethereum wallet address for instance." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="wallet_link_id" Type="Hyperlink" X="230" Y="297" Width="320" Height="16" Transparent="yes">
+
+                    <Text><![CDATA[<a href="https://support.storj.io/hc/en-us/articles/360026611692">Learn how to obtain a valid payout address...</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+
+
+
+
+                <Control Id="portforwarding_title_id" Type="Text" X="230" Y="322" Width="320" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Port forwarding" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="portforwarding_name_id" Type="Text" X="230" Y="335" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="Allow your storage node to communicate with others on the Storj network, even though it is behind a router." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+                <Control Id="portforwarding_link_id" Type="Hyperlink" X="230" Y="355" Width="320" Height="16" Transparent="yes">
+
+                    <Text><![CDATA[<a href="https://support.storj.io/hc/en-us/articles/360026611692">Learn more about port forwarding...</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+
+
+                <Control Id="PatchDescription" Type="Text" X="135" Y="380" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeUpdateDlgDescriptionUpdate)" >
                     <Condition Action="show">Installed AND PATCH</Condition>
                     <Condition Action="hide">NOT Installed OR NOT PATCH</Condition>
                 </Control>
-                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgTitle)" />
+
+                <Control Id="BottomLine" Type="Line" X="0" Y="410" Width="580" Height="0" />
+
+                <Control Id="Next" Type="PushButton" X="436" Y="413" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" >
+                    <Publish Property="WixUI_InstallMode" Value="Update">Installed AND PATCH</Publish>
+                </Control>
+                <Control Id="Cancel" Type="PushButton" X="514" Y="413" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+                    <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+                </Control>
+                <Control Id="Back" Type="PushButton" X="380" Y="413" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
+
+                <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="580" Height="410" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+
             </Dialog>
 
             <InstallUISequence>
