@@ -11,13 +11,16 @@ import (
 
 // CreditCards exposes all needed functionality to manage account credit cards.
 type CreditCards interface {
-	// List returns a list of PaymentMethods for a given Customer.
+	// List returns a list of PaymentMethods for a given account.
 	List(ctx context.Context, userID uuid.UUID) ([]CreditCard, error)
+
+	// Add is used to save new credit card and attach it to payment account.
+	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
 }
 
 // CreditCard holds all public information about credit card.
 type CreditCard struct {
-	ID string
+	ID []byte
 
 	ExpMonth int    `json:"exp_month"`
 	ExpYear  int    `json:"exp_year"`
