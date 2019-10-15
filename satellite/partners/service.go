@@ -26,8 +26,10 @@ var (
 //
 // architecture: Database
 type DB interface {
+	// All returns all partners.
+	All(ctx context.Context) ([]Partner, error)
 	// ByName returns partner definitions for a given name.
-	ByName(ctx context.Context, name string) ([]Partner, error)
+	ByName(ctx context.Context, name string) (Partner, error)
 	// ByID returns partner definition corresponding to an id.
 	ByID(ctx context.Context, id string) (Partner, error)
 	// ByUserAgent returns partner definition corresponding to an user agent string.

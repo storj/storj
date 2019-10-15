@@ -6,6 +6,7 @@ package partners
 
 import (
 	"context"
+	"sort"
 
 	"github.com/zeebo/errs"
 )
@@ -13,7 +14,7 @@ import (
 // StaticDB implements partner lookup based on a static definition.
 type StaticDB struct {
 	list        *List
-	byName      map[string][]Partner
+	byName      map[string]Partner
 	byID        map[string]Partner
 	byUserAgent map[string]Partner
 }
@@ -24,14 +25,22 @@ var _ DB = (*StaticDB)(nil)
 func NewStaticDB(list *List) (*StaticDB, error) {
 	db := &StaticDB{
 		list:        list,
-		byName:      map[string][]Partner{},
+		byName:      map[string]Partner{},
 		byID:        map[string]Partner{},
 		byUserAgent: map[string]Partner{},
 	}
 
+	sort.Slice(list.Partners, func(i, k int) bool {
+		return list.Partners[i].Name < list.Partners[k].Name
+	})
+
 	var errg errs.Group
 	for _, p := range list.Partners {
-		db.byName[p.Name] = append(db.byName[p.Name], p)
+		if _, exists := db.byName[p.Name]; exists {
+			errg.Add(Error.New("name %q already exists", p.ID))
+		} else {
+			db.byName[p.ID] = p
+		}
 
 		if _, exists := db.byID[p.ID]; exists {
 			errg.Add(Error.New("id %q already exists", p.ID))
@@ -50,13 +59,18 @@ func NewStaticDB(list *List) (*StaticDB, error) {
 	return db, errg.Err()
 }
 
+// All returns all partners.
+func (db *StaticDB) All(ctx context.Context) ([]Partner, error) {
+	return append([]Partner{}, db.list.Partners...), nil
+}
+
 // ByName returns partner definitions for a given name.
-func (db *StaticDB) ByName(ctx context.Context, name string) ([]Partner, error) {
-	partners, ok := db.byName[name]
+func (db *StaticDB) ByName(ctx context.Context, name string) (Partner, error) {
+	partner, ok := db.byName[name]
 	if !ok {
-		return nil, ErrNotExist.New("%q", name)
+		return Partner{}, ErrNotExist.New("%q", name)
 	}
-	return partners, nil
+	return partner, nil
 }
 
 // ByID returns partner definition corresponding to an id.
