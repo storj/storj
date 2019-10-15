@@ -365,7 +365,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				EndpointMaxFailures: 5,
 			},
 			Metrics: metrics.Config{
-				Interval: defaultInterval,
+				ChoreInterval: defaultInterval,
 			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {

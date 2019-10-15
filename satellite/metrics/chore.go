@@ -23,7 +23,7 @@ var (
 
 // Config contains configurable values for metrics collection.
 type Config struct {
-	Interval time.Duration `help:"the time between each metrics run" releaseDefault:"15m" devDefault:"15m"`
+	ChoreInterval time.Duration `help:"the time between each metrics chore run" releaseDefault:"15m" devDefault:"15m"`
 }
 
 // Chore implements the metrics chore.
@@ -42,7 +42,7 @@ func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
 	return &Chore{
 		log:          log,
 		config:       config,
-		Loop:         *sync2.NewCycle(config.Interval),
+		Loop:         *sync2.NewCycle(config.ChoreInterval),
 		metainfoLoop: loop,
 	}
 }
