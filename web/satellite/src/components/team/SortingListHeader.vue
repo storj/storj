@@ -49,7 +49,7 @@ export default class SortingListHeader extends Vue {
     public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
     public sortDirection: SortDirection = SortDirection.ASCENDING;
 
-    public get getSortDirection() {
+    public get getSortDirection(): SortDirection {
         if (this.sortDirection === SortDirection.DESCENDING) {
             return SortDirection.ASCENDING;
         }
@@ -57,15 +57,15 @@ export default class SortingListHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public areProjectMembersSortedByName(): boolean {
+    public get areProjectMembersSortedByName(): boolean {
         return this.sortBy === ProjectMemberOrderBy.NAME;
     }
 
-    public areProjectMembersSortedByDate(): boolean {
+    public get areProjectMembersSortedByDate(): boolean {
         return this.sortBy === ProjectMemberOrderBy.CREATED_AT;
     }
 
-    public areProjectMembersSortedByEmail(): boolean {
+    public get areProjectMembersSortedByEmail(): boolean {
         return this.sortBy === ProjectMemberOrderBy.EMAIL;
     }
 

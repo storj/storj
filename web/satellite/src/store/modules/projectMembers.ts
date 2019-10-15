@@ -36,6 +36,7 @@ const {
 class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
+    public selectedProjectMembersEmails: string[] = [];
 }
 
 export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState> {
@@ -44,6 +45,13 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
         mutations: {
             [FETCH](state: ProjectMembersState, page: ProjectMembersPage) {
                 state.page = page;
+                state.page.projectMembers = state.page.projectMembers.map(member => {
+                    if (state.selectedProjectMembersEmails.includes(member.user.email)) {
+                        member.isSelected = true;
+                    }
+
+                    return member;
+                });
             },
             [SET_PAGE](state: ProjectMembersState, page: number) {
                 state.cursor.page = page;
@@ -60,17 +68,23 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             [CLEAR](state: ProjectMembersState) {
                 state.cursor = new ProjectMemberCursor();
                 state.page = new ProjectMembersPage();
+                state.selectedProjectMembersEmails = [];
             },
-            [TOGGLE_SELECTION](state: ProjectMembersState, projectMemberId: string) {
-                state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
-                    if (projectMember.user.id === projectMemberId) {
-                        projectMember.isSelected = !projectMember.isSelected;
-                    }
+            [TOGGLE_SELECTION](state: ProjectMembersState, projectMember: ProjectMember) {
+                if (!state.selectedProjectMembersEmails.includes(projectMember.user.email)) {
+                    projectMember.isSelected = true;
+                    state.selectedProjectMembersEmails.push(projectMember.user.email);
 
-                    return projectMember;
+                    return;
+                }
+
+                projectMember.isSelected = false;
+                state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
+                    return projectMemberEmail !== projectMember.user.email;
                 });
             },
             [CLEAR_SELECTION](state: ProjectMembersState) {
+                state.selectedProjectMembersEmails = [];
                 state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
                     projectMember.isSelected = false;
 
@@ -84,10 +98,12 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
 
                 await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({rootGetters}: any, projectMemberEmails: string[]): Promise<void> {
+            deleteProjectMembers: async function ({rootGetters, state, commit}: any): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
-                await api.delete(projectId, projectMemberEmails);
+                await api.delete(projectId, state.selectedProjectMembersEmails);
+
+                commit(CLEAR_SELECTION);
             },
             fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
@@ -112,15 +128,17 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             clearProjectMembers: function ({commit}) {
                 commit(CLEAR);
             },
-            toggleProjectMemberSelection: function ({commit}: any, projectMemberId: string) {
-                commit(TOGGLE_SELECTION, projectMemberId);
+            toggleProjectMemberSelection: function ({commit}: any, projectMember: ProjectMember) {
+                commit(TOGGLE_SELECTION, projectMember);
             },
             clearProjectMemberSelection: function ({commit}: any) {
                 commit(CLEAR_SELECTION);
             },
         },
         getters: {
-            selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: ProjectMember) => member.isSelected),
+            selectedProjectMembers: (state: ProjectMembersState) =>
+                state.page.projectMembers.filter((member: ProjectMember) =>
+                    state.selectedProjectMembersEmails.includes(member.user.email)),
         },
     };
 }

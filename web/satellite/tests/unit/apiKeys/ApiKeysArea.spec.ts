@@ -134,15 +134,6 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.isEmpty).toBe(false);
     });
 
-    it('function isSelected works correctly', () => {
-        const wrapper = shallowMount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        expect(wrapper.vm.isSelected).toBe(false);
-    });
-
     it('function selectedAPIKeysCount works correctly', () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
