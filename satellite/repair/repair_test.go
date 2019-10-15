@@ -403,6 +403,86 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 	})
 }
 
+// TestRemoveDeletedSegmentFromQueue
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Delete segment from the satellite database
+// - Run the repairer
+// - Verify segment is no longer in the repair queue
+func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Stop()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     3,
+			RepairThreshold:  5,
+			SuccessThreshold: 7,
+			MaxThreshold:     7,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, _ := getRemoteSegment(t, ctx, satellite)
+
+		// kill nodes and track lost pieces
+		nodesToDQ := make(map[storj.NodeID]bool)
+
+		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
+		toKill := 3
+
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+
+		for i, piece := range remotePieces {
+			if i >= toKill {
+				continue
+			}
+			nodesToDQ[piece.NodeId] = true
+		}
+
+		for nodeID := range nodesToDQ {
+			disqualifyNode(t, ctx, satellite, nodeID)
+		}
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		// Delete segment from the satellite database
+		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path")
+		require.NoError(t, err)
+
+		// Verify that the segment is on the repair queue
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+
+		// Run the repairer
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.Limiter.Wait()
+
+		// Verify that the segment was removed
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+	})
+}
+
 // TestRemoveIrreparableSegmentFromQueue
 // - Upload tests data to 7 nodes
 // - Kill nodes so that repair threshold > online nodes > minimum threshold
@@ -461,14 +541,13 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Checker.Loop.Pause()
 
-		// TODO: Verify segment is in queue by making a query to the database
-
 		// Kill nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
 		for _, piece := range remotePieces {
 			disqualifyNode(t, ctx, satellite, piece.NodeId)
 		}
 
+		// Verify that the segment is on the repair queue
 		count, err := satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
@@ -479,6 +558,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
 
+		// Verify that the segment was removed
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 0)
