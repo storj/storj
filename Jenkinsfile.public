@@ -36,19 +36,28 @@ pipeline {
         stage('Verification') {
             parallel {
                 stage('Lint') {
-                    steps {
-                        sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-large-files.go'
-                        sh 'go run ./scripts/check-imports.go -race ./...'
-                        sh 'go run ./scripts/check-peer-constraints.go -race'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
-                        sh 'go run ./scripts/atomicalign.go ./...'
-                        sh 'go run ./scripts/check-errs.go ./...'
-                        sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=2 run'
-                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
-                        sh 'make check-satellite-config-lock'
+                    parallel {
+                        stage ('Linting1') {
+                            steps {
+                                sh 'go run ./scripts/check-copyright.go'
+                                sh 'go run ./scripts/check-large-files.go'
+                                sh 'go run ./scripts/check-imports.go -race ./...'
+                                sh 'go run ./scripts/check-peer-constraints.go -race'
+                                sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
+                                sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
+                                sh 'go run ./scripts/atomicalign.go ./...'
+                                sh 'go run ./scripts/check-errs.go ./...'
+                                sh 'bash ./scripts/check-dbx-version.sh'
+                                sh 'golangci-lint -j=2 run'
+                                sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
+                                sh 'make check-satellite-config-lock'
+                            }
+                        }
+                        stage ('Linting2') {
+                            steps {
+                                sh 'go version'
+                            }
+                        }
                     }
                 }
 
