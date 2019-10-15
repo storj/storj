@@ -28,7 +28,7 @@ func ListFromJSONFile(path string) (*List, error) {
 
 	var list List
 	err = json.NewDecoder(file).Decode(&list)
-	return list, Error.Wrap(err)
+	return &list, Error.Wrap(err)
 }
 
 // StaticDB implements partner lookup based on a static definition.
@@ -42,7 +42,7 @@ type StaticDB struct {
 // NewStaticDB creates a new StaticDB.
 func NewStaticDB(list *List) (*StaticDB, error) {
 	db := &StaticDB{
-		list:        *list,
+		list:        list,
 		byName:      map[string][]Partner{},
 		byID:        map[string]Partner{},
 		byUserAgent: map[string]Partner{},

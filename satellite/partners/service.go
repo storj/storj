@@ -5,17 +5,12 @@
 package partners
 
 import (
-	"bytes"
 	"context"
-	htmltemplate "html/template"
-	"path/filepath"
-	"sync"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/internal/post"
 )
 
 var (
@@ -35,7 +30,7 @@ type Partner struct {
 func (p *Partner) UserAgent() string { return p.Name }
 
 // CanonicalUserAgent returns canonicalizes the user name, which is suitable for lookups.
-func CanonicalUserAgent(useragent string) string { return strigns.ToLower(useragent)}
+func CanonicalUserAgent(useragent string) string { return strings.ToLower(useragent) }
 
 // DB allows access to partners database.
 type DB interface {
