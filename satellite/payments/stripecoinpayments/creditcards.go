@@ -36,6 +36,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		cards = append(cards, payments.CreditCard{
+			ID:       []byte(stripeCard.ID),
 			ExpMonth: int(stripeCard.Card.ExpMonth),
 			ExpYear:  int(stripeCard.Card.ExpYear),
 			Brand:    string(stripeCard.Card.Brand),
@@ -48,4 +49,36 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	}
 
 	return cards, nil
+}
+
+// Add is used to save new credit card and attach it to payment account.
+func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
+	defer mon.Task()(&ctx, userID, cardToken)(&err)
+
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	cardParams := &stripe.PaymentMethodParams{
+		Type: stripe.String(string(stripe.PaymentMethodTypeCard)),
+		Card: &stripe.PaymentMethodCardParams{Token: &cardToken},
+	}
+
+	card, err := creditCards.service.stripeClient.PaymentMethods.New(cardParams)
+	if err != nil {
+		return ErrorStripe.Wrap(err)
+	}
+
+	attachParams := &stripe.PaymentMethodAttachParams{
+		Customer: &customerID,
+	}
+
+	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+	if err != nil {
+		// TODO: handle created but not attached card manually?
+		return ErrorStripe.Wrap(err)
+	}
+
+	return nil
 }
