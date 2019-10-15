@@ -41,11 +41,7 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 	// https://storjlabs.atlassian.net/browse/V3-2613
 
 	err = worker.satelliteDB.CompleteGracefulExit(ctx, satelliteID, time.Now().UTC(), satellites.ExitSucceeded, []byte{})
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
+	return errs.Wrap(err)
 }
 
 // Close halts the worker.

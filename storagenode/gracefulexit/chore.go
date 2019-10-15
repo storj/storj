@@ -22,11 +22,13 @@ var mon = monkit.Package()
 // architecture: Chore
 type Chore struct {
 	log         *zap.Logger
-	Loop        sync2.Cycle
-	config      Config
 	satelliteDB satellites.DB
-	exitingMap  sync.Map
-	limiter     sync2.Limiter
+
+	config Config
+
+	exitingMap sync.Map
+	Loop       sync2.Cycle
+	limiter    sync2.Limiter
 }
 
 // Config for the chore
