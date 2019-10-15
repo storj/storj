@@ -25,7 +25,7 @@ const seedLength = 32
 
 // RolloutErr defines the rollout config error class.
 var (
-	RolloutErr = errs.Class("rollout config error")
+	RolloutErr   = errs.Class("rollout config error")
 	emptySeedErr = RolloutErr.New("empty seed")
 )
 
