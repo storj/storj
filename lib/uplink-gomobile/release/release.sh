@@ -2,9 +2,9 @@
 set -ueo pipefail
 set +x
 
-if [ $# -eq 0 ]
+if [ $# -ne 2 ]
 then
-      echo "Usage: release.sh version"
+      echo "Usage: release.sh version version-code"
       exit 1
 fi
 
@@ -18,6 +18,7 @@ cleanup(){
 trap cleanup EXIT
 
 VERSION=$1
+VERSION_CODE=$2
 
 make libuplink-gomobile
 
@@ -32,8 +33,7 @@ sed -i 's@<version></version>@<version>'$VERSION'</version>@g' "$TMP/libuplink-a
 # set version for AndroidManifest.xml
 sed -i 's@android:versionName=""@android:versionName="'$VERSION'"@g' "$TMP/AndroidManifest.xml"
 # set versionCode for AndroidManifest.xml
-CODE=$(date +%s) # maybe there is better way to generte versionCode
-sed -i 's@android:versionCode=""@android:versionCode="'$CODE'"@g' "$TMP/AndroidManifest.xml"
+sed -i 's@android:versionCode=""@android:versionCode="'$VERSION_CODE'"@g' "$TMP/AndroidManifest.xml"
 
 cd "$TMP"
 zip -ur libuplink-android-gomobile-$VERSION.aar AndroidManifest.xml
@@ -43,4 +43,5 @@ TARGET_URL="https://api.bintray.com/content/storj/maven/libuplink-android-gomobi
 curl -T "$TMP/libuplink-android-gomobile-$VERSION.pom"          -u$BINTRAY_USER:$BINTRAY_API_KEY "$TARGET_URL/libuplink-android-gomobile-$VERSION.pom"
 curl -T "$TMP/libuplink-android-gomobile-$VERSION.aar"          -u$BINTRAY_USER:$BINTRAY_API_KEY "$TARGET_URL/libuplink-android-gomobile-$VERSION.aar"
 curl -T "$TMP/libuplink-android-gomobile-sources-$VERSION.jar"  -u$BINTRAY_USER:$BINTRAY_API_KEY "$TARGET_URL/libuplink-android-gomobile-sources-$VERSION.jar"
+# TODO enable this after verifying that upload was done correctly
 # curl -X POST -u$BINTRAY_USER:$BINTRAY_API_KEY "https://api.bintray.com/content/storj/maven/libuplink-android-gomobile/$VERSION/publish"
