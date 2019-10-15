@@ -212,6 +212,6 @@ func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
 		if progress.Successful {
 			isSuccessful = "Y"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%f\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful)
+		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful)
 	}
 }
