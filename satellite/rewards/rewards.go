@@ -122,16 +122,16 @@ func (o Offer) IsEmpty() bool {
 }
 
 // GetActiveOffer returns an offer that is active based on its type
-func (offers Offers) GetActiveOffer(offerType OfferType, partnerName string) (offer *Offer, err error) {
+func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
 	if len(offers) < 1 {
 		return nil, NoCurrentOfferErr.New("no active offers")
 	}
 	switch offerType {
 	case Partner:
-		if partnerName == "" {
-			return nil, errs.New("partner name is empty")
+		if partnerID == "" {
+			return nil, errs.New("partner ID is empty")
 		}
-		partnerInfo, err := partners.DefaultDB.ByName(context.TODO(), partnerName)
+		partnerInfo, err := partners.DefaultDB.ByID(context.TODO(), partnerID)
 		if err != nil {
 			return nil, NoMatchPartnerIDErr.Wrap(err)
 		}

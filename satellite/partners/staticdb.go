@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package partners implements partners management for attributions.
 package partners
 
 import (
@@ -37,9 +36,9 @@ func NewStaticDB(list *List) (*StaticDB, error) {
 	var errg errs.Group
 	for _, p := range list.Partners {
 		if _, exists := db.byName[p.Name]; exists {
-			errg.Add(Error.New("name %q already exists", p.ID))
+			errg.Add(Error.New("name %q already exists", p.Name))
 		} else {
-			db.byName[p.ID] = p
+			db.byName[p.Name] = p
 		}
 
 		if _, exists := db.byID[p.ID]; exists {
