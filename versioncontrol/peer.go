@@ -20,11 +20,14 @@ import (
 	"storj.io/storj/internal/version"
 )
 
-// SeedLength is the number of bytes in a rollout seed.
-const SeedLength = 32
+// seedLength is the number of bytes in a rollout seed.
+const seedLength = 32
 
 // RolloutErr defines the rollout config error class.
-var RolloutErr = errs.Class("rollout config error")
+var (
+	RolloutErr = errs.Class("rollout config error")
+	emptySeedErr = RolloutErr.New("empty seed")
+)
 
 // Config is all the configuration parameters for a Version Control Server.
 type Config struct {
@@ -70,7 +73,7 @@ type Version struct {
 // Rollout represents the state of a version rollout of a binary to the suggested version.
 type Rollout struct {
 	Seed   string `user:"true" help:"random 32 byte, hex-encoded string"`
-	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the target version" default:"0"`
+	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -113,7 +116,7 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 // New creates a new VersionControl Server.
 func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	if err := config.Binary.ValidateRollouts(log); err != nil {
-		return nil, err
+		return nil, RolloutErr.Wrap(err)
 	}
 
 	peer = &Peer{
@@ -229,7 +232,11 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
 			continue
 		}
-		if err := binary.Rollout.Validate(value.Type().Field(i).Name, log); err != nil {
+		if err := binary.Rollout.Validate(); err != nil {
+			if err == emptySeedErr {
+				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i).Name))
+				continue
+			}
 			validationErrs.Add(err)
 		}
 	}
@@ -237,14 +244,13 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 }
 
 // Validate validates the rollout seed and cursor config values.
-func (rollout Rollout) Validate(binary string, log *zap.Logger) error {
+func (rollout Rollout) Validate() error {
 	seedLen := len(rollout.Seed)
 	if seedLen == 0 {
-		log.Warn("empty seed", zap.String("binary", binary))
-		return nil
+		return emptySeedErr
 	}
 
-	if seedLen != hex.EncodedLen(SeedLength) {
+	if seedLen != hex.EncodedLen(seedLength) {
 		return RolloutErr.New("invalid seed length: %d", seedLen)
 	}
 

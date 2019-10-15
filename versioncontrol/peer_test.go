@@ -164,7 +164,7 @@ func TestRollout_Validate(t *testing.T) {
 			Cursor: i,
 		}
 
-		err := rollout.Validate("test", zaptest.NewLogger(t))
+		err := rollout.Validate()
 		require.NoError(t, err)
 	}
 }
@@ -173,7 +173,7 @@ func TestRollout_Validate_error(t *testing.T) {
 	for _, scenario := range rolloutErrScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			err := scenario.rollout.Validate("test", zaptest.NewLogger(t))
+			err := scenario.rollout.Validate()
 			require.Error(t, err)
 			require.True(t, versioncontrol.RolloutErr.Has(err))
 			require.Contains(t, err.Error(), scenario.errContains)
@@ -182,6 +182,8 @@ func TestRollout_Validate_error(t *testing.T) {
 }
 
 func validRandVersions(t *testing.T) versioncontrol.Versions {
+	t.Helper()
+
 	return versioncontrol.Versions{
 		Satellite: versioncontrol.Binary{
 			Rollout: randRollout(t),
@@ -202,13 +204,17 @@ func validRandVersions(t *testing.T) versioncontrol.Versions {
 }
 
 func randRollout(t *testing.T) versioncontrol.Rollout {
+	t.Helper()
+
 	return versioncontrol.Rollout{
 		Seed:   randSeedString(t),
-		Cursor: rand.Intn(100),
+		Cursor: rand.Intn(101),
 	}
 }
 
 func randSeedString(t *testing.T) string {
+	t.Helper()
+
 	seed := make([]byte, 32)
 	_, err := rand.Read(seed)
 	require.NoError(t, err)
