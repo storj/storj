@@ -17,7 +17,7 @@ import (
 
 var mon = monkit.Package()
 
-// Chore checks for satellites that are being exited and creates a worker per satellite to complete the process.
+// Chore checks for satellites that the node is exiting and creates a worker per satellite to complete the process.
 //
 // architecture: Chore
 type Chore struct {
@@ -33,7 +33,7 @@ type Chore struct {
 
 // Config for the chore
 type Config struct {
-	ChoreInterval time.Duration `help:"how often to run the chore to check for satellites that need to exit." releaseDefault:"15m" devDefault:"10s"`
+	ChoreInterval time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
 	NumWorkers    int           `help:"number of workers to handle satellite exits" default:"3"`
 }
 
@@ -70,7 +70,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		for _, satellite := range satellites {
 			satelliteID := satellite.SatelliteID
-			// returns ok == true if the ID existed, otherwise it stores it.
 			worker := NewWorker(chore.log, chore.satelliteDB, satelliteID)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
