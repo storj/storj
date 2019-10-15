@@ -265,16 +265,8 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 		return ErrInternal.Wrap(err)
 	}
 
-	orderSaved := false
 	largestOrder := pb.Order{}
-	// Ensure that the order is saved even in the face of an error. In the
-	// success path, the order will be saved just before sending the response
-	// and closing the stream (in which case, orderSaved will be true).
-	defer func() {
-		if !orderSaved {
-			endpoint.saveOrder(ctx, limit, &largestOrder)
-		}
-	}()
+	defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -359,11 +351,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
-
-			// Save the order before completing the call. Set orderSaved so
-			// that the defer above does not also save.
-			orderSaved = true
-			endpoint.saveOrder(ctx, limit, &largestOrder)
 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
 				Done: storageNodeHash,
