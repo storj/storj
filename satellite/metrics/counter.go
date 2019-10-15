@@ -13,22 +13,22 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// counter implements the metainfo loop observer interface for data science metrics collection.
+// Counter implements the metainfo loop observer interface for data science metrics collection.
 //
 // architecture: Observer
-type counter struct {
-	remoteDependentObjectCount int64
-	inlineObjectCount          int64
-	totalObjectCount           int64
+type Counter struct {
+	RemoteDependentObjectCount int64
+	InlineObjectCount          int64
+	TotalObjectCount           int64
 }
 
-// newCounter instantiates a new counter to be subscribed to the metainfo loop.
-func newCounter() *counter {
-	return &counter{}
+// NewCounter instantiates a new counter to be subscribed to the metainfo loop.
+func NewCounter() *Counter {
+	return &Counter{}
 }
 
 // Object increments counts for inline objects and remote dependent objects.
-func (counter *counter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	streamMeta := &pb.StreamMeta{}
 	err = proto.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
@@ -36,21 +36,21 @@ func (counter *counter) Object(ctx context.Context, path metainfo.ScopedPath, po
 	}
 
 	if streamMeta.NumberOfSegments > 1 || streamMeta.NumberOfSegments == 1 && pointer.Type == pb.Pointer_REMOTE {
-		counter.remoteDependentObjectCount++
+		counter.RemoteDependentObjectCount++
 	} else {
-		counter.inlineObjectCount++
+		counter.InlineObjectCount++
 	}
-	counter.totalObjectCount++
+	counter.TotalObjectCount++
 
 	return nil
 }
 
 // RemoteSegment returns nil because counter does not interact with remote segments this way for now.
-func (counter *counter) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because counter does not interact with inline segments this way for now.
-func (counter *counter) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }

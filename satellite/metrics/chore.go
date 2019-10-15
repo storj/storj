@@ -34,6 +34,7 @@ type Chore struct {
 	config       Config
 	Loop         sync2.Cycle
 	metainfoLoop *metainfo.Loop
+	Counter      *Counter
 }
 
 // NewChore creates a new instance of the metrics chore.
@@ -53,16 +54,16 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		counter := newCounter()
+		chore.Counter = NewCounter()
 
-		err = chore.metainfoLoop.Join(ctx, counter)
+		err = chore.metainfoLoop.Join(ctx, chore.Counter)
 		if err != nil {
 			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		mon.IntVal("remote_dependent_object_count").Observe(counter.remoteDependentObjectCount)
-		mon.IntVal("inline_object_count").Observe(counter.inlineObjectCount)
-		mon.IntVal("total_object_count").Observe(counter.totalObjectCount)
+		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependentObjectCount)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount)
+		mon.IntVal("total_object_count").Observe(chore.Counter.TotalObjectCount)
 
 		return nil
 	})

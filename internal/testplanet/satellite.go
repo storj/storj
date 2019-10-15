@@ -152,6 +152,10 @@ type SatelliteSystem struct {
 		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
 	}
+
+	Metrics struct {
+		Chore *metrics.Chore
+	}
 }
 
 // ID returns the ID of the Satellite system.
@@ -455,6 +459,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	system.Metrics.Chore = peer.Metrics.Chore
+
 	return system
 }
 
