@@ -52,7 +52,7 @@ export default class SNOHeader extends Vue {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .header {
         width: 100%;
         height: 89px;

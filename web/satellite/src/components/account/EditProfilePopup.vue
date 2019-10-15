@@ -9,11 +9,11 @@
                     <div class="edit-profile-popup__form-container__avatar">
                         <h1 class="edit-profile-popup__form-container__avatar__letter">{{avatarLetter}}</h1>
                     </div>
-                    <h2 class="edit-profile-popup__form-container__main-label-text">Edit profile</h2>
+                    <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
                 <HeaderedInput
                     class="full-input"
-                    label="Full name"
+                    label="Full Name"
                     placeholder="Enter Full Name"
                     width="100%"
                     ref="fullNameInput"

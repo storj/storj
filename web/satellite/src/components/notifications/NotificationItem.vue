@@ -4,7 +4,7 @@
 <template>
     <div :style="notification.style" class="notification-wrap" :class="{ active: isClassActive }" @mouseover="onMouseOver" @mouseleave="onMouseLeave" >
         <div class="notification-wrap__text-area">
-            <div v-html="notification.imgSource"></div>
+            <div class="notification-wrap__text-area__image" v-html="notification.imgSource"></div>
             <p class="notification-wrap__text-area__message">{{notification.message}}</p>
         </div>
         <div class="notification-wrap__buttons-group" @click="onCloseClick">
@@ -71,13 +71,17 @@ export default class NotificationItem extends Vue {
             display: flex;
             align-items: center;
 
+            &__image {
+                max-height: 40px;
+            }
+
             &__message {
                 font-family: 'font_medium';
                 font-size: 14px;
                 height: auto;
                 width: 270px;
                 margin: 0 0 0 17px;
-                word-break: break-all;
+                word-break: break-word;
             }
         }
 
