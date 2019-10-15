@@ -95,7 +95,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, path)
 			if err != nil {
-				worker.log.Error("audit failed", zap.Error(err))
+				worker.log.Error("audit failed", zap.Binary("Segment", []byte(path)), zap.Error(err))
 			}
 		})
 	}
@@ -111,7 +111,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}
@@ -138,7 +138,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}
