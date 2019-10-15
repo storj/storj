@@ -5,17 +5,15 @@ package payments
 
 import (
 	"context"
-
-	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
 // CreditCards exposes all needed functionality to manage account credit cards.
 type CreditCards interface {
 	// List returns a list of PaymentMethods for a given account.
-	List(ctx context.Context, userID uuid.UUID) ([]CreditCard, error)
+	List(ctx context.Context) ([]CreditCard, error)
 
 	// Add is used to save new credit card and attach it to payment account.
-	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
+	Add(ctx context.Context, cardToken string) error
 }
 
 // CreditCard holds all public information about credit card.
