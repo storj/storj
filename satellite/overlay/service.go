@@ -77,7 +77,9 @@ type DB interface {
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
 	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
-
+	// GetGracefulExitNodes returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
+	GetGracefulExitNodes(ctx context.Context, completed bool, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
+	// TODO comment
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 }
 

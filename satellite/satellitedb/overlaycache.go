@@ -1022,6 +1022,7 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	}
 	return exitingNodes, nil
 }
+
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1038,6 +1039,39 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	}
 
 	return exitStatus, Error.Wrap(err)
+}
+
+// GetGracefulExitNodes returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
+func (cache *overlaycache) GetGracefulExitNodes(ctx context.Context, completed bool, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	completedClause := "AND exit_finished_at IS NULL"
+	if completed {
+		completedClause = "AND exit_finished_at IS NOT NULL"
+	}
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE exit_initiated_at IS NOT NULL
+		` + completedClause + `
+		AND exit_finished_at IS NULL
+		`),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		exitingNodes = append(exitingNodes, id)
+	}
+	return exitingNodes, nil
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.
