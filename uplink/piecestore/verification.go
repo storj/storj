@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/signing"
 )
 
-const pieceHashExpiration = 2 * time.Hour
+const pieceHashExpiration = 24 * time.Hour
 
 var (
 	// ErrInternal is an error class for internal errors.
