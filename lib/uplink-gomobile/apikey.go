@@ -108,6 +108,17 @@ type Scope struct {
 	lib *libuplink.Scope
 }
 
+// NewScope creates new Scope
+func NewScope(satelliteAddr string, apiKey *APIKey, encryptionAccess *EncryptionAccess) *Scope {
+	return &Scope{
+		lib: &libuplink.Scope{
+			SatelliteAddr:    satelliteAddr,
+			APIKey:           *apiKey.lib,
+			EncryptionAccess: encryptionAccess.lib,
+		},
+	}
+}
+
 // Serialize serializes a Scope to a base58-encoded string
 func (s *Scope) Serialize() (string, error) {
 	return s.lib.Serialize()
