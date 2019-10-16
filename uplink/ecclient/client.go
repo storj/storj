@@ -229,9 +229,9 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	if err != nil {
 		if errs2.IsCanceled(err) {
 			if parent.Err() == context.Canceled {
-				ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
+				ec.log.Info("Upload to node canceled by user", zap.Stringer("NodeID", storageNodeID))
 			} else {
-				ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
+				ec.log.Debug("Node cut from upload due to slow connection", zap.Stringer("NodeID", storageNodeID))
 			}
 		} else {
 			nodeAddress := ""
@@ -240,8 +240,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			}
 
 			ec.log.Debug("Failed uploading piece to node",
-				zap.String("PieceID", pieceID.String()),
-				zap.String("NodeID", storageNodeID.String()),
+				zap.Stringer("PieceID", pieceID),
+				zap.Stringer("NodeID", storageNodeID),
 				zap.String("Node Address", nodeAddress),
 				zap.Error(err),
 			)
