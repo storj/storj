@@ -4438,73 +4438,73 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
-type StripeCustomers struct {
+type StripeCustomer struct {
 	UserId     []byte
 	CustomerId string
 	CreatedAt  time.Time
 }
 
-func (StripeCustomers) _Table() string { return "stripe_customers" }
+func (StripeCustomer) _Table() string { return "stripe_customers" }
 
-type StripeCustomers_Update_Fields struct {
+type StripeCustomer_Update_Fields struct {
 }
 
-type StripeCustomers_UserId_Field struct {
+type StripeCustomer_UserId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func StripeCustomers_UserId(v []byte) StripeCustomers_UserId_Field {
-	return StripeCustomers_UserId_Field{_set: true, _value: v}
+func StripeCustomer_UserId(v []byte) StripeCustomer_UserId_Field {
+	return StripeCustomer_UserId_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomers_UserId_Field) value() interface{} {
+func (f StripeCustomer_UserId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StripeCustomers_UserId_Field) _Column() string { return "user_id" }
+func (StripeCustomer_UserId_Field) _Column() string { return "user_id" }
 
-type StripeCustomers_CustomerId_Field struct {
+type StripeCustomer_CustomerId_Field struct {
 	_set   bool
 	_null  bool
 	_value string
 }
 
-func StripeCustomers_CustomerId(v string) StripeCustomers_CustomerId_Field {
-	return StripeCustomers_CustomerId_Field{_set: true, _value: v}
+func StripeCustomer_CustomerId(v string) StripeCustomer_CustomerId_Field {
+	return StripeCustomer_CustomerId_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomers_CustomerId_Field) value() interface{} {
+func (f StripeCustomer_CustomerId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StripeCustomers_CustomerId_Field) _Column() string { return "customer_id" }
+func (StripeCustomer_CustomerId_Field) _Column() string { return "customer_id" }
 
-type StripeCustomers_CreatedAt_Field struct {
+type StripeCustomer_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func StripeCustomers_CreatedAt(v time.Time) StripeCustomers_CreatedAt_Field {
-	return StripeCustomers_CreatedAt_Field{_set: true, _value: v}
+func StripeCustomer_CreatedAt(v time.Time) StripeCustomer_CreatedAt_Field {
+	return StripeCustomer_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomers_CreatedAt_Field) value() interface{} {
+func (f StripeCustomer_CreatedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (StripeCustomers_CreatedAt_Field) _Column() string { return "created_at" }
+func (StripeCustomer_CreatedAt_Field) _Column() string { return "created_at" }
 
 type User struct {
 	Id              []byte
@@ -6765,14 +6765,14 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 
 }
 
-func (obj *postgresImpl) Create_StripeCustomers(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field,
-	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
-	stripe_customers *StripeCustomers, err error) {
+func (obj *postgresImpl) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer *StripeCustomer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := stripe_customers_user_id.value()
-	__customer_id_val := stripe_customers_customer_id.value()
+	__user_id_val := stripe_customer_user_id.value()
+	__customer_id_val := stripe_customer_customer_id.value()
 	__created_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at")
@@ -6780,12 +6780,12 @@ func (obj *postgresImpl) Create_StripeCustomers(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
 
-	stripe_customers = &StripeCustomers{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customers.UserId, &stripe_customers.CustomerId, &stripe_customers.CreatedAt)
+	stripe_customer = &StripeCustomer{}
+	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return stripe_customers, nil
+	return stripe_customer, nil
 
 }
 
@@ -8352,14 +8352,14 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx co
 
 }
 
-func (obj *postgresImpl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field) (
+func (obj *postgresImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, stripe_customers_user_id.value())
+	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10946,14 +10946,14 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Con
 
 }
 
-func (obj *sqlite3Impl) Create_StripeCustomers(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field,
-	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
-	stripe_customers *StripeCustomers, err error) {
+func (obj *sqlite3Impl) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer *StripeCustomer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := stripe_customers_user_id.value()
-	__customer_id_val := stripe_customers_customer_id.value()
+	__user_id_val := stripe_customer_user_id.value()
+	__customer_id_val := stripe_customer_customer_id.value()
 	__created_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? )")
@@ -10969,7 +10969,7 @@ func (obj *sqlite3Impl) Create_StripeCustomers(ctx context.Context,
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return obj.getLastStripeCustomers(ctx, __pk)
+	return obj.getLastStripeCustomer(ctx, __pk)
 
 }
 
@@ -12536,14 +12536,14 @@ func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx con
 
 }
 
-func (obj *sqlite3Impl) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field) (
+func (obj *sqlite3Impl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, stripe_customers_user_id.value())
+	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14530,21 +14530,21 @@ func (obj *sqlite3Impl) getLastGracefulExitTransferQueue(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastStripeCustomers(ctx context.Context,
+func (obj *sqlite3Impl) getLastStripeCustomer(ctx context.Context,
 	pk int64) (
-	stripe_customers *StripeCustomers, err error) {
+	stripe_customer *StripeCustomer, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at FROM stripe_customers WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
-	stripe_customers = &StripeCustomers{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&stripe_customers.UserId, &stripe_customers.CustomerId, &stripe_customers.CreatedAt)
+	stripe_customer = &StripeCustomer{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return stripe_customers, nil
+	return stripe_customer, nil
 
 }
 
@@ -15406,15 +15406,15 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_StripeCustomers(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field,
-	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
-	stripe_customers *StripeCustomers, err error) {
+func (rx *Rx) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer *StripeCustomer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_StripeCustomers(ctx, stripe_customers_user_id, stripe_customers_customer_id)
+	return tx.Create_StripeCustomer(ctx, stripe_customer_user_id, stripe_customer_customer_id)
 
 }
 
@@ -15919,14 +15919,14 @@ func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
 }
 
-func (rx *Rx) Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
-	stripe_customers_user_id StripeCustomers_UserId_Field) (
+func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_StripeCustomers_CustomerId_By_UserId(ctx, stripe_customers_user_id)
+	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -16475,10 +16475,10 @@ type Methods interface {
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
 
-	Create_StripeCustomers(ctx context.Context,
-		stripe_customers_user_id StripeCustomers_UserId_Field,
-		stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
-		stripe_customers *StripeCustomers, err error)
+	Create_StripeCustomer(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field,
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		stripe_customer *StripeCustomer, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -16693,8 +16693,8 @@ type Methods interface {
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
 		storagenode_storage_tally *StoragenodeStorageTally, err error)
 
-	Get_StripeCustomers_CustomerId_By_UserId(ctx context.Context,
-		stripe_customers_user_id StripeCustomers_UserId_Field) (
+	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
 
 	Get_User_By_Id(ctx context.Context,

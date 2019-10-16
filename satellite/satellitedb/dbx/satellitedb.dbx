@@ -878,7 +878,7 @@ read one (
 
 //--- satellite payments ---//
 
-model stripe_customers (
+model stripe_customer (
     key user_id
     unique customer_id
 
@@ -887,8 +887,8 @@ model stripe_customers (
     field created_at  timestamp ( autoinsert )
 )
 
-create stripe_customers ( )
+create stripe_customer ( )
 read one (
-	select stripe_customers.customer_id
-	where stripe_customers.user_id = ?
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
 )
