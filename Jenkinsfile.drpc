@@ -13,11 +13,13 @@ pipeline {
     }
     environment {
         GOFLAGS = '-tags=drpc'
+        GITHUB_ORG = 'storj'
+        GITHUB_REPO = 'storj'
     }
     stages {
         stage('Notify Github') {
             steps{
-                githubNotify description: 'DRPC Build started',  context: 'jenkins/drpc-build',  status: 'PENDING'
+                githubNotify(account: env.GITHUB_ORG, repo: env.GITHUBREPO, description: 'DRPC Build started', context: 'jenkins/drpc-build', gitApiUrl: '', sha: env.GIT_COMMIT, status: 'PENDING')
                 }
         }
         stage('Build') {
