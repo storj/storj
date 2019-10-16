@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -132,10 +132,26 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	if len(observer.Bucket) > 0 {
 		var total accounting.BucketTally
 		for _, bucket := range observer.Bucket {
-			bucketReport(bucket, "bucket")
+			monAccounting.IntVal("bucket.objects").Observe(bucket.ObjectCount)
+
+			monAccounting.IntVal("bucket.segments").Observe(bucket.Segments())
+			monAccounting.IntVal("bucket.inline_segments").Observe(bucket.InlineSegments)
+			monAccounting.IntVal("bucket.remote_segments").Observe(bucket.RemoteSegments)
+
+			monAccounting.IntVal("bucket.bytes").Observe(bucket.Bytes())
+			monAccounting.IntVal("bucket.inline_bytes").Observe(bucket.InlineBytes)
+			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
 			total.Combine(bucket)
 		}
-		bucketReport(&total, "total")
+		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //locked
+
+		monAccounting.IntVal("total.segments").Observe(total.Segments())            //locked
+		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //locked
+		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //locked
+
+		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //locked
+		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //locked
+		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //locked
 	}
 
 	// return errors if something went wrong.
@@ -219,16 +235,3 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 
 // using custom name to avoid breaking monitoring
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
-
-// bucketReport reports the stats thru monkit
-func bucketReport(tally *accounting.BucketTally, prefix string) {
-	monAccounting.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
-
-	monAccounting.IntVal(prefix + ".segments").Observe(tally.Segments())
-	monAccounting.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
-	monAccounting.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
-
-	monAccounting.IntVal(prefix + ".bytes").Observe(tally.Bytes())
-	monAccounting.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
-	monAccounting.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
-}

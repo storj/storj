@@ -94,6 +94,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -123,7 +125,6 @@ type Peer struct {
 		Service   *contact.Service
 		Chore     *contact.Chore
 		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
 		PingStats *contact.PingStats
 	}
 
@@ -156,6 +157,7 @@ type Peer struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
 	}
 
 	Bandwidth *bandwidth.Service
@@ -230,13 +232,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"), peer.Contact.Service, peer.Storage2.Trust)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup storage
@@ -394,6 +393,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+
+		peer.GracefulExit.Chore = gracefulexit.NewChore(
+			peer.Log.Named("gracefulexit:chore"),
+			config.GracefulExit,
+			peer.DB.Satellites(),
+		)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
@@ -413,6 +418,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
 	})
 	group.Go(func() error {
@@ -422,15 +430,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
 	})
@@ -451,6 +455,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -466,6 +474,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
+	}
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}
