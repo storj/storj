@@ -59,6 +59,7 @@
                     height="48px"
                     :on-press="toggleDeleteDialog"
                     is-deletion="true"
+                    :is-disabled="true"
                 />
             </div>
         </div>

@@ -60,6 +60,7 @@
                 height="56px"
                 :on-press="toggleDeleteAccountPopup"
                 is-deletion="true"
+                :is-disabled="true"
             />
         </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
@@ -218,8 +219,8 @@ export default class ProfileArea extends Vue {
             }
             
             &__img {
-                width: 60px;
-                height: 60px;
+                min-width: 60px;
+                min-height: 60px;
             }
         }
         
@@ -266,6 +267,8 @@ export default class ProfileArea extends Vue {
         font-size: 18px;
         line-height: 27px;
         word-break: break-all;
+        max-height: 80px;
+        overflow-y: scroll;
     }
 
     .profile-regular-text {
