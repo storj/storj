@@ -128,7 +128,7 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: plainmemory
+# live-accounting.storage-backend: memory
 
 # if true, log function filename and line number
 # log.caller: false

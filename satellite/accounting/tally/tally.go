@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -38,13 +37,13 @@ type Service struct {
 	Loop sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
-	liveAccounting          live.Service
+	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 }
 
 // New creates a new tally Service
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: *sync2.NewCycle(interval),
@@ -87,7 +86,10 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
-	service.liveAccounting.ResetTotals()
+	err = service.liveAccounting.ResetTotals(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
