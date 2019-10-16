@@ -695,5 +695,15 @@ func ignoreEOF(err error) error {
 	if errs.Is(err, syscall.EPIPE) {
 		return nil
 	}
+
+	// tls.errClosed is private so we can only check for a closed connection
+	// in the tls package by doing a string comparison.
+	err2 := errs.Unwrap(err)
+	if err2 != nil && err2.Error() == "tls: use of closed connection" {
+		return nil
+	}
+	if err2 != nil && err2.Error() == "use of closed network connection" {
+		return nil
+	}
 	return err
 }
