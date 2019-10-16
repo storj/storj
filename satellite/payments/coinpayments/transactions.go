@@ -264,7 +264,7 @@ type Transactions struct {
 // Create creates new transaction.
 func (t Transactions) Create(ctx context.Context, params CreateTX) (*Transaction, error) {
 	values := make(url.Values)
-	values.Set("amount", params.Amount.String())
+	values.Set("amount", params.Amount.Text('f', int(params.Amount.Prec())))
 	values.Set("currency1", params.CurrencyIn.String())
 	values.Set("currency2", params.CurrencyOut.String())
 	values.Set("buyer_email", params.BuyerEmail)
