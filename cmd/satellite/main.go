@@ -222,7 +222,15 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, &runCfg.Config, version.Build)
+	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
+	if err != nil {
+		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, accountingCache.Close())
+	}()
+
+	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, accountingCache, &runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}
