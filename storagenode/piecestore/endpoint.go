@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -687,6 +688,11 @@ func min(a, b int64) int64 {
 func ignoreEOF(err error) error {
 	// gRPC gives us an io.EOF but dRPC gives us a wrapped io.EOF
 	if errs.Is(err, io.EOF) {
+		return nil
+	}
+
+	// Ignore if the client has already closed the connection.
+	if errs.Is(err, syscall.EPIPE) {
 		return nil
 	}
 	return err
