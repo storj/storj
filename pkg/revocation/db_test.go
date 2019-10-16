@@ -176,6 +176,9 @@ func TestRevocationDB_List(t *testing.T) {
 		revs, err = revDB.List(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, len(revs))
+		revBytes, err := revs[0].Marshal()
+		assert.NoError(t, err)
+		assert.True(t, bytes.Equal(firstRevocation.Value, revBytes))
 
 		secondRevocation, err := extensions.NewRevocationExt(keys2[peertls.CAIndex], chain2[peertls.LeafIndex])
 		require.NoError(t, err)
@@ -184,5 +187,21 @@ func TestRevocationDB_List(t *testing.T) {
 		revs, err = revDB.List(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(revs))
+
+		expected := [][]byte{firstRevocation.Value, secondRevocation.Value}
+		for _, rev := range revs {
+			revBytes, err := rev.Marshal()
+			assert.NoError(t, err)
+			assert.True(t, contains(expected, revBytes))
+		}
 	})
+}
+
+func contains(slice [][]byte, target []byte) bool {
+	for _, value := range slice {
+		if bytes.Equal(value, target) {
+			return true
+		}
+	}
+	return false
 }
