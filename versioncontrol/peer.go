@@ -38,6 +38,7 @@ type Config struct {
 }
 
 // ServiceVersions provides a list of allowed Versions per Service.
+// TODO: rename to OldVersionsConfig?
 type ServiceVersions struct {
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
@@ -48,6 +49,7 @@ type ServiceVersions struct {
 
 // Versions represents versions for all binaries.
 // TODO: this name is inconsistent with the internal/version pkg's analogue, `Processes`.
+// TODO: rename to ProcessesConfig?
 type Versions struct {
 	Satellite   Binary
 	Storagenode Binary
@@ -58,6 +60,7 @@ type Versions struct {
 
 // Binary represents versions for single binary.
 // TODO: This name is inconsistent with the internal/version pkg's analogue, `Process`.
+// TODO: rename to ProcessConfig?
 type Binary struct {
 	Minimum   Version
 	Suggested Version
@@ -65,12 +68,14 @@ type Binary struct {
 }
 
 // Version single version.
+// TODO: rename to VersionConfig?
 type Version struct {
 	Version string `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string `user:"true" help:"URL for specific binary" default:""`
 }
 
 // Rollout represents the state of a version rollout of a binary to the suggested version.
+// TODO: rename to RolloutConfig?
 type Rollout struct {
 	Seed   string `user:"true" help:"random 32 byte, hex-encoded string"`
 	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`

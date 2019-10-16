@@ -18,10 +18,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"storj.io/storj/internal/version"
 	"strings"
 	"syscall"
 
-	"github.com/blang/semver"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -122,7 +122,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		loop := sync2.NewCycle(runCfg.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
-	if err != context.Canceled {
+	if err != nil && err != context.Canceled {
 		log.Fatal(err)
 	}
 	return nil
@@ -147,7 +147,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
 		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
 		// TODO: consolidate semver.Version and version.SemVer
-		suggestedVersion, err := semver.Parse(newVersion.Version)
+		suggestedVersion, err := newVersion.SemVer()
 
 		if err != nil {
 			return checker.Error.Wrap(err)
@@ -209,10 +209,10 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 	return nil
 }
 
-func binaryVersion(location string) (semver.Version, error) {
+func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").Output()
 	if err != nil {
-		return semver.Version{}, err
+		return version.SemVer{}, err
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
@@ -221,13 +221,10 @@ func binaryVersion(location string) (semver.Version, error) {
 		prefix := "Version: "
 		if strings.HasPrefix(line, prefix) {
 			line = line[len(prefix):]
-			if strings.HasPrefix(line, "v") {
-				line = line[1:]
-			}
-			return semver.Make(line)
+			return version.NewSemVer(line)
 		}
 	}
-	return semver.Version{}, errs.New("unable to determine binary version")
+	return version.SemVer{}, errs.New("unable to determine binary version")
 }
 
 func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {

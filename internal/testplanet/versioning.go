@@ -47,13 +47,15 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 // NewVersionInfo returns the Version Info for this planet with tuned metrics.
 func (planet *Planet) NewVersionInfo() version.Info {
+	ver, err := version.NewSemVer("v0.0.1")
+	if err != nil {
+		panic(err)
+	}
+
 	info := version.Info{
 		Timestamp:  time.Now(),
 		CommitHash: "testplanet",
-		Version: version.SemVer{
-			Major: 0,
-			Minor: 0,
-			Patch: 1},
+		Version: ver,
 		Release: false,
 	}
 	return info

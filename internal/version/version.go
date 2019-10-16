@@ -11,23 +11,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"regexp"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-// semVerRegex is the regular expression used to parse a semantic version.
-// https://github.com/Masterminds/semver/blob/master/LICENSE.txt
-const (
-	semVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
-	quote              = byte('"')
-)
+const quote = byte('"')
 
 var (
 	// VerError is the error class for version-related errors.
@@ -42,8 +38,6 @@ var (
 
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
-
-	versionRegex = regexp.MustCompile("^" + semVerRegex + "$")
 )
 
 // Info is the versioning information for a binary
@@ -58,10 +52,9 @@ type Info struct {
 }
 
 // SemVer represents a semantic version
+// TODO: replace with semver.Version
 type SemVer struct {
-	Major int64 `json:"major"`
-	Minor int64 `json:"minor"`
-	Patch int64 `json:"patch"`
+	semver.Version
 }
 
 // AllowedVersions provides the Minimum SemVer per Service
@@ -127,52 +120,20 @@ func (rb *RolloutBytes) UnmarshalJSON(b []byte) error {
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
-func NewSemVer(v string) (sv SemVer, err error) {
-	m := versionRegex.FindStringSubmatch(v)
-	if m == nil {
-		return SemVer{}, VerError.New("invalid semantic version for build %s", v)
-	}
-
-	// first entry of m is the entire version string
-	sv.Major, err = strconv.ParseInt(m[1], 10, 64)
+func NewSemVer(v string) (SemVer, error) {
+	ver, err := semver.ParseTolerant(v)
 	if err != nil {
-		return SemVer{}, VerError.Wrap(err)
+		return SemVer{}, err
 	}
 
-	sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
-	if err != nil {
-		return SemVer{}, VerError.Wrap(err)
-	}
-
-	sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
-	if err != nil {
-		return SemVer{}, VerError.Wrap(err)
-	}
-
-	return sv, nil
+	return SemVer{
+		Version: ver,
+	}, nil
 }
 
 // Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less.
 func (sem *SemVer) Compare(version SemVer) int {
-	result := sem.Major - version.Major
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	result = sem.Minor - version.Minor
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	result = sem.Patch - version.Patch
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	return 0
+	return sem.Version.Compare(version.Version)
 }
 
 // String converts the SemVer struct to a more easy to handle string
@@ -180,10 +141,23 @@ func (sem *SemVer) String() (version string) {
 	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)
 }
 
+func (ver *Version) SemVer() (SemVer, error) {
+	return NewSemVer(ver.Version)
+}
+
+func (ver SemVer) IsZero() bool {
+	return reflect.ValueOf(ver).IsZero()
+}
+
 // New creates Version_Info from a json byte array
 func New(data []byte) (v Info, err error) {
 	err = json.Unmarshal(data, &v)
 	return v, VerError.Wrap(err)
+}
+
+// IsZero checks if the receiver is the zero value of the version info struct.
+func (info Info) IsZero() bool {
+	return reflect.ValueOf(info).IsZero()
 }
 
 // Marshal converts the existing Version Info to any json byte array
