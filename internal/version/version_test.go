@@ -92,6 +92,7 @@ func TestRollout_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			var actualRollout version.Rollout
 
