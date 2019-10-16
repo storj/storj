@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -117,6 +118,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 	mux.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
+	mux.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
 
 	if server.config.StaticDir != "" {
 		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
@@ -223,6 +225,60 @@ func (server *Server) tokenHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(tokenResponse)
 	if err != nil {
 		server.log.Error("token handler could not encode token response", zap.Error(err))
+		return
+	}
+}
+
+// registerHandler registers new User.
+func (server *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		UserInfo       console.CreateUser `json:"userInfo"`
+		SecretInput    string             `json:"secret"`
+		ReferrerUserID string             `json:"referrerUserID"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := server.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		server.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	link := server.config.ExternalAddress + consoleql.ActivationPath + token
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&consoleql.AccountActivationEmail{
+			ActivationLink: link,
+			Origin:         server.config.ExternalAddress,
+		},
+	)
+
+	err = json.NewEncoder(w).Encode(&user.ID)
+	if err != nil {
+		server.log.Error("registration handler could not encode error", zap.Error(err))
 		return
 	}
 }
