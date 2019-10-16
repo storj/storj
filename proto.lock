@@ -881,13 +881,12 @@
             "name": "GetNonExitingSatellitesRequest"
           },
           {
-            "name": "StartExitRequest",
+            "name": "InitiateGracefulExitRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "node_ids",
+                "name": "node_id",
                 "type": "bytes",
-                "is_repeated": true,
                 "options": [
                   {
                     "name": "(gogoproto.customtype)",
@@ -943,7 +942,21 @@
             ]
           },
           {
-            "name": "StartExitStatus",
+            "name": "GetExitProgressRequest"
+          },
+          {
+            "name": "GetExitProgressResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "progress",
+                "type": "ExitProgress",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "ExitProgress",
             "fields": [
               {
                 "id": 1,
@@ -952,19 +965,28 @@
               },
               {
                 "id": 2,
-                "name": "success",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "StartExitResponse",
-            "fields": [
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
               {
-                "id": 1,
-                "name": "statuses",
-                "type": "StartExitStatus",
-                "is_repeated": true
+                "id": 3,
+                "name": "percent_complete",
+                "type": "float"
+              },
+              {
+                "id": 4,
+                "name": "successful",
+                "type": "bool"
               }
             ]
           },
@@ -1172,9 +1194,14 @@
                 "out_type": "GetNonExitingSatellitesResponse"
               },
               {
-                "name": "StartExit",
-                "in_type": "StartExitRequest",
-                "out_type": "StartExitResponse"
+                "name": "InitiateGracefulExit",
+                "in_type": "InitiateGracefulExitRequest",
+                "out_type": "ExitProgress"
+              },
+              {
+                "name": "GetExitProgress",
+                "in_type": "GetExitProgressRequest",
+                "out_type": "GetExitProgressResponse"
               }
             ]
           },
