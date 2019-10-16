@@ -63,11 +63,9 @@ func TestCounterInlineOnly(t *testing.T) {
 		metricsChore := satellite.Metrics.Chore
 		metricsChore.Loop.Pause()
 
-		segmentSize := 8 * memory.KiB
-
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
-			testData := testrand.Bytes(segmentSize / 8)
+			testData := testrand.Bytes(memory.KiB)
 			path := "/some/inline/path/" + string(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
