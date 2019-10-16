@@ -408,4 +408,4 @@ INSERT INTO "stripe_customers" ("user_id", "customer_id", "created_at") VALUES (
 
 -- NEW DATA --
 
-INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "received", "status", "key", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 'address', 'key', '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "received", "status", "key", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 1, 'key', '2019-06-01 08:28:24.267934+00');
