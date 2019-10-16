@@ -335,7 +335,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	if len(newNodes) == 0 {
-		return Error.New("could not find a node to transfer this piece to", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		return Error.New("could not find a node to receive piece transfer: node ID %v, path %v, piece Num %v", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 	}
 	newNode := newNodes[0]
 	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.Id),
@@ -345,7 +345,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 
 	parts := storj.SplitPath(storj.Path(incomplete.Path))
 	if len(parts) < 2 {
-		return Error.New("invalid path for", zap.Stringer("node ID", incomplete.NodeID), zap.Stringer("piece ID", pieceID))
+		return Error.New("invalid path for node ID %v, piece ID %v", zap.Stringer("node ID", incomplete.NodeID), zap.Stringer("piece ID", pieceID))
 	}
 
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
