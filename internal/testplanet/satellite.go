@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -150,6 +151,10 @@ type SatelliteSystem struct {
 	GracefulExit struct {
 		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Metrics struct {
+		Chore *metrics.Chore
 	}
 }
 
@@ -359,6 +364,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				EndpointBatchSize:   100,
 				EndpointMaxFailures: 5,
 			},
+			Metrics: metrics.Config{
+				ChoreInterval: defaultInterval,
+			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -459,6 +467,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	system.Metrics.Chore = peer.Metrics.Chore
+
 	return system
 }
 

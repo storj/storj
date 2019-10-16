@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -134,6 +135,8 @@ type Config struct {
 	Version version.Config
 
 	GracefulExit gracefulexit.Config
+
+	Metrics metrics.Config
 }
 
 // Peer is the satellite
@@ -236,6 +239,10 @@ type Peer struct {
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
 		Chore    *gracefulexit.Chore
+	}
+
+	Metrics struct {
+		Chore *metrics.Chore
 	}
 }
 
@@ -648,6 +655,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}
 
+	{ // setup metrics service
+		peer.Metrics.Chore = metrics.NewChore(
+			peer.Log.Named("metrics"),
+			config.Metrics,
+			peer.Metainfo.Loop,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -704,6 +719,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -717,6 +735,10 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.Metrics.Chore != nil {
+		errlist.Add(peer.Metrics.Chore.Close())
 	}
 
 	if peer.GracefulExit.Chore != nil {
