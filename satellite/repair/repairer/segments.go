@@ -81,14 +81,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)
-			repairer.log.Sugar().Debugf("segment %v was deleted", path)
+			repairer.log.Debug("segment was deleted", zap.Binary("Segment", []byte(path)))
 			return true, nil
 		}
 		return false, Error.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
-		return true, Error.New("cannot repair inline segment %s", path)
+		return true, Error.New("cannot repair inline segment")
 	}
 
 	mon.Meter("repair_attempts").Mark(1)
@@ -115,7 +115,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
+		return true, Error.Wrap(IrreparableError.New("segment cannot be repaired: only %d healthy pieces, %d required", numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
 	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
@@ -126,7 +126,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// repair not needed
 	if int32(numHealthy) > repairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, repairThreshold)
+		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
 		return true, nil
 	}
 
@@ -187,7 +187,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize(), path)
 
 	// Populate node IDs that failed piece hashes verification
 	var failedNodeIDs storj.NodeIDList
