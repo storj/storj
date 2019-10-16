@@ -86,18 +86,12 @@ pipeline {
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()
-
-            setBuildStatus("Build failed", "FAILURE");
+        }
+        success {
+            githubNotify description: 'DRPC Build succeeded',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'SUCCESS'
+        }
+        failure {
+            githubNotify description: 'DRPC Build failed',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'FAILURE'
         }
     }
-}
-
-void setBuildStatus(String message, String state) {
-  step([
-      $class: "GitHubCommitStatusSetter",
-      reposSource: [$class: "ManuallyEnteredRepositorySource", url: "https://github.com/storj/storj"],
-      contextSource: [$class: "ManuallyEnteredCommitContextSource", context: "ci/jenkins/drpc-build"],
-      errorHandlers: [[$class: "ChangingBuildStatusErrorHandler", result: "UNSTABLE"]],
-      statusResultSource: [ $class: "ConditionalStatusResultSource", results: [[$class: "AnyBuildResult", message: message, state: state]] ]
-  ]);
 }
