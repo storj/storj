@@ -141,12 +141,14 @@ func (sem *SemVer) String() (version string) {
 	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)
 }
 
-func (ver *Version) SemVer() (SemVer, error) {
-	return NewSemVer(ver.Version)
+// IsZero checks if the semantic version is its zero value.
+func (sem SemVer) IsZero() bool {
+	return reflect.ValueOf(sem).IsZero()
 }
 
-func (ver SemVer) IsZero() bool {
-	return reflect.ValueOf(ver).IsZero()
+// SemVer converts a version struct into a semantic version struct.
+func (ver *Version) SemVer() (SemVer, error) {
+	return NewSemVer(ver.Version)
 }
 
 // New creates Version_Info from a json byte array
@@ -155,14 +157,14 @@ func New(data []byte) (v Info, err error) {
 	return v, VerError.Wrap(err)
 }
 
-// IsZero checks if the receiver is the zero value of the version info struct.
+// IsZero checks if the version struct is its zero value.
 func (info Info) IsZero() bool {
 	return reflect.ValueOf(info).IsZero()
 }
 
 // Marshal converts the existing Version Info to any json byte array
-func (v Info) Marshal() ([]byte, error) {
-	data, err := json.Marshal(v)
+func (info Info) Marshal() ([]byte, error) {
+	data, err := json.Marshal(info)
 	if err != nil {
 		return nil, VerError.Wrap(err)
 	}
@@ -172,15 +174,16 @@ func (v Info) Marshal() ([]byte, error) {
 // Proto converts an Info struct to a pb.NodeVersion
 // TODO: shouldn't we just use pb.NodeVersion everywhere? gogoproto will let
 // us make it match Info.
-func (v Info) Proto() (*pb.NodeVersion, error) {
+func (info Info) Proto() (*pb.NodeVersion, error) {
 	return &pb.NodeVersion{
-		Version:    v.Version.String(),
-		CommitHash: v.CommitHash,
-		Timestamp:  v.Timestamp,
-		Release:    v.Release,
+		Version:    info.Version.String(),
+		CommitHash: info.CommitHash,
+		Timestamp:  info.Timestamp,
+		Release:    info.Release,
 	}, nil
 }
 
+// PercentageToCursor calculates the cursor value for the given percentage of nodes which should update.
 func PercentageToCursor(pct int) RolloutBytes {
 	// NB: convert the max value to a number, multiply by the percentage, convert back.
 	var maxInt, maskInt big.Int
@@ -197,6 +200,7 @@ func PercentageToCursor(pct int) RolloutBytes {
 	return cursor
 }
 
+// ShouldUpdate checks if for the the given rollout state, a user with the given nodeID should update.
 func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
 	hash := hmac.New(sha256.New, rollout.Seed[:])
 	_, err := hash.Write(nodeID[:])

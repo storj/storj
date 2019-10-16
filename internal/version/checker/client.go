@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -84,12 +83,12 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 
 // OldMinimum returns the version with the given name at the root-level of the version control response.
 // NB: This will be deprecated eventually in favor of what is currently the `processes` root-level object.
-func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver semver.Version, err error) {
+func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver version.SemVer, err error) {
 	defer mon.Task()(&ctx, serviceName)(&err)
 
 	versions, err := client.All(ctx)
 	if err != nil {
-		return semver.Version{}, err
+		return version.SemVer{}, err
 	}
 
 	r := reflect.ValueOf(&versions)
@@ -125,6 +124,8 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
+// ShouldUpdate downloads the rollout state from the versioncontrol server and
+// checks if a user with the given nodeID should update, and if so, to what version.
 func (client *Client) ShouldUpdate(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
 	defer mon.Task()(&ctx, processName)(&err)
 

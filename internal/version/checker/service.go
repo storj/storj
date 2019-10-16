@@ -120,7 +120,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 		srv.log.Sugar().Errorf("no version from control server, accepting to run")
 		return true
 	}
-	if srv.info.Version.GT(minimum) {
+	if isAcceptedVersion(srv.info.Version, minimum) {
 		srv.log.Sugar().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}

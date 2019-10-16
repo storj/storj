@@ -55,8 +55,8 @@ func (planet *Planet) NewVersionInfo() version.Info {
 	info := version.Info{
 		Timestamp:  time.Now(),
 		CommitHash: "testplanet",
-		Version: ver,
-		Release: false,
+		Version:    ver,
+		Release:    false,
 	}
 	return info
 }

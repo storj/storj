@@ -70,7 +70,6 @@ func TestSemVer_Compare(t *testing.T) {
 	require.True(t, version600.Compare(version040) > 0)
 }
 
-
 func TestRollout_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	var expectedRollout, actualRollout version.Rollout
 
