@@ -68,7 +68,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 
 	card, err := creditCards.service.stripeClient.PaymentMethods.New(cardParams)
 	if err != nil {
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -78,7 +78,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
 	if err != nil {
 		// TODO: handle created but not attached card manually?
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
