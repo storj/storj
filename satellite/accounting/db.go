@@ -94,3 +94,13 @@ type ProjectAccounting interface {
 	// GetProjectUsageLimits returns project usage limit
 	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 }
+
+// Cache stores live information about project storage which has not yet been synced to ProjectAccounting.
+//
+// architecture: Database
+type Cache interface {
+	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
+	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
+	ResetTotals(ctx context.Context) error
+	Close() error
+}

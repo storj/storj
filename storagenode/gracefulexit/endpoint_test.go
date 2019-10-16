@@ -73,6 +73,7 @@ func TestInitiateGracefulExit(t *testing.T) {
 
 func TestGetExitProgress(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	totalSatelliteCount := 3
 	planet, err := testplanet.New(t, totalSatelliteCount, 1, 1)
