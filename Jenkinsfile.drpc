@@ -16,7 +16,7 @@ pipeline {
     }
     stages {
         stage('Notify Github') {
-            githubNotify description: 'DRPC Build started',  context: 'jenkins/drpc-build',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'PENDING'
+            githubNotify description: 'DRPC Build started',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306', context: 'jenkins/drpc-build',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'PENDING'
         }
         stage('Build') {
             steps {
