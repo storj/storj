@@ -93,8 +93,8 @@ export class ProjectMember {
     public joinedAt: string;
     public isSelected: boolean;
 
-    public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id?: string) {
-        this.user = new User(id || '', fullName, shortName, email);
+    public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id: string = '') {
+        this.user = new User(id, fullName, shortName, email);
         this.joinedAt = joinedAt;
         this.isSelected = false;
     }

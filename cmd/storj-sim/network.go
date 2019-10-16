@@ -154,6 +154,7 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
+	time.Sleep(6 * time.Second) //hack: this is so the contact chore can send the satellite the capacity info on its second iteration after 5s
 	errRun := cmd.Run()
 
 	cancel()

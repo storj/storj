@@ -357,7 +357,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	transferMsg := &pb.SatelliteMessage{
 		Message: &pb.SatelliteMessage_TransferPiece{
 			TransferPiece: &pb.TransferPiece{
-				PieceId:             pieceID, // original piece ID
+				OriginalPieceId:     pieceID,
 				AddressedOrderLimit: limit,
 				PrivateKey:          privateKey,
 			},
@@ -385,7 +385,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.New("Original piece hash cannot be nil.")
 	}
 
-	pieceID := message.Succeeded.PieceId
+	pieceID := message.Succeeded.OriginalPieceId
 	endpoint.log.Debug("transfer succeeded.", zap.String("piece ID", pieceID.String()))
 
 	// TODO validation
@@ -424,8 +424,8 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.log.Warn("transfer failed.", zap.String("piece ID", message.Failed.PieceId.String()), zap.String("transfer error", message.Failed.GetError().String()))
-	pieceID := message.Failed.PieceId
+	endpoint.log.Warn("transfer failed.", zap.String("piece ID", message.Failed.OriginalPieceId.String()), zap.String("transfer error", message.Failed.GetError().String()))
+	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", pieceID.String()))

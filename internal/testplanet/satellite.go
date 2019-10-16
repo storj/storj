@@ -4,37 +4,194 @@
 package testplanet
 
 import (
+	"context"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/vouchers"
 )
+
+// SatelliteSystem contains all the processes needed to run a full Satellite setup
+type SatelliteSystem struct {
+	Peer *satellite.Peer
+	API  *satellite.API
+
+	Log      *zap.Logger
+	Identity *identity.FullIdentity
+	DB       satellite.DB
+
+	Dialer rpc.Dialer
+
+	Server *server.Server
+
+	Version *version.Service
+
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
+	}
+
+	Overlay struct {
+		DB        overlay.DB
+		Service   *overlay.Service
+		Inspector *overlay.Inspector
+	}
+
+	Metainfo struct {
+		Database  metainfo.PointerDB
+		Service   *metainfo.Service
+		Endpoint2 *metainfo.Endpoint
+		Loop      *metainfo.Loop
+	}
+
+	Inspector struct {
+		Endpoint *inspector.Endpoint
+	}
+
+	Orders struct {
+		Endpoint *orders.Endpoint
+		Service  *orders.Service
+	}
+
+	Repair struct {
+		Checker   *checker.Checker
+		Repairer  *repairer.Service
+		Inspector *irreparable.Inspector
+	}
+	Audit struct {
+		Queue    *audit.Queue
+		Worker   *audit.Worker
+		Chore    *audit.Chore
+		Verifier *audit.Verifier
+		Reporter *audit.Reporter
+	}
+
+	GarbageCollection struct {
+		Service *gc.Service
+	}
+
+	DBCleanup struct {
+		Chore *dbcleanup.Chore
+	}
+
+	Accounting struct {
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.ProjectUsage
+	}
+
+	LiveAccounting struct {
+		Cache accounting.Cache
+	}
+
+	Mail struct {
+		Service *mailservice.Service
+	}
+
+	Vouchers struct {
+		Endpoint *vouchers.Endpoint
+	}
+
+	Console struct {
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleweb.Server
+	}
+
+	Marketing struct {
+		Listener net.Listener
+		Endpoint *marketingweb.Server
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
+	}
+
+	GracefulExit struct {
+		Chore    *gracefulexit.Chore
+		Endpoint *gracefulexit.Endpoint
+	}
+
+	Metrics struct {
+		Chore *metrics.Chore
+	}
+}
+
+// ID returns the ID of the Satellite system.
+func (system *SatelliteSystem) ID() storj.NodeID { return system.API.Identity.ID }
+
+// Local returns the peer local node info from the Satellite system API.
+func (system *SatelliteSystem) Local() overlay.NodeDossier { return system.API.Contact.Service.Local() }
+
+// Addr returns the public address from the Satellite system API.
+func (system *SatelliteSystem) Addr() string { return system.API.Server.Addr().String() }
+
+// URL returns the storj.NodeURL from the Satellite system API.
+func (system *SatelliteSystem) URL() storj.NodeURL {
+	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
+}
+
+// Close closes all the subsystems in the Satellite system
+func (system *SatelliteSystem) Close() error {
+	return errs.Combine(system.API.Close(), system.Peer.Close())
+}
+
+// Run runs all the subsystems in the Satellite system
+func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
+	group, ctx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.Peer.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.API.Run(ctx))
+	})
+	return group.Wait()
+}
+
+// PrivateAddr returns the private address from the Satellite system API.
+func (system *SatelliteSystem) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
 // newSatellites initializes satellites
 func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
@@ -119,11 +276,6 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					UptimeReputationDQ:           0.6,
 				},
 				UpdateStatsBatchSize: 100,
-			},
-			Discovery: discovery.Config{
-				RefreshInterval:    1 * time.Second,
-				RefreshLimit:       100,
-				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
@@ -212,6 +364,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				EndpointBatchSize:   100,
 				EndpointMaxFailures: 5,
 			},
+			Metrics: metrics.Config{
+				ChoreInterval: defaultInterval,
+			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -223,9 +378,17 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
+
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+
+		planet.databases = append(planet.databases, liveAccountingCache)
+
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccountingCache, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -237,10 +400,95 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		planet.databases = append(planet.databases, db)
 		planet.databases = append(planet.databases, pointerDB)
 
-		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+		api, err := planet.newAPI(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := SatelliteSystem{Peer: *peer}
-		xs = append(xs, &system)
+		system := createNewSystem(log, peer, api)
+		xs = append(xs, system)
 	}
 	return xs, nil
+}
+
+// createNewSystem makes a new Satellite System and exposes the same interface from
+// before we split out the API. In the short term this will help keep all the tests passing
+// without much modification needed. However long term, we probably want to rework this
+// so it represents how the satellite will run when it is made up of many prrocesses.
+func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) *SatelliteSystem {
+	system := &SatelliteSystem{
+		Peer: peer,
+		API:  api,
+	}
+	system.Log = log
+	system.Identity = peer.Identity
+	system.DB = api.DB
+
+	system.Dialer = api.Dialer
+
+	system.Contact.Service = api.Contact.Service
+	system.Contact.Endpoint = api.Contact.Endpoint
+
+	system.Overlay.DB = api.Overlay.DB
+	system.Overlay.Service = api.Overlay.Service
+	system.Overlay.Inspector = api.Overlay.Inspector
+
+	system.Metainfo.Database = api.Metainfo.Database
+	system.Metainfo.Service = peer.Metainfo.Service
+	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
+	system.Metainfo.Loop = peer.Metainfo.Loop
+
+	system.Inspector.Endpoint = api.Inspector.Endpoint
+
+	system.Orders.Endpoint = api.Orders.Endpoint
+	system.Orders.Service = peer.Orders.Service
+
+	system.Repair.Checker = peer.Repair.Checker
+	system.Repair.Repairer = peer.Repair.Repairer
+	system.Repair.Inspector = api.Repair.Inspector
+
+	system.Audit.Queue = peer.Audit.Queue
+	system.Audit.Worker = peer.Audit.Worker
+	system.Audit.Chore = peer.Audit.Chore
+	system.Audit.Verifier = peer.Audit.Verifier
+	system.Audit.Reporter = peer.Audit.Reporter
+
+	system.GarbageCollection.Service = peer.GarbageCollection.Service
+
+	system.DBCleanup.Chore = peer.DBCleanup.Chore
+
+	system.Accounting.Tally = peer.Accounting.Tally
+	system.Accounting.Rollup = peer.Accounting.Rollup
+	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+
+	system.Marketing.Listener = api.Marketing.Listener
+	system.Marketing.Endpoint = api.Marketing.Endpoint
+
+	system.GracefulExit.Chore = peer.GracefulExit.Chore
+	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	system.Metrics.Chore = peer.Metrics.Chore
+
+	return system
+}
+
+func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+	prefix := "satellite-api" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+	var err error
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
 }
