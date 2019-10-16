@@ -77,6 +77,10 @@ func networkExec(flags *Flags, args []string, command string) error {
 	defer cancel()
 
 	if command == "setup" {
+		if flags.Postgres == "" {
+			return errors.New("postgres connection URL is required for running storj-sim. Example: `storj-sim network setup --postgres=<connection URL>`.\nSee docs for more details https://github.com/storj/docs/blob/master/Test-network.md#running-tests-with-postgres")
+		}
+
 		identities, err := identitySetup(processes)
 		if err != nil {
 			return err
