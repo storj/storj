@@ -238,6 +238,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix
 # metrics.app-suffix: -release
 
+# the time between each metrics chore run
+# metrics.chore-interval: 15m0s
+
 # instance id prefix
 # metrics.instance-prefix: ""
 
