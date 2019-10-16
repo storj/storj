@@ -45,9 +45,10 @@
                             is-white="true"
                             :on-press="onClearSelection"
                         />
+                        <span class="header-selected-api-keys__info-text"><b>{{selectedAPIKeysCount}}</b> API Keys selected</span>
                     </div>
                     <div class="header-after-delete-click" v-if="areSelectedApiKeysBeingDeleted">
-                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
+                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete <b>{{selectedAPIKeysCount}}</b> {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
                             <VButton
                                 class="button deletion"
@@ -211,7 +212,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
-        await this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
+        await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
 
     public onCreateApiKeyClick(): void {
@@ -241,12 +242,9 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        const selectedKeys: string[] = this.$store.getters.selectedApiKeys.map((key) => key.id);
-        const keySuffix = selectedKeys.length > 1 ? '\'s' : '';
-
         try {
-            await this.$store.dispatch(DELETE, selectedKeys);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+            await this.$store.dispatch(DELETE);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API keys deleted successfully`);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
@@ -288,16 +286,12 @@ export default class ApiKeysArea extends Vue {
         return this.$store.getters.apiKeys.length === 0;
     }
 
-    public get isSelected(): boolean {
-        return this.$store.getters.selectedApiKeys.length > 0;
-    }
-
     public get hasSearchQuery(): boolean {
         return this.$store.state.apiKeysModule.cursor.search;
     }
 
     public get selectedAPIKeysCount(): number {
-        return this.$store.getters.selectedApiKeys.length;
+        return this.$store.state.apiKeysModule.selectedApiKeysIds.length;
     }
 
     public get headerState(): number {
@@ -460,26 +454,17 @@ export default class ApiKeysArea extends Vue {
     .header-selected-api-keys {
         display: flex;
         align-items: center;
-        position: relative;
 
-        .button {
-            position: absolute;
-            top: -6px;
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
         }
     }
 
     .header-selected-api-keys {
 
-        .button {
-            position: absolute;
-            top: -7px;
-            left: 134px;
-        }
-
         .deletion {
-            position: absolute;
-            top: -6px;
-            left: 0
+            margin-right: 12px;
         }
     }
 

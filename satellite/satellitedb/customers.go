@@ -20,10 +20,10 @@ type customers struct {
 func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
 	defer mon.Task()(&ctx, userID, customerID)(&err)
 
-	_, err = customers.db.Create_StripeCustomers(
+	_, err = customers.db.Create_StripeCustomer(
 		ctx,
-		dbx.StripeCustomers_UserId(userID[:]),
-		dbx.StripeCustomers_CustomerId(customerID),
+		dbx.StripeCustomer_UserId(userID[:]),
+		dbx.StripeCustomer_CustomerId(customerID),
 	)
 
 	return err
@@ -33,7 +33,7 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID) (customerID string, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	idRow, err := customers.db.Get_StripeCustomers_CustomerId_By_UserId(ctx, dbx.StripeCustomers_UserId(userID[:]))
+	idRow, err := customers.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
 	if err != nil {
 		return "", err
 	}

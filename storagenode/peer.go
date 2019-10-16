@@ -94,6 +94,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -155,6 +157,7 @@ type Peer struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
 	}
 
 	Bandwidth *bandwidth.Service
@@ -390,6 +393,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+
+		peer.GracefulExit.Chore = gracefulexit.NewChore(
+			peer.Log.Named("gracefulexit:chore"),
+			config.GracefulExit,
+			peer.DB.Satellites(),
+		)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
@@ -446,6 +455,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -461,6 +474,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
+	}
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}
