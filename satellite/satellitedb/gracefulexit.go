@@ -94,7 +94,7 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
 			ON CONFLICT DO NOTHING;`), postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
 
-	return return Error.Wrap(err)
+	return Error.Wrap(err)
 }
 
 // UpdateTransferQueueItem creates a graceful exit transfer queue entry.
