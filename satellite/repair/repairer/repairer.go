@@ -87,12 +87,12 @@ func (service *Service) process(ctx context.Context) (err error) {
 			}
 			return err
 		}
-		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				service.log.Error("repair worker failed:", zap.Error(err))
+				service.log.Error("repair worker failed:", zap.Binary("Segment", seg.GetPath()), zap.Error(err))
 			}
 		})
 	}
@@ -103,17 +103,17 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	service.log.Info("Limiter running repair on segment", zap.Binary("Segment", seg.GetPath()))
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
 		if IrreparableError.Has(err) {
 			service.log.Error("deleting irreparable segment from the queue:",
 				zap.Error(service.queue.Delete(ctx, seg)),
-				zap.Binary("segment", seg.GetPath()),
+				zap.Binary("Segment", seg.GetPath()),
 			)
 		} else {
-			service.log.Info("deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
+			service.log.Info("deleting segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 		}
 		delErr := service.queue.Delete(ctx, seg)
 		if delErr != nil {
