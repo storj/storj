@@ -47,7 +47,7 @@ func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
 	}
 }
 
-// Run starts the metrics service.
+// Run starts the metrics chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
