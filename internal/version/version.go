@@ -103,6 +103,11 @@ type RolloutBytes [32]byte
 
 // MarshalJSON hex-encodes RolloutBytes and pre/appends JSON string literal quotes.
 func (rb RolloutBytes) MarshalJSON() ([]byte, error) {
+	zeroRolloutBytes := RolloutBytes{}
+	if bytes.Equal(rb[:], zeroRolloutBytes[:]) {
+		return []byte{quote, quote}, nil
+	}
+
 	hexBytes := make([]byte, hex.EncodedLen(len(rb)))
 	hex.Encode(hexBytes, rb[:])
 	encoded := append([]byte{quote}, hexBytes...)

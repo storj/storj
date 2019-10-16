@@ -71,26 +71,41 @@ func TestSemVer_Compare(t *testing.T) {
 }
 
 func TestRollout_MarshalJSON_UnmarshalJSON(t *testing.T) {
-	var expectedRollout, actualRollout version.Rollout
-
+	var arbitraryRollout version.Rollout
 	for i := 0; i < len(version.RolloutBytes{}); i++ {
-		expectedRollout.Seed[i] = byte(i)
-		expectedRollout.Cursor[i] = byte(i * 2)
+		arbitraryRollout.Seed[i] = byte(i)
+		arbitraryRollout.Cursor[i] = byte(i * 2)
 	}
 
-	_, err := json.Marshal(actualRollout.Seed)
-	require.NoError(t, err)
+	scenarios := []struct {
+		name    string
+		rollout version.Rollout
+	}{
+		{
+			"arbitrary rollout",
+			arbitraryRollout,
+		},
+		{
+			"empty rollout",
+			version.Rollout{},
+		},
+	}
 
-	emptyJSONRollout, err := json.Marshal(actualRollout)
-	require.NoError(t, err)
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			var actualRollout version.Rollout
 
-	jsonRollout, err := json.Marshal(expectedRollout)
-	require.NoError(t, err)
-	require.NotEqual(t, emptyJSONRollout, jsonRollout)
+			_, err := json.Marshal(actualRollout.Seed)
+			require.NoError(t, err)
 
-	err = json.Unmarshal(jsonRollout, &actualRollout)
-	require.NoError(t, err)
-	require.Equal(t, expectedRollout, actualRollout)
+			jsonRollout, err := json.Marshal(scenario.rollout)
+			require.NoError(t, err)
+
+			err = json.Unmarshal(jsonRollout, &actualRollout)
+			require.NoError(t, err)
+			require.Equal(t, scenario.rollout, actualRollout)
+		})
+	}
 }
 
 func TestShouldUpdate(t *testing.T) {

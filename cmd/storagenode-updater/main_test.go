@@ -56,7 +56,7 @@ func TestAutoUpdater(t *testing.T) {
 					URL:     ts.URL + "/download",
 				},
 				Rollout: versioncontrol.Rollout{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000000",
+					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
 					Cursor: 100,
 				},
 			},
