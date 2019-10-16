@@ -4,8 +4,10 @@
 package checker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -54,21 +56,28 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 	}
 
 	// New Request that used the passed in context
-	req, err := http.NewRequest("GET", client.config.ServerAddress, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.config.ServerAddress, nil)
 	if err != nil {
-		return version.AllowedVersions{}, err
+		return version.AllowedVersions{}, Error.Wrap(err)
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return version.AllowedVersions{}, err
+		return version.AllowedVersions{}, Error.Wrap(err)
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return version.AllowedVersions{}, Error.Wrap(err)
+	}
 	defer func() { _ = resp.Body.Close() }()
 
-	err = json.NewDecoder(resp.Body).Decode(&ver)
-	return ver, err
+	if resp.StatusCode != http.StatusOK {
+		return version.AllowedVersions{}, Error.New("non-success http status code: %d; body: %s\n", resp.StatusCode, body)
+	}
+
+	err = json.NewDecoder(bytes.NewReader(body)).Decode(&ver)
+	return ver, Error.Wrap(err)
 }
 
 // OldMinimum returns the version with the given name at the root-level of the version control response.
@@ -80,7 +89,14 @@ func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver v
 	if err != nil {
 		return version.SemVer{}, err
 	}
-	return getFieldString(&versions, serviceName), nil
+
+	r := reflect.ValueOf(&versions)
+	f := reflect.Indirect(r).FieldByName(serviceName).Interface()
+	result, ok := f.(version.SemVer)
+	if !ok {
+		return version.SemVer{}, Error.New("invalid process name: %s", serviceName)
+	}
+	return result, nil
 }
 
 // Process returns the version info for the named process from the version control server response.
@@ -105,14 +121,4 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 		return version.Process{}, processNameErr
 	}
 	return process, nil
-}
-
-func getFieldString(array *version.AllowedVersions, field string) version.SemVer {
-	r := reflect.ValueOf(array)
-	f := reflect.Indirect(r).FieldByName(field).Interface()
-	result, ok := f.(version.SemVer)
-	if !ok {
-		return version.SemVer{}
-	}
-	return result
 }

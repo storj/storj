@@ -229,15 +229,15 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 	value := reflect.ValueOf(versions)
 	fieldCount := value.NumField()
 	validationErrs := errs.Group{}
-	for i := 1; i < fieldCount; i++ {
-		binary, ok := value.Field(i - 1).Interface().(Binary)
+	for i := 0; i < fieldCount; i++ {
+		binary, ok := value.Field(i).Interface().(Binary)
 		if !ok {
 			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
 			continue
 		}
 		if err := binary.Rollout.Validate(); err != nil {
 			if err == EmptySeedErr {
-				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i-1).Name))
+				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i).Name))
 				continue
 			}
 			validationErrs.Add(err)
