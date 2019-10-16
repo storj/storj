@@ -19,11 +19,6 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-const (
-	// DefaultSqliteConn is a connstring that is inmemory
-	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
-)
-
 // SatelliteDatabases maybe name can be better
 type SatelliteDatabases struct {
 	MasterDB  Database
@@ -40,10 +35,6 @@ type Database struct {
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
-		{
-			MasterDB:  Database{"Sqlite", DefaultSqliteConn, ""},
-			PointerDB: Database{"Bolt", "", "should use preconfigured URL"},
-		},
 		{
 			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
 			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -158,8 +157,6 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 
 	var query string
 	switch t := keys.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		query = fmt.Sprintf(valueAttrQuery, slHour)
 	case *pq.Driver:
 		query = fmt.Sprintf(valueAttrQuery, pqHour)
 	default:

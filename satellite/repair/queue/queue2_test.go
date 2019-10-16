@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -76,8 +75,6 @@ func TestOrder(t *testing.T) {
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		var timeConvertPrefix string
 		switch d := dbAccess.DB.Driver().(type) {
-		case *sqlite3.SQLiteDriver:
-			timeConvertPrefix = "datetime("
 		case *pq.Driver:
 			timeConvertPrefix = "timezone('utc', "
 		default:
