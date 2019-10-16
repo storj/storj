@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -73,13 +72,7 @@ func TestOrder(t *testing.T) {
 
 		// TODO: remove dependency on *dbx.DB
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-		var timeConvertPrefix string
-		switch d := dbAccess.DB.Driver().(type) {
-		case *pq.Driver:
-			timeConvertPrefix = "timezone('utc', "
-		default:
-			t.Errorf("Unsupported database type %t", d)
-		}
+		timeConvertPrefix := "timezone('utc', "
 
 		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			updateList := []struct {

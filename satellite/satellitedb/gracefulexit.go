@@ -89,15 +89,12 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 		durabilities = append(durabilities, item.DurabilityRatio)
 	}
 
-	_, err = db.db.ExecContext(ctx, `
+	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
 			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
 			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
-			ON CONFLICT DO NOTHING;`, postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
-	if err != nil {
-		return Error.Wrap(err)
-	}
+			ON CONFLICT DO NOTHING;`), postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
 
-	return nil
+	return return Error.Wrap(err)
 }
 
 // UpdateTransferQueueItem creates a graceful exit transfer queue entry.

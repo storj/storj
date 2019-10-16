@@ -142,13 +142,13 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 	// sort nodes to avoid update deadlock
 	sort.Sort(storj.NodeIDList(storageNodes))
 
-	_, err = db.db.ExecContext(ctx, `
-			INSERT INTO storagenode_bandwidth_rollups
-				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-			SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
-			ON CONFLICT(storagenode_id, interval_start, action)
-			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
-		`, postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
+	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
+		INSERT INTO storagenode_bandwidth_rollups
+			(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
+		ON CONFLICT(storagenode_id, interval_start, action)
+		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
+	`), postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
 
 	return Error.Wrap(err)
 }

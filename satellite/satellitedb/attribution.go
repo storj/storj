@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -155,13 +154,7 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-	switch t := keys.db.Driver().(type) {
-	case *pq.Driver:
-		query = fmt.Sprintf(valueAttrQuery, pqHour)
-	default:
-		return nil, Error.New("Unsupported database %t", t)
-	}
+	query := fmt.Sprintf(valueAttrQuery, pqHour)
 
 	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
 	if err != nil {
