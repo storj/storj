@@ -108,7 +108,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	loopFunc := func(ctx context.Context) (err error) {
-		// TODO: get nodeID; add config bindings for identity files.
 		if err := update(ctx, ident.ID); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
