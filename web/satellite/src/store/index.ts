@@ -11,12 +11,13 @@ import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
 import { UsersApiGql } from '@/api/users';
+import {PaymentsApiGql} from '@/api/payments';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeCreditsModule } from '@/store/modules/credits';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
+import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsageModule } from '@/store/modules/usage';
@@ -39,6 +40,7 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const projectUsageApi = new ProjectUsageApiGql();
+const paymentsApi = new PaymentsApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
@@ -48,7 +50,7 @@ const store = new Vuex.Store({
         appStateModule,
         creditsModule: makeCreditsModule(creditsApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
-        projectPaymentsMethodsModule,
+        paymentsModule: makePaymentsModule(paymentsApi),
         usersModule: makeUsersModule(usersApi),
         projectsModule: makeProjectsModule(projectsApi),
         usageModule: makeUsageModule(projectUsageApi),

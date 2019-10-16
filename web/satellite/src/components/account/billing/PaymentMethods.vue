@@ -38,12 +38,12 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput />
+            <StripeInput class="payment-methods-area__adding-container__stripe" ref="stripeInput"/>
             <VButton
                 label="Add card"
                 width="123px"
                 height="48px"
-                :on-press="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddStripe"/>
         </div>
         <div class="payment-methods-area__existing-cards-container">
             <CardComponent />
@@ -61,6 +61,10 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
+interface StripeForm {
+    onSubmit(): Promise<void>;
+}
+
 @Component({
     components: {
         VButton,
@@ -71,6 +75,10 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+
+    public $refs!: {
+        stripeInput: StripeInput & StripeForm;
+    };
 
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
@@ -99,7 +107,11 @@ export default class PaymentMethods extends Vue {
     }
 
     public onConfirmAddSTORJ(): void {
-        return;
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+    }
+
+    public async onConfirmAddStripe(): Promise<void> {
+        await this.$refs.stripeInput.onSubmit();
     }
 }
 </script>
@@ -178,6 +190,11 @@ export default class PaymentMethods extends Vue {
             &__label {
                 font-family: 'font_medium';
                 font-size: 21px;
+            }
+
+            &__stripe {
+                width: 60%;
+                min-width: 400px;
             }
         }
 

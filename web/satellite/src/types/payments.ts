@@ -1,9 +1,47 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export class PaymentAmountOption {
-    public constructor(
-        public value: number,
-        public label: string = '',
+export class CreditCard {
+    constructor(
+        public id: string = '',
+        public expMonth: number = 0,
+        public expYear: number = 0,
+        public brand: string = '',
+        public last4: string = '0000',
     ) {}
+}
+
+/**
+ * Exposes all payments-related functionality
+ */
+export interface PaymentsApi {
+    /**
+     * Fetch apiKeys
+     *
+     * @throws Error
+     */
+    setupAccount(): Promise<void>;
+
+    /**
+     * Get account balance
+     *
+     * @returns balance in cents
+     * @throws Error
+     */
+    getBalance(): Promise<number>;
+
+    /**
+     * Add credit card
+     *
+     * @throws Error
+     */
+    addCreditCard(token: string): Promise<void>;
+
+    /**
+     * Get list of user`s credit cards
+     *
+     * @returns list of credit cards
+     * @throws Error
+     */
+    listCreditCards(): Promise<CreditCard[]>;
 }
