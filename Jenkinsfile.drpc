@@ -15,6 +15,9 @@ pipeline {
         GOFLAGS = '-tags=drpc'
     }
     stages {
+        stage('Notify Github') {
+            githubNotify description: 'DRPC Build started',  context: 'jenkins/drpc-build',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'PENDING'
+        }
         stage('Build') {
             steps {
                 checkout scm
@@ -88,10 +91,10 @@ pipeline {
             deleteDir()
         }
         success {
-            githubNotify description: 'DRPC Build succeeded',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'SUCCESS'
+            githubNotify description: 'DRPC Build succeeded',  context: 'jenkins/drpc-build',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'SUCCESS'
         }
         failure {
-            githubNotify description: 'DRPC Build failed',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'FAILURE'
+            githubNotify description: 'DRPC Build failed',  context: 'jenkins/drpc-build',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'FAILURE'
         }
     }
 }
