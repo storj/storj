@@ -623,6 +623,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
 			dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
 			dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
+			dbx.Node_ExitSuccess(false),
 			dbx.Node_Create_Fields{
 				Disqualified: dbx.Node_Disqualified_Null(),
 			},

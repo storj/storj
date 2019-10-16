@@ -171,6 +171,7 @@ model node (
     field exit_initiated_at         utimestamp ( updatable, nullable )
     field exit_loop_completed_at    utimestamp ( updatable, nullable )
     field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_success              bool ( updatable )
 )
 
 create node ( noreturn )
