@@ -244,7 +244,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
-				"--server.extensions.revocation=false",
+				"--server.extensions.revocation=true",
 				"--server.use-peer-ca-whitelist=false",
 
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
@@ -261,6 +261,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
+		}
+
+		if flags.Redis != "" {
+			process.Arguments["setup"] = append(process.Arguments["setup"], 
+			"--revocation-dburl=", flags.Redis)
 		}
 
 		process.ExecBefore["run"] = func(process *Process) error {

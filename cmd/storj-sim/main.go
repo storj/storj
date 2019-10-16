@@ -26,6 +26,9 @@ type Flags struct {
 
 	// Connection string for the postgres database to use for storj-sim processes
 	Postgres string
+
+	// Connection string for the redis database to use for storj-sim processes
+	Redis string
 }
 
 var printCommands bool
@@ -57,6 +60,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use postgres for all databases that support it.")
+	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", "","connection string for redis. If provided, storj-sim will use redis for all databases that support it.")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
