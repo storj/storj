@@ -18,7 +18,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"storj.io/storj/internal/version"
 	"strings"
 	"syscall"
 
@@ -28,6 +27,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
