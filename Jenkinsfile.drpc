@@ -17,7 +17,7 @@ pipeline {
     stages {
         stage('Notify Github') {
             steps{
-                githubNotify description: 'DRPC Build started',  account: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'PENDING'
+                githubNotify description: 'DRPC Build started',  account: 'storj',  repo: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  context: 'jenkins/drpc-build',  status: 'PENDING'
                 }
         }
         stage('Build') {
@@ -93,10 +93,10 @@ pipeline {
             deleteDir()
         }
         success {
-            githubNotify description: 'DRPC Build succeeded',  account: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306', targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'SUCCESS'
+            githubNotify description: 'DRPC Build succeeded',  account: 'storj',  repo: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  context: 'jenkins/drpc-build',  status: 'SUCCESS'
         }
         failure {
-            githubNotify description: 'DRPC Build failed',  account: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  status: 'FAILURE'
+            githubNotify description: 'DRPC Build failed',  account: 'storj',  repo: 'storj',  credentialsId: '413faa9d-8a59-4725-8e58-f7b463379306',  targetUrl: 'https://build.dev.storj.io/job/storj-drpc/',  context: 'jenkins/drpc-build',  status: 'FAILURE'
         }
     }
 }
