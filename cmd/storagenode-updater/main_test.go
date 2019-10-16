@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -22,15 +23,38 @@ func TestAutoUpdater(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	content, err := ioutil.ReadFile("testdata/fake-storagenode")
-	require.NoError(t, err)
+	testFiles := []struct {
+		src   string
+		dst   string
+		perms os.FileMode
+	}{
+		{
+			"testdata/fake-storagenode",
+			ctx.File("storagenode"),
+			0755,
+		},
+		{
+			"testdata/fake-ident.cert",
+			ctx.File("identity.cert"),
+			0644,
+		},
+		{
+			"testdata/fake-ident.key",
+			ctx.File("identity.key"),
+			0600,
+		},
+	}
 
-	tmpExec := ctx.File("storagenode")
-	err = ioutil.WriteFile(tmpExec, content, 0755)
-	require.NoError(t, err)
+	for _, file := range testFiles {
+		content, err := ioutil.ReadFile(file.src)
+		require.NoError(t, err)
+
+		err = ioutil.WriteFile(file.dst, content, file.perms)
+		require.NoError(t, err)
+	}
 
 	var mux http.ServeMux
-	content, err = ioutil.ReadFile("testdata/fake-storagenode.zip")
+	content, err := ioutil.ReadFile("testdata/fake-storagenode.zip")
 	require.NoError(t, err)
 	mux.HandleFunc("/download", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write(content)
@@ -76,16 +100,21 @@ func TestAutoUpdater(t *testing.T) {
 	args = append(args, "--server-address")
 	args = append(args, "http://"+peer.Addr())
 	args = append(args, "--binary-location")
-	args = append(args, tmpExec)
+	args = append(args, testFiles[0].dst)
 	args = append(args, "--check-interval")
 	args = append(args, "0s")
+	args = append(args, "--identity.cert-path")
+	args = append(args, testFiles[1].dst)
+	args = append(args, "--identity.key-path")
+	args = append(args, testFiles[2].dst)
 
 	out, err := exec.Command("go", args...).CombinedOutput()
+	result := string(out)
 	if !assert.NoError(t, err) {
+		t.Log(result)
 		t.Fatal(err)
 	}
 
-	result := string(out)
 	if !assert.Contains(t, result, "restarted successfully") {
 		t.Log(result)
 	}
