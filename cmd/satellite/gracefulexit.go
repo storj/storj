@@ -28,7 +28,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		err = errs.Combine(err, db.Close())
 	}()
 
-	nodeIDs, err := db.OverlayCache().GetGracefulExitNodes(ctx, completed, start, end)
+	nodeIDs, err := db.OverlayCache().GetGracefulExitNodesByTimeFrame(ctx, completed, start, end)
 	if err != nil {
 		return err
 	}

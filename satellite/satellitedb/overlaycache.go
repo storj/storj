@@ -1042,8 +1042,8 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	return exitStatus, Error.Wrap(err)
 }
 
-// GetGracefulExitNodes returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
-func (cache *overlaycache) GetGracefulExitNodes(ctx context.Context, completed bool, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+// GetGracefulExitNodesByTimeFrame returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
+func (cache *overlaycache) GetGracefulExitNodesByTimeFrame(ctx context.Context, completed bool, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	completedClause := "AND exit_finished_at IS NULL"
