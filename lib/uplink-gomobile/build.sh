@@ -15,7 +15,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
-GOPATH_SYSTEM=$GOPATH
+GOPATH_SYSTEM=$(go env GOPATH)
 cleanup(){
       if [ -z "$GOPATH_SYSTEM" ]
       then

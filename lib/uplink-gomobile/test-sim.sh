@@ -40,7 +40,7 @@ export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing
 # TODO add max number of checks and timeout
-while [ "`adb shell getprop sys.boot_completed | tr -d '\r' `" != "1" ] ;
+while [ "`$ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed | tr -d '\r' `" != "1" ] ;
 do
       echo "waiting for emulator"
       sleep 3
