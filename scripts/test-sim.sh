@@ -4,6 +4,7 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+echo "Running test-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
 # setup tmpdir for testfiles and cleanup

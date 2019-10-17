@@ -22,6 +22,22 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// TestRPCBuild prints a statement so that in test output you can know whether
+// the code was compiled with dprc or grpc
+func TestRPCBuild(t *testing.T) {
+	require.False(t, rpc.IsDRPC == rpc.IsGRPC)
+
+	var rpcType string
+	if rpc.IsDRPC {
+		rpcType = "Compiled with DRPC"
+	} else if rpc.IsGRPC {
+		rpcType = "Compiled with GRPC"
+	}
+	require.NotEqual(t, rpcType, "")
+
+	t.Log(rpcType)
+}
+
 func TestDialNode(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

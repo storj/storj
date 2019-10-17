@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	pieceHashExpiration = 2 * time.Hour
+	pieceHashExpiration = 24 * time.Hour
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000

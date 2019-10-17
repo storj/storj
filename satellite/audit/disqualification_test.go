@@ -67,7 +67,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
+			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report, "")
 			require.NoError(t, err)
 
 			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
