@@ -886,6 +886,7 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// GetExitStatus returns a node's graceful exit status.
 func (m *lockedOverlayCache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -904,6 +905,13 @@ func (m *lockedOverlayCache) GetExitingNodesLoopIncomplete(ctx context.Context) 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetExitingNodesLoopIncomplete(ctx)
+}
+
+// GetGracefulExitNodes returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
+func (m *lockedOverlayCache) GetGracefulExitNodes(ctx context.Context, completed bool, begin time.Time, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetGracefulExitNodes(ctx, completed, begin, end)
 }
 
 // KnownOffline filters a set of nodes to offline nodes

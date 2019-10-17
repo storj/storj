@@ -1023,6 +1023,7 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	return exitingNodes, nil
 }
 
+// GetExitStatus returns a node's graceful exit status.
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
