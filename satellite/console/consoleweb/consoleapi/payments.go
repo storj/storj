@@ -108,7 +108,7 @@ func (p *Payments) CreditCards(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Add is used to save new credit card and attach it to payment account.
+// AddCreditCard is used to save new credit card and attach it to payment account.
 func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
