@@ -370,7 +370,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				host := "http://" + consoleAddress
 				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
 				consoleActivationAddress := host + "/activation/?token="
-				consoleAPIAddress := host + "/api/graphql/v0"
+				consoleAPIAddress := host + "/api/v0/graphql"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)

@@ -365,8 +365,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			return nil, errs.New("Auth token secret required")
 		}
 
-		paymentsConfig := config.Payments
-		payments := stripecoinpayments.NewService(paymentsConfig, peer.DB.Customers())
+		payments := stripecoinpayments.NewService(config.Payments, peer.DB.Customers())
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
