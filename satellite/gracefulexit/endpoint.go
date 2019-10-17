@@ -182,6 +182,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := newPendingMap()
 
 	var morePiecesFlag int32 = 1
+	var errorFlag int32 = 0
+	handleError := func(err error) error {
+		atomic.StoreInt32(&errorFlag, 1)
+
+		return Error.Wrap(err)
+	}
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -192,13 +198,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
-					return Error.Wrap(err)
+					return handleError(err)
 				}
 
 				if len(incomplete) == 0 {
 					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 
@@ -211,7 +217,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 			}
@@ -220,6 +226,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
+		if atomic.LoadInt32(&errorFlag) == 1 {
+			return group.Wait()
+		}
 		pendingCount := pending.length()
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
@@ -252,7 +261,17 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			}
-
+			deleteMsg := &pb.SatelliteMessage{
+				Message: &pb.SatelliteMessage_DeletePiece{
+					DeletePiece: &pb.DeletePiece{
+						OriginalPieceId: m.Succeeded.OriginalPieceId,
+					},
+				},
+			}
+			err = stream.Send(deleteMsg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
@@ -349,7 +368,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}
