@@ -14,7 +14,7 @@ import (
 // StorjTokens defines all payments STORJ token related functionality.
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount.
-	Deposit(ctx context.Context, amount big.Float) (*Transaction, error)
+	Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (*Transaction, error)
 }
 
 // TransactionStatus defines allowed statuses

@@ -18,7 +18,6 @@ var _ payments.StorjTokens = (*storjTokens)(nil)
 
 // storjTokens implements payments.StorjTokens.
 type storjTokens struct {
-	userID  uuid.UUID
 	service *Service
 }
 
@@ -26,10 +25,10 @@ type storjTokens struct {
 // ETH wallet address where funds should be sent. There is one
 // hour limit to complete the transaction. Transaction is saved to DB with
 // reference to the user who made the deposit.
-func (tokens *storjTokens) Deposit(ctx context.Context, amount big.Float) (_ *payments.Transaction, err error) {
-	defer mon.Task()(&ctx, amount)(&err)
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (_ *payments.Transaction, err error) {
+	defer mon.Task()(&ctx, userID, amount)(&err)
 
-	customerID, err := tokens.service.customers.GetCustomerID(ctx, tokens.userID)
+	customerID, err := tokens.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -59,7 +58,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, amount big.Float) (_ *pa
 	cpTX, err := tokens.service.transactionsDB.Insert(ctx,
 		Transaction{
 			ID:        tx.ID,
-			AccountID: tokens.userID,
+			AccountID: userID,
 			Address:   tx.Address,
 			Amount:    tx.Amount,
 			Received:  big.Float{},
@@ -73,7 +72,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, amount big.Float) (_ *pa
 
 	return &payments.Transaction{
 		ID:        payments.TransactionID(tx.ID),
-		AccountID: tokens.userID,
+		AccountID: userID,
 		Amount:    tx.Amount,
 		Received:  big.Float{},
 		Address:   tx.Address,
