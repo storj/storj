@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+//ListBucketLimit was chosen based on the max files in a FAT32 dir
+const ListBucketLimit = 65534
+
 var (
 	mon = monkit.Package()
 	// Error is the errs class of standard End User Client errors
@@ -111,16 +114,23 @@ func (driver *Driver) MakeDirectory(cc server.ClientContext, directory string) (
 	ctx, _, _ := ParsePath(cc.Path())
 	defer mon.Task()(&ctx)(&err)
 
-	cfg := uplink.BucketConfig{
-		PathCipher:           driver.pathCipher,
-		EncryptionParameters: driver.encryption,
+	if bucket == "" {
+		zap.S().Debug("creating bucket: ", directory)
+		cfg := uplink.BucketConfig{
+			PathCipher:           driver.pathCipher,
+			EncryptionParameters: driver.encryption,
+		}
+		cfg.Volatile.RedundancyScheme = driver.redundancy
+		cfg.Volatile.SegmentsSize = driver.segmentSize
+
+		_, err = driver.project.CreateBucket(ctx, cc.Path(), &cfg)
+		return err
 	}
-	cfg.Volatile.RedundancyScheme = driver.redundancy
-	cfg.Volatile.SegmentsSize = driver.segmentSize
+	zap.S().Debug("Mkdir: ", directory)
 
-	_, err = driver.project.CreateBucket(ctx, cc.Path(), &cfg)
-
-	return err
+	return sf.bucket.UploadObject(sf.ctx, directory+"/", bytes.NewReader([]byte{}), &libuplink.UploadOptions{
+		ContentType: "application/directory",
+	})
 }
 
 // ListBuckets lists all the top level prefixes
@@ -131,6 +141,7 @@ func (driver *Driver) ListBuckets(ctx context.Context) (bucketItems []os.FileInf
 	listOpts := storj.BucketListOptions{
 		Direction: storj.Forward,
 		Cursor:    startAfter,
+		Limit:     ListBucketLimit,
 	}
 	for {
 		list, err := driver.project.ListBuckets(ctx, &listOpts)
@@ -194,7 +205,7 @@ func (driver *Driver) ListFiles(cc server.ClientContext) (files []os.FileInfo, e
 			Cursor:    startAfter,
 			Prefix:    path,
 			Recursive: false,
-			Limit:     1000, //todo
+			Limit:     ListBucketLimit,
 		})
 		if err != nil {
 			return files, err
@@ -236,20 +247,51 @@ func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
-	object, err := bucket.OpenObject(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &virtualFile{object: object}, nil
+		
+	return &virtualFile{
+		ctx: ctx, 
+		path: storj.Path(path),
+		bucket: bucket,
+		flag: flag,
+	}, nil
 }
 
 // GetFileInfo gets some info around a file or a directory
 func (driver *Driver) GetFileInfo(cc server.ClientContext, path string) (fi os.FileInfo, err error) {
-	ctx, _, path := ParsePath(cc.Path())
+	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
-	//todo
-	return &virtualFileInfo{name: path, size: 4096, isDir: true}, nil
+
+	if bucketName == "" {
+		_, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+		if err != nil {
+			return nil, os.ErrNotExist
+		}
+		return &virtualFileInfo{name: path, size: 0, isDir: true}, nil
+	}
+
+	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+
+	
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
+		Direction: storj.After,
+		Cursor:    path,
+		Prefix:    "",
+		Recursive: false,
+		Limit:     1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(list.Items) == 0 {
+		return nil, os.ErrNotExist
+	}
+	i := list.Items[0]
+	return virtualFileInfo{name: i.Path, modTime: i.Modified, size: i.Size}, nil
 }
 
 // CanAllocate gives the approval to allocate some data
