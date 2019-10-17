@@ -319,7 +319,7 @@ public class LibuplinkInstrumentedTest {
 
                 ListOptions listOptions = new ListOptions();
                 listOptions.setCursor("");
-                listOptions.setDirection(Mobile.DirectionForward);
+                listOptions.setDirection(Mobile.DirectionAfter);
                 listOptions.setLimit(20);
 
                 ObjectList list = bucket.listObjects(listOptions);

@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -93,7 +94,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -113,26 +114,31 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
-	mux.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
-	mux.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
+	paymentController := consoleapi.NewPayments(logger, service)
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
+	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+
+	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
+	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
+	router.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
+	router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+	router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
-		Handler:        mux,
+		Handler:        router,
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 

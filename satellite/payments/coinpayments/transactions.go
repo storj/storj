@@ -250,7 +250,7 @@ func (infos *TransactionInfos) UnmarshalJSON(b []byte) error {
 
 // CreateTX defines parameters for transaction creating.
 type CreateTX struct {
-	Amount      float64
+	Amount      big.Float
 	CurrencyIn  Currency
 	CurrencyOut Currency
 	BuyerEmail  string
@@ -263,10 +263,8 @@ type Transactions struct {
 
 // Create creates new transaction.
 func (t Transactions) Create(ctx context.Context, params CreateTX) (*Transaction, error) {
-	amount := strconv.FormatFloat(params.Amount, 'f', -1, 64)
-
 	values := make(url.Values)
-	values.Set("amount", amount)
+	values.Set("amount", params.Amount.Text('f', int(params.Amount.Prec())))
 	values.Set("currency1", params.CurrencyIn.String())
 	values.Set("currency2", params.CurrencyOut.String())
 	values.Set("buyer_email", params.BuyerEmail)

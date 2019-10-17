@@ -42,7 +42,7 @@ func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplinkInclude := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestC(t *testing.T) {
 					Dest:    testName,
 					Sources: []string{ctest},
 					Includes: []testcontext.Include{
-						libuplink_include,
+						libuplinkInclude,
 						definition,
 						testcontext.CLibMath,
 					},

@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -41,6 +40,7 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/vouchers"
 )
@@ -96,7 +96,7 @@ type API struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -124,7 +124,7 @@ type API struct {
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -208,19 +208,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup live accounting
 		log.Debug("Satellite API Process setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}
@@ -369,11 +364,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
 		}
+
+		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
+			payments.Accounts(),
 			consoleConfig.PasswordCost,
 		)
 		if err != nil {

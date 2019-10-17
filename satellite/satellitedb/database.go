@@ -167,3 +167,8 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 func (db *DB) Customers() stripecoinpayments.CustomersDB {
 	return &customers{db: db.db}
 }
+
+// CoinpaymentsTransactions returns database for dealing with coinpayments transactions.
+func (db *DB) CoinpaymentsTransactions() stripecoinpayments.TransactionsDB {
+	return &coinpaymentsTransactions{db: db.db}
+}
