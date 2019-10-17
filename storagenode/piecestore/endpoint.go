@@ -172,6 +172,8 @@ type uploadStream interface {
 
 // doUpload handles uploading a piece on piece store.
 func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
+	// TODO: Nat thinks this should be renamed to receiveUpload
+	//  or getUploadedTo for clarity.
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
