@@ -139,6 +139,7 @@ type ExitStatus struct {
 	ExitInitiatedAt     *time.Time
 	ExitLoopCompletedAt *time.Time
 	ExitFinishedAt      *time.Time
+	ExitSuccess         bool
 }
 
 // ExitStatusRequest is used to update a node's graceful exit status.
@@ -147,6 +148,7 @@ type ExitStatusRequest struct {
 	ExitInitiatedAt     time.Time
 	ExitLoopCompletedAt time.Time
 	ExitFinishedAt      time.Time
+	ExitSuccess         bool
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
