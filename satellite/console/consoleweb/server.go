@@ -261,7 +261,7 @@ func (server *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
 	if err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
+		server.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 
