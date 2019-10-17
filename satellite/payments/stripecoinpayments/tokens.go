@@ -20,7 +20,7 @@ type storjTokens struct {
 }
 
 // Deposit creates new deposit transaction with the given amount returning
-// ETH wallet address where funds should be send. There is one
+// ETH wallet address where funds should be sent. There is one
 // hour limit to complete the transaction. Transaction is saved to DB with
 // reference to the user who made the deposit.
 func (tokens *storjTokens) Deposit(ctx context.Context, amount big.Float) (_ *payments.Transaction, err error) {
