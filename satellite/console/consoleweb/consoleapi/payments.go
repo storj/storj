@@ -4,12 +4,14 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 )
 
@@ -35,6 +37,12 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	ctx, err = p.authorize(ctx, r)
+	if err != nil {
+		p.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
 	err = p.service.Payments().SetupAccount(ctx)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
@@ -46,6 +54,12 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	ctx, err = p.authorize(ctx, r)
+	if err != nil {
+		p.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
 
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
@@ -70,6 +84,12 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	ctx, err = p.authorize(ctx, r)
+	if err != nil {
+		p.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
 
 	var requestBody struct {
 		Token string `json:"token"`
@@ -103,4 +123,19 @@ func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) 
 	if err != nil {
 		p.log.Error("failed to write json error response", zap.Error(err))
 	}
+}
+
+// authorize checks request for authorization token, validates it and updates context with auth data.
+func (p *Payments) authorize(ctx context.Context, r *http.Request) (context.Context, error) {
+	tokenCookie, err := r.Cookie("_tokenKey")
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := p.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
+	if err != nil {
+		return nil, err
+	}
+
+	return console.WithAuth(ctx, auth), nil
 }

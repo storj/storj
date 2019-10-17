@@ -17,13 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -114,14 +113,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	router := mux.NewRouter()
+	router := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	paymentController := consoleapi.NewPayments(logger, service)
-	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
-	paymentsRouter.Handle("/cards", http.HandlerFunc(paymentController.AddCreditCard)).Methods(http.MethodPost)
-	paymentsRouter.Handle("/account/balance", http.HandlerFunc(paymentController.AddCreditCard)).Methods(http.MethodGet)
-	paymentsRouter.Handle("/account", http.HandlerFunc(paymentController.SetupAccount)).Methods(http.MethodPost)
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
+	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
 
 	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
 	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))

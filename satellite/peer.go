@@ -127,8 +127,9 @@ type Config struct {
 	Rollup         rollup.Config
 	LiveAccounting live.Config
 
-	Mail    mailservice.Config
-	Console consoleweb.Config
+	Payments stripecoinpayments.Config
+	Mail     mailservice.Config
+	Console  consoleweb.Config
 
 	Marketing marketingweb.Config
 
@@ -592,7 +593,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			return nil, errs.New("Auth token secret required")
 		}
 
-		paymentsConfig := stripecoinpayments.Config{}
+		paymentsConfig := config.Payments
 		payments := stripecoinpayments.NewService(paymentsConfig, peer.DB.Customers())
 
 		peer.Console.Service, err = console.NewService(
