@@ -90,10 +90,12 @@ pipeline {
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                        STORJ_SIM_REDIS = 'redis://127.0.0.1:6379?db=0'
                     }
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
+
                         sh 'make test-sim'
                         // sh 'make test-certificates' // flaky
                     }

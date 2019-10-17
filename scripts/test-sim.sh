@@ -18,6 +18,7 @@ export STORJ_NETWORK_DIR=$TMP
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+STORJ_SIM_REDIS=${STORJ_SIM_REDIS:-""}
 
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
