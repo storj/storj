@@ -271,7 +271,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if nodeUsageCfg.Output == "" {
-		return generateCSV(ctx, start, end, os.Stdout)
+		return generateGracefulExitCSV(ctx, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -310,7 +310,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if nodeUsageCfg.Output == "" {
-		return generateCSV(ctx, start, end, os.Stdout)
+		return generateNodeUsageCSV(ctx, start, end, os.Stdout)
 	}
 
 	// send output to file

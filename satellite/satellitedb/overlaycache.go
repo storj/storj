@@ -1166,6 +1166,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Disqualified: info.Disqualified,
 		PieceCount:   info.PieceCount,
 		ExitStatus:   exitStatus,
+		CreatedAt:    info.CreatedAt,
 	}
 
 	return node, nil

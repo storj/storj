@@ -161,6 +161,7 @@ type NodeDossier struct {
 	Disqualified *time.Time
 	PieceCount   int64
 	ExitStatus   ExitStatus
+	CreatedAt    time.Time
 }
 
 // NodeStats contains statistics about a node.

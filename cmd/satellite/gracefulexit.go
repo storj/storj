@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -56,14 +57,18 @@ func generateGracefulExitCSV(ctx context.Context, start time.Time, end time.Time
 		if err != nil {
 			return err
 		}
+		exitProgress, err := db.GracefulExit().GetProgress(ctx, id)
+		if err != nil {
+			return err
+		}
 
 		nextRow := []string{
 			node.Id.String(),
 			node.Operator.Wallet,
-			nil, // TODO how to get creation date
+			node.CreatedAt.Format("2006-01-02"),
 			exitStatus.ExitInitiatedAt.Format("2006-01-02"),
 			exitStatus.ExitFinishedAt.Format("2006-01-02"),
-			nil, // TODO how to get amount transferred
+			strconv.FormatInt(exitProgress.BytesTransferred, 10),
 		}
 		if err := w.Write(nextRow); err != nil {
 			return err
