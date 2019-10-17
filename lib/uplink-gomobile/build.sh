@@ -15,7 +15,13 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+GOPATH_SYSTEM=$GOPATH
 cleanup(){
+      if [ -z "$GOPATH_SYSTEM" ]
+      then
+            # cleanup pkg/mod directory
+            go clean -modcache
+      fi
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -23,8 +29,12 @@ trap cleanup EXIT
 OUTPUT=$PWD
 
 mkdir -p "$TMP/pkg/mod/" "$TMP/src/storj.io/storj/"
-# link pkg/mod to avoid redownloading modules
-ln -s $GOPATH/pkg/mod/* "$TMP/pkg/mod/"
+if [ -n "$GOPATH_SYSTEM" ]
+then
+      # use this only if GOPATH is set
+      # link pkg/mod to avoid redownloading modules
+      ln -s $GOPATH_SYSTEM/pkg/mod/* "$TMP/pkg/mod/"
+fi
 
 # go knows where our gopath is
 export GOPATH=$TMP
