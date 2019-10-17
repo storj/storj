@@ -57,7 +57,7 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecesto
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64, path storj.Path) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -122,7 +122,9 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							NodeId:   limit.GetLimit().StorageNodeId,
 						})
 					} else {
-						ec.log.Debug("Failed to download pieces for repair", zap.Error(err))
+						ec.log.Debug("Failed to download pieces for repair",
+							zap.Binary("Segment", []byte(path)),
+							zap.Error(err))
 					}
 					return
 				}
@@ -268,22 +270,23 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
+			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration, path)
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
 	ec.log.Info("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
+		zap.Binary("Segment", []byte(path)),
 		zap.Duration("Timer", timeout),
-		zap.String("Path", path),
 		zap.Int("Node Count", nonNilCount(limits)),
 		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
+		zap.String("Segment Path", path),
 	)
 
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
 			ec.log.Info("Timer expired. Canceling the long tail...",
-				zap.String("Path", path),
+				zap.Binary("Segment", []byte(path)),
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
@@ -307,8 +310,8 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 				cancellationCount++
 			}
 			ec.log.Debug("Repair to storage node failed",
-				zap.String("Path", path),
-				zap.String("NodeID", limits[info.i].GetLimit().StorageNodeId.String()),
+				zap.Binary("Segment", []byte(path)),
+				zap.Stringer("NodeID", limits[info.i].GetLimit().StorageNodeId),
 				zap.Error(info.err),
 			)
 			continue
@@ -335,11 +338,11 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	}()
 
 	if successfulCount == 0 {
-		return nil, nil, Error.New("repair %v to all nodes failed", path)
+		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
 	ec.log.Info("Successfully repaired",
-		zap.String("Path", path),
+		zap.Binary("Segment", []byte(path)),
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
@@ -351,7 +354,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time, path storj.Path) (hash *pb.PieceHash, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -372,8 +375,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Binary("Segment", []byte(path)),
+			zap.Stringer("PieceID", pieceID),
+			zap.Stringer("NodeID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -383,8 +387,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Binary("Segment", []byte(path)),
+			zap.Stringer("PieceID", pieceID),
+			zap.Stringer("NodeID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -405,9 +410,13 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	// to slow connection. No error logging for this case.
 	if ctx.Err() == context.Canceled {
 		if parent.Err() == context.Canceled {
-			ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
+			ec.log.Info("Upload to node canceled by user",
+				zap.Binary("Segment", []byte(path)),
+				zap.Stringer("NodeID", storageNodeID))
 		} else {
-			ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
+			ec.log.Debug("Node cut from upload due to slow connection",
+				zap.Binary("Segment", []byte(path)),
+				zap.Stringer("NodeID", storageNodeID))
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -417,8 +426,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		}
 
 		ec.log.Debug("Failed uploading piece to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Binary("Segment", []byte(path)),
+			zap.Stringer("PieceID", pieceID),
+			zap.Stringer("NodeID", storageNodeID),
 			zap.String("Node Address", nodeAddress),
 			zap.Error(err),
 		)
