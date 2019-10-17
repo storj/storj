@@ -15,14 +15,13 @@ import (
 // creditCards is an implementation of payments.CreditCards.
 type creditCards struct {
 	service *Service
-	userID  uuid.UUID
 }
 
 // List returns a list of PaymentMethods for a given Customer.
-func (creditCards *creditCards) List(ctx context.Context) (cards []payments.CreditCard, err error) {
-	defer mon.Task()(&ctx, creditCards.userID)(&err)
+func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -53,12 +52,12 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 }
 
 // Add is used to save new credit card and attach it to payment account.
-func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err error) {
-	defer mon.Task()(&ctx, creditCards.userID, cardToken)(&err)
+func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
+	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return err
+		return payments.ErrAccountNotSetup.Wrap(err)
 	}
 
 	cardParams := &stripe.PaymentMethodParams{

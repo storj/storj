@@ -12,11 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -56,21 +57,30 @@ const (
 // ErrConsoleInternal describes internal console error
 var ErrConsoleInternal = errs.Class("internal error")
 
+// ErrNoMembership is error type of not belonging to a specific project
+var ErrNoMembership = errs.Class("no membership error")
+
 // Service is handling accounts related logic
 //
 // architecture: Service
 type Service struct {
 	Signer
 
-	log     *zap.Logger
-	store   DB
-	rewards rewards.DB
+	log      *zap.Logger
+	store    DB
+	rewards  rewards.DB
+	accounts payments.Accounts
 
 	passwordCost int
 }
 
+// PaymentsService separates all payment related functionality
+type PaymentsService struct {
+	service *Service
+}
+
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -89,8 +99,50 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pa
 		Signer:       signer,
 		store:        store,
 		rewards:      rewards,
+		accounts:     accounts,
 		passwordCost: passwordCost,
 	}, nil
+}
+
+// Payments separates all payment related functionality
+func (s *Service) Payments() PaymentsService {
+	return PaymentsService{service: s}
+}
+
+// SetupAccount creates payment account for authorized user.
+func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+}
+
+// AccountBalance return account balance.
+func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return payments.service.accounts.Balance(ctx, auth.User.ID)
+}
+
+// AddCreditCard adds a card as a new payment method.
+func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -1080,9 +1132,6 @@ type isProjectMember struct {
 	project    *Project
 	membership *ProjectMember
 }
-
-// ErrNoMembership is error type of not belonging to a specific project
-var ErrNoMembership = errs.Class("no membership error")
 
 // isProjectOwner checks if the user is an owner of a project
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {
