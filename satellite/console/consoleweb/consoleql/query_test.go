@@ -32,7 +32,7 @@ func TestGraphqlQuery(t *testing.T) {
 		log := zaptest.NewLogger(t)
 
 		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(paymentsConfig, db.Customers())
+		payments := stripecoinpayments.NewService(paymentsConfig, db.Customers(), db.CoinpaymentsTransactions())
 
 		service, err := console.NewService(
 			log,

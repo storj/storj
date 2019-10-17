@@ -128,9 +128,9 @@ type Config struct {
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
-	
-	Mail     mailservice.Config
-	Console  consoleweb.Config
+
+	Mail    mailservice.Config
+	Console consoleweb.Config
 
 	Marketing marketingweb.Config
 
