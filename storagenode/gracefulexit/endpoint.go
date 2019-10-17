@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -48,7 +49,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 	// filter out satellites that are already exiting
 	exitingSatellites, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	for _, trusted := range trustedSatellites {
@@ -88,41 +89,71 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 	}, nil
 }
 
-// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
-func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb.StartExitResponse, error) {
-	e.log.Debug("initialize graceful exit: StartExit", zap.Int("satellite count", len(req.NodeIds)))
-	// save satellites info into db
-	resp := &pb.StartExitResponse{}
-	for _, satelliteID := range req.NodeIds {
-		e.log.Debug("initialize graceful exit: StartExit", zap.String("satellite ID", satelliteID.String()))
+// InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
+func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
+	e.log.Debug("initialize graceful exit: start", zap.String("satellite ID", req.NodeId.String()))
 
-		status := &pb.StartExitStatus{
-			Success: false,
-		}
-		domain, err := e.trust.GetAddress(ctx, satelliteID)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		status.DomainName = domain
-
-		// get space usage by satellites
-		spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, satelliteID)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		err = e.satellites.InitiateGracefulExit(ctx, satelliteID, time.Now().UTC(), spaceUsed)
-		if err != nil {
-			e.log.Debug("initialize graceful exit: StartExit", zap.Error(err))
-			resp.Statuses = append(resp.Statuses, status)
-			continue
-		}
-		status.Success = true
-		resp.Statuses = append(resp.Statuses, status)
+	domain, err := e.trust.GetAddress(ctx, req.NodeId)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: retrieve satellite address", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	// get space usage by satellites
+	spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: retrieve space used", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), spaceUsed)
+	if err != nil {
+		e.log.Debug("initialize graceful exit: save info into satellites table", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ExitProgress{
+		DomainName:      domain,
+		NodeId:          req.NodeId,
+		PercentComplete: float32(0),
+	}, nil
+}
+
+// GetExitProgress returns graceful exit progress on each satellite that a storagde node has started exiting.
+func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressRequest) (*pb.GetExitProgressResponse, error) {
+	exitProgress, err := e.satellites.ListGracefulExits(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	resp := &pb.GetExitProgressResponse{
+		Progress: make([]*pb.ExitProgress, 0, len(exitProgress)),
+	}
+	for _, progress := range exitProgress {
+		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
+		if err != nil {
+			e.log.Debug("graceful exit: get satellite domain name", zap.String("satelliteID", progress.SatelliteID.String()), zap.Error(err))
+			continue
+		}
+
+		var percentCompleted float32
+		var hasCompleted bool
+
+		if progress.StartingDiskUsage != 0 {
+			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
+		}
+		if progress.CompletionReceipt != nil {
+			hasCompleted = true
+		}
+
+		resp.Progress = append(resp.Progress,
+			&pb.ExitProgress{
+				DomainName:      domain,
+				NodeId:          progress.SatelliteID,
+				PercentComplete: percentCompleted,
+				Successful:      hasCompleted,
+			},
+		)
+	}
 	return resp, nil
 }

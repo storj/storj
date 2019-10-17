@@ -126,11 +126,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
-	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)
-	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))
+	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                        //locked
+	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)              //locked
+	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair) //locked
+	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                    //locked
+	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))            //locked
 
 	return nil
 }
@@ -237,11 +237,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
-	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
-	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
+	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))  //locked
+	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //locked
 
 	segmentAge := time.Since(pointer.CreationDate)
-	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds()))
+	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //locked
 
 	redundancy := pointer.Remote.Redundancy
 
@@ -294,7 +294,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		} else {
 			segmentAge = time.Since(pointer.CreationDate)
 		}
-		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds()))
+		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //locked
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
