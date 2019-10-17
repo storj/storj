@@ -13,6 +13,8 @@ import (
 )
 
 // coinpaymentsTransactions is Coinpayments transactions DB.
+//
+// architecture: Database
 type coinpaymentsTransactions struct {
 	db *dbx.DB
 }
