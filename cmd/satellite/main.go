@@ -105,7 +105,7 @@ var (
 	gracefulExitCfg struct {
 		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		Output    string `help:"destination of report output" default:""`
-		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:false`
+		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
 	}
 	confDir     string
 	identityDir string
