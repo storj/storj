@@ -3,7 +3,7 @@
 
 <template>
     <div class="container">
-        <div class="container__item">{{ itemData.bucketName }}</div>
+        <div class="container__item">{{ name }}</div>
         <div class="container__item">{{ storage }}</div>
         <div class="container__item">{{ egress }}</div>
         <div class="container__item">{{ objectCount }}</div>
@@ -20,6 +20,10 @@ import { Bucket } from '@/types/buckets';
 export default class BucketItem extends Vue {
     @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
     private readonly itemData: Bucket;
+
+    public get name(): string {
+        return this.itemData.formattedBucketName();
+    }
 
     public get storage(): string {
         return this.itemData.storage.toFixed(4);
