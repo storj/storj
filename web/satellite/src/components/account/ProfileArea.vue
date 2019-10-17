@@ -55,7 +55,7 @@
         <div class="profile-container__button-area">
             <VButton
                 class="profile-container__button-area__delete-button"
-                label="Delete account"
+                label="Delete Account"
                 width="210px"
                 height="56px"
                 :on-press="toggleDeleteAccountPopup"

@@ -6,7 +6,8 @@
         <div class="team-area__header">
             <HeaderArea
                 :header-state="headerState"
-                :selected-project-members-count="selectedProjectMembers.length"
+                :selected-project-members-count="selectedProjectMembersLength"
+                @onSuccessAction="resetPaginator"
             />
         </div>
         <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
@@ -75,6 +76,17 @@ import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
+const {
+    FETCH,
+    DELETE,
+    TOGGLE_SELECTION,
+    CLEAR,
+    CLEAR_SELECTION,
+    SET_SEARCH_QUERY,
+    SET_SORT_BY,
+    SET_SORT_DIRECTION,
+} = PM_ACTIONS;
+
 declare interface ResetPagination {
     resetPageIndex(): void;
 }
@@ -94,12 +106,16 @@ export default class ProjectMembersArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
+    }
+
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+        await this.$store.dispatch(CLEAR);
     }
 
     public onMemberClick(member: ProjectMember): void {
-        this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+        this.$store.dispatch(TOGGLE_SELECTION, member);
     }
 
     public get projectMembers(): ProjectMember[] {
@@ -122,12 +138,12 @@ export default class ProjectMembersArea extends Vue {
         return this.$store.state.projectMembersModule.page.pageCount;
     }
 
-    public get selectedProjectMembers(): ProjectMember[] {
-        return this.$store.getters.selectedProjectMembers;
+    public get selectedProjectMembersLength(): number {
+        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
     }
 
     public get headerState(): number {
-        if (this.selectedProjectMembers.length > 0) {
+        if (this.selectedProjectMembersLength > 0) {
             return ProjectMemberHeaderState.ON_SELECT;
         }
 
@@ -144,21 +160,25 @@ export default class ProjectMembersArea extends Vue {
 
     public async onPageClick(index: number): Promise<void> {
         try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, index);
+            await this.$store.dispatch(FETCH, index);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
     }
 
     public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-        this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-        this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
+        await this.$store.dispatch(SET_SORT_BY, sortBy);
+        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
         try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
+        this.resetPaginator();
+    }
+
+    public resetPaginator(): void {
         if (this.totalPageCount > 1) {
             this.$refs.pagination.resetPageIndex();
         }

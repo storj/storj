@@ -35,10 +35,10 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
-    private onClick(e: Event): void {
+    public onClick(e: Event): void {
         let target: any = e.target;
         while (target) {
-            if (this.$data.ids.includes(target.id)) {
+            if (this.ids.includes(target.id)) {
                 return;
             }
             target = target.parentNode;

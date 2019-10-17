@@ -19,7 +19,7 @@ func TestSanitizedOrderColumnName(t *testing.T) {
 		0: {0, "u.full_name"},
 		1: {1, "u.full_name"},
 		2: {2, "u.email"},
-		3: {3, "u.created_at"},
+		3: {3, "pm.created_at"},
 		4: {4, "u.full_name"},
 	}
 
