@@ -2,12 +2,15 @@
 // See LICENSE for copying information.
 
 export class CreditCard {
+    public isSelected: boolean = false;
+
     constructor(
         public id: string = '',
         public expMonth: number = 0,
         public expYear: number = 0,
         public brand: string = '',
         public last4: string = '0000',
+        public isDefault: boolean = false,
     ) {}
 }
 

@@ -46,7 +46,7 @@
                 :on-press="onConfirmAddStripe"/>
         </div>
         <div class="payment-methods-area__existing-cards-container">
-            <CardComponent />
+            <CardComponent v-for="card in creditCards" :key="card.id" :credit-card="card"/>
         </div>
     </div>
 </template>
@@ -59,6 +59,7 @@ import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { CreditCard } from '@/types/payments';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 interface StripeForm {
@@ -79,6 +80,10 @@ export default class PaymentMethods extends Vue {
     public $refs!: {
         stripeInput: StripeInput & StripeForm;
     };
+
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
 
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;

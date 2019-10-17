@@ -93,10 +93,10 @@ export default class MonthlyBillingSummary extends Vue {
         const year = now.getFullYear();
 
         if (date === 1) {
-            return `${months[monthNumber]} 1 ${year}`
+            return `${months[monthNumber]} 1 ${year}`;
         }
 
-        return `${months[monthNumber]} 1 - ${date} ${year}`
+        return `${months[monthNumber]} 1 - ${date} ${year}`;
     }
 
     public toggleUsageChargesPopup(): void {

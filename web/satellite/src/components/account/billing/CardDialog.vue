@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dialog">
+    <div class="dialog" v-click-outside="closeCardsDialog">
         <p class="label dialog__make-default">Make Default</p>
         <p class="label dialog__delete">Delete</p>
     </div>
@@ -11,8 +11,36 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+
+const {
+    CLEAR_CARDS_SELECTION,
+} = PAYMENTS_ACTIONS;
+
+Vue.directive('click-outside', {
+    bind: function (el, binding, vnode) {
+        (el as any).clickOutsideEvent = function (event) {
+            if (el === event.target) {
+               return;
+            }
+
+            if (vnode.context) {
+                vnode.context[binding.expression](event);
+            }
+        };
+        document.body.addEventListener('click', (el as any).clickOutsideEvent);
+    },
+    unbind: function (el) {
+        document.body.removeEventListener('click', (el as any).clickOutsideEvent);
+    },
+});
+
 @Component
-export default class CardDialog extends Vue {}
+export default class CardDialog extends Vue {
+    public closeCardsDialog(): void {
+        this.$store.dispatch(CLEAR_CARDS_SELECTION);
+    }
+}
 </script>
 
 <style scoped lang="scss">

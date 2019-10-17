@@ -8,6 +8,7 @@ const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
     SET_CREDIT_CARDS: 'SET_CREDIT_CARDS',
     CLEAR: 'CLEAR_PAYMENT_INFO',
+    UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -16,12 +17,15 @@ export const PAYMENTS_ACTIONS = {
     GET_CREDIT_CARDS: 'getCreditCards',
     ADD_CREDIT_CARD: 'addCreditCard',
     CLEAR_PAYMENT_INFO: 'clearPaymentInfo',
+    TOGGLE_CARD_SELECTION: 'toggleCardSelection',
+    CLEAR_CARDS_SELECTION: 'clearCardsSelection',
 };
 
 const {
     SET_BALANCE,
     SET_CREDIT_CARDS,
     CLEAR,
+    UPDATE_CARDS_SELECTION,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -29,6 +33,8 @@ const {
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
     ADD_CREDIT_CARD,
+    TOGGLE_CARD_SELECTION,
+    CLEAR_CARDS_SELECTION,
     CLEAR_PAYMENT_INFO,
 } = PAYMENTS_ACTIONS;
 
@@ -55,6 +61,19 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [SET_BALANCE](state: PaymentsState, creditCards: CreditCard[]) {
                 state.creditCards = creditCards;
             },
+            [UPDATE_CARDS_SELECTION](state: PaymentsState, id: string | null) {
+                state.creditCards = state.creditCards.map(card => {
+                    if (card.id === id) {
+                        card.isSelected = !card.isSelected;
+
+                        return card;
+                    }
+
+                    card.isSelected = false;
+
+                    return card;
+                });
+            },
             [CLEAR](state: PaymentsState) {
                 state.balance = 0;
                 state.creditCards = [];
@@ -79,12 +98,15 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [ADD_CREDIT_CARD]: async function({commit}: any, token: string): Promise<void> {
                 await api.addCreditCard(token);
             },
+            [TOGGLE_CARD_SELECTION]: function({commit}: any, id: string): void {
+                commit(UPDATE_CARDS_SELECTION, id);
+            },
+            [CLEAR_CARDS_SELECTION]: function({commit}: any): void {
+                commit(UPDATE_CARDS_SELECTION, null);
+            },
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);
             },
-        },
-        getters: {
-
         },
     };
 }

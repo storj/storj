@@ -15,7 +15,15 @@
             </VInfo>
         </div>
         <div class="account-balance-area__balance-area">
-            <span class="account-balance-area__balance-area__balance">Balance <b class="account-balance-area__balance-area__balance__bold-text">{{balance}}</b></span>
+            <span class="account-balance-area__balance-area__balance">
+                Balance
+                <b
+                    class="account-balance-area__balance-area__balance__bold-text"
+                    :style="balanceStyle"
+                >
+                    {{balance}}
+                </b>
+            </span>
             <VButton
                 class="button"
                 label="Earn Credits"
@@ -43,6 +51,21 @@ export default class AccountBalance extends Vue {
     public get balance(): string {
         return `$${this.$store.state.paymentsModule.balance / 100}`;
     }
+
+    public get balanceStyle() {
+        let color: string = '#DBF1D3';
+
+        if (this.$store.state.paymentsModule.balance < 0) {
+            color = '#FF0000';
+        }
+
+        if (this.$store.state.paymentsModule.balance === 0) {
+            color = '#000';
+        }
+
+        return { color };
+    }
+
     public onEarnCredits(): void {
         return;
     }

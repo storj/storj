@@ -10,39 +10,55 @@
                 <path d="M45.9603 17.8645C45.9603 24.8215 40.3375 30.45 33.3875 30.45C30.4539 30.45 27.7647 29.4362 25.6343 27.7581C28.5679 25.4508 30.4189 21.8849 30.4189 17.8645C30.4189 13.8442 28.533 10.2783 25.6343 7.97095C27.7647 6.29289 30.4539 5.27905 33.3875 5.27905C40.3375 5.27905 45.9603 10.9425 45.9603 17.8645Z" fill="#F79E1B"/>
             </svg>
             <div class="payment-methods-container__card-container__info-area__info-container">
-                <h1 class="bold">**** **** **** {{1111}}</h1>
+                <h1 class="bold">**** **** **** {{creditCard.last4}}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
                 <h2 class="medium">Expires</h2>
-                <h1 class="bold">{{1}}/{{1111}}</h1>
+                <h1 class="bold">{{creditCard.expMonth}}/{{creditCard.expYear}}</h1>
             </div>
         </div>
         <div class="payment-methods-container__card-container__button-area">
-            <div class="payment-methods-container__card-container__default-button" v-if="false">
+            <div class="payment-methods-container__card-container__default-button" v-if="creditCard.isDefault">
                 <p class="payment-methods-container__card-container__default-button__label">Default</p>
             </div>
             <div class="payment-methods-container__card-container__dots-container">
-                <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="4" height="4" rx="2" fill="#354049"/>
-                    <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
-                </svg>
-                <CardDialog />
+                <div @click.stop="toggleSelection(creditCard.id)">
+                    <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="4" height="4" rx="2" fill="#354049"/>
+                        <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
+                    </svg>
+                </div>
+                <CardDialog v-if="creditCard.isSelected"/>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import CardDialog from '@/components/account/billing/CardDialog.vue';
+
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
+const {
+    TOGGLE_CARD_SELECTION,
+} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
         CardDialog,
     },
 })
-export default class CardComponent extends Vue {}
+export default class CardComponent extends Vue {
+    @Prop({default: () => new CreditCard()})
+    private readonly creditCard: CreditCard;
+
+    public toggleSelection(id: string): void {
+        this.$store.dispatch(TOGGLE_CARD_SELECTION, id);
+    }
+}
 </script>
 
 <style scoped lang="scss">
