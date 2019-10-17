@@ -1277,6 +1277,40 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE timestamp;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add table for storing stripe customers",
+				Version:     59,
+				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`DROP TABLE user_payments CASCADE`,
+					`CREATE TABLE stripe_customers (
+						user_id bytea NOT NULL,
+						customer_id text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id ),
+						UNIQUE ( customer_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add coinpayments_transactions table",
+				Version:     60,
+				Action: migrate.SQL{
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

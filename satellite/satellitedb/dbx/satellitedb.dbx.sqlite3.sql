@@ -55,6 +55,17 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id TEXT NOT NULL,
+	user_id BLOB NOT NULL,
+	address TEXT NOT NULL,
+	amount BLOB NOT NULL,
+	received BLOB NOT NULL,
+	status INTEGER NOT NULL,
+	key TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id BLOB NOT NULL,
 	bytes_transferred INTEGER NOT NULL,
@@ -207,6 +218,13 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id BLOB NOT NULL,
+	customer_id TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
@@ -286,22 +304,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id BLOB NOT NULL,
-	is_default INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
