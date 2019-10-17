@@ -132,9 +132,7 @@ func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) 
 // authorize checks request for authorization token, validates it and updates context with auth data.
 func (p *Payments) authorize(ctx context.Context, r *http.Request) context.Context {
 	authHeaderValue := r.Header.Get("Authorization")
-	p.log.Error(authHeaderValue)
 	token := strings.TrimPrefix(authHeaderValue, "Bearer ")
-	p.log.Error(authHeaderValue)
 
 	auth, err := p.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
