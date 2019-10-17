@@ -9,6 +9,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// ErrNoAuthorizationKey is error that indicates that there is no authorization key.
+var ErrNoAuthorizationKey = Error.New("no authorization key")
+
 // GetTransacationKeyFromURL parses provided raw url string
 // and extracts authorization key from it. Returns error if
 // there is no authorization key.
@@ -20,7 +23,7 @@ func GetTransacationKeyFromURL(rawurl string) (string, error) {
 
 	key := u.Query().Get("key")
 	if key == "" {
-		return "", errs.New("no key value found")
+		return "", ErrNoAuthorizationKey
 	}
 
 	return key, nil
