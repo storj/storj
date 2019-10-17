@@ -24,23 +24,30 @@ export class PaymentsHttpApi implements PaymentsApi {
 
     public async setupAccount(): Promise<void> {
         const path = `${this.ROOT_PATH}/accounts`;
-        const body = {};
-        const response = await this.client.post(path, JSON.stringify(body));
+        const response = await this.client.post(path, null);
 
         return await response.json();
     }
 
-    public async addCreditCard(): Promise<void> {
+    public async addCreditCard(token: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards`;
-        const response = await this.client.get(path);
+        const body = { 'token': token };
+        const response = await this.client.post(path, JSON.stringify(body));
 
         return await response.json();
     }
 
     public async listCreditCards(): Promise<CreditCard[]> {
         const path = `${this.ROOT_PATH}/cards`;
-        const body = {};
-        const response = await this.client.post(path, JSON.stringify(body));
+        const response = await this.client.get(path);
+
+        return await response.json();
+    }
+
+    public async makeCreditCardDefault(id: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/cards`;
+        const body = { 'cardId': id };
+        const response = await this.client.patch(path, JSON.stringify(body));
 
         return await response.json();
     }

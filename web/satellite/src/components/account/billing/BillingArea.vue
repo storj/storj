@@ -34,6 +34,14 @@ import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vu
 import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    GET_BALANCE,
+    CLEAR_PAYMENT_INFO,
+} = PAYMENTS_ACTIONS;
+
 @Component({
     components: {
         AccountBalance,
@@ -44,6 +52,18 @@ import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 })
 export default class BillingArea extends Vue {
     private readonly CRITICAL_AMOUNT: number = 10;
+
+    public async mounted() {
+        const response = await this.$store.dispatch(GET_BALANCE);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+        }
+    }
+
+    public beforeDestroy() {
+        this.$store.dispatch(CLEAR_PAYMENT_INFO);
+    }
 
     public get isBalanceNegative(): boolean {
         return this.$store.state.paymentsModule.balance < 0;

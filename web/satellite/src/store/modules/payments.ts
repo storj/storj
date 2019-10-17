@@ -9,6 +9,7 @@ const PAYMENTS_MUTATIONS = {
     SET_CREDIT_CARDS: 'SET_CREDIT_CARDS',
     CLEAR: 'CLEAR_PAYMENT_INFO',
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
+    UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -19,6 +20,7 @@ export const PAYMENTS_ACTIONS = {
     CLEAR_PAYMENT_INFO: 'clearPaymentInfo',
     TOGGLE_CARD_SELECTION: 'toggleCardSelection',
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
+    MAKE_CARD_DEFAULT: 'makeCardDefault',
 };
 
 const {
@@ -26,6 +28,7 @@ const {
     SET_CREDIT_CARDS,
     CLEAR,
     UPDATE_CARDS_SELECTION,
+    UPDATE_CARDS_DEFAULT,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -36,6 +39,7 @@ const {
     TOGGLE_CARD_SELECTION,
     CLEAR_CARDS_SELECTION,
     CLEAR_PAYMENT_INFO,
+    MAKE_CARD_DEFAULT,
 } = PAYMENTS_ACTIONS;
 
 class PaymentsState {
@@ -43,7 +47,7 @@ class PaymentsState {
      * balance stores in cents
      */
     public balance: number = 0;
-    public creditCards: CreditCard[] = [];
+    public creditCards: CreditCard[] = [new CreditCard('123124'), new CreditCard('5647567')];
 }
 
 /**
@@ -70,6 +74,19 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                     }
 
                     card.isSelected = false;
+
+                    return card;
+                });
+            },
+            [UPDATE_CARDS_DEFAULT](state: PaymentsState, id: string) {
+                state.creditCards = state.creditCards.map(card => {
+                    if (card.id === id) {
+                        card.isDefault = !card.isDefault;
+
+                        return card;
+                    }
+
+                    card.isDefault = false;
 
                     return card;
                 });
@@ -103,6 +120,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [CLEAR_CARDS_SELECTION]: function({commit}: any): void {
                 commit(UPDATE_CARDS_SELECTION, null);
+            },
+            [MAKE_CARD_DEFAULT]: async function({commit}: any, id: string): Promise<void> {
+                await api.makeCreditCardDefault(id);
+
+                commit(UPDATE_CARDS_DEFAULT, id);
             },
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);

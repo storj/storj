@@ -3,18 +3,19 @@
 
 <template>
     <div class="dialog" v-click-outside="closeCardsDialog">
-        <p class="label dialog__make-default">Make Default</p>
+        <p class="label dialog__make-default" @click="makeDefault">Make Default</p>
         <p class="label dialog__delete">Delete</p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 const {
     CLEAR_CARDS_SELECTION,
+    MAKE_CARD_DEFAULT,
 } = PAYMENTS_ACTIONS;
 
 Vue.directive('click-outside', {
@@ -37,8 +38,15 @@ Vue.directive('click-outside', {
 
 @Component
 export default class CardDialog extends Vue {
+    @Prop({default: ''})
+    private readonly cardId: string;
+
     public closeCardsDialog(): void {
         this.$store.dispatch(CLEAR_CARDS_SELECTION);
+    }
+
+    public makeDefault() {
+        this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
     }
 }
 </script>

@@ -47,4 +47,11 @@ export interface PaymentsApi {
      * @throws Error
      */
     listCreditCards(): Promise<CreditCard[]>;
+
+    /**
+     * Make credit card default
+     *
+     * @throws Error
+     */
+    makeCreditCardDefault(id: string): Promise<void>;
 }

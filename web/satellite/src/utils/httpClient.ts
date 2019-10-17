@@ -45,6 +45,16 @@ export class HttpClient {
     }
 
     /**
+     * Performs PATCH http request with JSON body.
+     * @param path
+     * @param body serialized JSON
+     * @param auth indicates if authentication is needed
+     */
+    public async patch(path: string, body: string | null, auth: boolean = true): Promise<Response> {
+        return this.sendJSON('PATCH', path, body, auth);
+    }
+
+    /**
      * Performs GET http request.
      * @param path
      * @param auth indicates if authentication is needed

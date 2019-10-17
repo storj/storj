@@ -26,6 +26,7 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
@@ -39,6 +40,10 @@ import {
     PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+
+const {
+    SETUP_ACCOUNT,
+} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
@@ -56,6 +61,14 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             await this.$router.push(RouteConfig.Login.path);
             AuthToken.remove();
+
+            return;
+        }
+
+        const response = await this.$store.dispatch(SETUP_ACCOUNT);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
 
             return;
         }

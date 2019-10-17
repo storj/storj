@@ -38,7 +38,10 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput class="payment-methods-area__adding-container__stripe" ref="stripeInput"/>
+            <StripeInput
+                class="payment-methods-area__adding-container__stripe"
+                ref="stripeInput"
+                :on-stripe-response-callback="addCard" />
             <VButton
                 label="Add card"
                 width="123px"
@@ -59,8 +62,15 @@ import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+
+const {
+    ADD_CREDIT_CARD,
+    GET_CREDIT_CARDS,
+} = PAYMENTS_ACTIONS;
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -95,6 +105,14 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    public async mounted() {
+        const response = await this.$store.dispatch(GET_CREDIT_CARDS);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+        }
+    }
+
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
 
@@ -117,6 +135,18 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeInput.onSubmit();
+    }
+
+    public async addCard(token: string) {
+        const response = await this.$store.dispatch(ADD_CREDIT_CARD, token);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+
+            return;
+        }
+
+        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
     }
 }
 </script>
