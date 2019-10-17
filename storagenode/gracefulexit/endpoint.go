@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -48,7 +49,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 	// filter out satellites that are already exiting
 	exitingSatellites, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	for _, trusted := range trustedSatellites {
@@ -95,20 +96,20 @@ func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGra
 	domain, err := e.trust.GetAddress(ctx, req.NodeId)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: retrieve satellite address", zap.Error(err))
-		return nil, errs.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	// get space usage by satellites
 	spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: retrieve space used", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
-		return nil, errs.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), spaceUsed)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: save info into satellites table", zap.String("Satellite ID", req.NodeId.String()), zap.Error(err))
-		return nil, errs.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return &pb.ExitProgress{
@@ -122,7 +123,7 @@ func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGra
 func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressRequest) (*pb.GetExitProgressResponse, error) {
 	exitProgress, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	resp := &pb.GetExitProgressResponse{
