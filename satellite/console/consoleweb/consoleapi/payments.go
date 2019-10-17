@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -42,11 +43,7 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, err = p.authorize(ctx, r)
-	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	}
+	ctx = p.authorize(ctx, r)
 
 	err = p.service.Payments().SetupAccount(ctx)
 	if err != nil {
@@ -65,11 +62,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, err = p.authorize(ctx, r)
-	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	}
+	ctx = p.authorize(ctx, r)
 
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
@@ -100,11 +93,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, err = p.authorize(ctx, r)
-	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	}
+	ctx = p.authorize(ctx, r)
 
 	var requestBody struct {
 		Token string `json:"token"`
@@ -141,16 +130,16 @@ func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) 
 }
 
 // authorize checks request for authorization token, validates it and updates context with auth data.
-func (p *Payments) authorize(ctx context.Context, r *http.Request) (context.Context, error) {
-	tokenCookie, err := r.Cookie("_tokenKey")
+func (p *Payments) authorize(ctx context.Context, r *http.Request) context.Context {
+	authHeaderValue := r.Header.Get("Authorization")
+	p.log.Error(authHeaderValue)
+	token := strings.TrimPrefix(authHeaderValue, "Bearer ")
+	p.log.Error(authHeaderValue)
+
+	auth, err := p.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
-		return nil, err
+		return console.WithAuthFailure(ctx, err)
 	}
 
-	auth, err := p.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
-	if err != nil {
-		return nil, err
-	}
-
-	return console.WithAuth(ctx, auth), nil
+	return console.WithAuth(ctx, auth)
 }

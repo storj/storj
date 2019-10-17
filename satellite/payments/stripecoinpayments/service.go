@@ -18,7 +18,7 @@ var ErrorStripe = errs.Class("stripe API error")
 
 // Config stores needed information for payment service initialization
 type Config struct {
-	secretKey string
+	SecretKey string `help:"stripe secret key" default:""`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -29,7 +29,7 @@ type Service struct {
 
 // NewService creates a Service instance.
 func NewService(config Config, customers CustomersDB) *Service {
-	stripeClient := client.New(config.secretKey, nil)
+	stripeClient := client.New(config.SecretKey, nil)
 
 	return &Service{
 		customers:    customers,
