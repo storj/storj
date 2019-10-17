@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 )
 
-// hack to ensure that storjTokens implements payments.StorjTokens.
+// ensure that storjTokens implements payments.StorjTokens.
 var _ payments.StorjTokens = (*storjTokens)(nil)
 
 // storjTokens implements payments.StorjTokens.

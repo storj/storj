@@ -14,7 +14,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// hack to ensure that coinpaymentsTransaction implements stripecoinpayments.TransactionsDB.
+// ensure that coinpaymentsTransaction implements stripecoinpayments.TransactionsDB.
 var _ stripecoinpayments.TransactionsDB = (*coinpaymentsTransactions)(nil)
 
 // coinpaymentsTransactions is Coinpayments transactions DB.

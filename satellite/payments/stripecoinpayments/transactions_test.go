@@ -25,7 +25,7 @@ func TestTransactionsDB(t *testing.T) {
 
 		transactions := db.CoinpaymentsTransactions()
 
-		t.Run("test insert", func(t *testing.T) {
+		t.Run("insert", func(t *testing.T) {
 			amount, received := new(big.Float).SetPrec(1000), new(big.Float).SetPrec(1000)
 
 			amount, ok := amount.SetString("2.0000000000000000005")
