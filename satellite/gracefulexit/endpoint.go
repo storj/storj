@@ -4,6 +4,7 @@
 package gracefulexit
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -38,14 +40,15 @@ type processStream interface {
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
-	log       *zap.Logger
-	interval  time.Duration
-	db        DB
-	overlaydb overlay.DB
-	overlay   *overlay.Service
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	config    Config
+	log            *zap.Logger
+	interval       time.Duration
+	db             DB
+	overlaydb      overlay.DB
+	overlay        *overlay.Service
+	metainfo       *metainfo.Service
+	orders         *orders.Service
+	peerIdentities overlay.PeerIdentities
+	config         Config
 }
 
 type pendingTransfer struct {
@@ -107,16 +110,18 @@ func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service, config Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
+	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		interval:  time.Millisecond * buildQueueMillis,
-		db:        db,
-		overlaydb: overlaydb,
-		overlay:   overlay,
-		metainfo:  metainfo,
-		orders:    orders,
-		config:    config,
+		log:            log,
+		interval:       time.Millisecond * buildQueueMillis,
+		db:             db,
+		overlaydb:      overlaydb,
+		overlay:        overlay,
+		metainfo:       metainfo,
+		orders:         orders,
+		peerIdentities: peerIdentities,
+		config:         config,
 	}
 }
 
@@ -376,19 +381,57 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	return nil
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if message.Succeeded.GetAddressedOrderLimit() == nil {
+
+	addressedOrderLimit := message.Succeeded.GetAddressedOrderLimit()
+	if addressedOrderLimit == nil {
 		return Error.New("Addressed order limit cannot be nil.")
 	}
-	if message.Succeeded.GetOriginalPieceHash() == nil {
+	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
+	if originalPieceHash == nil {
 		return Error.New("Original piece hash cannot be nil.")
+	}
+	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
+	if replacementPieceHash == nil {
+		return Error.New("Replacement piece hash cannot be nil.")
 	}
 
 	pieceID := message.Succeeded.OriginalPieceId
 	endpoint.log.Debug("transfer succeeded", zap.Stringer("piece ID", pieceID))
 
-	// TODO validation
+	// verify that the satellite signed the original order limit
+	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetAddressedOrderLimit().Limit)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// verify that the original piece hash and replacement piece hash match
+	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
+		return Error.New("Piece hashes for transferred piece don't match.")
+	}
+
+	// verify that the public key on the order limit signed the original piece hash
+	err = signing.VerifyUplinkPieceHashSignature(ctx, addressedOrderLimit.Limit.UplinkPublicKey, originalPieceHash)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO add nil checks/figure out a better way to get the receiving node ID
+	receivingNodeID := pending.data[pieceID].satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+
+	// get peerID and signee for new storage node
+	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	signee := signing.SigneeFromPeerIdentity(peerID)
+
+	// verify that the new node signed the replacement piece hash
+	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	transfer, ok := pending.get(pieceID)
 	if !ok {
@@ -397,7 +440,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properly
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -407,12 +450,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		failed = -1
 	}
 
-	err = endpoint.db.IncrementProgress(ctx, nodeID, transfer.pieceSize, 1, failed)
+	err = endpoint.db.IncrementProgress(ctx, exitingNodeID, transfer.pieceSize, 1, failed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
