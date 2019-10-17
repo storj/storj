@@ -33,6 +33,9 @@ const {
 } = PAYMENTS_ACTIONS;
 
 class PaymentsState {
+    /**
+     * balance stores in cents
+     */
     public balance: number = 0;
     public creditCards: CreditCard[] = [];
 }

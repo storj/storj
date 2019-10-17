@@ -12,6 +12,9 @@ export class PaymentsHttpApi implements PaymentsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/payments';
 
+    /**
+     * getBalance exposes http request to grt balance in cents
+     */
     public async getBalance(): Promise<number> {
         const path = `${this.ROOT_PATH}/accounts/balance`;
         const response = await this.client.get(path);

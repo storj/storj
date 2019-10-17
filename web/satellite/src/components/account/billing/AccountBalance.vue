@@ -15,7 +15,7 @@
             </VInfo>
         </div>
         <div class="account-balance-area__balance-area">
-            <span class="account-balance-area__balance-area__balance">Balance <b class="account-balance-area__balance-area__balance__bold-text">$25.00</b></span>
+            <span class="account-balance-area__balance-area__balance">Balance <b class="account-balance-area__balance-area__balance__bold-text">{{balance}}</b></span>
             <VButton
                 class="button"
                 label="Earn Credits"
@@ -40,6 +40,9 @@ import VInfo from '@/components/common/VInfo.vue';
     },
 })
 export default class AccountBalance extends Vue {
+    public get balance(): string {
+        return `$${this.$store.state.paymentsModule.balance / 100}`;
+    }
     public onEarnCredits(): void {
         return;
     }
