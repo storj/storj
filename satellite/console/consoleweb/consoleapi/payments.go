@@ -37,6 +37,11 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	ctx, err = p.authorize(ctx, r)
 	if err != nil {
 		p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -54,6 +59,11 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	ctx, err = p.authorize(ctx, r)
 	if err != nil {
@@ -84,6 +94,11 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	ctx, err = p.authorize(ctx, r)
 	if err != nil {
