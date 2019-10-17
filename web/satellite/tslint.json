@@ -56,12 +56,12 @@
           "match": "^@/components",
           "order": 2
         }, {
-          "name": "internal else",
-          "match": "^@",
-          "order": 3
-        }, {
           "name": "internal images",
           "match": "^@/../static/images",
+          "order": 3
+        }, {
+          "name": "internal else",
+          "match": "^@",
           "order": 4
         }]
     }],

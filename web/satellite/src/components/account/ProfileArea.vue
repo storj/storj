@@ -65,13 +65,13 @@ import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
+import EmailIcon from '@/../static/images/account/profile/email.svg';
+import EditIcon from '@/../static/images/common/edit.svg';
+
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-
-import ChangePasswordIcon from '@/../static/images/account/changePassword.svg';
-import EditIcon from '@/../static/images/account/edit.svg';
-import EmailIcon from '@/../static/images/account/email.svg';
 
 @Component({
     components: {

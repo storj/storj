@@ -15,7 +15,8 @@ exports[`HeaderedInput.vue renders correctly with default props 1`] = `
 
 exports[`HeaderedInput.vue renders correctly with input error 1`] = `
 <div class="input-container">
-  <div class="label-container"><img src="../../../static/images/register/ErrorInfo.svg" alt="Red error icon with explanation mark">
+  <div class="label-container">
+    <!---->
     <!---->
     <!---->
     <h3 class="label-container__error">testError</h3>

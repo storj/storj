@@ -7,8 +7,14 @@
         <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
             <h1 class="project-selection-toggle-container__name">{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="@/../static/images/register/BlueExpand.svg" alt="Arrow down (expand)"/>
-                <img v-if="isDropdownShown" src="@/../static/images/register/BlueHide.svg" alt="Arrow up (hide)"/>
+                <ExpandIcon
+                    v-if="!isDropdownShown"
+                    alt="Arrow down (expand)"
+                />
+                <HideIcon
+                    v-if="isDropdownShown"
+                    alt="Arrow up (hide)"
+                />
             </div>
         </div>
         <ProjectSelectionDropdown v-if="isDropdownShown"/>
@@ -17,6 +23,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
+import HideIcon from '@/../static/images/common/BlueHide.svg';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
@@ -27,6 +36,8 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 @Component({
     components: {
         ProjectSelectionDropdown,
+        ExpandIcon,
+        HideIcon,
     },
 })
 export default class ProjectSelectionArea extends Vue {
