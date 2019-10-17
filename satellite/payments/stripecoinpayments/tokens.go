@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 )
 
-// storjTokens implements payments.StorjTokens
+// storjTokens implements payments.StorjTokens.
 type storjTokens struct {
 	userID  uuid.UUID
 	service *Service
