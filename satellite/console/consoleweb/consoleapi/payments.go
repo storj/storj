@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
