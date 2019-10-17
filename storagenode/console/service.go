@@ -120,6 +120,8 @@ type Dashboard struct {
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
+
+	StartedAt time.Time `json:"startedAt"`
 }
 
 // GetDashboardData returns stale dashboard data.
@@ -131,6 +133,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()
+	data.StartedAt = s.startedAt
 
 	data.LastPinged = s.pingStats.WhenLastPinged()
 

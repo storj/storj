@@ -95,7 +95,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, path)
 			if err != nil {
-				worker.log.Error("audit failed", zap.Error(err))
+				worker.log.Error("audit failed", zap.Binary("Segment", []byte(path)), zap.Error(err))
 			}
 		})
 	}
@@ -111,26 +111,24 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// Skip all reverified nodes in the next Verify step.
 	skip := make(map[storj.NodeID]bool)
-	if report != nil {
-		for _, nodeID := range report.Successes {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Offlines {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Fails {
-			skip[nodeID] = true
-		}
-		for _, pending := range report.PendingAudits {
-			skip[pending.NodeID] = true
-		}
+	for _, nodeID := range report.Successes {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Offlines {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Fails {
+		skip[nodeID] = true
+	}
+	for _, pending := range report.PendingAudits {
+		skip[pending.NodeID] = true
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.
@@ -140,7 +138,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}

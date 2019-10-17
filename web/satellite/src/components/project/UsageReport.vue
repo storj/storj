@@ -41,7 +41,7 @@
                 </div>
             </div>
             <div class="usage-report-container__main-area__footer">
-                <p class="usage-report-container__main-area__footer__rollup-info">Current Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(startDate)}}</b> to <b>{{toLocaleDateString(endDate)}}</b></p>
+                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(startDate)}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(endDate)}}</b></p>
                 <div class="usage-report-container__main-area__footer__report-area">
                     <p class="usage-report-container__main-area__footer__report-area__download-text">Download Advanced Report</p>
                     <svg class="usage-report-container__main-area__footer__report-area__image" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click.prevent="onReportClick">

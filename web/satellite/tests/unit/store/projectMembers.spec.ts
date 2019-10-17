@@ -79,9 +79,24 @@ describe('mutations', () => {
     });
 
     it('toggle selection', function () {
-        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1.user.id);
+        const testProjectMembersPage = new ProjectMembersPage();
+        testProjectMembersPage.projectMembers = [projectMember1];
+        testProjectMembersPage.totalCount = 1;
+        testProjectMembersPage.pageCount = 1;
+
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1);
 
         expect(state.page.projectMembers[0].isSelected).toBe(true);
+        expect(state.selectedProjectMembersEmails.length).toBe(1);
+
+        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+
+        expect(state.selectedProjectMembersEmails.length).toBe(1);
+
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.selectedProjectMembersEmails.length).toBe(0);
     });
 
     it('clear selection', function () {
@@ -90,6 +105,8 @@ describe('mutations', () => {
         state.page.projectMembers.forEach((pm: ProjectMember) => {
             expect(pm.isSelected).toBe(false);
         });
+
+        expect(state.selectedProjectMembersEmails.length).toBe(0);
     });
 
     it('clear store', function () {
@@ -100,6 +117,7 @@ describe('mutations', () => {
         expect(state.cursor.order).toBe(ProjectMemberOrderBy.NAME);
         expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
         expect(state.page.projectMembers.length).toBe(0);
+        expect(state.selectedProjectMembersEmails.length).toBe(0);
     });
 });
 
@@ -243,9 +261,25 @@ describe('actions', async () => {
         );
 
         await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
-        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1.user.id);
+        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1);
 
         expect(state.page.projectMembers[0].isSelected).toBe(true);
+        expect(state.selectedProjectMembersEmails.length).toBe(1);
+
+        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember2);
+
+        expect(state.page.projectMembers[1].isSelected).toBe(true);
+        expect(state.selectedProjectMembersEmails.length).toBe(2);
+
+        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+
+        expect(state.page.projectMembers[1].isSelected).toBe(true);
+        expect(state.selectedProjectMembersEmails.length).toBe(2);
+
+        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.selectedProjectMembersEmails.length).toBe(1);
     });
 
     it('clear selection', function () {
@@ -264,12 +298,15 @@ describe('actions', async () => {
         expect(state.cursor.order).toBe(ProjectMemberOrderBy.NAME);
         expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
         expect(state.page.projectMembers.length).toBe(0);
+
+        state.page.projectMembers.forEach((pm: ProjectMember) => {
+            expect(pm.isSelected).toBe(false);
+        });
     });
 });
 
 describe('getters', () => {
     const selectedProjectMember = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
-    selectedProjectMember.isSelected = true;
 
     it('selected project members', function () {
         const testProjectMembersPage = new ProjectMembersPage();
@@ -278,6 +315,7 @@ describe('getters', () => {
         testProjectMembersPage.pageCount = 1;
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, selectedProjectMember);
 
         const retrievedProjectMembers = store.getters.selectedProjectMembers;
 

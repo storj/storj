@@ -848,6 +848,399 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:gracefulexit.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "TransferFailed.Error",
+            "enum_fields": [
+              {
+                "name": "NOT_FOUND"
+              },
+              {
+                "name": "STORAGE_NODE_UNAVAILABLE",
+                "integer": 1
+              },
+              {
+                "name": "UNKNOWN",
+                "integer": 2
+              }
+            ]
+          },
+          {
+            "name": "ExitFailed.Reason",
+            "enum_fields": [
+              {
+                "name": "VERIFICATION_FAILED"
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "GetNonExitingSatellitesRequest"
+          },
+          {
+            "name": "InitiateGracefulExitRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "NonExitingSatellite",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "domain_name",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "space_used",
+                "type": "double"
+              }
+            ]
+          },
+          {
+            "name": "GetNonExitingSatellitesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellites",
+                "type": "NonExitingSatellite",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "GetExitProgressRequest"
+          },
+          {
+            "name": "GetExitProgressResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "progress",
+                "type": "ExitProgress",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "ExitProgress",
+            "fields": [
+              {
+                "id": 1,
+                "name": "domain_name",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "percent_complete",
+                "type": "float"
+              },
+              {
+                "id": 4,
+                "name": "successful",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "TransferSucceeded",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addressed_order_limit",
+                "type": "metainfo.AddressedOrderLimit"
+              },
+              {
+                "id": 2,
+                "name": "original_piece_hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 3,
+                "name": "replacement_piece_hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 4,
+                "name": "original_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "TransferFailed",
+            "fields": [
+              {
+                "id": 1,
+                "name": "original_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "error",
+                "type": "Error"
+              }
+            ]
+          },
+          {
+            "name": "StorageNodeMessage",
+            "fields": [
+              {
+                "id": 1,
+                "name": "succeeded",
+                "type": "TransferSucceeded"
+              },
+              {
+                "id": 2,
+                "name": "failed",
+                "type": "TransferFailed"
+              }
+            ]
+          },
+          {
+            "name": "NotReady"
+          },
+          {
+            "name": "TransferPiece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "original_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "addressed_order_limit",
+                "type": "metainfo.AddressedOrderLimit"
+              }
+            ]
+          },
+          {
+            "name": "DeletePiece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "original_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ExitCompleted",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exit_complete_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "ExitFailed",
+            "fields": [
+              {
+                "id": 1,
+                "name": "exit_failure_signature",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "reason",
+                "type": "Reason"
+              }
+            ]
+          },
+          {
+            "name": "SatelliteMessage",
+            "fields": [
+              {
+                "id": 1,
+                "name": "not_ready",
+                "type": "NotReady"
+              },
+              {
+                "id": 2,
+                "name": "transfer_piece",
+                "type": "TransferPiece"
+              },
+              {
+                "id": 3,
+                "name": "delete_piece",
+                "type": "DeletePiece"
+              },
+              {
+                "id": 4,
+                "name": "exit_completed",
+                "type": "ExitCompleted"
+              },
+              {
+                "id": 5,
+                "name": "exit_failed",
+                "type": "ExitFailed"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "NodeGracefulExit",
+            "rpcs": [
+              {
+                "name": "GetNonExitingSatellites",
+                "in_type": "GetNonExitingSatellitesRequest",
+                "out_type": "GetNonExitingSatellitesResponse"
+              },
+              {
+                "name": "InitiateGracefulExit",
+                "in_type": "InitiateGracefulExitRequest",
+                "out_type": "ExitProgress"
+              },
+              {
+                "name": "GetExitProgress",
+                "in_type": "GetExitProgressRequest",
+                "out_type": "GetExitProgressResponse"
+              }
+            ]
+          },
+          {
+            "name": "SatelliteGracefulExit",
+            "rpcs": [
+              {
+                "name": "Process",
+                "in_type": "StorageNodeMessage",
+                "out_type": "SatelliteMessage",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "metainfo.proto"
+          },
+          {
+            "path": "orders.proto"
+          }
+        ],
+        "package": {
+          "name": "gracefulexit"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:inspector.proto",
       "def": {
         "messages": [
@@ -4150,6 +4543,10 @@
               {
                 "name": "DELETE",
                 "integer": 6
+              },
+              {
+                "name": "PUT_GRACEFUL_EXIT",
+                "integer": 7
               }
             ]
           },
@@ -4743,62 +5140,6 @@
         ],
         "messages": [
           {
-            "name": "QueryRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "target",
-                "type": "node.Node"
-              },
-              {
-                "id": 3,
-                "name": "limit",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "pingback",
-                "type": "bool"
-              },
-              {
-                "id": 5,
-                "name": "vouchers",
-                "type": "vouchers.Voucher",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "QueryResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "response",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "PingRequest"
-          },
-          {
-            "name": "PingResponse"
-          },
-          {
-            "name": "InfoRequest"
-          },
-          {
             "name": "InfoResponse",
             "fields": [
               {
@@ -4844,37 +5185,12 @@
             ]
           }
         ],
-        "services": [
-          {
-            "name": "Nodes",
-            "rpcs": [
-              {
-                "name": "Query",
-                "in_type": "QueryRequest",
-                "out_type": "QueryResponse"
-              },
-              {
-                "name": "Ping",
-                "in_type": "PingRequest",
-                "out_type": "PingResponse"
-              },
-              {
-                "name": "RequestInfo",
-                "in_type": "InfoRequest",
-                "out_type": "InfoResponse"
-              }
-            ]
-          }
-        ],
         "imports": [
           {
             "path": "gogo.proto"
           },
           {
             "path": "node.proto"
-          },
-          {
-            "path": "vouchers.proto"
           }
         ],
         "package": {

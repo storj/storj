@@ -5,9 +5,12 @@ package versioncontrol
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net"
 	"net/http"
+	"reflect"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,7 +20,17 @@ import (
 	"storj.io/storj/internal/version"
 )
 
-// Config is all the configuration parameters for a Version Control Server
+// seedLength is the number of bytes in a rollout seed.
+const seedLength = 32
+
+var (
+	// RolloutErr defines the rollout config error class.
+	RolloutErr = errs.Class("rollout config error")
+	// EmptySeedErr is used when the rollout contains an empty seed value.
+	EmptySeedErr = RolloutErr.New("empty seed")
+)
+
+// Config is all the configuration parameters for a Version Control Server.
 type Config struct {
 	Address  string `user:"true" help:"public address to listen on" default:":8080"`
 	Versions ServiceVersions
@@ -25,7 +38,7 @@ type Config struct {
 	Binary Versions
 }
 
-// ServiceVersions provides a list of allowed Versions per Service
+// ServiceVersions provides a list of allowed Versions per Service.
 type ServiceVersions struct {
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
@@ -34,7 +47,8 @@ type ServiceVersions struct {
 	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
-// Versions represents versions for all binaries
+// Versions represents versions for all binaries.
+// TODO: this name is inconsistent with the internal/version pkg's analogue, `Processes`.
 type Versions struct {
 	Satellite   Binary
 	Storagenode Binary
@@ -43,16 +57,24 @@ type Versions struct {
 	Identity    Binary
 }
 
-// Binary represents versions for single binary
+// Binary represents versions for single binary.
+// TODO: This name is inconsistent with the internal/version pkg's analogue, `Process`.
 type Binary struct {
 	Minimum   Version
 	Suggested Version
+	Rollout   Rollout
 }
 
-// Version single version
+// Version single version.
 type Version struct {
 	Version string `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string `user:"true" help:"URL for specific binary" default:""`
+}
+
+// Rollout represents the state of a version rollout of a binary to the suggested version.
+type Rollout struct {
+	Seed   string `user:"true" help:"random 32 byte, hex-encoded string"`
+	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -71,7 +93,7 @@ type Peer struct {
 	response []byte
 }
 
-// HandleGet contains the request handler for the version control web server
+// HandleGet contains the request handler for the version control web server.
 func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	// Only handle GET Requests
 	if r.Method != http.MethodGet {
@@ -94,6 +116,10 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 // New creates a new VersionControl Server.
 func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
+	if err := config.Binary.ValidateRollouts(log); err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
 	peer = &Peer{
 		Log: log,
 	}
@@ -125,14 +151,32 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes = version.Processes{}
-	peer.Versions.Processes.Satellite = configToProcess(config.Binary.Satellite)
-	peer.Versions.Processes.Storagenode = configToProcess(config.Binary.Storagenode)
-	peer.Versions.Processes.Uplink = configToProcess(config.Binary.Uplink)
-	peer.Versions.Processes.Gateway = configToProcess(config.Binary.Gateway)
-	peer.Versions.Processes.Identity = configToProcess(config.Binary.Identity)
+	peer.Versions.Processes.Satellite, err = configToProcess(config.Binary.Satellite)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Storagenode, err = configToProcess(config.Binary.Storagenode)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Uplink, err = configToProcess(config.Binary.Uplink)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Gateway, err = configToProcess(config.Binary.Gateway)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.Identity, err = configToProcess(config.Binary.Identity)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
 
 	peer.response, err = json.Marshal(peer.Versions)
-
 	if err != nil {
 		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
 	}
@@ -178,8 +222,67 @@ func (peer *Peer) Close() (err error) {
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Listener.Addr().String() }
 
-func configToProcess(binary Binary) version.Process {
-	return version.Process{
+// ValidateRollouts validates the rollout field of each field in the Versions struct.
+func (versions Versions) ValidateRollouts(log *zap.Logger) error {
+	value := reflect.ValueOf(versions)
+	fieldCount := value.NumField()
+	validationErrs := errs.Group{}
+	for i := 1; i < fieldCount; i++ {
+		binary, ok := value.Field(i).Interface().(Binary)
+		if !ok {
+			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
+			continue
+		}
+		if err := binary.Rollout.Validate(); err != nil {
+			if err == EmptySeedErr {
+				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i).Name))
+				continue
+			}
+			validationErrs.Add(err)
+		}
+	}
+	return validationErrs.Err()
+}
+
+// Validate validates the rollout seed and cursor config values.
+func (rollout Rollout) Validate() error {
+	seedLen := len(rollout.Seed)
+	if seedLen == 0 {
+		return EmptySeedErr
+	}
+
+	if seedLen != hex.EncodedLen(seedLength) {
+		return RolloutErr.New("invalid seed length: %d", seedLen)
+	}
+
+	if rollout.Cursor < 0 || rollout.Cursor > 100 {
+		return RolloutErr.New("invalid cursor percentage: %d", rollout.Cursor)
+	}
+
+	if _, err := hex.DecodeString(rollout.Seed); err != nil {
+		return RolloutErr.New("invalid seed: %s", rollout.Seed)
+	}
+	return nil
+}
+
+func percentageToCursor(pct int) version.RolloutBytes {
+	// NB: convert the max value to a number, multiply by the percentage, convert back.
+	var maxInt, maskInt big.Int
+	var maxBytes version.RolloutBytes
+	for i := 0; i < len(maxBytes); i++ {
+		maxBytes[i] = 255
+	}
+	maxInt.SetBytes(maxBytes[:])
+	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
+
+	var cursor version.RolloutBytes
+	copy(cursor[:], maskInt.Bytes())
+
+	return cursor
+}
+
+func configToProcess(binary Binary) (version.Process, error) {
+	process := version.Process{
 		Minimum: version.Version{
 			Version: binary.Minimum.Version,
 			URL:     binary.Minimum.URL,
@@ -188,5 +291,15 @@ func configToProcess(binary Binary) version.Process {
 			Version: binary.Suggested.Version,
 			URL:     binary.Suggested.URL,
 		},
+		Rollout: version.Rollout{
+			Cursor: percentageToCursor(binary.Rollout.Cursor),
+		},
 	}
+
+	seedBytes, err := hex.DecodeString(binary.Rollout.Seed)
+	if err != nil {
+		return version.Process{}, err
+	}
+	copy(process.Rollout.Seed[:], seedBytes)
+	return process, nil
 }

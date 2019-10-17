@@ -20,7 +20,7 @@ import { Component, Vue } from 'vue-property-decorator';
 export default class SNOFooter extends Vue {}
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .footer {
         width: 100%;
         height: 89px;

@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -183,6 +184,13 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByHead(ctx, head)
+}
+
+// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
+func (m *lockedAPIKeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByNameAndProjectID(ctx, name, projectID)
 }
 
 // GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
@@ -582,6 +590,33 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) Customers() stripecoinpayments.CustomersDB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCustomers{m.Locker, m.db.Customers()}
+}
+
+// lockedCustomers implements locking wrapper for stripecoinpayments.CustomersDB
+type lockedCustomers struct {
+	sync.Locker
+	db stripecoinpayments.CustomersDB
+}
+
+// GetCustomerID return stripe customers id.
+func (m *lockedCustomers) GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCustomerID(ctx, userID)
+}
+
+// Insert inserts a stripe customer into the database.
+func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
+}
+
 // DropSchema drops the schema
 func (m *locked) DropSchema(schema string) error {
 	m.Lock()
@@ -630,11 +665,25 @@ func (m *lockedGracefulExit) Enqueue(ctx context.Context, items []gracefulexit.T
 	return m.db.Enqueue(ctx, items)
 }
 
-// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by the queued date ascending.
+// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
 func (m *lockedGracefulExit) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetIncomplete(ctx, nodeID, limit, offset)
+}
+
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
+func (m *lockedGracefulExit) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncompleteFailed(ctx, nodeID, maxFailures, limit, offset)
+}
+
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio and queued date ascending.
+func (m *lockedGracefulExit) GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncompleteNotFailed(ctx, nodeID, limit, offset)
 }
 
 // GetProgress gets a graceful exit progress entry.
@@ -835,6 +884,12 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
+}
+
+func (m *lockedOverlayCache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitStatus(ctx, nodeID)
 }
 
 // GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.

@@ -9,13 +9,12 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -38,13 +37,13 @@ type Service struct {
 	Loop sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
-	liveAccounting          live.Service
+	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 }
 
 // New creates a new tally Service
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: *sync2.NewCycle(interval),
@@ -87,7 +86,10 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
-	service.liveAccounting.ResetTotals()
+	err = service.liveAccounting.ResetTotals(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
@@ -132,10 +134,26 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	if len(observer.Bucket) > 0 {
 		var total accounting.BucketTally
 		for _, bucket := range observer.Bucket {
-			bucketReport(bucket, "bucket")
+			monAccounting.IntVal("bucket.objects").Observe(bucket.ObjectCount)
+
+			monAccounting.IntVal("bucket.segments").Observe(bucket.Segments())
+			monAccounting.IntVal("bucket.inline_segments").Observe(bucket.InlineSegments)
+			monAccounting.IntVal("bucket.remote_segments").Observe(bucket.RemoteSegments)
+
+			monAccounting.IntVal("bucket.bytes").Observe(bucket.Bytes())
+			monAccounting.IntVal("bucket.inline_bytes").Observe(bucket.InlineBytes)
+			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
 			total.Combine(bucket)
 		}
-		bucketReport(&total, "total")
+		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //locked
+
+		monAccounting.IntVal("total.segments").Observe(total.Segments())            //locked
+		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //locked
+		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //locked
+
+		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //locked
+		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //locked
+		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //locked
 	}
 
 	// return errors if something went wrong.
@@ -219,16 +237,3 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 
 // using custom name to avoid breaking monitoring
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
-
-// bucketReport reports the stats thru monkit
-func bucketReport(tally *accounting.BucketTally, prefix string) {
-	monAccounting.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
-
-	monAccounting.IntVal(prefix + ".segments").Observe(tally.Segments())
-	monAccounting.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
-	monAccounting.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
-
-	monAccounting.IntVal(prefix + ".bytes").Observe(tally.Bytes())
-	monAccounting.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
-	monAccounting.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
-}

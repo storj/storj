@@ -42,6 +42,7 @@ export default class RegisterArea extends Vue {
     private passwordError: string = '';
     private repeatedPasswordError: string = '';
     private isTermsAcceptedError: boolean = false;
+    private isLoading: boolean = false;
 
     private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
@@ -69,16 +70,26 @@ export default class RegisterArea extends Vue {
         }
     }
 
-    public onCreateClick(): void {
+    public async onCreateClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
         if (!this.validateFields()) {
+            this.isLoading = false;
+
             return;
         }
 
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
 
-        this.createUser();
+        await this.createUser();
 
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+
+        this.isLoading = false;
     }
     public onLogoClick(): void {
         location.reload();
@@ -153,6 +164,7 @@ export default class RegisterArea extends Vue {
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+            this.isLoading = false;
         }
     }
 }
