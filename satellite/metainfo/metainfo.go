@@ -529,7 +529,9 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
 				endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
-				return rpcstatus.Error(rpcstatus.InvalidArgument, "invalid redundancy strategy; MinReq and/or Total are invalid")
+				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
+				)
 			}
 
 			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
