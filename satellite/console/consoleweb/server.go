@@ -117,7 +117,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	paymentController := consoleapi.NewPayments(logger, service)
-	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.CreditCards))
 	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
 	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
 

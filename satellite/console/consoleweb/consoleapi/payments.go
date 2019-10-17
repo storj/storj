@@ -10,10 +10,11 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 var mon = monkit.Package()
@@ -47,7 +48,13 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 
 	err = p.service.Payments().SetupAccount(ctx)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 }
 
@@ -66,19 +73,38 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	var balanceResponse struct {
+	var responseBody struct {
 		Balance int64 `json:"balance"`
 	}
 
-	balanceResponse.Balance = balance
+	responseBody.Balance = balance
 
-	err = json.NewEncoder(w).Encode(balanceResponse)
+	err = json.NewEncoder(w).Encode(responseBody)
 	if err != nil {
 		p.log.Error("failed to write json balance response", zap.Error(err))
+	}
+}
+
+// CreditCards selects what to do depends on http method type
+func (p *Payments) CreditCards(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPatch:
+		p.MakeCreditCardDefault(w, r)
+	case http.MethodGet:
+		p.ListCreditCards(w, r)
+	case http.MethodPost:
+		p.AddCreditCard(w, r)
+	default:
+		w.WriteHeader(http.StatusNotFound)
 	}
 }
 
@@ -88,11 +114,6 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
 	ctx = p.authorize(ctx, r)
 
 	var requestBody struct {
@@ -100,7 +121,6 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decoder := json.NewDecoder(r.Body)
-
 	err = decoder.Decode(&requestBody)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
@@ -109,7 +129,75 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	err = p.service.Payments().AddCreditCard(ctx, requestBody.Token)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+// ListCreditCards returns a list of credit cards for a given payment account.
+func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ctx = p.authorize(ctx, r)
+
+	cards, err := p.service.Payments().ListCreditCards(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var responseBody struct {
+		Cards []payments.CreditCard `json:"cards"`
+	}
+
+	responseBody.Cards = cards
+
+	err = json.NewEncoder(w).Encode(responseBody)
+	if err != nil {
+		p.log.Error("failed to write json list cards response", zap.Error(err))
+	}
+}
+
+// MakeCreditCardDefault makes a credit card default payment method.
+func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ctx = p.authorize(ctx, r)
+
+	var requestBody struct {
+		CardID string `json:"cardId"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&requestBody)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.Payments().MakeCreditCardDefault(ctx, []byte(requestBody.CardID))
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 }
 

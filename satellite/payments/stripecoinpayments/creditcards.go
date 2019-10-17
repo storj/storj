@@ -17,7 +17,7 @@ type creditCards struct {
 	service *Service
 }
 
-// List returns a list of PaymentMethods for a given Customer.
+// List returns a list of credit cards for a given payment account.
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
@@ -51,7 +51,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	return cards, nil
 }
 
-// Add is used to save new credit card and attach it to payment account.
+// Add is used to save new credit card and attach it to payment account as a default payment method.
 func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
@@ -77,6 +77,29 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
 	if err != nil {
 		// TODO: handle created but not attached card manually?
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// MakeDefault makes a credit card default payment method.
+// this credit card should be attached to account before make it default.
+func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUID, cardID []byte) (err error) {
+	defer mon.Task()(&ctx, userID, cardID)(&err)
+
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	if err != nil {
+		return payments.ErrAccountNotSetup.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params:        stripe.Params{},
+		DefaultSource: stripe.String(string(cardID)),
+	}
+
+	_, err = creditCards.service.stripeClient.Customers.Update(customerID, params)
+	if err != nil {
 		return Error.Wrap(err)
 	}
 

@@ -145,6 +145,30 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 }
 
+// MakeCreditCardDefault makes a credit card default payment method.
+func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, creditCardID []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, creditCardID)
+}
+
+// ListCreditCards returns a list of credit cards for a given payment account.
+func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+}
+
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
