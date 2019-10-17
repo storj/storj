@@ -192,16 +192,7 @@ func TestRevocationDB_List(t *testing.T) {
 		for _, rev := range revs {
 			revBytes, err := rev.Marshal()
 			assert.NoError(t, err)
-			assert.True(t, contains(expected, revBytes))
+			assert.Contains(t, expected, revBytes)
 		}
 	})
-}
-
-func contains(slice [][]byte, target []byte) bool {
-	for _, value := range slice {
-		if bytes.Equal(value, target) {
-			return true
-		}
-	}
-	return false
 }
