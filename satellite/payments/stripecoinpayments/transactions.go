@@ -15,6 +15,8 @@ import (
 
 // TransactionsDB is an interface which defines functionality
 // of DB which stores coinpayments transactions.
+//
+// architecture: Database
 type TransactionsDB interface {
 	// Insert inserts new coinpayments transaction into DB.
 	Insert(ctx context.Context, tx Transaction) (*Transaction, error)
