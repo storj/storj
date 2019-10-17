@@ -32,11 +32,11 @@ func (accounts *accounts) Setup(ctx context.Context, email string) (err error) {
 	}
 
 	if _, err := accounts.service.stripeClient.Customers.New(params); err != nil {
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return accounts.service.customers.Insert(ctx, accounts.userID, email)
+	return Error.Wrap(accounts.service.customers.Insert(ctx, accounts.userID, email))
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
@@ -45,13 +45,18 @@ func (accounts *accounts) Balance(ctx context.Context) (_ int64, err error) {
 
 	customerID, err := accounts.service.customers.GetCustomerID(ctx, accounts.userID)
 	if err != nil {
-		return 0, err
+		return 0, Error.Wrap(err)
 	}
 
 	c, err := accounts.service.stripeClient.Customers.Get(customerID, nil)
 	if err != nil {
-		return 0, ErrorStripe.Wrap(err)
+		return 0, Error.Wrap(err)
 	}
 
 	return c.Balance, nil
+}
+
+// StorjTokens exposes all storj token related functionality.
+func (accounts *accounts) StorjTokens() payments.StorjTokens {
+	return &storjTokens{service: accounts.service}
 }

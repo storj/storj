@@ -102,6 +102,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCustomers returns table for storing stripe customers
 	Customers() stripecoinpayments.CustomersDB
+	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
 }
 
 // Config is the global config satellite
