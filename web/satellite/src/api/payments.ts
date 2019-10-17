@@ -5,10 +5,10 @@ import { CreditCard, PaymentsApi } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
- * PaymentsApiGql is a graphql implementation of Payments API.
+ * PaymentsHttpApi is a http implementation of Payments API.
  * Exposes all payments-related functionality
  */
-export class PaymentsApiGql implements PaymentsApi {
+export class PaymentsHttpApi implements PaymentsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/payments';
 

@@ -7,11 +7,11 @@ import Vuex from 'vuex';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { BucketsApiGql } from '@/api/buckets';
 import { CreditsApiGql } from '@/api/credits';
+import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
 import { UsersApiGql } from '@/api/users';
-import {PaymentsApiGql} from '@/api/payments';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
@@ -40,7 +40,7 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const projectUsageApi = new ProjectUsageApiGql();
-const paymentsApi = new PaymentsApiGql();
+const paymentsApi = new PaymentsHttpApi();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
