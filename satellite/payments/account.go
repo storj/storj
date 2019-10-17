@@ -24,4 +24,6 @@ type Accounts interface {
 
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
+	// StorjTokens exposes all storj token related functionality.
+	StorjTokens() StorjTokens
 }

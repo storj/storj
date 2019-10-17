@@ -132,6 +132,26 @@ func (m *locked) Close() error {
 	return m.db.Close()
 }
 
+// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+func (m *locked) CoinpaymentsTransactions() stripecoinpayments.TransactionsDB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCoinpaymentsTransactions{m.Locker, m.db.CoinpaymentsTransactions()}
+}
+
+// lockedCoinpaymentsTransactions implements locking wrapper for stripecoinpayments.TransactionsDB
+type lockedCoinpaymentsTransactions struct {
+	sync.Locker
+	db stripecoinpayments.TransactionsDB
+}
+
+// Insert inserts new coinpayments transaction into DB.
+func (m *lockedCoinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (*stripecoinpayments.Transaction, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, tx)
+}
+
 // Console returns database for satellite console
 func (m *locked) Console() console.DB {
 	m.Lock()

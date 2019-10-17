@@ -55,6 +55,17 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id TEXT NOT NULL,
+	user_id BLOB NOT NULL,
+	address TEXT NOT NULL,
+	amount BLOB NOT NULL,
+	received BLOB NOT NULL,
+	status INTEGER NOT NULL,
+	key TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id BLOB NOT NULL,
 	bytes_transferred INTEGER NOT NULL,

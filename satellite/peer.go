@@ -102,6 +102,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCustomers returns table for storing stripe customers
 	Customers() stripecoinpayments.CustomersDB
+	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
 }
 
 // Config is the global config satellite
@@ -126,8 +128,7 @@ type Config struct {
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
-
-	Payments stripecoinpayments.Config
+	
 	Mail     mailservice.Config
 	Console  consoleweb.Config
 
@@ -593,7 +594,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			return nil, errs.New("Auth token secret required")
 		}
 
-		payments := stripecoinpayments.NewService(config.Payments, peer.DB.Customers())
+		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
