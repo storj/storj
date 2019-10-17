@@ -51,7 +51,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	return cards, nil
 }
 
-// Add is used to save new credit card and attach it to payment account as a default payment method.
+// Add is used to save new credit card and attach it to payment account.
 func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 

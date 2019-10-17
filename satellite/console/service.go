@@ -133,7 +133,7 @@ func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int
 	return payments.service.accounts.Balance(ctx, auth.User.ID)
 }
 
-// AddCreditCard adds a card as a new payment method.
+// Add is used to save new credit card and attach it to payment account.
 func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

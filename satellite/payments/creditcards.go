@@ -14,7 +14,7 @@ type CreditCards interface {
 	// List returns a list of credit cards for a given payment account.
 	List(ctx context.Context, userID uuid.UUID) ([]CreditCard, error)
 
-	// Add is used to save new credit card and attach it to payment account as a default payment method.
+	// Add is used to save new credit card and attach it to payment account.
 	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
 
 	// MakeDefault makes a credit card default payment method.
