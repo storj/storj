@@ -130,6 +130,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             },
             clearApiKeys: function ({commit}): void {
                 commit(CLEAR);
+                commit(CLEAR_SELECTION);
             },
         },
         getters: {

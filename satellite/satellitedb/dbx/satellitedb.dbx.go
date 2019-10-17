@@ -327,6 +327,17 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	address text NOT NULL,
+	amount bytea NOT NULL,
+	received bytea NOT NULL,
+	status integer NOT NULL,
+	key text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -691,6 +702,17 @@ CREATE TABLE bucket_usages (
 	repair_egress INTEGER NOT NULL,
 	get_egress INTEGER NOT NULL,
 	audit_egress INTEGER NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE coinpayments_transactions (
+	id TEXT NOT NULL,
+	user_id BLOB NOT NULL,
+	address TEXT NOT NULL,
+	amount BLOB NOT NULL,
+	received BLOB NOT NULL,
+	status INTEGER NOT NULL,
+	key TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
@@ -1848,6 +1870,176 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 }
 
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
+
+type CoinpaymentsTransaction struct {
+	Id        string
+	UserId    []byte
+	Address   string
+	Amount    []byte
+	Received  []byte
+	Status    int
+	Key       string
+	CreatedAt time.Time
+}
+
+func (CoinpaymentsTransaction) _Table() string { return "coinpayments_transactions" }
+
+type CoinpaymentsTransaction_Update_Fields struct {
+	Received CoinpaymentsTransaction_Received_Field
+	Status   CoinpaymentsTransaction_Status_Field
+}
+
+type CoinpaymentsTransaction_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Id(v string) CoinpaymentsTransaction_Id_Field {
+	return CoinpaymentsTransaction_Id_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Id_Field) _Column() string { return "id" }
+
+type CoinpaymentsTransaction_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_UserId(v []byte) CoinpaymentsTransaction_UserId_Field {
+	return CoinpaymentsTransaction_UserId_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_UserId_Field) _Column() string { return "user_id" }
+
+type CoinpaymentsTransaction_Address_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Address(v string) CoinpaymentsTransaction_Address_Field {
+	return CoinpaymentsTransaction_Address_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Address_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Address_Field) _Column() string { return "address" }
+
+type CoinpaymentsTransaction_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_Amount(v []byte) CoinpaymentsTransaction_Amount_Field {
+	return CoinpaymentsTransaction_Amount_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Amount_Field) _Column() string { return "amount" }
+
+type CoinpaymentsTransaction_Received_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_Received(v []byte) CoinpaymentsTransaction_Received_Field {
+	return CoinpaymentsTransaction_Received_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Received_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Received_Field) _Column() string { return "received" }
+
+type CoinpaymentsTransaction_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func CoinpaymentsTransaction_Status(v int) CoinpaymentsTransaction_Status_Field {
+	return CoinpaymentsTransaction_Status_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Status_Field) _Column() string { return "status" }
+
+type CoinpaymentsTransaction_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Key(v string) CoinpaymentsTransaction_Key_Field {
+	return CoinpaymentsTransaction_Key_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Key_Field) _Column() string { return "key" }
+
+type CoinpaymentsTransaction_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CoinpaymentsTransaction_CreatedAt(v time.Time) CoinpaymentsTransaction_CreatedAt_Field {
+	return CoinpaymentsTransaction_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -6789,6 +6981,40 @@ func (obj *postgresImpl) Create_StripeCustomer(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coinpayments_transaction_id.value()
+	__user_id_val := coinpayments_transaction_user_id.value()
+	__address_val := coinpayments_transaction_address.value()
+	__amount_val := coinpayments_transaction_amount.value()
+	__received_val := coinpayments_transaction_received.value()
+	__status_val := coinpayments_transaction_status.value()
+	__key_val := coinpayments_transaction_key.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -10097,6 +10323,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10970,6 +11206,43 @@ func (obj *sqlite3Impl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastStripeCustomer(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coinpayments_transaction_id.value()
+	__user_id_val := coinpayments_transaction_user_id.value()
+	__address_val := coinpayments_transaction_address.value()
+	__amount_val := coinpayments_transaction_amount.value()
+	__received_val := coinpayments_transaction_received.value()
+	__status_val := coinpayments_transaction_status.value()
+	__key_val := coinpayments_transaction_key.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastCoinpaymentsTransaction(ctx, __pk)
 
 }
 
@@ -14548,6 +14821,24 @@ func (obj *sqlite3Impl) getLastStripeCustomer(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastCoinpaymentsTransaction(ctx context.Context,
+	pk int64) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -14787,6 +15078,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -15300,6 +15601,23 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
+
+}
+
+func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount, coinpayments_transaction_received, coinpayments_transaction_status, coinpayments_transaction_key)
 
 }
 
@@ -16420,6 +16738,16 @@ type Methods interface {
 		bucket_usage_get_egress BucketUsage_GetEgress_Field,
 		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
 		bucket_usage *BucketUsage, err error)
+
+	Create_CoinpaymentsTransaction(ctx context.Context,
+		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+		coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+		coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+		coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
 	Create_Offer(ctx context.Context,
 		offer_name Offer_Name_Field,

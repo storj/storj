@@ -892,3 +892,19 @@ read one (
 	select stripe_customer.customer_id
 	where stripe_customer.user_id = ?
 )
+
+model coinpayments_transaction (
+    key id
+
+    field id       text
+    field user_id  blob
+    field address  text
+    field amount   blob
+    field received blob ( updatable )
+    field status   int  ( updatable )
+    field key      text
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()
