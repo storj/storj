@@ -94,7 +94,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CreditCards selects what to do depends on http method type
+// CreditCards selects what to do depends on http method type.
 func (p *Payments) CreditCards(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPatch:
