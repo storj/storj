@@ -75,6 +75,12 @@ var (
 		RunE:        cmdGracefulExitInit,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	gracefulExitStatusCmd = &cobra.Command{
+		Use:         "exit-status",
+		Short:       "Display graceful exit status",
+		RunE:        cmdGracefulExitStatus,
+		Annotations: map[string]string{"type": "helper"},
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
@@ -107,12 +113,14 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(gracefulExitInitCmd)
+	rootCmd.AddCommand(gracefulExitStatusCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
