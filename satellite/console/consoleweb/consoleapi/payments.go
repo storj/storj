@@ -50,6 +50,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 
 	var balanceResponse struct {
@@ -60,7 +61,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(balanceResponse)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.log.Error("failed to write json balance response", zap.Error(err))
 	}
 }
 
@@ -79,6 +80,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	err = decoder.Decode(&requestBody)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
 	}
 
 	err = p.service.Payments().AddCreditCard(ctx, requestBody.Token)
