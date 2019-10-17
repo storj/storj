@@ -623,6 +623,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
 			dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
 			dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
+			dbx.Node_ExitSuccess(false),
 			dbx.Node_Create_Fields{
 				Disqualified: dbx.Node_Disqualified_Null(),
 			},
@@ -1025,7 +1026,7 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind("select id, exit_initiated_at, exit_loop_completed_at, exit_finished_at from nodes where id = ?"), nodeID)
+	rows, err := cache.db.Query(cache.db.Rebind("select id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success from nodes where id = ?"), nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1034,7 +1035,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	}()
 	exitStatus := &overlay.ExitStatus{}
 	if rows.Next() {
-		err = rows.Scan(&exitStatus.NodeID, &exitStatus.ExitInitiatedAt, &exitStatus.ExitLoopCompletedAt, &exitStatus.ExitFinishedAt)
+		err = rows.Scan(&exitStatus.NodeID, &exitStatus.ExitInitiatedAt, &exitStatus.ExitLoopCompletedAt, &exitStatus.ExitFinishedAt, &exitStatus.ExitSuccess)
 	}
 
 	return exitStatus, Error.Wrap(err)
@@ -1077,6 +1078,7 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	if !req.ExitFinishedAt.IsZero() {
 		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(req.ExitFinishedAt)
 	}
+	dbxUpdateFields.ExitSuccess = dbx.Node_ExitSuccess(req.ExitSuccess)
 
 	return dbxUpdateFields
 }
