@@ -39,7 +39,8 @@ $ANDROID_HOME/emulator/emulator-headless -avd ${AVD_NAME} -port ${PORT} -no-boot
 # copy test project and build aar file
 cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
 mkdir -p "$TMP/libuplink_android/app/libs/"
-cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
+mv "$SCRIPTDIR/../../.build/libuplink-android.aar" "$TMP/libuplink_android/app/libs/"
+# cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
 export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing

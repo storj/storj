@@ -29,6 +29,8 @@ pipeline {
 
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
+                sh 'make libuplink-gomobile'
+                sh 'mv libuplink-android* .build'
             }
         }
 
