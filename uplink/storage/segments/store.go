@@ -133,6 +133,11 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 			Hash:     successfulHashes[i],
 		})
 	}
+
+	if l := len(uploadResults); l < s.rs.OptimalThreshold() {
+		return Meta{}, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
+	}
+
 	err = s.metainfo.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 		SegmentID:         segmentID,
 		SizeEncryptedData: sizedReader.Size(),

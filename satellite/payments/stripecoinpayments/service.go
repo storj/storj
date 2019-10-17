@@ -4,10 +4,9 @@
 package stripecoinpayments
 
 import (
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -53,6 +52,6 @@ func NewService(config Config, customers CustomersDB, transactionsDB Transaction
 }
 
 // Accounts exposes all needed functionality to manage payment accounts.
-func (service *Service) Accounts(userID uuid.UUID) payments.Accounts {
+func (service *Service) Accounts() payments.Accounts {
 	return &accounts{service: service}
 }

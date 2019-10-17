@@ -1311,6 +1311,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add graceful exit success column to nodes table",
+				Version:     61,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
+				},
+			},
 		},
 	}
 }
