@@ -5,8 +5,9 @@ package satellitedb
 
 import (
 	"context"
-	"github.com/zeebo/errs"
 	"math/big"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
