@@ -270,12 +270,12 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if nodeUsageCfg.Output == "" {
-		return generateGracefulExitCSV(ctx, start, end, os.Stdout)
+	if gracefulExitCfg.Output == "" {
+		return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(nodeUsageCfg.Output)
+	file, err := os.Create(gracefulExitCfg.Output)
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateGracefulExitCSV(ctx, start, end, file)
+	return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, file)
 }
 
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
