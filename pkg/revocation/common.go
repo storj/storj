@@ -4,8 +4,6 @@
 package revocation
 
 import (
-	"fmt"
-
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -36,13 +34,11 @@ func NewDB(dbURL string) (*DB, error) {
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
-		fmt.Println("JEN : bolt")
 	case "redis":
 		db, err = newDBRedis(dbURL)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
-		fmt.Println("JEN : redis")
 	default:
 		return nil, extensions.ErrRevocationDB.New("database scheme not supported: %s", driver)
 	}

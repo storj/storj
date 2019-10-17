@@ -266,7 +266,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		if flags.Redis != "" {
 			process.Arguments["setup"] = append(process.Arguments["setup"],
-				"--revocation-dburl", flags.Redis)
+				"--server.revocation-dburl", flags.Redis)
 		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
