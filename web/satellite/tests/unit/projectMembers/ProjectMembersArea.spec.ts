@@ -5,24 +5,39 @@ import Vuex from 'vuex';
 
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
-import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
+import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-const localVue = createLocalVue();
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectsApiMock } from '../mock/api/projects';
 
+const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
-const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+const pmApi = new ProjectMembersApiMock();
+const projectMembersModule = makeProjectMembersModule(pmApi);
+const projectsApi = new ProjectsApiMock();
+const projectsModule = makeProjectsModule(projectsApi);
+const { FETCH } = PROJECT_MEMBER_MUTATIONS;
+const store = new Vuex.Store({modules: { projectsModule, projectMembersModule, appStateModule }});
 
 describe('ProjectMembersArea.vue', () => {
-    const pmApi = new ProjectMembersApiGql();
-    const projectMembersModule = makeProjectMembersModule(pmApi);
+    const project = new Project('id', 'projectName', 'projectDescription', 'test', true);
+    projectsApi.setMockProjects([project]);
 
-    const store = new Vuex.Store({modules: { projectMembersModule, appStateModule }});
+    const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
+    const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+
+    const testProjectMembersPage = new ProjectMembersPage();
+    testProjectMembersPage.projectMembers = [projectMember1];
+    testProjectMembersPage.totalCount = 1;
+    testProjectMembersPage.pageCount = 1;
+
+    pmApi.setMockPage(testProjectMembersPage);
 
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {
@@ -33,38 +48,20 @@ describe('ProjectMembersArea.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('empty search result area render correctly', function () {
-        const wrapper = shallowMount(ProjectMembersArea, {
-            store,
-            localVue,
-        });
-
-        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
-        expect(emptySearchResultArea.length).toBe(1);
-
-        const teamContainer = wrapper.findAll('.team-area__container');
-        expect(teamContainer.length).toBe(0);
-
-        expect(wrapper).toMatchSnapshot();
-    });
-
     it('function fetchProjectMembers works correctly', () => {
-        const testProjectMembersPage = new ProjectMembersPage();
-        testProjectMembersPage.projectMembers = [projectMember1];
-        testProjectMembersPage.totalCount = 1;
-        testProjectMembersPage.pageCount = 1;
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+        store.commit(FETCH, testProjectMembersPage);
 
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
         });
 
-        expect(wrapper.vm.projectMembers.length).toBe(1);
+        expect(wrapper.vm.projectMembers).toEqual([projectMember1]);
     });
 
-    it('team area renders correctly', function () {
+    it('team area renders correctly', () => {
+        store.commit(FETCH, testProjectMembersPage);
+
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
@@ -86,6 +83,8 @@ describe('ProjectMembersArea.vue', () => {
     });
 
     it('action on toggle works correctly', () => {
+        store.commit(FETCH, testProjectMembersPage);
+
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
@@ -97,23 +96,32 @@ describe('ProjectMembersArea.vue', () => {
     });
 
     it('clear selection works correctly', () => {
+        const projectMember3 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
+        projectMember3.isSelected = true;
+        const testProjectMembersPage = new ProjectMembersPage();
+        testProjectMembersPage.projectMembers = [projectMember3];
+        testProjectMembersPage.totalCount = 1;
+        testProjectMembersPage.pageCount = 1;
+        store.commit(FETCH, testProjectMembersPage);
+
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onMemberClick(projectMember1);
+        wrapper.vm.onMemberClick(projectMember3);
 
         expect(store.getters.selectedProjectMembers.length).toBe(0);
     });
 
     it('Reversing list order triggers rerender', () => {
-        const testProjectMembersPage = new ProjectMembersPage();
-        testProjectMembersPage.projectMembers = [projectMember1, projectMember2];
-        testProjectMembersPage.totalCount = 2;
-        testProjectMembersPage.pageCount = 1;
+        const testPage = new ProjectMembersPage();
+        testPage.projectMembers = [projectMember1, projectMember2];
+        testPage.totalCount = 2;
+        testPage.pageCount = 1;
+        pmApi.setMockPage(testPage);
 
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+        store.commit(FETCH, testPage);
 
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
@@ -124,8 +132,32 @@ describe('ProjectMembersArea.vue', () => {
 
         testProjectMembersPage.projectMembers = [projectMember2, projectMember1];
 
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+        store.commit(FETCH, testProjectMembersPage);
 
         expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember2.user.id);
+    });
+
+    it('empty search result area render correctly', () => {
+        const testPage1 = new ProjectMembersPage();
+        testPage1.projectMembers = [];
+        testPage1.totalCount = 0;
+        testPage1.pageCount = 0;
+        testPage1.search = 'testSearch';
+        pmApi.setMockPage(testPage1);
+
+        store.commit(FETCH, testPage1);
+
+        const wrapper = shallowMount(ProjectMembersArea, {
+            store,
+            localVue,
+        });
+
+        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
+        expect(emptySearchResultArea.length).toBe(1);
+
+        const teamContainer = wrapper.findAll('.team-area__container');
+        expect(teamContainer.length).toBe(0);
+
+        expect(wrapper).toMatchSnapshot();
     });
 });

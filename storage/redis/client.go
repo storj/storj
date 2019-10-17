@@ -93,6 +93,16 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 	return put(ctx, client.db, key, value, client.TTL)
 }
 
+// IncrBy increments the value stored in key by the specified value.
+func (client *Client) IncrBy(ctx context.Context, key storage.Key, value int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+	_, err = client.db.IncrBy(key.String(), value).Result()
+	return err
+}
+
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)

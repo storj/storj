@@ -140,6 +140,7 @@ const {
     FETCH,
     DELETE,
     TOGGLE_SELECTION,
+    CLEAR,
     CLEAR_SELECTION,
     SET_SEARCH_QUERY,
     SET_SORT_BY,
@@ -176,8 +177,12 @@ export default class ApiKeysArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
+    }
+
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+        await this.$store.dispatch(CLEAR);
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
@@ -405,9 +410,9 @@ export default class ApiKeysArea extends Vue {
 
         &__title {
             font-family: 'font_bold';
-            font-size: 21px;
+            font-size: 32px;
             line-height: 39px;
-            margin-top: 100px;
+            margin-top: 104px;
         }
 
         &__image {

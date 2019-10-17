@@ -36,7 +36,6 @@ export default class SortBucketsHeader extends Vue {}
         &__item {
             width: 25%;
             margin: 0;
-            cursor: pointer;
             text-align: left;
             padding-left: 26px;
 

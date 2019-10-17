@@ -7,7 +7,6 @@
             <div class="account-button-toggle-container__avatar">
                 <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
-            <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
                 <ExpandIcon
                         v-if="!isDropdownShown"
@@ -26,8 +25,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
-import HideIcon from '@/../static/images/common/BlueHide.svg';
+import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
+import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -47,10 +46,6 @@ export default class AccountButton extends Vue {
 
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
-
-    public get userName(): string {
-        return this.$store.getters.userName;
     }
 
     public get isDropdownShown(): boolean {
@@ -108,12 +103,10 @@ export default class AccountButton extends Vue {
         }
 
         &__expander-area {
-            margin-left: 12px;
+            margin-left: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            height: 28px;
         }
     }
 

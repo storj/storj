@@ -110,8 +110,8 @@ export default class ChangePasswordPopup extends Vue {
 
     public async onUpdateClick(): Promise<void> {
         let hasError = false;
-        if (!this.oldPassword) {
-            this.oldPasswordError = 'Password required';
+        if (this.oldPassword.length < 6) {
+            this.oldPasswordError = 'Invalid old password. Must be 6 or more characters';
             hasError = true;
         }
 

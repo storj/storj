@@ -9,7 +9,7 @@
                 <DeleteAccountIcon/>
             </div>
             <div class='delete-account__form-container'>
-                <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever. (drop from the satellite)</p>
+                <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever (drop from the satellite).</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
@@ -55,6 +55,7 @@ import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { validatePassword } from '@/utils/validation';
 
 @Component({
     components: {
@@ -73,6 +74,7 @@ export default class DeleteAccountPopup extends Vue {
 
     public setPassword(value: string): void {
         this.password = value;
+        this.passwordError = '';
     }
 
     public async onDeleteAccountClick(): Promise<void> {
@@ -82,16 +84,24 @@ export default class DeleteAccountPopup extends Vue {
 
         this.isLoading = true;
 
+        if (!validatePassword(this.password)) {
+            this.passwordError = 'Invalid password. Must be 6 or more characters';
+            this.isLoading = false;
+
+            return;
+        }
+
         try {
             await this.auth.delete(this.password);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
 
             AuthToken.remove();
 
             this.isLoading = false;
-            this.$router.push(RouteConfig.Login.path);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+            await this.$router.push(RouteConfig.Login.path);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.isLoading = false;
         }
     }

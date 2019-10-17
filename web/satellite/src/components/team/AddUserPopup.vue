@@ -37,7 +37,7 @@
                             <div :class="{ 'inactive-image': isMaxInputsCount }">
                                 <AddFieldIcon class="add-user-row__item__image"/>
                             </div>
-                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add Another</p>
+                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
