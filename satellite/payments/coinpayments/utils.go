@@ -14,7 +14,7 @@ import (
 func GetTransacationKeyFromURL(rawurl string) (string, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
-		return "", err
+		return "", errs.Wrap(err)
 	}
 
 	key := u.Query().Get("key")
