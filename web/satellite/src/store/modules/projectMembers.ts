@@ -127,6 +127,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
             clearProjectMembers: function ({commit}) {
                 commit(CLEAR);
+                commit(CLEAR_SELECTION);
             },
             toggleProjectMemberSelection: function ({commit}: any, projectMember: ProjectMember) {
                 commit(TOGGLE_SELECTION, projectMember);
