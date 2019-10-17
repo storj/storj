@@ -7,8 +7,14 @@ import { ApiKey, ApiKeyCursor, ApiKeysApi, ApiKeysPage } from '@/types/apiKeys';
  * Mock for ApiKeysApi
  */
 export class ApiKeysMock implements ApiKeysApi {
+    private mockApiKeysPage: ApiKeysPage;
+
+    public setMockApiKeysPage(mockApiKeysPage: ApiKeysPage): void {
+        this.mockApiKeysPage = mockApiKeysPage;
+    }
+
     get(projectId: string, cursor: ApiKeyCursor): Promise<ApiKeysPage> {
-        throw new Error('Method not implemented');
+        return Promise.resolve(this.mockApiKeysPage);
     }
 
     create(projectId: string, name: string): Promise<ApiKey> {

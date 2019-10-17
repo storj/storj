@@ -39,7 +39,7 @@
                                     <path class="add-user-row__item__image__path" d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                                 </svg>
                             </div>
-                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add Another</p>
+                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
