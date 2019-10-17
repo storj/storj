@@ -136,6 +136,7 @@ CREATE TABLE nodes (
 	exit_initiated_at timestamp,
 	exit_loop_completed_at timestamp,
 	exit_finished_at timestamp,
+	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
