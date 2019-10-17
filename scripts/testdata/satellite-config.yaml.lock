@@ -94,15 +94,6 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the amount of nodes refreshed in parallel
-# discovery.refresh-concurrency: 8
-
-# the interval at which the cache refreshes itself in seconds
-# discovery.refresh-interval: 1s
-
-# the amount of nodes read from the overlay in a single pagination call
-# discovery.refresh-limit: 100
-
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 
@@ -137,7 +128,7 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: plainmemory
+# live-accounting.storage-backend: memory
 
 # if true, log function filename and line number
 # log.caller: false
@@ -246,6 +237,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # application suffix
 # metrics.app-suffix: -release
+
+# the time between each metrics chore run
+# metrics.chore-interval: 15m0s
 
 # instance id prefix
 # metrics.instance-prefix: ""

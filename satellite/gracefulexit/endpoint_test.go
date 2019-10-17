@@ -48,15 +48,15 @@ func TestSuccess(t *testing.T) {
 
 				// pick the first one to fail
 				if pieceID.IsZero() {
-					pieceID = m.TransferPiece.PieceId
+					pieceID = m.TransferPiece.OriginalPieceId
 				}
 
-				if failedCount > 0 || pieceID != m.TransferPiece.PieceId {
+				if failedCount > 0 || pieceID != m.TransferPiece.OriginalPieceId {
 					success := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Succeeded{
 							Succeeded: &pb.TransferSucceeded{
-								PieceId:           m.TransferPiece.PieceId,
-								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.PieceId},
+								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
+								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.OriginalPieceId},
 								AddressedOrderLimit: &pb.AddressedOrderLimit{
 									Limit: &pb.OrderLimit{
 										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
@@ -72,8 +72,8 @@ func TestSuccess(t *testing.T) {
 					failed := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Failed{
 							Failed: &pb.TransferFailed{
-								PieceId: m.TransferPiece.PieceId,
-								Error:   pb.TransferFailed_UNKNOWN,
+								OriginalPieceId: m.TransferPiece.OriginalPieceId,
+								Error:           pb.TransferFailed_UNKNOWN,
 							},
 						},
 					}
@@ -115,8 +115,8 @@ func TestFailure(t *testing.T) {
 				failed := &pb.StorageNodeMessage{
 					Message: &pb.StorageNodeMessage_Failed{
 						Failed: &pb.TransferFailed{
-							PieceId: m.TransferPiece.PieceId,
-							Error:   pb.TransferFailed_UNKNOWN,
+							OriginalPieceId: m.TransferPiece.OriginalPieceId,
+							Error:           pb.TransferFailed_UNKNOWN,
 						},
 					},
 				}
