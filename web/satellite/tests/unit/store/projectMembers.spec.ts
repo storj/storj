@@ -298,6 +298,10 @@ describe('actions', async () => {
         expect(state.cursor.order).toBe(ProjectMemberOrderBy.NAME);
         expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
         expect(state.page.projectMembers.length).toBe(0);
+
+        state.page.projectMembers.forEach((pm: ProjectMember) => {
+            expect(pm.isSelected).toBe(false);
+        });
     });
 });
 

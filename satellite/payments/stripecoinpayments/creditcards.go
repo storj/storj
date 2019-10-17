@@ -24,7 +24,7 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 
 	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	params := &stripe.PaymentMethodListParams{
@@ -46,7 +46,7 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 	}
 
 	if err = paymentMethodsIterator.Err(); err != nil {
-		return nil, ErrorStripe.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return cards, nil
@@ -68,7 +68,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 
 	card, err := creditCards.service.stripeClient.PaymentMethods.New(cardParams)
 	if err != nil {
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -78,7 +78,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
 	if err != nil {
 		// TODO: handle created but not attached card manually?
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
