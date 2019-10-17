@@ -289,6 +289,10 @@ describe('actions', () => {
         expect(state.page.pageCount).toBe(0);
         expect(state.page.currentPage).toBe(1);
         expect(state.page.totalCount).toBe(0);
+
+        state.page.apiKeys.forEach((key: ApiKey) => {
+            expect(key.isSelected).toBe(false);
+        });
     });
 });
 
