@@ -5,12 +5,16 @@ package satellitedb
 
 import (
 	"context"
+	"github.com/zeebo/errs"
 	"math/big"
 
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// hack to ensure that coinpaymentsTransaction implements stripecoinpayments.TransactionsDB.
+var _ stripecoinpayments.TransactionsDB = (*coinpaymentsTransactions)(nil)
 
 // coinpaymentsTransactions is Coinpayments transactions DB.
 //
@@ -23,11 +27,11 @@ type coinpaymentsTransactions struct {
 func (db *coinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (*stripecoinpayments.Transaction, error) {
 	amount, err := tx.Amount.GobEncode()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	received, err := tx.Received.GobEncode()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	dbxCPTX, err := db.db.Create_CoinpaymentsTransaction(ctx,
@@ -50,15 +54,15 @@ func (db *coinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripecoinpayments.Transaction, error) {
 	userID, err := bytesToUUID(dbxCPTX.UserId)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	var amount, received big.Float
 	if err := amount.GobDecode(dbxCPTX.Amount); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	if err := received.GobDecode(dbxCPTX.Received); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return &stripecoinpayments.Transaction{

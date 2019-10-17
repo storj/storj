@@ -10,7 +10,8 @@ import (
 )
 
 // GetTransacationKeyFromURL parses provided raw url string
-// and extracts authorization key from it.
+// and extracts authorization key from it. Returns error if
+// there is no authorization key.
 func GetTransacationKeyFromURL(rawurl string) (string, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
