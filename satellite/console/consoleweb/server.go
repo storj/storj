@@ -118,9 +118,15 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	paymentController := consoleapi.NewPayments(logger, service)
+	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress)
+
 	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
 	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
 	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+
+	router.Handle("/api/v0/register", http.HandlerFunc(authController.Register))
+	router.Handle("/api/v0/token", http.HandlerFunc(authController.Token))
+	router.Handle("/api/v0/passwordChange", http.HandlerFunc(authController.PasswordChange))
 
 	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
 	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
