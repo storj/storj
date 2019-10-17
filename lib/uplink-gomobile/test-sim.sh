@@ -4,13 +4,17 @@ set +x
 
 if [ -z "$ANDROID_HOME" ]
 then
-      echo "\$ANDROID_HOME is not set"
-      exit 1
+      echo "\$ANDROID_HOME is not set" && exit 1
+fi
+
+if [ ! -d "$ANDROID_HOME/ndk-bundle" ]
+then
+      echo "ANDROID NDK is not available" && exit 1
 fi
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-PORT=6000
+PORT=5555
 SERIAL=emulator-${PORT}
 
 # setup tmpdir for testfiles and cleanup
