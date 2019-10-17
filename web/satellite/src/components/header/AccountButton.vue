@@ -9,12 +9,12 @@
             </div>
             <div class="account-button-toggle-container__expander-area">
                 <ExpandIcon
-                        v-if="!isDropdownShown"
-                        alt="Arrow down (expand)"
+                    v-if="!isDropdownShown"
+                    alt="Arrow down (expand)"
                 />
                 <HideIcon
-                        v-if="isDropdownShown"
-                        alt="Arrow up (hide)"
+                    v-if="isDropdownShown"
+                    alt="Arrow up (hide)"
                 />
             </div>
         </div>
