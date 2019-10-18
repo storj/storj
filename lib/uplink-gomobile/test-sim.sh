@@ -14,7 +14,7 @@ fi
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-PORT=5555
+PORT=5556
 SERIAL=emulator-${PORT}
 
 # setup tmpdir for testfiles and cleanup
