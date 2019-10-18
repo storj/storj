@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -61,19 +60,20 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
-			db, err := satellitedb.New(log, connstr)
+
+			testdb, err := satellitedb.New(log, connstr)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = db.CreateSchema(schema)
-			if err != nil {
-				t.Fatal(err)
+			db := &SchemaDB{
+				DB:       testdb,
+				Schema:   schema,
+				AutoDrop: true,
 			}
 
 			defer func() {
-				dropErr := db.DropSchema(schema)
-				err := errs.Combine(dropErr, db.Close())
+				err := db.Close()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -106,19 +106,20 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 
 			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
 			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
-			db, err := satellitedb.New(log, connstr)
+
+			testdb, err := satellitedb.New(log, connstr)
 			if err != nil {
 				b.Fatal(err)
 			}
 
-			err = db.CreateSchema(schema)
-			if err != nil {
-				b.Fatal(err)
+			db := &SchemaDB{
+				DB:       testdb,
+				Schema:   schema,
+				AutoDrop: true,
 			}
 
 			defer func() {
-				dropErr := db.DropSchema(schema)
-				err := errs.Combine(dropErr, db.Close())
+				err := db.Close()
 				if err != nil {
 					b.Fatal(err)
 				}
