@@ -28,12 +28,12 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	for _, request := range req.Requests {
 
 		if lastResponse != nil {
-			responseType := reflect.ValueOf(lastResponse.Response).Elem()
-			if responseType.NumField() == 1 {
-				tmpValue := responseType.Field(0).Interface()
-				tmpType := reflect.ValueOf(tmpValue).Elem()
+			responseElem := reflect.ValueOf(lastResponse.Response).Elem()
+			if responseElem.NumField() == 1 {
+				fieldInterface := responseElem.Field(0).Interface()
+				fieldElem := reflect.ValueOf(fieldInterface).Elem()
 
-				streamID, segmentID := findIDs(tmpType)
+				streamID, segmentID := findIDs(fieldElem)
 				if !streamID.IsZero() {
 					lastStreamID = streamID
 				}
