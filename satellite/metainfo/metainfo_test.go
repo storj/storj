@@ -1592,7 +1592,7 @@ func TestBatch(t *testing.T) {
 				Bucket:        []byte("second-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
-			numOfSegments := 1
+			numOfSegments := 10
 			expectedData := make([][]byte, numOfSegments)
 			for i := 0; i < numOfSegments; i++ {
 				expectedData[i] = testrand.Bytes(memory.KiB)
@@ -1636,6 +1636,40 @@ func TestBatch(t *testing.T) {
 
 				require.Equal(t, expectedData[i], downloadResponse.Info.EncryptedInlineData)
 			}
+		}
+
+		{ // test case when StreamID is not set automatically
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket")
+			require.NoError(t, err)
+
+			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte("third-test-bucket"),
+				EncryptedPath: []byte("encrypted-path"),
+			})
+			require.NoError(t, err)
+
+			requests := make([]metainfo.BatchItem, 0)
+			numOfSegments := 10
+			expectedData := make([][]byte, numOfSegments)
+			for i := 0; i < numOfSegments; i++ {
+				expectedData[i] = testrand.Bytes(memory.KiB)
+
+				requests = append(requests, &metainfo.MakeInlineSegmentParams{
+					StreamID: streamID,
+					Position: storj.SegmentPosition{
+						Index: int32(i),
+					},
+					EncryptedInlineData: expectedData[i],
+				})
+			}
+
+			requests = append(requests, &metainfo.CommitObjectParams{
+				StreamID: streamID,
+			})
+
+			responses, err := metainfoClient.Batch(ctx, requests...)
+			require.NoError(t, err)
+			require.Equal(t, numOfSegments+1, len(responses))
 		}
 	})
 }

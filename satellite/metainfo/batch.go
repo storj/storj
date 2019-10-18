@@ -21,7 +21,6 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
 
-	// TODO find a way to pass some parameters between request -> response > request
 	// TODO maybe use reflection to shrink code
 	var lastResponse *pb.BatchResponseItem
 	var lastStreamID storj.StreamID
@@ -164,6 +163,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		case *pb.BatchRequestItem_ObjectFinishDelete:
 			singleRequest.ObjectFinishDelete.Header = req.Header
+
+			if singleRequest.ObjectFinishDelete.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.ObjectFinishDelete.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.FinishDeleteObject(ctx, singleRequest.ObjectFinishDelete)
 			if err != nil {
 				return resp, err
@@ -176,9 +180,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		// SEGMENT
 		case *pb.BatchRequestItem_SegmentBegin:
 			singleRequest.SegmentBegin.Header = req.Header
+
 			if singleRequest.SegmentBegin.StreamId.IsZero() && !lastStreamID.IsZero() {
 				singleRequest.SegmentBegin.StreamId = lastStreamID
 			}
+
 			response, err := endpoint.BeginSegment(ctx, singleRequest.SegmentBegin)
 			if err != nil {
 				return resp, err
@@ -207,7 +213,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		case *pb.BatchRequestItem_SegmentList:
 			singleRequest.SegmentList.Header = req.Header
 
-			if len(singleRequest.SegmentList.StreamId) == 0 && !lastStreamID.IsZero() {
+			if singleRequest.SegmentList.StreamId.IsZero() && !lastStreamID.IsZero() {
 				singleRequest.SegmentList.StreamId = lastStreamID
 			}
 
@@ -255,7 +261,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		case *pb.BatchRequestItem_SegmentBeginDelete:
 			singleRequest.SegmentBeginDelete.Header = req.Header
 
-			if len(singleRequest.SegmentBeginDelete.StreamId) == 0 && !lastStreamID.IsZero() {
+			if singleRequest.SegmentBeginDelete.StreamId.IsZero() && !lastStreamID.IsZero() {
 				singleRequest.SegmentBeginDelete.StreamId = lastStreamID
 			}
 
@@ -307,6 +313,7 @@ func findIDs(value reflect.Value) (streamID storj.StreamID, segmentID storj.Segm
 		}
 	}
 
+	// go deeper if ID was not found
 	for i := 0; i < value.NumField(); i++ {
 		field := value.Field(i)
 		if field.Kind() == reflect.Struct {
