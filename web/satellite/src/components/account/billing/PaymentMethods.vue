@@ -38,15 +38,18 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput />
+            <StripeInput
+                class="payment-methods-area__adding-container__stripe"
+                ref="stripeInput"
+                :on-stripe-response-callback="addCard" />
             <VButton
                 label="Add card"
                 width="123px"
                 height="48px"
-                :on-press="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddStripe"/>
         </div>
         <div class="payment-methods-area__existing-cards-container">
-            <CardComponent />
+            <CardComponent v-for="card in creditCards" :key="card.id" :credit-card="card"/>
         </div>
     </div>
 </template>
@@ -59,7 +62,19 @@ import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+
+const {
+    ADD_CREDIT_CARD,
+    GET_CREDIT_CARDS,
+} = PAYMENTS_ACTIONS;
+
+interface StripeForm {
+    onSubmit(): Promise<void>;
+}
 
 @Component({
     components: {
@@ -72,6 +87,14 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
 
+    public $refs!: {
+        stripeInput: StripeInput & StripeForm;
+    };
+
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
+
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
     }
@@ -80,6 +103,14 @@ export default class PaymentMethods extends Vue {
     }
     public get isAddingCardState(): boolean {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
+    }
+
+    public async mounted() {
+        const response = await this.$store.dispatch(GET_CREDIT_CARDS);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+        }
     }
 
     public onAddSTORJ(): void {
@@ -99,7 +130,23 @@ export default class PaymentMethods extends Vue {
     }
 
     public onConfirmAddSTORJ(): void {
-        return;
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+    }
+
+    public async onConfirmAddStripe(): Promise<void> {
+        await this.$refs.stripeInput.onSubmit();
+    }
+
+    public async addCard(token: string) {
+        const response = await this.$store.dispatch(ADD_CREDIT_CARD, token);
+
+        if (!response.ok) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+
+            return;
+        }
+
+        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
     }
 }
 </script>
@@ -178,6 +225,11 @@ export default class PaymentMethods extends Vue {
             &__label {
                 font-family: 'font_medium';
                 font-size: 21px;
+            }
+
+            &__stripe {
+                width: 60%;
+                min-width: 400px;
             }
         }
 
