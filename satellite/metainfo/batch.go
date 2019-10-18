@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -21,7 +22,6 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
 
-	// TODO maybe use reflection to shrink code
 	var lastResponse *pb.BatchResponseItem
 	var lastStreamID storj.StreamID
 	var lastSegmentID storj.SegmentID
@@ -30,8 +30,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		if lastResponse != nil {
 			responseElem := reflect.ValueOf(lastResponse.Response).Elem()
 			if responseElem.NumField() == 1 {
-				fieldInterface := responseElem.Field(0).Interface()
-				fieldElem := reflect.ValueOf(fieldInterface).Elem()
+				fieldElem := responseElem.Field(0).Elem()
 
 				streamID, segmentID := findIDs(fieldElem)
 				if !streamID.IsZero() {
@@ -40,6 +39,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				if !segmentID.IsZero() {
 					lastSegmentID = segmentID
 				}
+			} else {
+				endpoint.log.Error("BatchResponseItem.Response object should have only one field")
+				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to process batch request")
 			}
 		}
 
@@ -301,7 +303,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 }
 
 func findIDs(value reflect.Value) (streamID storj.StreamID, segmentID storj.SegmentID) {
-	if !value.IsValid() {
+	if !value.IsValid() || value.Kind() != reflect.Struct {
 		return streamID, segmentID
 	}
 
