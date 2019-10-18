@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -241,7 +242,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 
 	err = endpoint.filterValidPieces(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
@@ -459,6 +460,10 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
+// filterValidPieces filter out the invalid remote pieces held by pointer.
+//
+// The method always return a gRPC status error so the caller can directly
+// return it to the client.
 func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -470,23 +475,44 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return err
 		}
 
-		var remotePieces []*pb.RemotePiece
-		allSizesValid := true
-		lastPieceSize := int64(0)
-		for _, piece := range remote.RemotePieces {
+		type invalidPiece struct {
+			NodeID   storj.NodeID
+			PieceNum int32
+			Reason   string
+		}
 
+		var (
+			remotePieces  []*pb.RemotePiece
+			invalidPieces []invalidPiece
+			lastPieceSize int64
+			allSizesValid = true
+		)
+		for _, piece := range remote.RemotePieces {
 			// Verify storagenode signature on piecehash
 			peerID, ok := peerIDMap[piece.NodeId]
 			if !ok {
-				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
+				endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
+					zap.Stringer("nodeID", piece.NodeId),
+					zap.Int32("pieceID", piece.PieceNum),
+				)
+
+				invalidPieces = append(invalidPieces, invalidPiece{
+					NodeID:   piece.NodeId,
+					PieceNum: piece.PieceNum,
+					Reason:   "Identity chain unknown for node",
+				})
 				continue
 			}
 			signee := signing.SigneeFromPeerIdentity(peerID)
 
 			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
-				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
+				endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
+				invalidPieces = append(invalidPieces, invalidPiece{
+					NodeID:   piece.NodeId,
+					PieceNum: piece.PieceNum,
+					Reason:   err.Error(),
+				})
 				continue
 			}
 
@@ -502,35 +528,86 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		if allSizesValid {
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
-				return Error.Wrap(err)
+				endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
+				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
+				)
 			}
 
 			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
 			if expectedPieceSize != lastPieceSize {
-				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, lastPieceSize)
+				endpoint.log.Debug("expected piece size is different from provided",
+					zap.Int64("expectedSize", expectedPieceSize),
+					zap.Int64("actualSize", lastPieceSize),
+				)
+				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"expected piece size is different from provided (%d != %d)",
+					expectedPieceSize, lastPieceSize,
+				)
 			}
 		} else {
-			return Error.New("all pieces needs to have the same size")
+			errMsg := "all pieces needs to have the same size"
+			endpoint.log.Debug(errMsg)
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		// We repair when the number of healthy files is less than or equal to the repair threshold
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
+		if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+			endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
+				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+				zap.Int("validPieces", len(remotePieces)),
+				zap.Int("invalidPieces", len(invalidPieces)),
+				zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
+			)
+
+			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
+				len(remote.RemotePieces),
 			)
+			if len(invalidPieces) > 0 {
+				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+				for _, p := range invalidPieces {
+					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+						errMsg, p.NodeID, p.PieceNum, p.Reason,
+					)
+				}
+			}
+
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
+			endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+				zap.Int("validPieces", len(remotePieces)),
+				zap.Int("invalidPieces", len(invalidPieces)),
+				zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
+			)
+
+			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.SuccessThreshold,
+				len(remote.RemotePieces),
 			)
+			if len(invalidPieces) > 0 {
+				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+				for _, p := range invalidPieces {
+					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+						errMsg, p.NodeID, p.PieceNum, p.Reason,
+					)
+				}
+			}
+
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		remote.RemotePieces = remotePieces
 	}
+
 	return nil
 }
 
@@ -541,7 +618,8 @@ func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePi
 	}
 	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("retrieving batch of the peer identities of nodes", zap.Error(Error.Wrap(err)))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "retrieving nodes peer identities")
 	}
 	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
 	for _, peerID := range peerIDList {
@@ -1414,6 +1492,18 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
+	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
+			zap.Int("upload pieces results", numResults),
+			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.Stringer("segment ID", req.SegmentId),
+		)
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
+			numResults, streamID.Redundancy.GetSuccessThreshold(),
+		)
+	}
+
 	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
 	for i, result := range req.UploadResult {
 		pieces[i] = &pb.RemotePiece{
@@ -1461,7 +1551,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
@@ -1474,8 +1564,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
+			zap.Int64("limit", limit.Int64()),
+			zap.Stringer("project id", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1492,13 +1583,21 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
 		if float64(remoteUsed) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", pointer.SegmentSize, remoteUsed, pointer.Remote.Redundancy.MinReq, pointer.Remote.Redundancy.Total)
+			endpoint.log.Debug("data size mismatch",
+				zap.Int64("segment", pointer.SegmentSize),
+				zap.Int64("pieces", remoteUsed),
+				zap.Int32("redundancy minimum requested", pointer.Remote.Redundancy.MinReq),
+				zap.Int32("redundancy total", pointer.Remote.Redundancy.Total),
+			)
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		endpoint.log.Error("Could not track new storage usage by project",
+			zap.Stringer("projectID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}

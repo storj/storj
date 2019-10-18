@@ -110,6 +110,10 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
+.PHONY: test-libuplink-gomobile
+test-libuplink-gomobile: ## Run gomobile tests
+	@./lib/uplink-gomobile/test-sim.sh
+
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"

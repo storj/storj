@@ -10,10 +10,9 @@
                 <!-- img if avatar was set -->
                 <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
-            <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="@/../static/images/register/BlueExpand.svg"  alt="Arrow down (expand)"/>
-                <img v-if="isDropdownShown" src="@/../static/images/register/BlueHide.svg"  alt="Arrow up (hide)"/>
+                <img v-if="!isDropdownShown" src="@/../static/images/account/BlackArrowExpand.svg" alt="Arrow down (expand)"/>
+                <img v-if="isDropdownShown" src="@/../static/images/account/BlackArrowHide.svg" alt="Arrow up (hide)"/>
             </div>
         </div>
         <AccountDropdown v-if="isDropdownShown"/>
@@ -39,10 +38,6 @@ export default class AccountButton extends Vue {
 
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
-
-    public get userName(): string {
-        return this.$store.getters.userName;
     }
 
     public get isDropdownShown(): boolean {
@@ -100,12 +95,10 @@ export default class AccountButton extends Vue {
         }
 
         &__expander-area {
-            margin-left: 12px;
+            margin-left: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            height: 28px;
         }
     }
 

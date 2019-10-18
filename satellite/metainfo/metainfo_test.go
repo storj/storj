@@ -13,6 +13,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/errs2"
@@ -350,6 +351,8 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
+			err = errs.Unwrap(err)
+			require.Equal(t, rpcstatus.Code(err), rpcstatus.InvalidArgument)
 			require.Contains(t, err.Error(), "is less than or equal to the repair threshold")
 		}
 
