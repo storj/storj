@@ -52,6 +52,5 @@ func (db *SchemaDB) Close() error {
 		dropErr = db.DB.DropSchema(db.Schema)
 	}
 
-	closeErr := db.DB.Close()
-	return errs.Combine(closeErr, dropErr)
+	return errs.Combine(dropErr, db.DB.Close())
 }
