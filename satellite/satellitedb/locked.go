@@ -927,11 +927,18 @@ func (m *lockedOverlayCache) GetExitingNodesLoopIncomplete(ctx context.Context) 
 	return m.db.GetExitingNodesLoopIncomplete(ctx)
 }
 
-// GetGracefulExitNodesByTimeFrame returns nodes who have either (initiated and not completed) or (initiated and completed) graceful exit within a time window.
-func (m *lockedOverlayCache) GetGracefulExitNodesByTimeFrame(ctx context.Context, completed bool, begin time.Time, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
+func (m *lockedOverlayCache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin time.Time, end time.Time) (exitedNodes storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetGracefulExitNodesByTimeFrame(ctx, completed, begin, end)
+	return m.db.GetGracefulExitCompletedByTimeFrame(ctx, begin, end)
+}
+
+// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
+func (m *lockedOverlayCache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin time.Time, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetGracefulExitIncompleteByTimeFrame(ctx, begin, end)
 }
 
 // KnownOffline filters a set of nodes to offline nodes

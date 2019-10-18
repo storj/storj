@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -28,19 +29,38 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		err = errs.Combine(err, db.Close())
 	}()
 
-	nodeIDs, err := db.OverlayCache().GetGracefulExitNodesByTimeFrame(ctx, completed, start, end)
-	if err != nil {
-		return err
+	var nodeIDs storj.NodeIDList
+	if completed {
+		nodeIDs, err = db.OverlayCache().GetGracefulExitCompletedByTimeFrame(ctx, start, end)
+		if err != nil {
+			return err
+		}
+	} else {
+		nodeIDs, err = db.OverlayCache().GetGracefulExitIncompleteByTimeFrame(ctx, start, end)
+		if err != nil {
+			return err
+		}
 	}
 
 	w := csv.NewWriter(output)
-	headers := []string{
-		"nodeID",
-		"walletAddress",
-		"nodeCreationDate",
-		"initiatedGracefulExit",
-		"completedGracefulExit",
-		"transferredGB",
+	var headers []string
+	if completed {
+		headers = []string{
+			"nodeID",
+			"walletAddress",
+			"nodeCreationDate",
+			"initiatedGracefulExit",
+			"completedGracefulExit",
+			"transferredGB",
+		}
+	} else {
+		headers = []string{
+			"nodeID",
+			"walletAddress",
+			"nodeCreationDate",
+			"initiatedGracefulExit",
+			"transferredGB",
+		}
 	}
 	if err := w.Write(headers); err != nil {
 		return err
@@ -60,13 +80,24 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 			return err
 		}
 
-		nextRow := []string{
-			node.Id.String(),
-			node.Operator.Wallet,
-			node.CreatedAt.Format("2006-01-02"),
-			exitStatus.ExitInitiatedAt.Format("2006-01-02"),
-			exitStatus.ExitFinishedAt.Format("2006-01-02"),
-			strconv.FormatInt(exitProgress.BytesTransferred, 10),
+		var nextRow []string
+		if completed {
+			nextRow = []string{
+				node.Id.String(),
+				node.Operator.Wallet,
+				node.CreatedAt.Format("2006-01-02"),
+				exitStatus.ExitInitiatedAt.Format("2006-01-02"),
+				exitStatus.ExitFinishedAt.Format("2006-01-02"),
+				strconv.FormatInt(exitProgress.BytesTransferred, 10),
+			}
+		} else {
+			nextRow = []string{
+				node.Id.String(),
+				node.Operator.Wallet,
+				node.CreatedAt.Format("2006-01-02"),
+				exitStatus.ExitInitiatedAt.Format("2006-01-02"),
+				strconv.FormatInt(exitProgress.BytesTransferred, 10),
+			}
 		}
 		if err := w.Write(nextRow); err != nil {
 			return err
