@@ -279,7 +279,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		zap.Duration("Timer", timeout),
 		zap.Int("Node Count", nonNilCount(limits)),
 		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
-		zap.String("Segment Path", path),
 	)
 
 	var successfulCount, failureCount, cancellationCount int32
