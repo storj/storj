@@ -20,20 +20,25 @@ import (
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log         *zap.Logger
-	service     *console.Service
-	mailService *mailservice.Service
-
-	ExternalAddress string
+	log                   *zap.Logger
+	service               *console.Service
+	mailService           *mailservice.Service
+	ExternalAddress       string
+	LetUsKnowURL          string
+	TermsAndConditionsURL string
+	ContactInfoURL        string
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
-		log:             log,
-		service:         service,
-		mailService:     mailService,
-		ExternalAddress: externalAddress,
+		log:                   log,
+		service:               service,
+		mailService:           mailService,
+		ExternalAddress:       externalAddress,
+		LetUsKnowURL:          letUsKnowURL,
+		TermsAndConditionsURL: termsAndConditionsURL,
+		ContactInfoURL:        contactInfoURL,
 	}
 }
 
@@ -153,6 +158,60 @@ func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, http.StatusNotFound, err)
 		return
 	}
+}
+
+// ForgotPassword creates password-reset token and sends email to user.
+func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		Email string `json:"email"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := a.service.GetUserByEmail(ctx, request.Email)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	passwordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	cancelPasswordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := a.ContactInfoURL
+	letUsKnowURL := a.LetUsKnowURL
+	termsAndConditionsURL := a.TermsAndConditionsURL
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.ForgotPasswordEmail{
+			Origin:                     a.ExternalAddress,
+			UserName:                   userName,
+			ResetLink:                  passwordRecoveryLink,
+			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+			LetUsKnowURL:               letUsKnowURL,
+			ContactInfoURL:             contactInfoURL,
+			TermsAndConditionsURL:      termsAndConditionsURL,
+		},
+	)
 }
 
 // serveJSONError writes JSON error to response output stream.
