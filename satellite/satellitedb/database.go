@@ -29,8 +29,6 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
-//go:generate go run ../../scripts/lockedgen.go -o locked.go -p satellitedb -i storj.io/storj/satellite.DB
-
 // DB contains access to different database tables
 type DB struct {
 	log    *zap.Logger
@@ -39,15 +37,18 @@ type DB struct {
 	source string
 }
 
-// New creates instance of database (supports: postgres, sqlite3)
+// New creates instance of database supports postgres
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	driver, source, err := dbutil.SplitConnstr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	if driver == "postgres" {
-		source = pgutil.CheckApplicationName(source)
+	if driver != "postgres" {
+		return nil, Error.New("unsupported driver %q", driver)
 	}
+
+	source = pgutil.CheckApplicationName(source)
+
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
@@ -58,15 +59,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	dbutil.Configure(db.DB, mon)
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
-	if driver == "sqlite3" {
-		return newLocked(core), nil
-	}
 	return core, nil
-}
-
-// NewInMemory creates instance of Sqlite in memory satellite database
-func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory")
 }
 
 // Close is used to close db connection
@@ -76,10 +69,7 @@ func (db *DB) Close() error {
 
 // CreateSchema creates a schema if it doesn't exist.
 func (db *DB) CreateSchema(schema string) error {
-	if db.driver == "postgres" {
-		return pgutil.CreateSchema(db.db, schema)
-	}
-	return nil
+	return pgutil.CreateSchema(db.db, schema)
 }
 
 // TestDBAccess for raw database access,
@@ -94,10 +84,7 @@ func (db *locked) TestDBAccess() *dbx.DB {
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
-	if db.driver == "postgres" {
-		return pgutil.DropSchema(db.db, schema)
-	}
-	return nil
+	return pgutil.DropSchema(db.db, schema)
 }
 
 // PeerIdentities returns a storage for peer identities
