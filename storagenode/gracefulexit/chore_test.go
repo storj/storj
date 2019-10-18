@@ -56,7 +56,7 @@ func TestChore(t *testing.T) {
 		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 10000)
 		require.NoError(t, err)
 
-		// check that theh storage node is exiting
+		// check that the storage node is exiting
 		exitProgress, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
 		require.NoError(t, err)
 		require.Len(t, exitProgress, 1)

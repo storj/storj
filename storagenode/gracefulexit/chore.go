@@ -82,13 +82,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.trust, chore.dialer, satelliteID)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
-				chore.log.Debug("skipping graceful exit for satellite. worker already exists.", zap.String("satellite ID", satelliteID.String()))
+				chore.log.Debug("skipping graceful exit for satellite. worker already exists.", zap.Stringer("satellite ID", satelliteID))
 				continue
 			}
 
 			chore.limiter.Go(ctx, func() {
 				err := worker.Run(ctx, satelliteID, func() {
-					chore.log.Debug("finished graceful exit for satellite.", zap.String("satellite ID", satelliteID.String()))
+					chore.log.Debug("finished graceful exit for satellite.", zap.Stringer("satellite ID", satelliteID))
 					chore.exitingMap.Delete(satelliteID)
 				})
 				if err != nil {
