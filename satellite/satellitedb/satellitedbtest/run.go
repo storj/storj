@@ -59,6 +59,10 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 		testname = testname[:maxTestNameLen]
 	}
 
+	if schemaSuffix == "" {
+		return strings.ToLower(testname + "/" + category + indexStr)
+	}
+
 	return strings.ToLower(testname + "/" + schemaSuffix + "/" + category + indexStr)
 }
 
