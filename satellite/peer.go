@@ -8,12 +8,11 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
-
+	"storj.io/storj/satellite/payments"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
@@ -221,6 +220,11 @@ type Peer struct {
 
 	Vouchers struct {
 		Endpoint *vouchers.Endpoint
+	}
+
+	Payments struct {
+		Accounts payments.Accounts
+		Clearing payments.Clearing
 	}
 
 	Console struct {
@@ -581,6 +585,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 	}
 
+	{ // setup payments
+		service := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			stripecoinpayments.Config{},
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
+
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = service
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -594,7 +609,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			return nil, errs.New("Auth token secret required")
 		}
 
-		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
+		payments := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			stripecoinpayments.Config{},
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
@@ -727,6 +746,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Payments.Clearing.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -800,6 +822,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())
+	}
+	if peer.Payments.Clearing != nil {
+		errlist.Add(peer.Payments.Clearing.Close())
 	}
 
 	return errlist.Err()

@@ -152,6 +152,20 @@ func (m *lockedCoinpaymentsTransactions) Insert(ctx context.Context, tx stripeco
 	return m.db.Insert(ctx, tx)
 }
 
+// ListPending returns TransactionsPage with pending transactions.
+func (m *lockedCoinpaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListPending(ctx, offset, limit, before)
+}
+
+// Update updates status and received for set of transactions.
+func (m *lockedCoinpaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, updates)
+}
+
 // Console returns database for satellite console
 func (m *locked) Console() console.DB {
 	m.Lock()
