@@ -38,9 +38,11 @@ pipeline {
             environment {
                 // docker container IP
                 STORJ_NETWORK_HOST4 = '172.17.0.2'
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
             }
 
             steps {
+                sh 'psql -U postgres -c \'create database teststorj3;\''
                 sh 'make test-libuplink-gomobile'
             }
         }
