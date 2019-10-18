@@ -12,7 +12,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
@@ -30,7 +29,6 @@ type Chore struct {
 	satelliteDB satellites.DB
 	trust       *trust.Pool
 	dialer      rpc.Dialer
-	identity    *identity.FullIdentity
 
 	config Config
 
@@ -46,14 +44,13 @@ type Config struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, config Config, store *pieces.Store, trust *trust.Pool, dialer rpc.Dialer, identity *identity.FullIdentity, satelliteDB satellites.DB) *Chore {
+func NewChore(log *zap.Logger, config Config, store *pieces.Store, trust *trust.Pool, dialer rpc.Dialer, satelliteDB satellites.DB) *Chore {
 	return &Chore{
 		log:         log,
 		store:       store,
 		satelliteDB: satelliteDB,
 		trust:       trust,
 		dialer:      dialer,
-		identity:    identity,
 		config:      config,
 		Loop:        *sync2.NewCycle(config.ChoreInterval),
 		limiter:     *sync2.NewLimiter(config.NumWorkers),
@@ -82,7 +79,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		for _, satellite := range satellites {
 			satelliteID := satellite.SatelliteID
-			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.trust, chore.dialer, chore.identity, satelliteID)
+			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.trust, chore.dialer, satelliteID)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
 				chore.log.Debug("skipping graceful exit for satellite. worker already exists.", zap.String("satellite ID", satelliteID.String()))

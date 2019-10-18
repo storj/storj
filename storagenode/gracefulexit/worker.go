@@ -4,6 +4,7 @@
 package gracefulexit
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -34,19 +35,14 @@ type Worker struct {
 	ecclient    ecclient.Client
 }
 
-type Sender interface {
-	Send(*pb.StorageNodeMessage) error
-}
-
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, trust *trust.Pool, dialer rpc.Dialer, identity *identity.FullIdentity, satelliteID storj.NodeID) *Worker {
+func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, trust *trust.Pool, dialer rpc.Dialer, satelliteID storj.NodeID) *Worker {
 	return &Worker{
 		log:         log,
 		store:       store,
 		satelliteDB: satelliteDB,
 		trust:       trust,
 		dialer:      dialer,
-		//identity:    identity,
 		satelliteID: satelliteID,
 		ecclient:    ecclient.NewClient(log, dialer, 0),
 	}
@@ -54,6 +50,7 @@ func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, 
 
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
 // It also marks the satellite finished once all the pieces have been transferred
+// TODO handle transfers in parallel
 func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer done()
@@ -97,29 +94,43 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 		case *pb.SatelliteMessage_TransferPiece:
 			pieceID := msg.TransferPiece.OriginalPieceId
 			reader, err := worker.store.Reader(ctx, satelliteID, pieceID)
-
 			if err != nil {
 				transferErr := pb.TransferFailed_UNKNOWN
 				if errs.Is(err, os.ErrNotExist) {
 					transferErr = pb.TransferFailed_NOT_FOUND
 				}
 				worker.log.Error("failed to get piece reader.", zap.String("satellite ID", satelliteID.String()), zap.String("piece ID", pieceID.String()), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, transferErr, pieceID, c.Send)
+				worker.handleFailure(ctx, transferErr, pieceID, satelliteID, c.Send)
 				continue
 			}
 
-			limit := msg.TransferPiece.GetAddressedOrderLimit()
+			addrLimit := msg.TransferPiece.GetAddressedOrderLimit()
 			pk := msg.TransferPiece.PrivateKey
+
+			originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, addrLimit.GetLimit())
+			if err != nil {
+				worker.log.Error("failed to get piece hash and order limit.", zap.String("satellite ID", satelliteID.String()), zap.String("piece ID", pieceID.String()), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, satelliteID, c.Send)
+				continue
+			}
 
 			putCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
-			// TODO set real expiration
-			pieceHash, err := worker.ecclient.PutPiece(putCtx, ctx, limit, pk, reader, time.Now().Add(time.Second*60))
+			// TODO what's the typical expiration setting?
+			pieceHash, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
 			if err != nil {
 				worker.log.Error("failed to put piece.", zap.String("satellite ID", satelliteID.String()), zap.String("piece ID", pieceID.String()), zap.Error(errs.Wrap(err)))
 				// TODO look at error type to decide on the transfer error
-				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
+				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, satelliteID, c.Send)
+
+				continue
+			}
+
+			err = verifyPieceHash(ctx, addrLimit.GetLimit(), pieceHash, originalHash.Hash)
+			if err != nil {
+				worker.log.Error("failed hash verification.", zap.String("satellite ID", satelliteID.String()), zap.String("piece ID", pieceID.String()), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, satelliteID, c.Send)
 
 				continue
 			}
@@ -129,8 +140,8 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 					Succeeded: &pb.TransferSucceeded{
 						OriginalPieceId:      msg.TransferPiece.OriginalPieceId,
 						OriginalPieceHash:    &pb.PieceHash{PieceId: msg.TransferPiece.OriginalPieceId},
+						OriginalOrderLimit:   &originalOrderLimit,
 						ReplacementPieceHash: pieceHash,
-						AddressedOrderLimit:  msg.TransferPiece.AddressedOrderLimit,
 					},
 				},
 			}
@@ -162,6 +173,7 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 			break
 		default:
 			// TODO handle err
+			worker.log.Error("unknown graceful exit message.", zap.String("satellite ID", satelliteID.String()))
 		}
 
 	}
@@ -169,7 +181,7 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 	return errs.Wrap(err)
 }
 
-func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, send func(*pb.StorageNodeMessage) error) {
+func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, satelliteID storj.NodeID, send func(*pb.StorageNodeMessage) error) {
 	failure := &pb.StorageNodeMessage{
 		Message: &pb.StorageNodeMessage_Failed{
 			Failed: &pb.TransferFailed{
@@ -181,12 +193,61 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 
 	sendErr := send(failure)
 	if sendErr != nil {
-		// log it
+		worker.log.Error("unable to send failure.", zap.String("satellite ID", satelliteID.String()))
 	}
 }
 
 // Close halts the worker.
 func (worker *Worker) Close() error {
 	// TODO not sure this is needed yet.
+	return nil
+}
+
+// TODO This comes from piecestore.Endpoint. It should probably be an exported method so I don't have to duplicate it here.
+func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash pb.PieceHash, orderLimit pb.OrderLimit, err error) {
+
+	if pieceReader.StorageFormatVersion() == 0 {
+		// v0 stores this information in SQL
+		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
+		if err != nil {
+			worker.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
+			return pb.PieceHash{}, pb.OrderLimit{}, err
+		}
+		orderLimit = *info.OrderLimit
+		pieceHash = *info.UplinkPieceHash
+	} else {
+		//v1+ stores this information in the file
+		header, err := pieceReader.GetPieceHeader()
+		if err != nil {
+			worker.log.Error("error getting header from piecereader", zap.Error(err))
+			return pb.PieceHash{}, pb.OrderLimit{}, err
+		}
+		orderLimit = header.OrderLimit
+		pieceHash = pb.PieceHash{
+			PieceId:   limit.PieceId,
+			Hash:      header.GetHash(),
+			PieceSize: pieceReader.Size(),
+			Timestamp: header.GetCreationTime(),
+			Signature: header.GetSignature(),
+		}
+	}
+
+	return
+}
+
+// verifyPieceHash verifies whether the piece hash matches the locally computed hash.
+func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if limit == nil || hash == nil || len(expectedHash) == 0 {
+		return Error.New("invalid arguments")
+	}
+	if limit.PieceId != hash.PieceId {
+		return Error.New("piece id changed")
+	}
+	if !bytes.Equal(hash.Hash, expectedHash) {
+		return Error.New("hashes don't match")
+	}
+
 	return nil
 }

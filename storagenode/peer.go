@@ -400,7 +400,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Store,
 			peer.Storage2.Trust,
 			peer.Dialer,
-			peer.Identity,
 			peer.DB.Satellites(),
 		)
 	}

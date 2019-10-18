@@ -397,11 +397,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if message.Succeeded.GetAddressedOrderLimit() == nil {
-		return Error.New("Addressed order limit cannot be nil.")
+	if message.Succeeded.GetOriginalOrderLimit() == nil {
+		return Error.New("original order limit cannot be nil.")
 	}
 	if message.Succeeded.GetOriginalPieceHash() == nil {
-		return Error.New("Original piece hash cannot be nil.")
+		return Error.New("original piece hash cannot be nil.")
 	}
 
 	pieceID := message.Succeeded.OriginalPieceId

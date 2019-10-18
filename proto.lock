@@ -864,6 +864,10 @@
               {
                 "name": "UNKNOWN",
                 "integer": 2
+              },
+              {
+                "name": "HASH_VERIFICATION",
+                "integer": 3
               }
             ]
           },
@@ -995,8 +999,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "addressed_order_limit",
-                "type": "metainfo.AddressedOrderLimit"
+                "name": "original_order_limit",
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
