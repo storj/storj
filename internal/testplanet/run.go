@@ -21,7 +21,6 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
-
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
@@ -29,16 +28,6 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			t.Log("schema-suffix ", schemaSuffix)
-
-			// postgres has a maximum schema length of 64
-			// we need additional 6 bytes for the random suffix
-			//    and 4 bytes for the satellite index "/S0/""
-			const MaxTestNameLength = 64 - 6 - 4
-
-			testname := t.Name()
-			if len(testname) > MaxTestNameLength {
-				testname = testname[:MaxTestNameLength]
-			}
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
