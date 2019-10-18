@@ -15,9 +15,3 @@ var ConnStr = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), 
 
 // DefaultConnStr is expected to work under the storj-test docker-compose instance
 const DefaultConnStr = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-
-func init() {
-	if *ConnStr == "" {
-		panic("Postgres flag missing, example: -postgres-test-db=" + DefaultConnStr)
-	}
-}

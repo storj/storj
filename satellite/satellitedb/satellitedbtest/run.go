@@ -35,7 +35,7 @@ type Database struct {
 func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
 		{
-			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
+			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
 			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
 		},
 	}
@@ -75,7 +75,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			t.Parallel()
 
 			if dbInfo.MasterDB.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
+				t.Fatalf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
 			schemaSuffix := SchemaSuffix()
