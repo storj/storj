@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // NewPostgres returns the default postgres satellite.DB for testing.
@@ -33,6 +34,12 @@ type SchemaDB struct {
 
 	Schema   string
 	AutoDrop bool
+}
+
+// TestDBAccess for raw database access,
+// should not be used outside of migration tests.
+func (db *SchemaDB) TestDBAccess() *dbx.DB {
+	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
 
 // CreateTables creates the schema and creates tables.
