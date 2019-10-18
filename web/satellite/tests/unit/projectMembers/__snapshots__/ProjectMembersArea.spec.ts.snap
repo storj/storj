@@ -8,7 +8,7 @@ exports[`ProjectMembersArea.vue empty search result area render correctly 1`] = 
   <!---->
   <div class="team-area__empty-search-result-area">
     <h1 class="team-area__empty-search-result-area__title">No results found</h1>
-    <!---->
+    <emptysearchresulticon-stub class="team-area__empty-search-result-area__image"></emptysearchresulticon-stub>
   </div>
 </div>
 `;
@@ -21,7 +21,7 @@ exports[`ProjectMembersArea.vue renders correctly 1`] = `
   <!---->
   <div class="team-area__empty-search-result-area">
     <h1 class="team-area__empty-search-result-area__title">No results found</h1>
-    <!---->
+    <emptysearchresulticon-stub class="team-area__empty-search-result-area__image"></emptysearchresulticon-stub>
   </div>
 </div>
 `;

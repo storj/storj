@@ -4,8 +4,8 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
     <div class="navigation-area__logo">
-      <!---->
-      <!---->
+      <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
+      <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </div>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
@@ -54,12 +54,12 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <!---->
     </div> <a href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
-        <!---->
+        <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
       </div>
     </a> <a href="mailto:support@storj.io" target="_blank" class="navigation-area__item-container support-item">
       <div class="navigation-area__item-container__link-container">
-        <!---->
+        <supporticon-stub class="svg"></supporticon-stub>
         <h1 class="navigation-area__item-container__link-container__title">Support</h1>
       </div>
     </a>
@@ -89,8 +89,8 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
     <div class="navigation-area__logo">
-      <!---->
-      <!---->
+      <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
+      <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </div>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
@@ -139,12 +139,12 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <!---->
     </div> <a href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
-        <!---->
+        <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
       </div>
     </a> <a href="mailto:support@storj.io" target="_blank" class="navigation-area__item-container support-item">
       <div class="navigation-area__item-container__link-container">
-        <!---->
+        <supporticon-stub class="svg"></supporticon-stub>
         <h1 class="navigation-area__item-container__link-container__title">Support</h1>
       </div>
     </a>
