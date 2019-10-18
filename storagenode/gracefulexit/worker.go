@@ -13,7 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
@@ -30,7 +29,6 @@ type Worker struct {
 	satelliteDB satellites.DB
 	trust       *trust.Pool
 	dialer      rpc.Dialer
-	identity    *identity.FullIdentity
 	satelliteID storj.NodeID
 	ecclient    ecclient.Client
 }
