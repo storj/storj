@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -76,7 +77,9 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 			return err
 		}
 		exitProgress, err := db.GracefulExit().GetProgress(ctx, id)
-		if err != nil {
+		if gracefulexit.ErrNodeNotFound.Has(err) {
+			exitProgress = &gracefulexit.Progress{}
+		} else if err != nil {
 			return err
 		}
 
