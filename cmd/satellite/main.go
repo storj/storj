@@ -30,7 +30,7 @@ import (
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 
 	satellite.Config
 }
@@ -91,15 +91,15 @@ var (
 	setupCfg Satellite
 
 	qdiagCfg struct {
-		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 	nodeUsageCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
 	partnerAttribtionCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
 	gracefulExitCfg struct {
