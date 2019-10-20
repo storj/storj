@@ -109,7 +109,7 @@ func TestClient_ShouldUpdate(t *testing.T) {
 		expectedVersionStr := fmt.Sprintf("v%d.%d.%d", i, i+1, i+2)
 
 		// NB: test cursor is 100%; rollout/nodeID should-update calculation is tested elsewhere.
-		shouldUpdate, ver, err := client.ShouldUpdate(ctx, field.Name, storj.NodeID{})
+		shouldUpdate, ver, err := client.ShouldRollout(ctx, field.Name, storj.NodeID{})
 		require.NoError(t, err)
 		require.True(t, shouldUpdate)
 		require.Equal(t, expectedVersionStr, ver.Version)

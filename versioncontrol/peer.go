@@ -49,11 +49,12 @@ type OldVersionConfig struct {
 
 // ProcessesConfig represents versions configuration for all processes.
 type ProcessesConfig struct {
-	Satellite   ProcessConfig
-	Storagenode ProcessConfig
-	Uplink      ProcessConfig
-	Gateway     ProcessConfig
-	Identity    ProcessConfig
+	Satellite          ProcessConfig
+	Storagenode        ProcessConfig
+	StoragenodeUpdater ProcessConfig
+	Uplink             ProcessConfig
+	Gateway            ProcessConfig
+	Identity           ProcessConfig
 }
 
 // ProcessConfig represents versions configuration for a single process.

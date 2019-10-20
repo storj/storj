@@ -60,6 +60,11 @@
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
           />
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
+        <ServiceConfigFailureActions OnInstall="yes" Command="[INSTALLFOLDER]\storagenode-updater.backup.exe --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
+            <Failure Action="restartService" Delay="3000"/>
+            <Failure Action="restartService" Delay="10000"/>
+            <Failure Action="runCommand" Delay="10000"/>
+        </ServiceConfigFailureActions>
       </Component>
       
       <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">

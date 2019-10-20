@@ -80,11 +80,12 @@ type AllowedVersions struct {
 // Processes describes versions for each binary.
 // TODO: this name is inconsistent with the versioncontrol server pkg's analogue, `Versions`.
 type Processes struct {
-	Satellite   Process `json:"satellite"`
-	Storagenode Process `json:"storagenode"`
-	Uplink      Process `json:"uplink"`
-	Gateway     Process `json:"gateway"`
-	Identity    Process `json:"identity"`
+	Satellite          Process `json:"satellite"`
+	Storagenode        Process `json:"storagenode"`
+	StoragenodeUpdater Process `json:"storagenode-updater"`
+	Uplink             Process `json:"uplink"`
+	Gateway            Process `json:"gateway"`
+	Identity           Process `json:"identity"`
 }
 
 // Process versions for specific binary.
@@ -232,8 +233,8 @@ func PercentageToCursor(pct int) RolloutBytes {
 	return cursor
 }
 
-// ShouldUpdate checks if for the the given rollout state, a user with the given nodeID should update.
-func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
+// ShouldRollout checks if for the the given rollout state, a user with the given nodeID should update.
+func ShouldRollout(rollout Rollout, nodeID storj.NodeID) bool {
 	hash := hmac.New(sha256.New, rollout.Seed[:])
 	_, err := hash.Write(nodeID[:])
 	if err != nil {

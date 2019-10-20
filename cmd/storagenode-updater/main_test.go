@@ -84,6 +84,16 @@ func TestAutoUpdater(t *testing.T) {
 					Cursor: 100,
 				},
 			},
+			StoragenodeUpdater: versioncontrol.ProcessConfig{
+				Suggested: versioncontrol.VersionConfig{
+					Version: "0.19.5",
+					URL:     ts.URL + "/download",
+				},
+				Rollout: versioncontrol.RolloutConfig{
+					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Cursor: 100,
+				},
+			},
 		},
 	}
 	peer, err := versioncontrol.New(zaptest.NewLogger(t), config)
