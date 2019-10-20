@@ -42,13 +42,14 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -122,7 +123,7 @@ type SatelliteSystem struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -151,6 +152,10 @@ type SatelliteSystem struct {
 	GracefulExit struct {
 		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Metrics struct {
+		Chore *metrics.Chore
 	}
 }
 
@@ -216,7 +221,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			db, err = satellitedb.NewInMemory(log.Named("db"))
+			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
+			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
 		}
 		if err != nil {
 			return nil, err
@@ -360,6 +366,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				EndpointBatchSize:   100,
 				EndpointMaxFailures: 5,
 			},
+			Metrics: metrics.Config{
+				ChoreInterval: defaultInterval,
+			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
@@ -371,9 +380,17 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
+
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+
+		planet.databases = append(planet.databases, liveAccountingCache)
+
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccountingCache, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -452,6 +469,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	system.Metrics.Chore = peer.Metrics.Chore
+
 	return system
 }
 
@@ -466,5 +486,11 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, &config, versionInfo)
+	liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
 }

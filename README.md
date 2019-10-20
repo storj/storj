@@ -118,5 +118,5 @@ code under Apache v2, or other licenses in the future.
 # Support
 
 If you have any questions or suggestions please reach out to us on
-[Rocketchat](https://community.storj.io/) or
+[our community forum](https://forum.storj.io/) or
 email us at support@tardigrade.io.
