@@ -93,10 +93,10 @@ func TestPeer_Run(t *testing.T) {
 		fieldCount := versionsType.NumField()
 
 		// test invalid rollout for each binary
-		for i := 1; i < fieldCount; i++ {
+		for i := 0; i < fieldCount; i++ {
 			versions := versioncontrol.Versions{}
 			versionsValue := reflect.ValueOf(&versions)
-			field := reflect.Indirect(versionsValue).Field(i)
+			field := versionsValue.Elem().Field(i)
 
 			binary := versioncontrol.Binary{
 				Rollout: versioncontrol.Rollout{
@@ -127,7 +127,7 @@ func TestPeer_Run_error(t *testing.T) {
 			fieldCount := versionsType.NumField()
 
 			// test invalid rollout for each binary
-			for i := 1; i < fieldCount; i++ {
+			for i := 0; i < fieldCount; i++ {
 				versions := versioncontrol.Versions{}
 				versionsValue := reflect.ValueOf(&versions)
 				field := reflect.Indirect(versionsValue).Field(i)

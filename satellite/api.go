@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -55,7 +56,7 @@ type API struct {
 
 	Dialer  rpc.Dialer
 	Server  *server.Server
-	Version *version.Service
+	Version *checker.Service
 
 	Contact struct {
 		Service  *contact.Service
@@ -139,7 +140,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server

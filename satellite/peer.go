@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -134,7 +135,7 @@ type Config struct {
 
 	Marketing marketingweb.Config
 
-	Version version.Config
+	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
 
@@ -154,7 +155,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *version_checker.Service
 
 	// services and endpoints
 	Contact struct {
@@ -264,7 +265,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
