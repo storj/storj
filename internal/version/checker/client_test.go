@@ -122,7 +122,7 @@ func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 	testVersions := newTestVersions(t)
 	serverConfig := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
@@ -141,7 +141,7 @@ func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 	return peer
 }
 
-func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
+func newTestVersions(t *testing.T) (versions versioncontrol.ProcessesConfig) {
 	t.Helper()
 
 	versionsValue := reflect.ValueOf(&versions)
@@ -152,14 +152,14 @@ func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
 		field := versionsElem.Field(i)
 
 		versionString := fmt.Sprintf("v%d.%d.%d", i+1, i+2, i+3)
-		binary := versioncontrol.Binary{
-			Minimum: versioncontrol.Version{
+		binary := versioncontrol.ProcessConfig{
+			Minimum: versioncontrol.VersionConfig{
 				Version: versionString,
 			},
-			Suggested: versioncontrol.Version{
+			Suggested: versioncontrol.VersionConfig{
 				Version: versionString,
 			},
-			Rollout: versioncontrol.Rollout{
+			Rollout: versioncontrol.RolloutConfig{
 				Seed:   testHexSeed,
 				Cursor: 100,
 			},

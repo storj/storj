@@ -27,7 +27,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",

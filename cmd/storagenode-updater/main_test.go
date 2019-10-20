@@ -66,20 +66,20 @@ func TestAutoUpdater(t *testing.T) {
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
-		Binary: versioncontrol.Versions{
-			Storagenode: versioncontrol.Binary{
-				Suggested: versioncontrol.Version{
+		Binary: versioncontrol.ProcessesConfig{
+			Storagenode: versioncontrol.ProcessConfig{
+				Suggested: versioncontrol.VersionConfig{
 					Version: "0.19.5",
 					URL:     ts.URL + "/download",
 				},
-				Rollout: versioncontrol.Rollout{
+				Rollout: versioncontrol.RolloutConfig{
 					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
 					Cursor: 100,
 				},
