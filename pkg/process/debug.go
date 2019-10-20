@@ -84,9 +84,12 @@ func prometheus(w http.ResponseWriter, r *http.Request) {
 	// writes https://prometheus.io/docs/instrumenting/exposition_formats/
 	// TODO(jt): deeper monkit integration so we can expose prometheus types
 	// (https://prometheus.io/docs/concepts/metric_types/)
-	monkit.Default.Stats(func(name string, val float64) {
-		metric := sanitize(name)
-		_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %g\n",
-			metric, metric, val)
-	})
+
+	// TODO(jeff): this was fixed by nat somewhere
+
+	// monkit.Default.Stats(func(name string, val float64) {
+	// 	metric := sanitize(name)
+	// 	_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %g\n",
+	// 		metric, metric, val)
+	// })
 }

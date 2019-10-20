@@ -6,19 +6,19 @@ package version
 import (
 	"hash/crc32"
 	"sync/atomic"
+
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 // Stats implements the monkit.StatSource interface
-func (v *Info) Stats(reportValue func(name string, val float64)) {
+func (v *Info) Stats(cb func(series monkit.Series, val float64)) {
 	if v.Release {
-		reportValue("release", 1)
+		cb(monkit.NewSeries("version_info", "release"), 1)
 	} else {
-		reportValue("release", 0)
+		cb(monkit.NewSeries("version_info", "release"), 0)
 	}
-	reportValue("timestamp", float64(v.Timestamp.Unix()))
-
+	cb(monkit.NewSeries("version_info", "timestamp"), float64(v.Timestamp.Unix()))
 	crc := atomic.LoadUint32(&v.commitHashCRC)
-
 	if crc == 0 {
 		c := crc32.NewIEEE()
 		_, err := c.Write([]byte(buildCommitHash))
@@ -27,9 +27,8 @@ func (v *Info) Stats(reportValue func(name string, val float64)) {
 		}
 		atomic.StoreUint32(&v.commitHashCRC, c.Sum32())
 	}
-
-	reportValue("commit", float64(crc))
-	reportValue("major", float64(v.Version.Major))
-	reportValue("minor", float64(v.Version.Minor))
-	reportValue("patch", float64(v.Version.Patch))
+	cb(monkit.NewSeries("version_info", "commit"), float64(crc))
+	cb(monkit.NewSeries("version_info", "major"), float64(v.Version.Major))
+	cb(monkit.NewSeries("version_info", "minor"), float64(v.Version.Minor))
+	cb(monkit.NewSeries("version_info", "patch"), float64(v.Version.Patch))
 }
