@@ -25,6 +25,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/version"
@@ -121,7 +122,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		loop := sync2.NewCycle(runCfg.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
-	if err != nil && err != context.Canceled {
+	if err != nil && errs2.IsCanceled(err) {
 		log.Fatal(err)
 	}
 	return nil
@@ -132,7 +133,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 
 	currentVersion, err := binaryVersion(runCfg.BinaryLocation)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	log.Println("downloading versions from", runCfg.ServerAddress)
@@ -147,9 +148,8 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
 		// TODO: consolidate semver.Version and version.SemVer
 		suggestedVersion, err := newVersion.SemVer()
-
 		if err != nil {
-			return checker.Error.Wrap(err)
+			return errs.Wrap(err)
 		}
 
 		if currentVersion.Compare(suggestedVersion) < 0 {
@@ -162,7 +162,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
 			err = downloadArchive(ctx, tempArchive, downloadURL)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
 
@@ -175,17 +175,17 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 			backupExec := filepath.Join(dir, runCfg.ServiceName+".old."+currentVersion.String()+extension)
 
 			if err = os.Rename(runCfg.BinaryLocation, backupExec); err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 
 			err = unpackBinary(ctx, tempArchive.Name(), runCfg.BinaryLocation)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 
 			downloadedVersion, err := binaryVersion(runCfg.BinaryLocation)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 
 			if suggestedVersion.Compare(downloadedVersion) != 0 {
@@ -278,11 +278,12 @@ func restartSNService(name string) error {
 	switch runtime.GOOS {
 	case "windows":
 		// TODO how run this as one command `net stop servicename && net start servicename`?
-		_, err := exec.Command("net", "stop", name).Output()
+		// TODO: combine stdout with err if err
+		_, err := exec.Command("net", "stop", name).CombinedOutput()
 		if err != nil {
 			return err
 		}
-		_, err = exec.Command("net", "start", name).Output()
+		_, err = exec.Command("net", "start", name).CombinedOutput()
 		if err != nil {
 			return err
 		}

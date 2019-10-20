@@ -88,7 +88,7 @@ func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver v
 
 	versions, err := client.All(ctx)
 	if err != nil {
-		return version.SemVer{}, err
+		return version.SemVer{}, Error.Wrap(err)
 	}
 
 	r := reflect.ValueOf(&versions)
@@ -106,7 +106,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 
 	versions, err := client.All(ctx)
 	if err != nil {
-		return version.Process{}, err
+		return version.Process{}, Error.Wrap(err)
 	}
 
 	processesValue := reflect.ValueOf(versions.Processes)
@@ -131,7 +131,7 @@ func (client *Client) ShouldUpdate(ctx context.Context, processName string, node
 
 	process, err := client.Process(ctx, processName)
 	if err != nil {
-		return false, version.Version{}, err
+		return false, version.Version{}, Error.Wrap(err)
 	}
 
 	shouldUpdate := version.ShouldUpdate(process.Rollout, nodeID)

@@ -128,7 +128,7 @@ func (rb *RolloutBytes) UnmarshalJSON(b []byte) error {
 func NewSemVer(v string) (SemVer, error) {
 	ver, err := semver.ParseTolerant(v)
 	if err != nil {
-		return SemVer{}, err
+		return SemVer{}, VerError.Wrap(err)
 	}
 
 	return SemVer{
