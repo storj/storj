@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -188,7 +189,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (_ *console.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	search := cursor.Search + "%"
+	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50
@@ -206,7 +207,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name)
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?`)
+		AND bucket_name LIKE ?`)
 
 	countRow := db.db.QueryRowContext(ctx,
 		countQuery,
@@ -228,7 +229,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?
+		AND bucket_name LIKE ?
 		ORDER BY bucket_name ASC
 		LIMIT ? OFFSET ?`)
 
