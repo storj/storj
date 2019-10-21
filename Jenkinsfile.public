@@ -26,7 +26,7 @@ pipeline {
                 sh 'go mod download'
 
                 sh 'service postgresql start'
-
+                sh 'redis-server'
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
             }
