@@ -332,7 +332,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 2h0m0s
+# repairer.timeout: 10m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false

@@ -15,16 +15,15 @@ import (
 // creditCards is an implementation of payments.CreditCards.
 type creditCards struct {
 	service *Service
-	userID  uuid.UUID
 }
 
 // List returns a list of PaymentMethods for a given Customer.
-func (creditCards *creditCards) List(ctx context.Context) (cards []payments.CreditCard, err error) {
-	defer mon.Task()(&ctx, creditCards.userID)(&err)
+func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	params := &stripe.PaymentMethodListParams{
@@ -46,19 +45,19 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 	}
 
 	if err = paymentMethodsIterator.Err(); err != nil {
-		return nil, ErrorStripe.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return cards, nil
 }
 
 // Add is used to save new credit card and attach it to payment account.
-func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err error) {
-	defer mon.Task()(&ctx, creditCards.userID, cardToken)(&err)
+func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
+	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return err
+		return payments.ErrAccountNotSetup.Wrap(err)
 	}
 
 	cardParams := &stripe.PaymentMethodParams{
@@ -68,7 +67,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 
 	card, err := creditCards.service.stripeClient.PaymentMethods.New(cardParams)
 	if err != nil {
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -78,7 +77,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
 	if err != nil {
 		// TODO: handle created but not attached card manually?
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil

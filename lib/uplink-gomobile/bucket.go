@@ -26,6 +26,9 @@ const (
 
 	// DirectionForward lists forwards from cursor, including cursor
 	DirectionForward = int(storj.Forward)
+
+	// DirectionAfter lists forwards from cursor, without cursor
+	DirectionAfter = int(storj.After)
 )
 
 // Bucket represents operations you can perform on a bucket

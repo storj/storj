@@ -44,6 +44,7 @@ func main() {
 	}
 
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
+
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
@@ -71,51 +70,31 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement := db.db.Rebind(
-			`INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
-			 VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING;`,
-		)
-		for _, item := range items {
-			_, err = db.db.ExecContext(ctx, statement,
-				item.NodeID.Bytes(), item.Path, item.PieceNum, item.DurabilityRatio, time.Now().UTC())
-			if err != nil {
-				return Error.Wrap(err)
-			}
+	sort.Slice(items, func(i, k int) bool {
+		compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
+		if compare == 0 {
+			return bytes.Compare(items[i].Path, items[k].Path) < 0
 		}
-	case *pq.Driver:
-		sort.Slice(items, func(i, k int) bool {
-			compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
-			if compare == 0 {
-				return bytes.Compare(items[i].Path, items[k].Path) < 0
-			}
-			return compare < 0
-		})
+		return compare < 0
+	})
 
-		var nodeIDs []storj.NodeID
-		var paths [][]byte
-		var pieceNums []int32
-		var durabilities []float64
-		for _, item := range items {
-			nodeIDs = append(nodeIDs, item.NodeID)
-			paths = append(paths, item.Path)
-			pieceNums = append(pieceNums, item.PieceNum)
-			durabilities = append(durabilities, item.DurabilityRatio)
-		}
-
-		_, err := db.db.ExecContext(ctx, `
-			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
-			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
-			ON CONFLICT DO NOTHING;`, postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	default:
-		return Error.New("Unsupported database %t", t)
+	var nodeIDs []storj.NodeID
+	var paths [][]byte
+	var pieceNums []int32
+	var durabilities []float64
+	for _, item := range items {
+		nodeIDs = append(nodeIDs, item.NodeID)
+		paths = append(paths, item.Path)
+		pieceNums = append(pieceNums, item.PieceNum)
+		durabilities = append(durabilities, item.DurabilityRatio)
 	}
 
-	return nil
+	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
+			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
+			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
+			ON CONFLICT DO NOTHING;`), postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
+
+	return Error.Wrap(err)
 }
 
 // UpdateTransferQueueItem creates a graceful exit transfer queue entry.
