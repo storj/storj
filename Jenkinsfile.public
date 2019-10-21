@@ -62,10 +62,9 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'export USE_PORTS_PID=!$'
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
-                        sh 'kill -3 $USE_PORTS_PID'
+                        sh 'killall -3 use-ports'
                     }
 
                     post {
@@ -83,6 +82,20 @@ pipeline {
                                 }
                             }
                         }
+                    }
+                }
+
+                stage('Tests Gomobile') {
+                    environment {
+                        // docker container IP
+                        STORJ_NETWORK_HOST4 = '172.17.0.2'
+                        STORJ_NETWORK_HOST6 = '172.17.0.2'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj4;\''
+                        sh 'make test-libuplink-gomobile'
                     }
                 }
  
@@ -127,20 +140,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-
-        stage('Tests Gomobile') {
-            environment {
-                // docker container IP
-                STORJ_NETWORK_HOST4 = '172.17.0.2'
-                STORJ_NETWORK_HOST6 = '172.17.0.2'
-                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
-            }
-
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj4;\''
-                sh 'make test-libuplink-gomobile'
             }
         }
     }
