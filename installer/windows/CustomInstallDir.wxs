@@ -56,10 +56,12 @@ Patch dialog sequence:
             <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
 
             <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed and NOT UPGRADINGPRODUCTCODE</Publish>
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="DeleteFiles">(REMOVE="ALL") AND NOT (WIX_UPGRADE_DETECTED OR UPGRADINGPRODUCTCODE)</Publish>
 
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed</Publish>
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed OR NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">NOT Installed AND WIX_UPGRADE_DETECTED</Publish>
 
             <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg">1</Publish>
             <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="InstallDirConfigDlg">LicenseAccepted = "1"</Publish>
