@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/zeebo/errs"
 
@@ -283,32 +282,4 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	}
 
 	return resp, nil
-}
-
-func findIDs(value reflect.Value) (streamID storj.StreamID, segmentID storj.SegmentID) {
-	if !value.IsValid() || value.Kind() != reflect.Struct {
-		return streamID, segmentID
-	}
-
-	for i := 0; i < value.NumField(); i++ {
-		if value.Type().Field(i).Name == "StreamId" && value.Field(i).Type().Name() == "StreamID" {
-			return value.Field(i).Interface().(storj.StreamID), storj.SegmentID{}
-		} else if value.Type().Field(i).Name == "SegmentId" && value.Field(i).Type().Name() == "SegmentID" {
-			return storj.StreamID{}, value.Field(i).Interface().(storj.SegmentID)
-		}
-	}
-
-	// go deeper if ID was not found
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		if field.Kind() == reflect.Struct {
-			streamID, segmentID = findIDs(field)
-		} else if field.Kind() == reflect.Ptr {
-			streamID, segmentID = findIDs(field.Elem())
-		}
-		if !streamID.IsZero() || !segmentID.IsZero() {
-			return streamID, segmentID
-		}
-	}
-	return streamID, segmentID
 }
