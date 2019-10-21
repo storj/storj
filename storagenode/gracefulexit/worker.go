@@ -49,18 +49,18 @@ func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, 
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
 // It also marks the satellite finished once all the pieces have been transferred
 // TODO handle transfers in parallel
-func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done func()) (err error) {
+func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer done()
 
 	worker.log.Debug("running worker")
 
-	addr, err := worker.trust.GetAddress(ctx, satelliteID)
+	addr, err := worker.trust.GetAddress(ctx, worker.satelliteID)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	conn, err := worker.dialer.DialAddressID(ctx, addr, satelliteID)
+	conn, err := worker.dialer.DialAddressID(ctx, addr, worker.satelliteID)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -91,14 +91,14 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 			break // wait until next worker execution
 		case *pb.SatelliteMessage_TransferPiece:
 			pieceID := msg.TransferPiece.OriginalPieceId
-			reader, err := worker.store.Reader(ctx, satelliteID, pieceID)
+			reader, err := worker.store.Reader(ctx, worker.satelliteID, pieceID)
 			if err != nil {
 				transferErr := pb.TransferFailed_UNKNOWN
 				if errs.Is(err, os.ErrNotExist) {
 					transferErr = pb.TransferFailed_NOT_FOUND
 				}
-				worker.log.Error("failed to get piece reader.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, transferErr, pieceID, satelliteID, c.Send)
+				worker.log.Error("failed to get piece reader.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, transferErr, pieceID, c.Send)
 				continue
 			}
 
@@ -107,8 +107,8 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 
 			originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, addrLimit.GetLimit())
 			if err != nil {
-				worker.log.Error("failed to get piece hash and order limit.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, satelliteID, c.Send)
+				worker.log.Error("failed to get piece hash and order limit.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
 				continue
 			}
 
@@ -118,17 +118,17 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 			// TODO what's the typical expiration setting?
 			pieceHash, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
 			if err != nil {
-				worker.log.Error("failed to put piece.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.log.Error("failed to put piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 				// TODO look at error type to decide on the transfer error
-				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, satelliteID, c.Send)
+				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
 
 				continue
 			}
 
 			err = verifyPieceHash(ctx, addrLimit.GetLimit(), pieceHash, originalHash.Hash)
 			if err != nil {
-				worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, satelliteID, c.Send)
+				worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
 
 				continue
 			}
@@ -149,29 +149,29 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 			}
 		case *pb.SatelliteMessage_DeletePiece:
 			pieceID := msg.DeletePiece.OriginalPieceId
-			err := worker.store.Delete(ctx, satelliteID, pieceID)
+			err := worker.store.Delete(ctx, worker.satelliteID, pieceID)
 			if err != nil {
-				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 			}
 		case *pb.SatelliteMessage_ExitFailed:
-			worker.log.Error("graceful exit failed.", zap.Stringer("satellite ID", satelliteID), zap.Stringer("reason", msg.ExitFailed.Reason))
+			worker.log.Error("graceful exit failed.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("reason", msg.ExitFailed.Reason))
 
-			err = worker.satelliteDB.CompleteGracefulExit(ctx, satelliteID, time.Now(), satellites.ExitFailed, msg.ExitFailed.GetExitFailureSignature())
+			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitFailed, msg.ExitFailed.GetExitFailureSignature())
 			if err != nil {
 				return errs.Wrap(err)
 			}
 			break
 		case *pb.SatelliteMessage_ExitCompleted:
-			worker.log.Info("graceful exit completed.", zap.Stringer("satellite ID", satelliteID))
+			worker.log.Info("graceful exit completed.", zap.Stringer("satellite ID", worker.satelliteID))
 
-			err = worker.satelliteDB.CompleteGracefulExit(ctx, satelliteID, time.Now(), satellites.ExitSucceeded, msg.ExitCompleted.GetExitCompleteSignature())
+			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitSucceeded, msg.ExitCompleted.GetExitCompleteSignature())
 			if err != nil {
 				return errs.Wrap(err)
 			}
 			break
 		default:
 			// TODO handle err
-			worker.log.Error("unknown graceful exit message.", zap.Stringer("satellite ID", satelliteID))
+			worker.log.Error("unknown graceful exit message.", zap.Stringer("satellite ID", worker.satelliteID))
 		}
 
 	}
@@ -179,7 +179,7 @@ func (worker *Worker) Run(ctx context.Context, satelliteID storj.NodeID, done fu
 	return errs.Wrap(err)
 }
 
-func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, satelliteID storj.NodeID, send func(*pb.StorageNodeMessage) error) {
+func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, send func(*pb.StorageNodeMessage) error) {
 	failure := &pb.StorageNodeMessage{
 		Message: &pb.StorageNodeMessage_Failed{
 			Failed: &pb.TransferFailed{
@@ -191,7 +191,7 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 
 	sendErr := send(failure)
 	if sendErr != nil {
-		worker.log.Error("unable to send failure.", zap.Stringer("satellite ID", satelliteID))
+		worker.log.Error("unable to send failure.", zap.Stringer("satellite ID", worker.satelliteID))
 	}
 }
 

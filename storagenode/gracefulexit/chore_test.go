@@ -71,6 +71,7 @@ func TestChore(t *testing.T) {
 		exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
 		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0])
 
 		queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
 		require.NoError(t, err)
@@ -78,6 +79,11 @@ func TestChore(t *testing.T) {
 
 		// run the SN chore again to start processing transfers.
 		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+
+		// check that there are no more items to process
+		queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 0)
 
 		exitProgress, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
 		require.NoError(t, err)
@@ -89,6 +95,7 @@ func TestChore(t *testing.T) {
 	})
 }
 
+// findNodeToExit selects the node storing the most pieces as the node to graceful exit.
 func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
 	satellite := planet.Satellites[0]
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)

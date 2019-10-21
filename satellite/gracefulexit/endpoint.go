@@ -182,10 +182,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := newPendingMap()
 
 	var morePiecesFlag int32 = 1
-	var errorFlag int32 = 0
+	errChan := make(chan error, 1)
 	handleError := func(err error) error {
-		atomic.StoreInt32(&errorFlag, 1)
-
+		errChan <- err
+		close(errChan)
 		return Error.Wrap(err)
 	}
 
@@ -226,9 +226,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
-		if atomic.LoadInt32(&errorFlag) == 1 {
+		select {
+		case <-errChan:
 			return group.Wait()
+		default:
 		}
+
 		pendingCount := pending.length()
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {

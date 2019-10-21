@@ -87,7 +87,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 
 			chore.limiter.Go(ctx, func() {
-				err := worker.Run(ctx, satelliteID, func() {
+				err := worker.Run(ctx, func() {
 					chore.log.Debug("finished graceful exit for satellite.", zap.Stringer("satellite ID", satelliteID))
 					chore.exitingMap.Delete(satelliteID)
 				})

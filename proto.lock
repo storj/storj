@@ -862,12 +862,12 @@
                 "integer": 1
               },
               {
-                "name": "UNKNOWN",
+                "name": "HASH_VERIFICATION",
                 "integer": 2
               },
               {
-                "name": "HASH_VERIFICATION",
-                "integer": 3
+                "name": "UNKNOWN",
+                "integer": 10
               }
             ]
           },
