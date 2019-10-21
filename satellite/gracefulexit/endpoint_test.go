@@ -154,7 +154,7 @@ func TestFailure(t *testing.T) {
 					break
 				}
 				if !tt.hashesMatch {
-					require.True(t, errs.Is(gracefulexit.ErrorHashMismatch, err))
+					require.True(t, errs.Is(gracefulexit.ErrorHashMismatch, err), tt.name)
 				} else {
 					require.NoError(t, err)
 				}

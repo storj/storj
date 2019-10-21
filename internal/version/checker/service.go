@@ -1,27 +1,26 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package version
+package checker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/internal/version"
 )
 
 // Config contains the necessary Information to check the Software Version
 type Config struct {
-	ServerAddress  string        `help:"server address to check its version against" default:"https://version.storj.io"`
-	RequestTimeout time.Duration `help:"Request timeout for version checks" default:"0h1m0s"`
-	CheckInterval  time.Duration `help:"Interval to check the version" default:"0h15m0s"`
+	ClientConfig
+
+	CheckInterval time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
 
 // Service contains the information and variables to ensure the Software is up to date
@@ -30,7 +29,8 @@ type Config struct {
 type Service struct {
 	log     *zap.Logger
 	config  Config
-	info    Info
+	client  *Client
+	info    version.Info
 	service string
 
 	Loop *sync2.Cycle
@@ -41,10 +41,11 @@ type Service struct {
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(log *zap.Logger, config Config, info Info, service string) (client *Service) {
+func NewService(log *zap.Logger, config Config, info version.Info, service string) (client *Service) {
 	return &Service{
 		log:     log,
 		config:  config,
+		client:  New(config.ClientConfig),
 		info:    info,
 		service: service,
 		Loop:    sync2.NewCycle(config.CheckInterval),
@@ -63,7 +64,7 @@ func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (err error) {
+func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info version.Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return NewService(log, config, info, service).CheckVersion(ctx)
 }
@@ -106,14 +107,13 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 		return true
 	}
 
-	accepted, err := srv.queryVersionFromControlServer(ctx)
+	minimum, err := srv.client.OldMinimum(ctx, srv.service)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
 		srv.log.Sugar().Errorf("Failed to do periodic version check: %s", err.Error())
 		return true
 	}
 
-	minimum := getFieldString(&accepted, srv.service)
 	srv.log.Sugar().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
 	if minimum.String() == "" {
@@ -128,38 +128,6 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	return false
 }
 
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
-func isAcceptedVersion(test SemVer, target SemVer) bool {
-	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
-}
-
-// QueryVersionFromControlServer handles the HTTP request to gather the allowed and latest version information
-func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver AllowedVersions, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// Tune Client to have a custom Timeout (reduces hanging software)
-	client := http.Client{
-		Timeout: srv.config.RequestTimeout,
-	}
-
-	// New Request that used the passed in context
-	req, err := http.NewRequest("GET", srv.config.ServerAddress, nil)
-	if err != nil {
-		return AllowedVersions{}, err
-	}
-	req = req.WithContext(ctx)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return AllowedVersions{}, err
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	err = json.NewDecoder(resp.Body).Decode(&ver)
-	return ver, err
-}
-
 // DebugHandler implements version info endpoint.
 type DebugHandler struct {
 	log *zap.Logger
@@ -172,7 +140,7 @@ func NewDebugHandler(log *zap.Logger) *DebugHandler {
 
 // ServeHTTP returns a json representation of the current version information for the binary.
 func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	j, err := Build.Marshal()
+	j, err := version.Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -187,12 +155,7 @@ func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getFieldString(array *AllowedVersions, field string) SemVer {
-	r := reflect.ValueOf(array)
-	f := reflect.Indirect(r).FieldByName(field).Interface()
-	result, ok := f.(SemVer)
-	if ok {
-		return result
-	}
-	return SemVer{}
+// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
+func isAcceptedVersion(test version.SemVer, target version.SemVer) bool {
+	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
 }
