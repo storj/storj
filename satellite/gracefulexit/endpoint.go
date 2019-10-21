@@ -5,12 +5,14 @@ package gracefulexit
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -224,7 +226,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		pendingCount := pending.length()
 
 		progress, err := endpoint.db.GetProgress(ctx, nodeID)
-		if err != nil {
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return Error.Wrap(err)
 		}
 
@@ -270,7 +272,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 
 		// check inactive timeframe
-		if progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
+		if progress != nil && progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
 				ExitSuccess:    false,
