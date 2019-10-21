@@ -141,8 +141,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
-		router.PathPrefix("/").Handler(server.gzipHandler(http.HandlerFunc(server.appHandler)))
+		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
