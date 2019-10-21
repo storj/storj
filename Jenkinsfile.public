@@ -62,26 +62,28 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        // sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
-                        // sh 'go run scripts/check-clean-directory.go'
+                        sh 'export USE_PORTS_PID=!$'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
+                        sh 'go run scripts/check-clean-directory.go'
+                        sh 'kill $USE_PORTS_PID'
                     }
 
-                    // post {
-                    //     always {
-                    //         sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
-                    //         archiveArtifacts artifacts: '.build/tests.json'
-                    //         junit '.build/tests.xml'
+                    post {
+                        always {
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            junit '.build/tests.xml'
 
-                    //         script {
-                    //             if(fileExists(".build/coverprofile")){
-                    //                 sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                    //                 sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                    //                 sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                    //                 cobertura coberturaReportFile: '.build/cobertura.xml'
-                    //             }
-                    //         }
-                    //     }
-                    // }
+                            script {
+                                if(fileExists(".build/coverprofile")){
+                                    sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                    cobertura coberturaReportFile: '.build/cobertura.xml'
+                                }
+                            }
+                        }
+                    }
                 }
  
                 stage('Integration') {
