@@ -145,8 +145,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				Message: &pb.StorageNodeMessage_Succeeded{
 					Succeeded: &pb.TransferSucceeded{
 						OriginalPieceId:      msg.TransferPiece.OriginalPieceId,
-						OriginalPieceHash:    &pb.PieceHash{PieceId: msg.TransferPiece.OriginalPieceId},
-						OriginalOrderLimit:   &originalOrderLimit,
+						OriginalPieceHash:    originalHash,
+						OriginalOrderLimit:   originalOrderLimit,
 						ReplacementPieceHash: pieceHash,
 					},
 				},
@@ -210,27 +210,27 @@ func (worker *Worker) Close() error {
 }
 
 // TODO This comes from piecestore.Endpoint. It should probably be an exported method so I don't have to duplicate it here.
-func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash pb.PieceHash, orderLimit pb.OrderLimit, err error) {
+func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash *pb.PieceHash, orderLimit *pb.OrderLimit, err error) {
 
 	if pieceReader.StorageFormatVersion() == 0 {
 		// v0 stores this information in SQL
 		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
 		if err != nil {
 			worker.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-			return pb.PieceHash{}, pb.OrderLimit{}, err
+			return nil, nil, err
 		}
-		orderLimit = *info.OrderLimit
-		pieceHash = *info.UplinkPieceHash
+		orderLimit = info.OrderLimit
+		pieceHash = info.UplinkPieceHash
 	} else {
 		//v1+ stores this information in the file
 		header, err := pieceReader.GetPieceHeader()
 		if err != nil {
 			worker.log.Error("error getting header from piecereader", zap.Error(err))
-			return pb.PieceHash{}, pb.OrderLimit{}, err
+			return nil, nil, err
 		}
-		orderLimit = header.OrderLimit
-		pieceHash = pb.PieceHash{
-			PieceId:   limit.PieceId,
+		orderLimit = &header.OrderLimit
+		pieceHash = &pb.PieceHash{
+			PieceId:   orderLimit.PieceId,
 			Hash:      header.GetHash(),
 			PieceSize: pieceReader.Size(),
 			Timestamp: header.GetCreationTime(),
