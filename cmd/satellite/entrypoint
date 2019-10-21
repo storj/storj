@@ -25,7 +25,7 @@ fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
 
-if [ "${SATELLITE_API:-}" = true ]; then
+if [ "${SATELLITE_API:-}" = "true" ]; then
   exec ./satellite run api $RUN_PARAMS "$@"
 fi
 
