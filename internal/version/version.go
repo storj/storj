@@ -4,25 +4,26 @@
 package version
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"regexp"
+	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
-// semVerRegex is the regular expression used to parse a semantic version.
-// https://github.com/Masterminds/semver/blob/master/LICENSE.txt
-const (
-	semVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
-	quote              = byte('"')
-)
+const quote = byte('"')
 
 var (
 	// VerError is the error class for version-related errors.
@@ -37,8 +38,6 @@ var (
 
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
-
-	versionRegex = regexp.MustCompile("^" + semVerRegex + "$")
 )
 
 // Info is the versioning information for a binary
@@ -53,10 +52,9 @@ type Info struct {
 }
 
 // SemVer represents a semantic version
+// TODO: replace with semver.Version
 type SemVer struct {
-	Major int64 `json:"major"`
-	Minor int64 `json:"minor"`
-	Patch int64 `json:"patch"`
+	semver.Version
 }
 
 // AllowedVersions provides the Minimum SemVer per Service
@@ -105,6 +103,11 @@ type RolloutBytes [32]byte
 
 // MarshalJSON hex-encodes RolloutBytes and pre/appends JSON string literal quotes.
 func (rb RolloutBytes) MarshalJSON() ([]byte, error) {
+	zeroRolloutBytes := RolloutBytes{}
+	if bytes.Equal(rb[:], zeroRolloutBytes[:]) {
+		return []byte{quote, quote}, nil
+	}
+
 	hexBytes := make([]byte, hex.EncodedLen(len(rb)))
 	hex.Encode(hexBytes, rb[:])
 	encoded := append([]byte{quote}, hexBytes...)
@@ -122,57 +125,35 @@ func (rb *RolloutBytes) UnmarshalJSON(b []byte) error {
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
-func NewSemVer(v string) (sv SemVer, err error) {
-	m := versionRegex.FindStringSubmatch(v)
-	if m == nil {
-		return SemVer{}, VerError.New("invalid semantic version for build %s", v)
-	}
-
-	// first entry of m is the entire version string
-	sv.Major, err = strconv.ParseInt(m[1], 10, 64)
+func NewSemVer(v string) (SemVer, error) {
+	ver, err := semver.ParseTolerant(v)
 	if err != nil {
 		return SemVer{}, VerError.Wrap(err)
 	}
 
-	sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
-	if err != nil {
-		return SemVer{}, VerError.Wrap(err)
-	}
-
-	sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
-	if err != nil {
-		return SemVer{}, VerError.Wrap(err)
-	}
-
-	return sv, nil
+	return SemVer{
+		Version: ver,
+	}, nil
 }
 
 // Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less.
 func (sem *SemVer) Compare(version SemVer) int {
-	result := sem.Major - version.Major
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	result = sem.Minor - version.Minor
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	result = sem.Patch - version.Patch
-	if result > 0 {
-		return 1
-	} else if result < 0 {
-		return -1
-	}
-	return 0
+	return sem.Version.Compare(version.Version)
 }
 
 // String converts the SemVer struct to a more easy to handle string
 func (sem *SemVer) String() (version string) {
 	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)
+}
+
+// IsZero checks if the semantic version is its zero value.
+func (sem SemVer) IsZero() bool {
+	return reflect.ValueOf(sem).IsZero()
+}
+
+// SemVer converts a version struct into a semantic version struct.
+func (ver *Version) SemVer() (SemVer, error) {
+	return NewSemVer(ver.Version)
 }
 
 // New creates Version_Info from a json byte array
@@ -181,9 +162,14 @@ func New(data []byte) (v Info, err error) {
 	return v, VerError.Wrap(err)
 }
 
+// IsZero checks if the version struct is its zero value.
+func (info Info) IsZero() bool {
+	return reflect.ValueOf(info).IsZero()
+}
+
 // Marshal converts the existing Version Info to any json byte array
-func (v Info) Marshal() ([]byte, error) {
-	data, err := json.Marshal(v)
+func (info Info) Marshal() ([]byte, error) {
+	data, err := json.Marshal(info)
 	if err != nil {
 		return nil, VerError.Wrap(err)
 	}
@@ -193,13 +179,40 @@ func (v Info) Marshal() ([]byte, error) {
 // Proto converts an Info struct to a pb.NodeVersion
 // TODO: shouldn't we just use pb.NodeVersion everywhere? gogoproto will let
 // us make it match Info.
-func (v Info) Proto() (*pb.NodeVersion, error) {
+func (info Info) Proto() (*pb.NodeVersion, error) {
 	return &pb.NodeVersion{
-		Version:    v.Version.String(),
-		CommitHash: v.CommitHash,
-		Timestamp:  v.Timestamp,
-		Release:    v.Release,
+		Version:    info.Version.String(),
+		CommitHash: info.CommitHash,
+		Timestamp:  info.Timestamp,
+		Release:    info.Release,
 	}, nil
+}
+
+// PercentageToCursor calculates the cursor value for the given percentage of nodes which should update.
+func PercentageToCursor(pct int) RolloutBytes {
+	// NB: convert the max value to a number, multiply by the percentage, convert back.
+	var maxInt, maskInt big.Int
+	var maxBytes RolloutBytes
+	for i := 0; i < len(maxBytes); i++ {
+		maxBytes[i] = 255
+	}
+	maxInt.SetBytes(maxBytes[:])
+	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
+
+	var cursor RolloutBytes
+	copy(cursor[:], maskInt.Bytes())
+
+	return cursor
+}
+
+// ShouldUpdate checks if for the the given rollout state, a user with the given nodeID should update.
+func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
+	hash := hmac.New(sha256.New, rollout.Seed[:])
+	_, err := hash.Write(nodeID[:])
+	if err != nil {
+		panic(err)
+	}
+	return bytes.Compare(hash.Sum(nil), rollout.Cursor[:]) <= 0
 }
 
 func init() {
@@ -226,5 +239,4 @@ func init() {
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
 	}
-
 }

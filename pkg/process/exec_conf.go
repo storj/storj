@@ -310,7 +310,7 @@ func cmdVersion(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("Development build")
 	}
 
-	if version.Build.Version != (version.SemVer{}) {
+	if !version.Build.Version.IsZero() {
 		fmt.Println("Version:", version.Build.Version.String())
 	}
 	if !version.Build.Timestamp.IsZero() {

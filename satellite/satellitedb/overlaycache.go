@@ -661,9 +661,9 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			if err != nil {
 				return nil, errs.New("unable to convert version to semVer")
 			}
-			updateFields.Major = dbx.Node_Major(semVer.Major)
-			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
-			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
+			updateFields.Major = dbx.Node_Major(int64(semVer.Major))
+			updateFields.Minor = dbx.Node_Minor(int64(semVer.Minor))
+			updateFields.Patch = dbx.Node_Patch(int64(semVer.Patch))
 			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
 			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.GetVersion().Timestamp)
 			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
@@ -954,10 +954,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	if err != nil {
 		return nil, err
 	}
-	ver := &version.SemVer{
-		Major: info.Major,
-		Minor: info.Minor,
-		Patch: info.Patch,
+	ver, err := version.NewSemVer(fmt.Sprintf("%d.%d.%d", info.Major, info.Minor, info.Patch))
+	if err != nil {
+		return nil, err
 	}
 
 	exitStatus := overlay.ExitStatus{NodeID: id}
