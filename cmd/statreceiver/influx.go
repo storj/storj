@@ -56,12 +56,14 @@ func (d *InfluxDest) Metric(application, instance string, key []byte, val float6
 	// escapes. If we could do that, we could more easily put the application tag in sorted order
 	// but since it begins with a, we'll do the easy thing and insert it first.
 	added := false
+keyRange:
 	for i, val := range key {
-		if val != ' ' && val != ',' {
+		switch {
+		case val != ' ' && val != ',':
 			continue
-		} else if i == 0 {
-			break
-		} else if key[i-1] == '\\' {
+		case i == 0:
+			break keyRange
+		case key[i-1] == '\\':
 			continue
 		}
 
@@ -133,8 +135,8 @@ func (d *InfluxDest) flush() {
 			if d.token != "" {
 				req.Header.Set("Authorization", "Token "+d.token)
 			}
-			resp, err := http.DefaultClient.Do(req)
-			if err == nil {
+			resp, respErr := http.DefaultClient.Do(req)
+			if respErr == nil {
 				_ = resp.Body.Close()
 				if resp.StatusCode != http.StatusNoContent {
 					err = errs.New("invalid status code: %d", resp.StatusCode)
