@@ -61,10 +61,6 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		if err != nil {
 			return err
 		}
-		exitStatus, err := db.OverlayCache().GetExitStatus(ctx, id)
-		if err != nil {
-			return err
-		}
 		exitProgress, err := db.GracefulExit().GetProgress(ctx, id)
 		if gracefulexit.ErrNodeNotFound.Has(err) {
 			exitProgress = &gracefulexit.Progress{}
@@ -72,6 +68,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 			return err
 		}
 
+		exitStatus := node.ExitStatus
 		exitFinished := ""
 		if !exitStatus.ExitFinishedAt.IsZero() {
 			exitFinished = exitStatus.ExitFinishedAt.Format("2006-01-02")
