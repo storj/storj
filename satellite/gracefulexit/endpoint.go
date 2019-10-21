@@ -224,7 +224,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
 
-			// check node's exiting progress to see if it has failed passed max failure threshold, we should consider it as exit failed
 			progress, err := endpoint.db.GetProgress(ctx, nodeID)
 			if err != nil {
 				return Error.Wrap(err)
@@ -236,7 +235,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				},
 			}
 
-			// check overall failure percentage
+			// check node's exiting progress to see if it has failed passed max failure threshold
 			overallFailurePercentage := (float64(progress.PiecesFailed) / float64(progress.PiecesTransferred)) * 100
 			if overallFailurePercentage > endpoint.config.OverallMaxFailuresPercentage {
 				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
