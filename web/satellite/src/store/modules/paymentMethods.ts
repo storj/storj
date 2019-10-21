@@ -1,15 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
-import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 import {
     addProjectPaymentMethodRequest,
     deletePaymentMethodRequest,
     fetchProjectPaymentMethods,
-    setDefaultPaymentMethodRequest
+    setDefaultPaymentMethodRequest,
 } from '@/api/paymentMethods';
+import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
 import { RequestResponse } from '@/types/response';
+import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 
 export const projectPaymentsMethodsModule = {
     state: {
@@ -21,12 +21,12 @@ export const projectPaymentsMethodsModule = {
         },
         [PROJECT_PAYMENT_METHODS_MUTATIONS.CLEAR](state: any) {
             state.paymentMethods = [] as PaymentMethod[];
-        }
+        },
     },
     actions: {
         [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function ({commit, rootGetters, state}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
             const projectID = rootGetters.selectedProject.id;
-            if (state.paymentMethods.length == 0) {
+            if (state.paymentMethods.length === 0) {
                 input.makeDefault = true;
             }
 
@@ -35,7 +35,7 @@ export const projectPaymentsMethodsModule = {
         [PROJECT_PAYMENT_METHODS_ACTIONS.FETCH]: async function ({commit, rootGetters}): Promise<RequestResponse<PaymentMethod[]>> {
             const projectId = rootGetters.selectedProject.id;
 
-            let result = await fetchProjectPaymentMethods(projectId);
+            const result = await fetchProjectPaymentMethods(projectId);
             if (result.isSuccess) {
                 commit(PROJECT_PAYMENT_METHODS_MUTATIONS.FETCH, result.data);
             }
@@ -52,6 +52,6 @@ export const projectPaymentsMethodsModule = {
         },
         [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({commit}, projectPaymentID: string) {
             return await deletePaymentMethodRequest(projectPaymentID);
-        }
+        },
     },
 };

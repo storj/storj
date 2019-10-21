@@ -5,7 +5,6 @@ package consoleql
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -52,14 +51,19 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					id, err := uuidIDAuthFallback(p, FieldID)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 					_, err = console.GetAuth(p.Context)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
-					return service.GetUser(p.Context, *id)
+					user, err := service.GetUser(p.Context, *id)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return user, nil
 				},
 			},
 			ProjectQuery: &graphql.Field{
@@ -77,13 +81,23 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						return nil, err
 					}
 
-					return service.GetProject(p.Context, *id)
+					project, err := service.GetProject(p.Context, *id)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return project, nil
 				},
 			},
 			MyProjectsQuery: &graphql.Field{
 				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return service.GetUsersProjects(p.Context)
+					projects, err := service.GetUsersProjects(p.Context)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return projects, nil
 				},
 			},
 			ActiveRewardQuery: &graphql.Field{
@@ -96,13 +110,23 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					rewardType, _ := p.Args[FieldType].(int)
 
-					return service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
+					offer, err := service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return offer, nil
 				},
 			},
 			CreditUsageQuery: &graphql.Field{
 				Type: types.creditUsage,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return service.GetUserCreditUsage(p.Context)
+					usage, err := service.GetUserCreditUsage(p.Context)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return usage, nil
 				},
 			},
 			TokenQuery: &graphql.Field{
@@ -121,7 +145,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					token, err := service.Token(p.Context, email, pass)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return tokenWrapper{Token: token}, nil
@@ -139,7 +163,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					user, err := service.GetUserByEmail(p.Context, email)
 					if err != nil {
-						return false, fmt.Errorf("%s is not found", email)
+						return true, nil
 					}
 
 					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID)
@@ -156,6 +180,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					letUsKnowURL := rootObject[LetUsKnowURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
@@ -164,6 +192,9 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 							ResetLink:                  passwordRecoveryLink,
 							CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 							UserName:                   userName,
+							LetUsKnowURL:               letUsKnowURL,
+							TermsAndConditionsURL:      termsAndConditionsURL,
+							ContactInfoURL:             contactInfoURL,
 						},
 					)
 
@@ -187,12 +218,12 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					user, err := service.GetUser(p.Context, *userID)
 					if err != nil {
-						return false, err
+						return false, HandleError(err)
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {
-						return false, err
+						return false, HandleError(err)
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
@@ -203,13 +234,18 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					// TODO: think of a better solution
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
 						&AccountActivationEmail{
-							Origin:         origin,
-							ActivationLink: link,
+							Origin:                origin,
+							ActivationLink:        link,
+							TermsAndConditionsURL: termsAndConditionsURL,
+							ContactInfoURL:        contactInfoURL,
 						},
 					)
 

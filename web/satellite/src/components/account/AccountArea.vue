@@ -3,35 +3,16 @@
 
 <template>
     <div class="account-area-container">
-        <h1>Account</h1>
-        <TabNavigation
-            class="account-area-container__navigation"
-            :navigation="navigation"/>
-        <router-view />
+        <h1 class="account-area-container__title">Account</h1>
+        <router-view/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import TabNavigation from '@/components/navigation/TabNavigation.vue';
-    import { NavigationLink } from '@/types/navigation';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            TabNavigation,
-        },
-    })
-    export default class AccountArea extends Vue {
-        public navigation: NavigationLink[] = [
-            new NavigationLink('/account/profile', 'Profile'),
-            new NavigationLink('/account/payment-methods', 'Payment Methods'),
-            new NavigationLink('/account/billing-history', 'Billing History'),
-        ];
-
-        public mounted(): void {
-            this.$router.push(this.navigation[0].path);
-        }
-    }
+@Component
+export default class AccountArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -42,15 +23,13 @@
         &__navigation {
             position: absolute;
             right: 55px;
-            top: 44px;
             z-index: 99;
             background-color: #F5F6FA;
         }
         
-        h1 {
+        &__title {
             position: absolute;
             left: 55px;
-            top: 44px;
             z-index: 99;
             font-family: 'font_bold';
             font-size: 24px;
@@ -58,6 +37,20 @@
             color: #354049;
             margin-block-start: 0.5em;
             margin-block-end: 0.5em;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .account-area-container {
+            padding: 44px 40px 55px 40px;
+
+            &__navigation {
+                right: 40px;
+            }
+
+            &__title {
+                left: 40px;
+            }
         }
     }
 </style>

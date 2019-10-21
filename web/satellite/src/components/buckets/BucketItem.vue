@@ -3,7 +3,7 @@
 
 <template>
     <div class="container">
-        <div class="container__item">{{ itemData.bucketName }}</div>
+        <div class="container__item">{{ name }}</div>
         <div class="container__item">{{ storage }}</div>
         <div class="container__item">{{ egress }}</div>
         <div class="container__item">{{ objectCount }}</div>
@@ -11,32 +11,37 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
-    import { Bucket } from '@/types/buckets';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    // TODO: should it be functional?
-    @Component
-    export default class BucketItem extends Vue {
-        @Prop()
-        private readonly itemData: Bucket;
-    
-        public get storage(): string {
-            return this.itemData.storage.toFixed(4);
-        }
-    
-        public get egress(): string {
-            return this.itemData.egress.toFixed(4);
-        }
-        
-        public get objectCount(): string {
-            return this.itemData.objectCount.toString();
-        }
+import { Bucket } from '@/types/buckets';
+
+// TODO: should it be functional?
+@Component
+export default class BucketItem extends Vue {
+    @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
+    private readonly itemData: Bucket;
+
+    public get name(): string {
+        return this.itemData.formattedBucketName();
     }
+
+    public get storage(): string {
+        return this.itemData.storage.toFixed(4);
+    }
+
+    public get egress(): string {
+        return this.itemData.egress.toFixed(4);
+    }
+
+    public get objectCount(): string {
+        return this.itemData.objectCount.toString();
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .container {
-        padding: 25px 0px;
+        padding: 25px 0;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;

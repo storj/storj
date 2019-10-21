@@ -32,14 +32,17 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
 			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
 			total := dbx.StoragenodeStorageTally_DataTotal(v)
-			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, end, total)
+			err := tx.CreateNoReturn_StoragenodeStorageTally(ctx, nID, end, total)
 			if err != nil {
 				return err
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
-		return err
+		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+			dbx.AccountingTimestamps_Name(accounting.LastAtRestTally),
+			dbx.AccountingTimestamps_Update_Fields{
+				Value: dbx.AccountingTimestamps_Value(latestTally),
+			},
+		)
 	})
 	return Error.Wrap(err)
 }
@@ -121,15 +124,20 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
 				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-				_, err := tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+
+				err := tx.CreateNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 				if err != nil {
 					return err
 				}
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
-		return err
+
+		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+			dbx.AccountingTimestamps_Name(accounting.LastRollup),
+			dbx.AccountingTimestamps_Update_Fields{
+				Value: dbx.AccountingTimestamps_Value(latestRollup),
+			},
+		)
 	})
 	return Error.Wrap(err)
 }
@@ -141,9 +149,10 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
-			update := dbx.AccountingTimestamps_Value(lastTally)
-			_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
-			return err
+			return tx.CreateNoReturn_AccountingTimestamps(ctx,
+				dbx.AccountingTimestamps_Name(timestampType),
+				dbx.AccountingTimestamps_Value(lastTally),
+			)
 		}
 		lastTally = lt.Value
 		return err
@@ -171,7 +180,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	csv := make([]*accounting.CSVRow, 0, 0)
+	csv := []*accounting.CSVRow{}
 	for rows.Next() {
 		var nodeID []byte
 		r := &accounting.CSVRow{}
@@ -200,21 +209,36 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT at_rest_total, start_time, 
-		LAG(at_rest_total) OVER win AS prev_at_rest, 
-		LAG(start_time) OVER win AS prev_start_time
-		FROM accounting_rollups
-		WHERE id IN (
-			SELECT MAX(id)
+	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if lastRollup == nil {
+		return nil, nil
+	}
+
+	start, end = start.UTC(), end.UTC()
+
+	query := `WITH r AS (
+			SELECT at_rest_total, start_time
 			FROM accounting_rollups
 			WHERE node_id = ?
 			AND ? <= start_time AND start_time <= ?
-			GROUP BY start_time
-			ORDER BY start_time ASC
 		)
-		WINDOW win AS (ORDER BY start_time)`
+		SELECT at_rest_total, start_time from r
+		UNION
+		SELECT SUM(data_total) AS at_rest_total, DATE(interval_end_time) AS start_time
+			FROM storagenode_storage_tallies
+			WHERE node_id = ?
+			AND NOT EXISTS (SELECT 1 FROM r WHERE DATE(r.start_time) = DATE(interval_end_time))
+			AND (SELECT value FROM accounting_timestamps WHERE name = ?) < interval_end_time AND interval_end_time <= ?
+			GROUP BY start_time
+		ORDER BY start_time`
 
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
+		nodeID, start, end,
+		nodeID, accounting.LastRollup, end)
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -226,32 +250,17 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
-		var startTime time.Time
-		var prevAtRestTotal sql.NullFloat64
-		var prevStartTime dbutil.NullTime
+		var startTime dbutil.NullTime
 
-		err = rows.Scan(&atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
+		err = rows.Scan(&atRestTotal, &startTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		// skip first entry as we can not extract hours
-		// properly without storagenode storage tallies
-		// which formed this value
-		if !prevStartTime.Valid {
-			continue
-		}
-
-		atRest := atRestTotal - prevAtRestTotal.Float64
-		hours := startTime.Sub(prevStartTime.Time).Hours()
-		if hours != 0 {
-			atRest /= hours
-		}
-
 		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
 			NodeID:      nodeID,
-			StorageUsed: atRest,
-			Timestamp:   startTime,
+			StorageUsed: atRestTotal,
+			Timestamp:   startTime.Time,
 		})
 	}
 

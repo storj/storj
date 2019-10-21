@@ -38,24 +38,35 @@
                 </svg>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever.(drop from the satellite)</p>
+                <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever (drop from the satellite).</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
                     class='full-input'
                     width='100%'
-                    isPassword
+                    is-password="true"
                     :error='passwordError'
-                    @setData='setPassword'>
-                </HeaderedInput>
+                    @setData='setPassword'
+                />
                 <div class='delete-account__form-container__button-container'>
-                    <Button label='Cancel' width='205px' height='48px' :onPress='onCloseClick' isWhite="true"/>
-                    <Button label='Delete' width='205px' height='48px' class='red' :onPress='onDeleteAccountClick'/>
+                    <VButton
+                        label='Cancel'
+                        width='205px' height='48px'
+                        :on-press='onCloseClick'
+                        is-white="true"
+                    />
+                    <VButton
+                        label='Delete'
+                        width='205px'
+                        height='48px'
+                        class='red'
+                        :on-press='onDeleteAccountClick'
+                    />
                 </div>
             </div>
             <div class='delete-account__close-cross-container' @click='onCloseClick'>
                 <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                    <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
+                    <path class="close-cross-svg-path" d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
                 </svg>
             </div>
         </div>
@@ -63,56 +74,68 @@
 </template>
 
 <script lang='ts'>
-    import { Component, Vue } from 'vue-property-decorator';
-    import { AuthApi } from '@/api/auth';
-    import Button from '@/components/common/Button.vue';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderedInput,
-            Button
-        }
-    })
-    export default class DeleteAccountPopup extends Vue {
-        public passwordError: string = '';
-        private password: string = '';
-        private isLoading: boolean = false;
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { AuthToken } from '@/utils/authToken';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { validatePassword } from '@/utils/validation';
 
-        public setPassword(value: string): void {
-            this.password = value;
-        }
+@Component({
+    components: {
+        HeaderedInput,
+        VButton,
+    },
+})
+export default class DeleteAccountPopup extends Vue {
+    public passwordError: string = '';
+    private password: string = '';
+    private isLoading: boolean = false;
 
-        public async onDeleteAccountClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
+    private readonly auth: AuthApi = new AuthApi();
 
-            this.isLoading = true;
+    public setPassword(value: string): void {
+        this.password = value;
+        this.passwordError = '';
+    }
 
-            try {
-                await this.auth.delete(this.password);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
-
-                AuthToken.remove();
-
-                this.isLoading = false;
-                this.$router.push(ROUTES.LOGIN.path);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.isLoading = false;
-            }
+    public async onDeleteAccountClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
         }
 
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+        this.isLoading = true;
+
+        if (!validatePassword(this.password)) {
+            this.passwordError = 'Invalid password. Must be 6 or more characters';
+            this.isLoading = false;
+
+            return;
+        }
+
+        try {
+            await this.auth.delete(this.password);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
+
+            AuthToken.remove();
+
+            this.isLoading = false;
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+            await this.$router.push(RouteConfig.Login.path);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.isLoading = false;
         }
     }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+    }
+}
 </script>
 
 <style scoped lang='scss'>
@@ -127,6 +150,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_regular';
     }
 
     .input-container.full-input {
@@ -138,9 +162,7 @@
     }
 
     .text {
-        margin: 0;
-        margin-bottom: 0 !important;
-        font-family: 'font_regular' !important;
+        margin: 0 !important;
         font-size: 16px;
         line-height: 25px;
     }
@@ -169,8 +191,7 @@
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
-                margin-bottom: 60px;
-                margin-top: 0;
+                margin: 0 0 60px 0;
             }
         }
 
@@ -178,9 +199,8 @@
             width: 100%;
             max-width: 450px;
 
-            p {
-                margin: 0;
-                margin-bottom: 25px;
+            &__confirmation-text {
+                margin: 0 0 25px 0;
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 25px;
@@ -188,12 +208,6 @@
                 &:nth-child(2) {
                     margin-top: 20px;
                 }
-            }
-
-            a {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #2683FF;
             }
 
             &__button-container {
@@ -217,7 +231,7 @@
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }

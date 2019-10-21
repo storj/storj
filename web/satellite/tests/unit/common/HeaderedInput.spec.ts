@@ -1,11 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
-describe('HeaderedInput.vue', () => {
+import { mount, shallowMount } from '@vue/test-utils';
 
+describe('HeaderedInput.vue', () => {
     it('renders correctly with default props', () => {
 
         const wrapper = shallowMount(HeaderedInput);
@@ -16,7 +16,7 @@ describe('HeaderedInput.vue', () => {
     it('renders correctly with isMultiline props', () => {
 
         const wrapper = shallowMount(HeaderedInput, {
-            propsData: {isMultiline: true}
+            propsData: {isMultiline: true},
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -25,39 +25,39 @@ describe('HeaderedInput.vue', () => {
     });
 
     it('renders correctly with props', () => {
-        let label = 'testLabel';
-        let additionalLabel = 'addLabel';
-        let width = '30px';
-        let height = '20px';
+        const label = 'testLabel';
+        const additionalLabel = 'addLabel';
+        const width = '30px';
+        const height = '20px';
 
         const wrapper = shallowMount(HeaderedInput, {
-            propsData: {label, width, height, additionalLabel}
+            propsData: {label, width, height, additionalLabel},
         });
 
         expect(wrapper.find('input').element.style.width).toMatch(width);
         expect(wrapper.find('input').element.style.height).toMatch(height);
         expect(wrapper.find('.label-container').text()).toMatch(label);
-        expect(wrapper.find('.label-container__add-label').text()).toMatch(additionalLabel);
+        expect(wrapper.find('.add-label').text()).toMatch(additionalLabel);
     });
 
     it('renders correctly with isOptional props', () => {
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {
-                isOptional: true
-            }
+                isOptional: true,
+            },
         });
 
         expect(wrapper.find('h4').text()).toMatch('Optional');
     });
 
     it('renders correctly with input error', () => {
-        let error = 'testError';
+        const error = 'testError';
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {
-                error
-            }
+                error,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -65,7 +65,7 @@ describe('HeaderedInput.vue', () => {
     });
 
     it('emit setData on input correctly', () => {
-        let testData = 'testData';
+        const testData = 'testData';
 
         const wrapper = mount(HeaderedInput);
 

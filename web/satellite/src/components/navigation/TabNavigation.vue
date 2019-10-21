@@ -3,21 +3,26 @@
 
 <template>
     <div class="tab-navigation-container">
-        <router-link :to="navLink.path" class="tab-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
-            <p>{{navLink.name}}</p>
+        <router-link
+            :to="navLink.path"
+            class="tab-navigation-container__item"
+            v-for="navLink in navigation"
+            :key="navLink.name">
+            <p class="tab-navigation-container__item__name">{{navLink.name}}</p>
         </router-link>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NavigationLink } from '@/types/navigation';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({})
-    export default class TabNavigation extends Vue {
-        @Prop({default: new Array(NavigationLink)})
-        private navigation: NavigationLink[];
-    }
+import { NavigationLink } from '@/types/navigation';
+
+@Component
+export default class TabNavigation extends Vue {
+    @Prop({default: new Array(NavigationLink)})
+    private navigation: NavigationLink[];
+}
 </script>
 
 <style scoped lang="scss">
@@ -33,7 +38,7 @@
             align-items: center;
             justify-content: center;
             
-            p {
+            &__name {
                 font-family: 'font_medium';
                 font-size: 14px;
                 line-height: 20px;
@@ -43,8 +48,8 @@
             &.router-link-exact-active,
             &:hover {
                 border-bottom: 3px solid #2683FF;
-                
-                p {
+
+                .tab-navigation-container__item__name {
                     color: #354049;
                 }
             }

@@ -19,6 +19,9 @@
 /.vscode
 debug
 
+# Visual Studio
+/.vs
+
 # Jetbrains
 .idea/
 
@@ -27,7 +30,6 @@ debug
 
 /release/
 *.swp
-*.svg
 /bin
 resource.syso
 

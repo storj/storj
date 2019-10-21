@@ -26,18 +26,14 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
 		testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 10,
+			StorageNodeCount: 5,
 			UplinkCount:      1,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
 		},
 	)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
-
 	planet.Start(ctx)
-
-	// make sure nodes are refreshed in db
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	run(ctx, planet)
 }
@@ -46,7 +42,7 @@ func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplinkInclude := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -69,7 +65,7 @@ func TestC(t *testing.T) {
 					Dest:    testName,
 					Sources: []string{ctest},
 					Includes: []testcontext.Include{
-						libuplink_include,
+						libuplinkInclude,
 						definition,
 						testcontext.CLibMath,
 					},
@@ -80,7 +76,8 @@ func TestC(t *testing.T) {
 					cmd.Dir = filepath.Dir(testexe)
 					cmd.Env = append(os.Environ(),
 						"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
-						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
+						"TMP_DIR"+ctx.Dir("c_temp"),
 					)
 
 					out, err := cmd.CombinedOutput()

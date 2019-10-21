@@ -55,8 +55,11 @@ model irreparabledb (
 	field repair_attempt_count int64 ( updatable )
 )
 
-create irreparabledb ( )
-update irreparabledb ( where irreparabledb.segmentpath = ? )
+create irreparabledb ( noreturn )
+update irreparabledb (
+	where irreparabledb.segmentpath = ?
+	noreturn
+)
 delete irreparabledb ( where irreparabledb.segmentpath = ? )
 
 read one (
@@ -80,8 +83,11 @@ model accounting_timestamps (
 	field value timestamp ( updatable )
 )
 
-create accounting_timestamps ( )
-update accounting_timestamps ( where accounting_timestamps.name = ? )
+create accounting_timestamps ( noreturn )
+update accounting_timestamps (
+	where accounting_timestamps.name = ?
+	noreturn
+)
 
 read scalar (
 	select accounting_timestamps.value
@@ -102,7 +108,7 @@ model accounting_rollup (
 	field at_rest_total    float64
 )
 
-create accounting_rollup ( )
+create accounting_rollup ( noreturn )
 delete accounting_rollup ( where accounting_rollup.id = ? )
 
 read one (
@@ -161,10 +167,19 @@ model node (
 	field audit_reputation_beta   float64 ( updatable )
 	field uptime_reputation_alpha float64 ( updatable )
 	field uptime_reputation_beta  float64 ( updatable )
+
+    field exit_initiated_at         utimestamp ( updatable, nullable )
+    field exit_loop_completed_at    utimestamp ( updatable, nullable )
+    field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_success              bool ( updatable )
 )
 
-create node ( )
+create node ( noreturn )
 update node ( where node.id = ? )
+update node (
+	where node.id = ?
+	noreturn
+)
 delete node ( where node.id = ? )
 
 // "Get" query; fails if node not found
@@ -190,6 +205,11 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read all (
+    select node.id node.piece_count
+    where node.piece_count != 0
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
@@ -211,6 +231,7 @@ model user (
 
     field id               blob
     field email            text      ( updatable )
+    field normalized_email text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
     field password_hash    blob      ( updatable )
@@ -226,30 +247,12 @@ delete user ( where user.id = ? )
 
 read one (
     select user
-    where user.email = ?
+    where user.normalized_email = ?
     where user.status != 0
 )
 read one (
     select user
     where user.id = ?
-)
-
-// add payment method id to indentify if it has been set up
-model user_payment (
-    key    user_id
-    unique customer_id
-
-    field user_id       user.id   cascade
-    field customer_id   blob
-
-    field created_at    timestamp ( autoinsert )
-)
-
-create user_payment ( )
-
-read one (
-    select user_payment
-    where  user_payment.user_id = ?
 )
 
 model project (
@@ -287,40 +290,6 @@ read all (
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
-)
-
-model project_payment (
-    key id
-
-    field id                blob
-
-    field project_id        project.id              cascade
-    field payer_id          user_payment.user_id    cascade
-    field payment_method_id blob
-    field is_default        bool ( updatable )
-
-    field created_at        timestamp  ( autoinsert )
-)
-
-create project_payment ( )
-update project_payment ( where project_payment.id = ? )
-delete project_payment ( where project_payment.id = ? )
-
-read one (
-    select project_payment
-    where project_payment.id = ? )
-read one (
-    select project_payment
-    where project_payment.project_id = ?
-    where project_payment.is_default = true
-)
-read all (
-    select project_payment
-    where project_payment.project_id = ?
-)
-read all (
-    select project_payment
-    where project_payment.payer_id = ?
 )
 
 model project_invoice_stamp (
@@ -388,8 +357,11 @@ model api_key (
     field  created_at  timestamp  (autoinsert)
 )
 
-create api_key ()
-update api_key ( where api_key.id = ? )
+create api_key ( )
+update api_key ( 
+	where api_key.id = ?
+	noreturn
+)
 delete api_key ( where api_key.id = ? )
 
 read one (
@@ -399,6 +371,11 @@ read one (
 read one (
     select api_key
     where api_key.head = ?
+)
+read one (
+    select api_key
+    where api_key.name = ?
+    where api_key.project_id = ?
 )
 read all (
     select api_key
@@ -432,7 +409,7 @@ model bucket_usage (
     field  audit_egress       uint64
 )
 
-create bucket_usage ()
+create bucket_usage ( )
 delete bucket_usage ( where bucket_usage.id = ? )
 
 read one (
@@ -483,7 +460,7 @@ model used_serial (
 )
 
 // inserting a new serial number
-create serial_number ()
+create serial_number ( noreturn )
 
 // finding out information about the serial number
 read scalar (
@@ -497,7 +474,7 @@ delete serial_number (
 )
 
 // for preventing duplicate serial numbers
-create used_serial ()
+create used_serial ( noreturn )
 
 // --- bucket accounting tables --- //
 
@@ -546,12 +523,16 @@ model bucket_storage_tally (
 	field  metadata_size      uint64
 )
 
-create bucket_storage_tally ()
+create bucket_storage_tally ( noreturn )
 
 read first (
     select bucket_storage_tally
     where bucket_storage_tally.project_id = ?
     orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
 )
 
 read all (
@@ -602,7 +583,7 @@ model storagenode_storage_tally (
 	field data_total				float64
 )
 
-create storagenode_storage_tally ()
+create storagenode_storage_tally ( noreturn )
 delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
 read one (
 		select storagenode_storage_tally
@@ -614,6 +595,32 @@ read all (
 read all (
 	select storagenode_storage_tally
 	where storagenode_storage_tally.interval_end_time >= ?
+)
+
+//--- peer_identity ---//
+
+model peer_identity (
+    key node_id
+
+    field node_id            blob
+    field leaf_serial_number blob (updatable)
+    field chain              blob (updatable) // x509 ASN.1 DER content 
+    field updated_at         timestamp ( autoinsert, autoupdate )
+)
+
+create peer_identity ( noreturn )
+update peer_identity (
+	where  peer_identity.node_id = ?
+	noreturn
+)
+
+read one (
+    select peer_identity
+    where  peer_identity.node_id = ?
+)
+read one (
+    select peer_identity.leaf_serial_number
+    where  peer_identity.node_id = ?
 )
 
 //--- satellite registration token for Vanguard release (temporary table) ---//
@@ -703,6 +710,7 @@ read all (
 
 update offer (
 	where offer.id = ?
+	noreturn
 )
 
 create offer ( )
@@ -800,3 +808,104 @@ read limitoffset ( // After
 	where bucket_metainfo.name > ?
 	orderby asc bucket_metainfo.name
 )
+
+//--- graceful exit progress ---//
+
+model graceful_exit_progress (
+	table graceful_exit_progress
+    key node_id
+
+    field node_id              blob
+    field bytes_transferred    int64 ( updatable )
+	field pieces_transferred   int64 ( autoinsert, updatable )
+	field pieces_failed        int64 ( autoinsert, updatable )
+    field updated_at           utimestamp ( autoinsert, autoupdate )
+)
+
+create graceful_exit_progress ( noreturn )
+update graceful_exit_progress ( 
+	where graceful_exit_progress.node_id = ?
+	noreturn
+)
+delete graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
+read one (
+	select graceful_exit_progress
+	where graceful_exit_progress.node_id = ? 
+)
+
+//--- graceful exit transfer queue ---//
+
+model graceful_exit_transfer_queue (
+	table graceful_exit_transfer_queue
+    key node_id path
+
+    field node_id             blob
+    field path                blob
+    field piece_num           int
+    field durability_ratio    float64    ( updatable )
+    field queued_at           utimestamp ( autoinsert ) 
+    field requested_at        utimestamp ( updatable, nullable ) 
+    field last_failed_at      utimestamp ( updatable, nullable ) 
+    field last_failed_code    int        ( updatable, nullable )
+    field failed_count        int        ( updatable, nullable )
+    field finished_at         utimestamp ( updatable, nullable )
+)
+
+create graceful_exit_transfer_queue ( noreturn )
+update graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.path = ?
+	noreturn
+)
+delete graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+)
+
+delete graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.path = ?
+)
+
+delete graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.finished_at != null
+)
+
+read one ( 
+	select graceful_exit_transfer_queue
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.path = ?
+)
+
+//--- satellite payments ---//
+
+model stripe_customer (
+    key user_id
+    unique customer_id
+
+    field user_id     blob
+    field customer_id text
+    field created_at  timestamp ( autoinsert )
+)
+
+create stripe_customer ( )
+read one (
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
+)
+
+model coinpayments_transaction (
+    key id
+
+    field id       text
+    field user_id  blob
+    field address  text
+    field amount   blob
+    field received blob ( updatable )
+    field status   int  ( updatable )
+    field key      text
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()

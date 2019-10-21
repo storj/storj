@@ -4,6 +4,8 @@
 package marketingweb_test
 
 import (
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,7 +30,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 
 		requests := []CreateRequest{
 			{
-				Path: "/create/referral-offer",
+				Path: "/create/referral",
 				Values: url.Values{
 					"Name":                      {"Referral Credit"},
 					"Description":               {"desc"},
@@ -40,7 +42,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 					"RedeemableCap":             {"150"},
 				},
 			}, {
-				Path: "/create/free-credit-offer",
+				Path: "/create/free-credit",
 				Values: url.Values{
 					"Name":                      {"Free Credit"},
 					"Description":               {"desc"},
@@ -50,9 +52,9 @@ func TestCreateAndStopOffers(t *testing.T) {
 					"RedeemableCap":             {"150"},
 				},
 			}, {
-				Path: "/create/partner-offer",
+				Path: "/create/partner",
 				Values: url.Values{
-					"Name":                      {"OSPP003-FileZilla"},
+					"Name":                      {"FileZilla"},
 					"Description":               {"desc"},
 					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCredit":             {"50"},
@@ -72,18 +74,43 @@ func TestCreateAndStopOffers(t *testing.T) {
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
-				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				req, err := http.PostForm(baseURL+o.Path, o.Values)
 				if err != nil {
 					return err
 				}
-
-				_, err = http.Get(baseURL)
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				//reading out the rest of the connection
+				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
 					return err
 				}
+				if err := req.Body.Close(); err != nil {
+					return err
+				}
 
-				_, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
+				req, err = http.Get(baseURL)
 				if err != nil {
+					return err
+				}
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					return err
+				}
+				if err := req.Body.Close(); err != nil {
+					return err
+				}
+
+				req, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
+				if err != nil {
+					return err
+				}
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					return err
+				}
+				if err := req.Body.Close(); err != nil {
 					return err
 				}
 

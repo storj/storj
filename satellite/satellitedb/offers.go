@@ -64,7 +64,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	)
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	results := make(rewards.Offers, 0, 0)
+	results := rewards.Offers{}
 	for rows.Next() {
 		o := rewards.Offer{}
 		err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
@@ -153,19 +153,12 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
 func (db *offersDB) Finish(ctx context.Context, oID int) error {
-	updateFields := dbx.Offer_Update_Fields{
-		Status:    dbx.Offer_Status(int(rewards.Done)),
-		ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
-	}
-
-	offerID := dbx.Offer_Id(oID)
-
-	_, err := db.db.Update_Offer_By_Id(ctx, offerID, updateFields)
-	if err != nil {
-		return offerErr.Wrap(err)
-	}
-
-	return nil
+	return offerErr.Wrap(
+		db.db.UpdateNoReturn_Offer_By_Id(ctx,
+			dbx.Offer_Id(oID), dbx.Offer_Update_Fields{
+				Status:    dbx.Offer_Status(int(rewards.Done)),
+				ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
+			}))
 }
 
 func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {

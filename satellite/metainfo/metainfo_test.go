@@ -13,35 +13,24 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
-
-// mockAPIKeys is mock for api keys store of pointerdb
-type mockAPIKeys struct {
-	info console.APIKeyInfo
-	err  error
-}
-
-// GetByKey return api key info for given key
-func (keys *mockAPIKeys) GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error) {
-	return &keys.info, keys.err
-}
 
 func TestInvalidAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -51,12 +40,17 @@ func TestInvalidAPIKey(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
+	throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
+	require.NoError(t, err)
+
 	planet.Start(ctx)
 
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], invalidAPIKey)
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
+
+		client.SetRawAPIKey([]byte(invalidAPIKey))
 
 		_, _, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
@@ -88,8 +82,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 	planet.Start(ctx)
 
-	key, err := macaroon.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
-	require.NoError(t, err)
+	key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 	tests := []struct {
 		Caveat               macaroon.Caveat
@@ -168,7 +161,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		restrictedKey, err := key.Restrict(test.Caveat)
 		require.NoError(t, err)
 
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
@@ -200,10 +193,8 @@ func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 
 	// If it's allowed, we allow any non-unauthenticated error because
 	// some calls error after authentication checks.
-	if err, ok := status.FromError(errs.Unwrap(err)); ok {
-		assert.Equal(t, codes.Unauthenticated == err.Code(), !allowed)
-	} else if !allowed {
-		assert.Fail(t, "got unexpected error", "%T", err)
+	if !allowed {
+		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
 	}
 }
 
@@ -233,11 +224,6 @@ func TestServiceList(t *testing.T) {
 	for _, item := range items {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", item.Key, item.Value)
 		assert.NoError(t, err)
-	}
-
-	type Test struct {
-		Request  storj.ListOptions
-		Expected storj.ObjectList // objects are partial
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
@@ -298,6 +284,11 @@ func TestCommitSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
 		{
 			// error if pointer is nil
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
@@ -320,7 +311,7 @@ func TestCommitSegment(t *testing.T) {
 			usedForPieces := addressedLimits[:redundancy.RepairThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
 			for i, limit := range usedForPieces {
-				pieces[i] = &pb.RemotePiece{
+				newPiece := &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
@@ -329,6 +320,16 @@ func TestCommitSegment(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				}
+
+				fullID := fullIDMap[limit.Limit.StorageNodeId]
+				require.NotNil(t, fullID)
+				signer := signing.SignerFromFullIdentity(fullID)
+				newHash, err := signing.SignPieceHash(ctx, signer, newPiece.Hash)
+				require.NoError(t, err)
+
+				newPiece.Hash = newHash
+
+				pieces[i] = newPiece
 			}
 
 			pointer := &pb.Pointer{
@@ -349,6 +350,7 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 			require.Contains(t, err.Error(), "is less than or equal to the repair threshold")
 		}
 
@@ -369,7 +371,7 @@ func TestCommitSegment(t *testing.T) {
 			usedForPieces := addressedLimits[:redundancy.SuccessThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
 			for i, limit := range usedForPieces {
-				pieces[i] = &pb.RemotePiece{
+				newPiece := &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
@@ -378,6 +380,16 @@ func TestCommitSegment(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				}
+
+				fullID := fullIDMap[limit.Limit.StorageNodeId]
+				require.NotNil(t, fullID)
+				signer := signing.SignerFromFullIdentity(fullID)
+				newHash, err := signing.SignPieceHash(ctx, signer, newPiece.Hash)
+				require.NoError(t, err)
+
+				newPiece.Hash = newHash
+
+				pieces[i] = newPiece
 			}
 
 			pointer := &pb.Pointer{
@@ -553,6 +565,34 @@ func TestExpirationTimeSegment(t *testing.T) {
 	})
 }
 
+func TestMaxCommitInterval(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MaxCommitInterval = -1 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
+		pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
+
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not committed before max commit interval")
+	})
+}
+
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -563,10 +603,16 @@ func TestDoubleCommitSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		pointer, limits := runCreateSegment(ctx, t, metainfo)
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
 
-		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
+
+		savedPointer, err := metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
+		require.True(t, savedPointer.PieceHashesVerified)
 
 		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)
@@ -578,90 +624,123 @@ func TestCommitSegmentPointer(t *testing.T) {
 	// all tests needs to generate error
 	tests := []struct {
 		// defines how modify pointer before CommitSegment
-		Modify       func(pointer *pb.Pointer)
+		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity)
 		ErrorMessage string
 	}{
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.ExpirationDate = pointer.ExpirationDate.Add(time.Second * 100)
 			},
 			ErrorMessage: "pointer expiration date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.MinReq += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.RepairThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.SuccessThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.Total += 100
 			},
 			// this error is triggered earlier then Create/Commit RS comparison
 			ErrorMessage: "invalid no order limit for piece",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.ErasureShareSize += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.Redundancy.Type = 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Type = pb.Pointer_INLINE
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
 		{
 			// no piece hash removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity) {
 				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
+
+				ctx := testcontext.New(t)
+				snFullID := fullIDMap[pointer.Remote.RemotePieces[0].NodeId]
+				require.NotNil(t, snFullID)
+				signer := signing.SignerFromFullIdentity(snFullID)
+				storageNodeHash, err := signing.SignPieceHash(ctx, signer, pointer.Remote.RemotePieces[0].Hash)
+				require.NoError(t, err)
+				pointer.Remote.RemotePieces[0].Hash = storageNodeHash
 			},
 			ErrorMessage: "all pieces needs to have the same size",
 		},
 		{
-			Modify: func(pointer *pb.Pointer) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
 				pointer.SegmentSize = 100
 			},
 			ErrorMessage: "expected piece size is different from provided",
+		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+				// nil piece hash signature removes piece from pointer, not enough pieces for successful upload
+				pointer.Remote.RemotePieces[0].Hash.Signature = nil
+			},
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
+		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+				// invalid piece hash signature removes piece from pointer, not enough pieces for successful upload
+				pointer.Remote.RemotePieces[0].Hash.Signature = nil
+
+				ctx := testcontext.New(t)
+				ca, err := testidentity.NewTestCA(ctx)
+				require.NoError(t, err)
+				badFullID, err := ca.NewIdentity()
+				require.NoError(t, err)
+				signer := signing.SignerFromFullIdentity(badFullID)
+
+				newHash, err := signing.SignPieceHash(ctx, signer, pointer.Remote.RemotePieces[0].Hash)
+				require.NoError(t, err)
+				pointer.Remote.RemotePieces[0].Hash = newHash
+			},
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 	}
 
@@ -674,9 +753,14 @@ func TestCommitSegmentPointer(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
 		for i, test := range tests {
-			pointer, limits := runCreateSegment(ctx, t, metainfo)
-			test.Modify(pointer)
+			pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
+			test.Modify(pointer, fullIDMap)
 
 			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err, "Case #%v", i)
@@ -768,7 +852,7 @@ func TestGetProjectInfo(t *testing.T) {
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client, fullIDMap map[storj.NodeID]*identity.FullIdentity) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 
 	addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
@@ -781,8 +865,16 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 		limits[i] = addressedLimit.Limit
 
 		if len(pointer.Remote.RemotePieces) > i {
-			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
+			nodeID := addressedLimits[i].Limit.StorageNodeId
+			pointer.Remote.RemotePieces[i].NodeId = nodeID
 			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
+
+			snFullID := fullIDMap[nodeID]
+			require.NotNil(t, snFullID)
+			signer := signing.SignerFromFullIdentity(snFullID)
+			storageNodeHash, err := signing.SignPieceHash(ctx, signer, pointer.Remote.RemotePieces[i].Hash)
+			require.NoError(t, err)
+			pointer.Remote.RemotePieces[i].Hash = storageNodeHash
 		}
 	}
 
@@ -983,20 +1075,33 @@ func TestBeginCommitListSegment(t *testing.T) {
 			Position: storj.SegmentPosition{
 				Index: 0,
 			},
-			MaxOderLimit: memory.MiB.Int64(),
+			MaxOrderLimit: memory.MiB.Int64(),
 		})
 		require.NoError(t, err)
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
 		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
+			nodeID := limits[num].Limit.StorageNodeId
+			hash := &pb.PieceHash{
+				PieceId:   limits[num].Limit.PieceId,
+				PieceSize: 1048832,
+				Timestamp: time.Now(),
+			}
+
+			fullID := fullIDMap[nodeID]
+			require.NotNil(t, fullID)
+			signer := signing.SignerFromFullIdentity(fullID)
+			signedHash, err := signing.SignPieceHash(ctx, signer, hash)
+			require.NoError(t, err)
+
 			return &pb.SegmentPieceUploadResult{
 				PieceNum: num,
-				NodeId:   limits[num].Limit.StorageNodeId,
-				Hash: &pb.PieceHash{
-					PieceId:   limits[num].Limit.PieceId,
-					PieceSize: 1048832,
-					Timestamp: time.Now(),
-					// TODO we still not verifying signature in metainfo
-				},
+				NodeId:   nodeID,
+				Hash:     signedHash,
 			}
 		}
 		err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
@@ -1036,6 +1141,68 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
+	})
+}
+
+func TestListSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		data := testrand.Bytes(15 * memory.KiB)
+		config := uplink.GetConfig(planet.Satellites[0])
+		config.Client.SegmentSize = memory.KiB
+		err := uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, "testbucket", "test-path", data)
+		require.NoError(t, err)
+
+		// 15KiB + encryption should be uploaded into 16 segments with SegmentSize == 1KiB
+		numberOfSegments := 16
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+			Limit:  1,
+		})
+		require.NoError(t, err)
+
+		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: items[0].EncryptedPath,
+		})
+		require.NoError(t, err)
+
+		for _, test := range []struct {
+			Index  int32
+			Limit  int32
+			Result int
+			More   bool
+		}{
+			{Index: 0, Result: numberOfSegments},
+			{Index: 0, Result: numberOfSegments, Limit: int32(numberOfSegments), More: false},
+			{Index: 0, Result: 5, Limit: 5, More: true},
+			{Index: 16, Result: 0, More: false},
+			{Index: 11, Result: 5, Limit: 5, More: false},
+			{Index: 15, Result: 1, More: false},
+		} {
+			segments, more, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+				StreamID: object.StreamID,
+				Limit:    test.Limit,
+				CursorPosition: storj.SegmentPosition{
+					Index: test.Index,
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, segments, test.Result)
+			require.Equal(t, test.More, more)
+			if !more && test.Result > 0 {
+				require.Equal(t, int32(-1), segments[test.Result-1].Position.Index)
+			}
+		}
 	})
 }
 
@@ -1200,11 +1367,11 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			items, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+			_, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
-			require.NoError(t, err)
-			require.Empty(t, items)
+			require.Error(t, err)
+			require.True(t, storj.ErrObjectNotFound.Has(err))
 
 			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
 				StreamID: streamID,

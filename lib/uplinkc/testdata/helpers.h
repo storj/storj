@@ -15,10 +15,10 @@ BucketConfig test_bucket_config() {
 
     config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
     config.redundancy_scheme.share_size = 256;
-    config.redundancy_scheme.required_shares = 4;
-    config.redundancy_scheme.repair_shares = 6;
-    config.redundancy_scheme.optimal_shares = 8;
-    config.redundancy_scheme.total_shares = 10;
+    config.redundancy_scheme.required_shares = 2;
+    config.redundancy_scheme.repair_shares = 3;
+    config.redundancy_scheme.optimal_shares = 4;
+    config.redundancy_scheme.total_shares = 5;
 
     return config;
 }
@@ -30,6 +30,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
 
     char *satellite_addr = getenv("SATELLITE_0_ADDR");
     char *apikeyStr = getenv("GATEWAY_0_API_KEY");
+    char *tmp_dir = getenv("TMP_DIR");
 
     printf("using SATELLITE_0_ADDR: %s\n", satellite_addr);
     printf("using GATEWAY_0_API_KEY: %s\n", apikeyStr);
@@ -39,7 +40,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
         cfg.Volatile.tls.skip_peer_ca_whitelist = true; // TODO: add CA Whitelist
 
         // New uplink
-        UplinkRef uplink = new_uplink(cfg, err);
+        UplinkRef uplink = new_uplink(cfg, tmp_dir, err);
         require_noerror(*err);
         requiref(uplink._handle != 0, "got empty uplink\n");
 

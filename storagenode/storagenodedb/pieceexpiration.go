@@ -16,17 +16,11 @@ import (
 // ErrPieceExpiration represents errors from the piece expiration database.
 var ErrPieceExpiration = errs.Class("piece expiration error")
 
-type pieceExpirationDB struct {
-	location string
-	SQLDB
-}
+// PieceExpirationDBName represents the database filename.
+const PieceExpirationDBName = "piece_expiration"
 
-// newPieceExpirationDB returns a new instance of pieceExpirationDB initialized with the specified database.
-func newPieceExpirationDB(db SQLDB, location string) *pieceExpirationDB {
-	return &pieceExpirationDB{
-		location: location,
-		SQLDB:    db,
-	}
+type pieceExpirationDB struct {
+	migratableDB
 }
 
 // GetExpired gets piece IDs that expire or have expired before the given time

@@ -22,6 +22,14 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
+func TestBasicMigrationSqliteNoRebind(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	basicMigration(t, db, db)
+}
+
 func TestBasicMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
@@ -62,6 +70,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
+				DB:          testDB,
 				Description: "Initialize Table",
 				Version:     1,
 				Action: migrate.SQL{
@@ -70,6 +79,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				},
 			},
 			{
+				DB:          testDB,
 				Description: "Move files",
 				Version:     2,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -79,7 +89,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err = m.Run(zap.NewNop(), testDB)
+	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
 
 	var version int
@@ -136,6 +146,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
+				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -144,6 +155,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				}),
 			},
 			{
+				DB:          testDB,
 				Description: "Step 2",
 				Version:     2,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -154,11 +166,12 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err := m.Run(zap.NewNop(), testDB)
+	err := m.Run(zap.NewNop())
 	assert.NoError(t, err)
 	assert.Equal(t, 2, steps)
 
 	m.Steps = append(m.Steps, &migrate.Step{
+		DB:          testDB,
 		Description: "Step 3",
 		Version:     3,
 		Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -166,7 +179,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			return nil
 		}),
 	})
-	err = m.Run(zap.NewNop(), testDB)
+	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
 
 	var version int
@@ -208,6 +221,7 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
+				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -217,7 +231,7 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err := m.Run(zap.NewNop(), testDB)
+	err := m.Run(zap.NewNop())
 	require.Error(t, err, "migration failed")
 
 	var version sql.NullInt64

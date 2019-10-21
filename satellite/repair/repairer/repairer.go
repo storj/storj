@@ -14,13 +14,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink/ecclient"
 )
 
 // Error is a standard error class for this package.
@@ -33,12 +28,14 @@ var (
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
 	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
 	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 }
 
 // Service contains the information needed to run the repair service
+//
+// architecture: Worker
 type Service struct {
 	log      *zap.Logger
 	queue    queue.RepairQueue
@@ -49,16 +46,13 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Service) *Service {
-	client := ecclient.NewClient(log.Named("ecclient"), transport, config.MaxBufferMem.Int())
-	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
-
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
 		log:      log,
 		queue:    queue,
 		config:   config,
-		Limiter:  sync2.NewLimiter(concurrency),
-		Loop:     *sync2.NewCycle(interval),
+		Limiter:  sync2.NewLimiter(config.MaxRepair),
+		Loop:     *sync2.NewCycle(config.Interval),
 		repairer: repairer,
 	}
 }
@@ -87,18 +81,18 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
 			}
 			return err
 		}
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				service.log.Error("repair worker failed:", zap.Error(err))
+				service.log.Error("repair worker failed:", zap.Binary("Segment", seg.GetPath()), zap.Error(err))
 			}
 		})
 	}
@@ -109,17 +103,19 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	service.log.Info("Limiter running repair on segment",
+		zap.Binary("Segment", seg.GetPath()),
+		zap.String("Segment Path", string(seg.GetPath())))
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
 		if IrreparableError.Has(err) {
 			service.log.Error("deleting irreparable segment from the queue:",
 				zap.Error(service.queue.Delete(ctx, seg)),
-				zap.Binary("segment", seg.GetPath()),
+				zap.Binary("Segment", seg.GetPath()),
 			)
 		} else {
-			service.log.Info("deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
+			service.log.Info("deleting segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 		}
 		delErr := service.queue.Delete(ctx, seg)
 		if delErr != nil {

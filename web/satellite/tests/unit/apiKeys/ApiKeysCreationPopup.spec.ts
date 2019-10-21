@@ -1,21 +1,27 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
-import { ApiKey } from '@/types/apiKeys';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
-import { Project } from '@/types/projects';
+
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { ProjectsApiGql } from '@/api/projects';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeNotificationsModule } from '@/store/modules/notifications';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { ApiKey } from '@/types/apiKeys';
+import { Project } from '@/types/projects';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
-const projectsModule = makeProjectsModule();
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
+const notificationsModule = makeNotificationsModule();
 
 const selectedProject = new Project();
 selectedProject.id = '1';
@@ -23,15 +29,15 @@ selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
 const CREATE = API_KEYS_ACTIONS.CREATE;
-const store = new Vuex.Store({modules: { projectsModule, apiKeysModule }});
+const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
 
 describe('ApiKeysCreationPopup', () => {
-    let value = 'testValue';
+    const value = 'testValue';
 
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -76,7 +82,7 @@ describe('ApiKeysCreationPopup', () => {
     });
 
     it('action on onNextClick with name works correctly', async () => {
-        let testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
+        const testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
 
         jest.spyOn(apiKeysApi, 'create').mockReturnValue(
             Promise.resolve(testApiKey));
@@ -91,7 +97,7 @@ describe('ApiKeysCreationPopup', () => {
 
         wrapper.vm.onNextClick();
 
-        let result = await store.dispatch(CREATE, 'testName');
+        const result = await store.dispatch(CREATE, 'testName');
 
         expect(wrapper.vm.$data.key).toBe(result.secret);
         expect(wrapper.vm.$data.isLoading).toBe(false);

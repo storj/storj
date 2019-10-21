@@ -14,8 +14,8 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink/piecestore"
@@ -38,12 +38,14 @@ type Config struct {
 }
 
 // Service implements the garbage collection service
+//
+// architecture: Chore
 type Service struct {
 	log    *zap.Logger
 	config Config
 	Loop   sync2.Cycle
 
-	transport    transport.Client
+	dialer       rpc.Dialer
 	overlay      overlay.DB
 	metainfoLoop *metainfo.Loop
 }
@@ -56,13 +58,13 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, config Config, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop) *Service {
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metainfo.Loop) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		Loop:   *sync2.NewCycle(config.Interval),
 
-		transport:    transport,
+		dialer:       dialer,
 		overlay:      overlay,
 		metainfoLoop: loop,
 	}
@@ -70,13 +72,20 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 
 // Run starts the gc loop service
 func (service *Service) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	if !service.config.Enabled {
 		return nil
 	}
 
-	// TODO retrieve piece counts from overlay (when there is a column for them)
-	lastPieceCounts := make(map[storj.NodeID]int)
+	// load last piece counts from overlay db
+	lastPieceCounts, err := service.overlay.AllPieceCounts(ctx)
+	if err != nil {
+		service.log.Error("error getting last piece counts", zap.Error(err))
+	}
+	if lastPieceCounts == nil {
+		lastPieceCounts = make(map[storj.NodeID]int)
+	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -90,12 +99,18 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		// save piece counts for next iteration
+		// save piece counts in memory for next iteration
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
 		for id, info := range pieceTracker.retainInfos {
 			lastPieceCounts[id] = info.Count
+		}
+
+		// save piece counts to db for next satellite restart
+		err = service.overlay.UpdatePieceCounts(ctx, lastPieceCounts)
+		if err != nil {
+			service.log.Error("error updating piece counts", zap.Error(err))
 		}
 
 		// monitor information
@@ -131,7 +146,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 		return Error.Wrap(err)
 	}
 
-	client, err := piecestore.Dial(ctx, service.transport, &dossier.Node, log, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, service.dialer, &dossier.Node, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}

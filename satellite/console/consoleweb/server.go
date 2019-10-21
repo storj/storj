@@ -24,8 +24,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -59,9 +61,18 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
+
+	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
 // Server represents console web server
+//
+// architecture: Endpoint
 type Server struct {
 	log *zap.Logger
 
@@ -83,7 +94,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -103,23 +114,32 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
+	paymentController := consoleapi.NewPayments(logger, service)
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
+	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+
+	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
+	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
+	router.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
+	router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+	router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
-		Handler: mux,
+		Handler:        router,
+		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
 	return &server
@@ -144,7 +164,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return server.server.Shutdown(nil)
+		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
 		defer cancel()
@@ -170,12 +190,101 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		"img-src 'self' data:",
 	}
 
-	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+	header.Set("X-Content-Type-Options", "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
 		server.serveError(w, r, http.StatusNotFound)
+		return
+	}
+}
+
+// tokenRequestHandler authenticates User by credentials and returns auth token.
+func (server *Server) tokenHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var tokenRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var tokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	tokenResponse.Token, err = server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	if err != nil {
+		server.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(tokenResponse)
+	if err != nil {
+		server.log.Error("token handler could not encode token response", zap.Error(err))
+		return
+	}
+}
+
+// registerHandler registers new User.
+func (server *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		UserInfo       console.CreateUser `json:"userInfo"`
+		SecretInput    string             `json:"secret"`
+		ReferrerUserID string             `json:"referrerUserID"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := server.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
+	if err != nil {
+		server.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		server.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	link := server.config.ExternalAddress + consoleql.ActivationPath + token
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&consoleql.AccountActivationEmail{
+			ActivationLink: link,
+			Origin:         server.config.ExternalAddress,
+		},
+	)
+
+	err = json.NewEncoder(w).Encode(&user.ID)
+	if err != nil {
+		server.log.Error("registration handler could not encode error", zap.Error(err))
 		return
 	}
 }
@@ -186,68 +295,54 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var projectID *uuid.UUID
-	var since, before time.Time
-
-	tokenCookie, err := r.Cookie("tokenKey")
+	tokenCookie, err := r.Cookie("_tokenKey")
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-
-		// TODO: use http.StatusUnauthorized status when appropriate page will be created
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, r, http.StatusUnauthorized)
 		return
 	}
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-
-		//TODO: when new error pages will be created - change http.StatusNotFound on http.StatusUnauthorized
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, r, http.StatusUnauthorized)
 		return
 	}
 
-	defer func() {
-		if err != nil {
-			server.log.Error("bucket usage report error", zap.Error(err))
-
-			server.serveError(w, r, http.StatusNotFound)
-			return
-		}
-	}()
+	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
-	projectID, err = uuid.Parse(r.URL.Query().Get("projectID"))
+	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 
-	since = time.Unix(sinceStamp, 0)
-	before = time.Unix(beforeStamp, 0)
+	since := time.Unix(sinceStamp, 0)
+	before := time.Unix(beforeStamp, 0)
 
 	server.log.Debug("querying bucket usage report",
 		zap.Stringer("projectID", projectID),
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
-	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
+		server.log.Error("bucket usage report error", zap.Error(err))
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
 	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
-		server.log.Error("satellite/console/server: usage report template could not be executed", zap.Error(err))
-		server.serveError(w, r, http.StatusNotFound)
-		return
+		server.log.Error("bucket usage report error", zap.Error(err))
 	}
 }
 
@@ -389,6 +484,22 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 	}
 }
 
+// serveJSONError writes JSON error to response output stream.
+func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+
+	var response struct {
+		Error string `json:"error"`
+	}
+
+	response.Error = err.Error()
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		server.log.Error("failed to write json error response", zap.Error(err))
+	}
+}
+
 // grapqlHandler is graphql endpoint http handler function
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -396,7 +507,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
 	token := getToken(r)
-	query, err := getQuery(r)
+	query, err := getQuery(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -417,6 +528,9 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
 	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
+	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
+	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
+	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
 
 	result := graphql.Do(graphql.Params{
 		Schema:         server.schema,
@@ -437,6 +551,19 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
+// seoHandler used to communicate with web crawlers and other web robots
+func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+	header := w.Header()
+
+	header.Set(contentType, mime.TypeByExtension(".txt"))
+	header.Set("X-Content-Type-Options", "nosniff")
+
+	_, err := w.Write([]byte(server.config.SEO))
+	if err != nil {
+		server.log.Error(err.Error())
+	}
+}
+
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -455,6 +582,9 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
 		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
 		// just return original file
 		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
@@ -462,7 +592,6 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
 		// updating request URL

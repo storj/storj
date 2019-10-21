@@ -87,7 +87,7 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
 
 // cmdSetupInteractive sets up uplink interactively.
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
@@ -160,9 +160,7 @@ Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
 
-* Run 'uplink --help' to see the operations that can be performed
-
-* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands`)
+* See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
 }

@@ -20,7 +20,7 @@
                 <path d="M34.2528 13.2999C33.8543 13.2999 33.5555 12.8333 33.6053 12.2111C33.6053 11.5888 33.9041 11.2 34.3026 11.2C34.701 11.2 34.9999 11.6666 34.9999 12.2888C34.9501 12.8333 34.6014 13.2999 34.2528 13.2999Z" fill="#2683FF"/>
             </svg>
         </div>
-        <img v-if="props.logoPath" :src="props.logoPath" alt="card-logo" class="chosen-card-container__logo">
+        <img v-if="props.logoPath" :src="props.logoPath" alt="Specific card logo" class="chosen-card-container__logo">
         <div class="chosen-card-container__credentials">
             <p class="chosen-card-container__credentials__number">xxxx<span>{{props.lastDigits}}</span></p>
             <p class="chosen-card-container__credentials__name">{{props.fullName}}</p>
@@ -34,28 +34,28 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class CardChoiceItem extends Vue {
-        @Prop({default: false})
-        private isChosen: boolean;
+@Component
+export default class CardChoiceItem extends Vue {
+    @Prop({default: false})
+    private isChosen: boolean;
 
-        @Prop({default: '0000'})
-        private lastDigits: string;
+    @Prop({default: '0000'})
+    private lastDigits: string;
 
-        @Prop({default: 'Shawn Wilkinson'})
-        private fullName: string;
+    @Prop({default: 'Shawn Wilkinson'})
+    private fullName: string;
 
-        @Prop({default: 'Expires'})
-        private expireLabel: string;
+    @Prop({default: 'Expires'})
+    private expireLabel: string;
 
-        @Prop({default: '12/2020'})
-        private expireDate: string;
+    @Prop({default: '12/2020'})
+    private expireDate: string;
 
-        @Prop()
-        private logoPath: string;
-    }
+    @Prop()
+    private logoPath: string;
+}
 </script>
 
 <style scoped lang="scss">

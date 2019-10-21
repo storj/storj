@@ -4,8 +4,6 @@
 package testplanet
 
 import (
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
@@ -15,45 +13,59 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storage/postgreskv"
 )
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
-	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
-	t.Log("schema-suffix ", schemaSuffix)
-
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
-		t.Run(satelliteDB.Name, func(t *testing.T) {
+		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
 			t.Parallel()
+
+			schemaSuffix := satellitedbtest.SchemaSuffix()
+			t.Log("schema-suffix ", schemaSuffix)
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			if satelliteDB.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", satelliteDB.Name, satelliteDB.Message)
+			if satelliteDB.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
 			}
 
 			planetConfig := config
-			planetConfig.Reconfigure.NewBootstrapDB = nil
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.URL, schema))
+				schema := satellitedbtest.SchemaName(t.Name(), "S", index, schemaSuffix)
+
+				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				err = db.CreateSchema(schema)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				return &satelliteSchema{
-					DB:     db,
-					schema: schema,
+				return &satellitedbtest.SchemaDB{
+					DB:       db,
+					Schema:   schema,
+					AutoDrop: true,
 				}, nil
+			}
+
+			if satelliteDB.PointerDB.URL != "" {
+				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
+					schema := satellitedbtest.SchemaName(t.Name(), "P", index, schemaSuffix)
+
+					db, err := postgreskv.New(pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema))
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					return &satellitePointerSchema{
+						Client: db,
+						schema: schema,
+					}, nil
+				}
 			}
 
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
@@ -64,23 +76,21 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planet.Start(ctx)
 
-			// make sure nodes are refreshed in db
-			planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 			test(t, ctx, planet)
 		})
 	}
 }
 
-// satelliteSchema closes database and drops the associated schema
-type satelliteSchema struct {
-	satellite.DB
+// satellitePointerSchema closes database and drops the associated schema
+type satellitePointerSchema struct {
+	*postgreskv.Client
 	schema string
 }
 
-func (db *satelliteSchema) Close() error {
+// Close closes the database and drops the schema.
+func (db *satellitePointerSchema) Close() error {
 	return errs.Combine(
-		db.DB.DropSchema(db.schema),
-		db.DB.Close(),
+		db.Client.DropSchema(db.schema),
+		db.Client.Close(),
 	)
 }

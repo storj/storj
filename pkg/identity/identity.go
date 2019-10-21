@@ -18,12 +18,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -197,17 +196,8 @@ func PeerIdentityFromChain(chain []*x509.Certificate) (*PeerIdentity, error) {
 }
 
 // PeerIdentityFromPeer loads a PeerIdentity from a peer connection.
-func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
-	if peer.AuthInfo == nil {
-		return nil, Error.New("peer AuthInfo is nil")
-	}
-
-	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)
-	if !ok {
-		return nil, Error.New("peer AuthInfo is not credentials.TLSInfo")
-	}
-
-	chain := tlsInfo.State.PeerCertificates
+func PeerIdentityFromPeer(peer *rpcpeer.Peer) (*PeerIdentity, error) {
+	chain := peer.State.PeerCertificates
 	if len(chain)-1 < peertls.CAIndex {
 		return nil, Error.New("invalid certificate chain")
 	}
@@ -215,18 +205,16 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return pi, nil
 }
 
 // PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials.
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
+	peer, err := rpcpeer.FromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	return PeerIdentityFromPeer(p)
+	return PeerIdentityFromPeer(peer)
 }
 
 // NodeIDFromCertPath loads a node ID from a certificate file path.
@@ -286,9 +274,7 @@ func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, err
 // ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
 func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 	combinedChains := make([][]*x509.Certificate, len(chains))
-	for i, chain := range chains {
-		combinedChains[i] = chain
-	}
+	copy(combinedChains, chains)
 	return combinedChains
 }
 
@@ -407,35 +393,27 @@ func (ic PeerConfig) Load() (*PeerIdentity, error) {
 	}
 	pi, err := PeerIdentityFromPEM(c)
 	if err != nil {
-		return nil, errs.New("failed to load identity %#v: %v",
-			ic.CertPath, err)
+		return nil, errs.New("failed to load identity %#v: %v", ic.CertPath, err)
 	}
 	return pi, nil
 }
 
 // Save saves a PeerIdentity according to the config
 func (ic PeerConfig) Save(peerIdent *PeerIdentity) error {
-	var (
-		certData                         bytes.Buffer
-		writeChainErr, writeChainDataErr error
-	)
-
 	chain := []*x509.Certificate{peerIdent.Leaf, peerIdent.CA}
 	chain = append(chain, peerIdent.RestChain...)
 
 	if ic.CertPath != "" {
-		writeChainErr = peertls.WriteChain(&certData, chain...)
-		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+		var certData bytes.Buffer
+		err := peertls.WriteChain(&certData, chain...)
+		if err != nil {
+			return err
+		}
+
+		return writeChainData(ic.CertPath, certData.Bytes())
 	}
 
-	writeErr := errs.Combine(writeChainErr)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return errs.Combine(
-		writeChainDataErr,
-	)
+	return nil
 }
 
 // SaveBackup saves the certificate of the config with a timestamped filename

@@ -9,72 +9,73 @@
                 v-for="(stat, key) in stats"
                 :key="key"
                 :style="stat.background">
-                    <span class="referral-stats__card-text">
-                        <span class="referral-stats__card-title">{{ stat.title }}</span>
-                        <span class="referral-stats__card-description">{{ stat.description }}</span>
-                    </span>
-                    <br>
-                    <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
+                <span class="referral-stats__card-text">
+                    <span class="referral-stats__card-title">{{ stat.title }}</span>
+                    <span class="referral-stats__card-description">{{ stat.description }}</span>
+                </span>
+                <br>
+                <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
-    import { CreditUsage } from '@/types/credits';
+import { Component, Vue } from 'vue-property-decorator';
 
-    class CreditDescription {
-        public title: string;
-        public description: string;
-        public symbol: string;
+import { CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
+import { CreditUsage } from '@/types/credits';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        // possibly we could add some 'style' type
-        public style: any;
+class CreditDescription {
+    public title: string;
+    public description: string;
+    public symbol: string;
 
-        constructor(title: string, description: string, symbol: string, color: string) {
-            this.title = title;
-            this.description = description;
-            this.symbol = symbol;
-            this.style = { backgroundColor: color };
+    // possibly we could add some 'style' type
+    public style: any;
+
+    constructor(title: string, description: string, symbol: string, color: string) {
+        this.title = title;
+        this.description = description;
+        this.symbol = symbol;
+        this.style = { backgroundColor: color };
+    }
+}
+
+@Component
+export default class ReferralStats extends Vue {
+    private readonly TITLE_SUFFIX: string = 'Here Are Your Referrals So Far';
+    private stats: CreditDescription[] = [
+        new CreditDescription('referrals made', 'People you referred who signed up', '', '#FFFFFF'),
+        new CreditDescription('earned credits', 'Free credits that will apply to your upcoming bill', '$', 'rgba(217, 225, 236, 0.5)'),
+        new CreditDescription('applied credits', 'Free credits that have already been applied to your bill', '$', '#D1D7E0'),
+    ];
+
+    public async mounted() {
+        // TODO: we pre-fetch all data in /src/views/Dashboard, but this is tardigrade related, so could be here
+        await this.fetch();
+    }
+
+    public async fetch(): Promise<void> {
+        try {
+            await this.$store.dispatch(CREDIT_USAGE_ACTIONS.FETCH);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch credit usage: ' + error.message);
         }
     }
 
-    @Component
-    export default class ReferralStats extends Vue {
-        private readonly TITLE_SUFFIX: string = 'Here Are Your Referrals So Far';
-        private stats: CreditDescription[] = [
-            new CreditDescription('referrals made', 'People you referred who signed up', '', '#FFFFFF'),
-            new CreditDescription('earned credits', 'Free credits that will apply to your upcoming bill', '$', 'rgba(217, 225, 236, 0.5)'),
-            new CreditDescription('applied credits', 'Free credits that have already been applied to your bill', '$', '#D1D7E0'),
-        ];
+    public get title(): string {
+        // TODO: not sure that we are able to create a user with empty name
+        const name = this.$store.state.usersModule.fullName || '' ;
 
-        public async mounted() {
-            // TODO: we pre-fetch all data in /src/views/Dashboard, but this is tardigrade related, so could be here
-            await this.fetch();
-        }
-
-        public async fetch(): Promise<void> {
-            try {
-                await this.$store.dispatch(CREDIT_USAGE_ACTIONS.FETCH);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch credit usage: ' + error.message);
-            }
-        }
-
-        public get title(): string {
-            // TODO: not sure that we are able to create a user with empty name
-            let name = this.$store.state.usersModule.fullName || '' ;
-
-            return name.length > 0 ? `${name}, ${this.TITLE_SUFFIX}` : this.TITLE_SUFFIX;
-        }
-
-        public get usage(): CreditUsage {
-            return this.$store.getters.credits;
-        }
+        return name.length > 0 ? `${name}, ${this.TITLE_SUFFIX}` : this.TITLE_SUFFIX;
     }
+
+    public get usage(): CreditUsage {
+        return this.$store.getters.credits;
+    }
+}
 </script>
 
 <style scoped lang="scss">

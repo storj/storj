@@ -42,7 +42,7 @@ See the breakdown of what we're building by checking out the following resources
 
 ### Install required packages
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.12) at [golang.org](https://golang.org).
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.13) at [golang.org](https://golang.org).
 
 You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
 If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
@@ -81,7 +81,7 @@ go test -v ./...
 ```
 
 You can also execute only a single test package if you like. For example:
-`go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
+`go test ./pkg/identity`. Add `-v` for more informations about the executed unit
 tests.
 
 ### Push up a pull request
@@ -118,5 +118,5 @@ code under Apache v2, or other licenses in the future.
 # Support
 
 If you have any questions or suggestions please reach out to us on
-[Rocketchat](https://community.storj.io/) or
+[our community forum](https://forum.storj.io/) or
 email us at support@tardigrade.io.

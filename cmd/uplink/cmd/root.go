@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -29,7 +30,7 @@ type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 	uplink.Config
 
-	Version version.Config
+	Version checker.Config
 }
 
 var (
@@ -62,13 +63,7 @@ var RootCmd = &cobra.Command{
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-
-	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(getConfDir()))
 
 	return cmd
 }
@@ -92,7 +87,7 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
 func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project, err error) {
-	err = version.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
+	err = checker.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}

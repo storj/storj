@@ -38,7 +38,7 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
-	return &apikeys{db.methods}
+	return &apikeys{db.methods, db.db}
 }
 
 // BucketUsage is a getter for accounting.BucketUsage repository
@@ -64,21 +64,6 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 // UserCredits is a getter for console.UserCredits repository
 func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
-}
-
-// UserPayments is a getter for console.UserPayments repository
-func (db *ConsoleDB) UserPayments() console.UserPayments {
-	return &userpayments{db.methods}
-}
-
-// ProjectPayments is a getter for console.ProjectPayments repository
-func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectPayments{db.db, db.methods}
-}
-
-// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
-func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	return &projectinvoicestamps{db.methods}
 }
 
 // BeginTx is a method for opening transaction

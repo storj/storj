@@ -47,6 +47,7 @@ type Migration struct {
 
 // Step describes a single step in migration.
 type Step struct {
+	DB          DB // The DB to execute this step on
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
@@ -90,7 +91,7 @@ func (migration *Migration) ValidateSteps() error {
 }
 
 // Run runs the migration steps
-func (migration *Migration) Run(log *zap.Logger, db DB) error {
+func (migration *Migration) Run(log *zap.Logger) error {
 	err := migration.ValidTableName()
 	if err != nil {
 		return err
@@ -101,41 +102,39 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return err
 	}
 
-	err = migration.ensureVersionTable(log, db)
-	if err != nil {
-		return Error.New("creating version table failed: %v", err)
-	}
-
-	version, err := migration.getLatestVersion(log, db)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if version >= 0 {
-		log.Info("Latest Version", zap.Int("version", version))
-	} else {
-		log.Info("No Version")
-	}
-
 	for _, step := range migration.Steps {
-		if step.Version <= version {
-			continue
+		if step.DB == nil {
+			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
-		log := log.Named(strconv.Itoa(step.Version))
-		log.Info(step.Description)
+		err = migration.ensureVersionTable(log, step.DB)
+		if err != nil {
+			return Error.New("creating version table failed: %v", err)
+		}
 
-		tx, err := db.Begin()
+		version, err := migration.getLatestVersion(log, step.DB)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		err = step.Action.Run(log, db, tx)
+		if step.Version <= version {
+			continue
+		}
+
+		stepLog := log.Named(strconv.Itoa(step.Version))
+		stepLog.Info(step.Description)
+
+		tx, err := step.DB.Begin()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		err = step.Action.Run(stepLog, step.DB, tx)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		err = migration.addVersion(tx, db, step.Version)
+		err = migration.addVersion(tx, step.DB, step.Version)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -143,6 +142,13 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		if err := tx.Commit(); err != nil {
 			return Error.Wrap(err)
 		}
+	}
+
+	if len(migration.Steps) > 0 {
+		last := migration.Steps[len(migration.Steps)-1]
+		log.Info("Database Version", zap.Int("version", last.Version))
+	} else {
+		log.Info("No Versions")
 	}
 
 	return nil
@@ -155,7 +161,7 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)`)) //nolint:misspell
+	_, err = tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 	if err != nil {
 		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -171,7 +177,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 	}
 
 	var version sql.NullInt64
-	err = tx.QueryRow(db.Rebind(`SELECT MAX(version) FROM ` + migration.Table)).Scan(&version)
+	err = tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 	if err == sql.ErrNoRows || !version.Valid {
 		return -1, Error.Wrap(tx.Commit())
 	}
@@ -184,7 +190,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
-	_, err := tx.Exec(db.Rebind(`
+	_, err := tx.Exec(rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
@@ -197,7 +203,7 @@ type SQL []string
 // Run runs the SQL statements
 func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
 	for _, query := range sql {
-		_, err := tx.Exec(db.Rebind(query))
+		_, err := tx.Exec(rebind(db, query))
 		if err != nil {
 			return err
 		}

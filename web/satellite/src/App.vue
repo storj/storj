@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" v-on:click="onClick">
+    <div id="app" @click="onClick">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -10,70 +10,76 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import NotificationArea from '@/components/notifications/NotificationArea.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        data: function() {
-            return {
-                ids: [
-                    'accountDropdown',
-                    'accountDropdownButton',
-                    'projectDropdown',
-                    'projectDropdownButton',
-                    'sortTeamMemberByDropdown',
-                    'sortTeamMemberByDropdownButton',
-                    'notificationArea',
-                    'successfulRegistrationPopup',
-                    'deletePaymentMethodButton',
-                    'deletePaymentMethodDialog',
-                    'makeDefaultPaymentMethodButton',
-                    'makeDefaultPaymentDialog'
-                ]
-            };
-        },
-        components: {
-            NotificationArea
-        },
-        methods: {
-            onClick: function(e) {
-                let target: any = e.target;
-                while (target) {
-                    if (this.$data.ids.includes(target.id)) {
-                        return;
-                    }
-                    target = target.parentNode;
-                }
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
+@Component({
+    components: {
+        NotificationArea,
+    },
+})
+export default class App extends Vue {
+    private ids: string[] = [
+                'accountDropdown',
+                'accountDropdownButton',
+                'projectDropdown',
+                'projectDropdownButton',
+                'sortTeamMemberByDropdown',
+                'sortTeamMemberByDropdownButton',
+                'notificationArea',
+                'successfulRegistrationPopup',
+                'paymentSelectButton',
+                'paymentSelect',
+            ];
+
+    public onClick(e: Event): void {
+        let target: any = e.target;
+        while (target) {
+            if (this.ids.includes(target.id)) {
+                return;
             }
+            target = target.parentNode;
         }
-    })
 
-    export default class App extends Vue {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
+}
 </script>
 
 <style lang="scss">
     body {
-        margin: 0px !important;
+        margin: 0 !important;
         height: 100vh;
         zoom: 100%;
     }
 
+    img,
+    a {
+        -webkit-user-drag: none;
+        -khtml-user-drag: none;
+        -moz-user-drag: none;
+        -o-user-drag: none;
+        user-drag: none;
+    }
+
     @font-face {
         font-family: "font_regular";
+        font-display: swap;
         src: url("../static/fonts/font_regular.ttf");
     }
 
     @font-face {
         font-family: "font_medium";
+        font-display: swap;
         src: url("../static/fonts/font_medium.ttf");
     }
 
     @font-face {
         font-family: "font_bold";
+        font-display: swap;
         src: url("../static/fonts/font_bold.ttf");
     }
 

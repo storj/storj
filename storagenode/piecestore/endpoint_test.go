@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -271,7 +271,97 @@ func TestDownload(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 		}
+
+		// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
+		hash, originalLimit := downloader.GetHashAndLimit()
+		require.Nil(t, hash)
+		require.Nil(t, originalLimit)
 	}
+}
+
+func TestDownloadGetRepair(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 1, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	// upload test piece
+	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+	require.NoError(t, err)
+	defer ctx.Check(client.Close)
+
+	expectedData := testrand.Bytes(10 * memory.KiB)
+	serialNumber := testrand.SerialNumber()
+
+	ulOrderLimit, piecePrivateKey := GenerateOrderLimit(
+		t,
+		planet.Satellites[0].ID(),
+		planet.StorageNodes[0].ID(),
+		storj.PieceID{1},
+		pb.PieceAction_PUT,
+		serialNumber,
+		24*time.Hour,
+		24*time.Hour,
+		int64(len(expectedData)),
+	)
+	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+	ulOrderLimit, err = signing.SignOrderLimit(ctx, signer, ulOrderLimit)
+	require.NoError(t, err)
+
+	uploader, err := client.Upload(ctx, ulOrderLimit, piecePrivateKey)
+	require.NoError(t, err)
+
+	_, err = uploader.Write(expectedData)
+	require.NoError(t, err)
+
+	originHash, err := uploader.Commit(ctx)
+	require.NoError(t, err)
+
+	serialNumber = testrand.SerialNumber()
+
+	dlOrderLimit, piecePrivateKey := GenerateOrderLimit(
+		t,
+		planet.Satellites[0].ID(),
+		planet.StorageNodes[0].ID(),
+		storj.PieceID{1},
+		pb.PieceAction_GET_REPAIR,
+		serialNumber,
+		24*time.Hour,
+		24*time.Hour,
+		int64(len(expectedData)),
+	)
+	dlOrderLimit, err = signing.SignOrderLimit(ctx, signer, dlOrderLimit)
+	require.NoError(t, err)
+
+	downloader, err := client.Download(ctx, dlOrderLimit, piecePrivateKey, 0, int64(len(expectedData)))
+	require.NoError(t, err)
+
+	buffer := make([]byte, len(expectedData))
+	n, err := downloader.Read(buffer)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedData, buffer[:n])
+
+	err = downloader.Close()
+	require.NoError(t, err)
+
+	hash, originLimit := downloader.GetHashAndLimit()
+	require.NotNil(t, hash)
+	require.Equal(t, originHash.Hash, hash.Hash)
+	require.Equal(t, originHash.PieceId, hash.PieceId)
+
+	require.NotNil(t, originLimit)
+	require.Equal(t, originLimit.Action, ulOrderLimit.Action)
+	require.Equal(t, originLimit.Limit, ulOrderLimit.Limit)
+	require.Equal(t, originLimit.PieceId, ulOrderLimit.PieceId)
+	require.Equal(t, originLimit.SatelliteId, ulOrderLimit.SatelliteId)
+	require.Equal(t, originLimit.SerialNumber, ulOrderLimit.SerialNumber)
+	require.Equal(t, originLimit.SatelliteSignature, ulOrderLimit.SatelliteSignature)
+	require.Equal(t, originLimit.UplinkPublicKey, ulOrderLimit.UplinkPublicKey)
 }
 
 func TestDelete(t *testing.T) {
@@ -407,7 +497,7 @@ func TestTooManyRequests(t *testing.T) {
 			config := piecestore.DefaultConfig
 			config.UploadBufferSize = 0 // disable buffering so we can detect write error early
 
-			client, err := piecestore.Dial(ctx, uplink.Transport, &storageNode.Node, uplink.Log, config)
+			client, err := piecestore.Dial(ctx, uplink.Dialer, &storageNode.Node, uplink.Log, config)
 			if err != nil {
 				return err
 			}
@@ -441,7 +531,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			upload, err := client.Upload(ctx, orderLimit, piecePrivateKey)
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}
@@ -453,7 +543,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			_, err = upload.Write(make([]byte, orderLimit.Limit))
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}
@@ -465,7 +555,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			_, err = upload.Commit(ctx)
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}

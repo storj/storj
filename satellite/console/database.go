@@ -10,6 +10,8 @@ import (
 )
 
 // DB contains access to different satellite databases
+//
+// architecture: Database
 type DB interface {
 	// Users is a getter for Users repository
 	Users() Users
@@ -29,12 +31,6 @@ type DB interface {
 	UsageRollups() UsageRollups
 	// UserCredits is a getter for UserCredits repository
 	UserCredits() UserCredits
-	// UserPayments is a getter for UserPayments repository
-	UserPayments() UserPayments
-	// ProjectPayments is a getter for ProjectPayments repository
-	ProjectPayments() ProjectPayments
-	// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
-	ProjectInvoiceStamps() ProjectInvoiceStamps
 
 	// BeginTransaction is a method for opening transaction
 	BeginTx(ctx context.Context) (DBTx, error)

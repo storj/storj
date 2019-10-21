@@ -17,36 +17,30 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 )
 
-const contactWindow = time.Minute * 10
+const contactWindow = time.Hour * 2
 
 type dashboardClient struct {
-	client pb.PieceStoreInspectorClient
-	conn   *grpc.ClientConn
+	conn *rpc.Conn
 }
 
 func dialDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
 	}
-
-	return &dashboardClient{
-		client: pb.NewPieceStoreInspectorClient(conn),
-		conn:   conn,
-	}, nil
+	return &dashboardClient{conn: conn}, nil
 }
 
 func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+	return dash.conn.PieceStoreInspectorClient().Dashboard(ctx, &pb.DashboardRequest{})
 }
 
 func (dash *dashboardClient) close() error {
@@ -54,7 +48,7 @@ func (dash *dashboardClient) close() error {
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
@@ -100,18 +94,10 @@ func printDashboard(data *pb.DashboardResponse) error {
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	if data.LastQueried.After(data.LastPinged) {
-		data.LastPinged = data.LastQueried
-	}
-	switch {
-	case data.LastPinged.IsZero():
+	if data.LastPinged.IsZero() || time.Since(data.LastPinged) >= contactWindow {
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
-	case time.Since(data.LastPinged) >= contactWindow:
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
-			time.Since(data.LastPinged).Truncate(time.Second))))
-	default:
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString(fmt.Sprintf("%s ago",
-			time.Since(data.LastPinged).Truncate(time.Second))))
+	} else {
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString("ONLINE"))
 	}
 
 	// TODO: use stdtime in protobuf
@@ -152,12 +138,10 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 	w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	// TODO: Get addresses from server data
-	fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
 	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
 	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet
 	// fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
-	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 	if err = w.Flush(); err != nil {
 		return err
 	}
@@ -167,10 +151,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	}
 
 	return nil
-}
-
-func whiteInt(value int64) string {
-	return color.WhiteString(fmt.Sprintf("%+v", value))
 }
 
 // clearScreen clears the screen so it can be redrawn

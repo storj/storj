@@ -13,6 +13,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/postgreskv/schema"
 )
@@ -49,6 +50,11 @@ func New(dbURL string) (*Client, error) {
 		URL:    dbURL,
 		pgConn: pgConn,
 	}, nil
+}
+
+// DropSchema drops the schema.
+func (client *Client) DropSchema(schema string) error {
+	return pgutil.DropSchema(client.pgConn, schema)
 }
 
 // Put sets the value for the provided key.

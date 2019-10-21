@@ -12,6 +12,30 @@ node('node') {
     stage('Build Binaries') {
       sh 'make binaries'
 
+      stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Build Windows Installer') {
+      node('windows') { 
+        checkout scm
+
+        unstash "storagenode-binaries"
+
+        bat 'installer\\windows\\build.bat'
+
+        stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
+
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
+
+    stage('Sign Windows Installer') {
+      unstash "storagenode-installer"
+
+      sh 'make sign-windows-installer'
+
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -34,6 +58,7 @@ node('node') {
         echo "Current build result: ${currentBuild.result}"
       }
     }
+
     stage('Upload') {
       sh 'make binaries-upload'
       echo "Current build result: ${currentBuild.result}"
@@ -44,6 +69,8 @@ node('node') {
     echo "Caught errors! ${err}"
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
+
+    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',

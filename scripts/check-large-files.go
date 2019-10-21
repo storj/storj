@@ -13,8 +13,16 @@ import (
 	"storj.io/storj/internal/memory"
 )
 
+var ignoreFolder = map[string]bool{
+	".build":       true,
+	".git":         true,
+	"node_modules": true,
+	"coverage":     true,
+	"dist":         true,
+}
+
 func main() {
-	const fileSizeLimit = 600 * memory.KB
+	const fileSizeLimit = 650 * memory.KB
 
 	var failed int
 
@@ -23,7 +31,7 @@ func main() {
 			fmt.Println(err)
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && ignoreFolder[info.Name()] {
 			return filepath.SkipDir
 		}
 

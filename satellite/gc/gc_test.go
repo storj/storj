@@ -97,7 +97,7 @@ func TestGarbageCollection(t *testing.T) {
 		gcService.Loop.TriggerWait()
 
 		// Wait for the storagenode's RetainService queue to be empty
-		targetNode.Storage2.RetainService.Wait(ctx)
+		targetNode.Storage2.RetainService.TestWaitUntilEmpty()
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
@@ -117,7 +117,7 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
+func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.SatelliteSystem, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
 	projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 	require.NoError(t, err)
 	require.Len(t, projects, 1)

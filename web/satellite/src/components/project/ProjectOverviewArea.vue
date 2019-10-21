@@ -6,50 +6,48 @@
         <TabNavigation
             v-if="isProjectSelected"
             class="project-overview__navigation"
-            :navigation="navigation"/>
+            :navigation="navigation"
+        />
         <router-view v-if="isProjectSelected"/>
         <EmptyState
             v-if="!isProjectSelected"
-            mainTitle="Create your first project"
-            additional-text='<p>Please click the button <b>"New Project"</b> in the right corner</p>'
-            :imageSource="emptyImage" />
+            main-title="Create your first project"
+            additional-text='<p>Please click the button <b>"New Project"</b> in the upper right corner</p>'
+            :image-source="emptyImage"
+        />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import TabNavigation from '@/components/navigation/TabNavigation.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { NavigationLink } from '@/types/navigation';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            EmptyState,
-            TabNavigation,
-        }
-    })
-    export default class ProjectDetailsArea extends Vue {
-        // TODO: make type for project routes
-        public navigation: NavigationLink[] = [
-            new NavigationLink('/project-overview/details', 'Details'),
-            new NavigationLink('/project-overview/payment-methods', 'Payment Methods'),
-            new NavigationLink('/project-overview/billing-history', 'Billing History'),
-            new NavigationLink('/project-overview/usage-report', 'Report'),
-        ];
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import TabNavigation from '@/components/navigation/TabNavigation.vue';
 
-        public mounted(): void {
-            this.$router.push(this.navigation[0].path);
-        }
+import { NavigationLink } from '@/types/navigation';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-        public get isProjectSelected(): boolean {
-            return this.$store.getters.selectedProject.id !== '';
-        }
+@Component({
+    components: {
+        EmptyState,
+        TabNavigation,
+    },
+})
+export default class ProjectOverviewArea extends Vue {
+    // TODO: make type for project routes
+    public navigation: NavigationLink[] = [
+        new NavigationLink('/project-overview/details', 'Details'),
+        new NavigationLink('/project-overview/usage-report', 'Report'),
+    ];
 
-        public get emptyImage(): string {
-            return EMPTY_STATE_IMAGES.PROJECT;
-        }
+    public get isProjectSelected(): boolean {
+        return this.$store.getters.selectedProject.id !== '';
     }
+
+    public get emptyImage(): string {
+        return EMPTY_STATE_IMAGES.PROJECT;
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -63,6 +61,16 @@
             right: 55px;
             top: 44px;
             z-index: 99;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .project-overview {
+            padding: 44px 40px 55px 40px;
+
+            &__navigation {
+                right: 40px;
+            }
         }
     }
 </style>

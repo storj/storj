@@ -55,6 +55,38 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id TEXT NOT NULL,
+	user_id BLOB NOT NULL,
+	address TEXT NOT NULL,
+	amount BLOB NOT NULL,
+	received BLOB NOT NULL,
+	status INTEGER NOT NULL,
+	key TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE graceful_exit_progress (
+	node_id BLOB NOT NULL,
+	bytes_transferred INTEGER NOT NULL,
+	pieces_transferred INTEGER NOT NULL,
+	pieces_failed INTEGER NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id BLOB NOT NULL,
+	path BLOB NOT NULL,
+	piece_num INTEGER NOT NULL,
+	durability_ratio REAL NOT NULL,
+	queued_at TIMESTAMP NOT NULL,
+	requested_at TIMESTAMP,
+	last_failed_at TIMESTAMP,
+	last_failed_code INTEGER,
+	failed_count INTEGER,
+	finished_at TIMESTAMP,
+	PRIMARY KEY ( node_id, path )
+);
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
 	data BLOB NOT NULL,
@@ -101,6 +133,10 @@ CREATE TABLE nodes (
 	audit_reputation_beta REAL NOT NULL,
 	uptime_reputation_alpha REAL NOT NULL,
 	uptime_reputation_beta REAL NOT NULL,
+	exit_initiated_at TIMESTAMP,
+	exit_loop_completed_at TIMESTAMP,
+	exit_finished_at TIMESTAMP,
+	exit_success INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -117,6 +153,13 @@ CREATE TABLE offers (
 	status INTEGER NOT NULL,
 	type INTEGER NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE peer_identities (
+	node_id BLOB NOT NULL,
+	leaf_serial_number BLOB NOT NULL,
+	chain BLOB NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE pending_audits (
 	node_id BLOB NOT NULL,
@@ -176,9 +219,17 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id BLOB NOT NULL,
+	customer_id TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
+	normalized_email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
@@ -254,22 +305,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id BLOB NOT NULL,
-	is_default INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );

@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
-	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 )
 
 var (
@@ -36,7 +36,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	mux.Handle("/version/", http.StripPrefix("/version", version.NewDebugHandler(logger.Named("version"))))
+	mux.Handle("/version/", http.StripPrefix("/version", checker.NewDebugHandler(logger.Named("version"))))
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
 	mux.HandleFunc("/metrics", prometheus)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +72,8 @@ func sanitize(val string) string {
 			return r
 		case 'A' <= r && r <= 'Z':
 			return r
+		case '0' <= r && r <= '9':
+			return r
 		default:
 			return '_'
 		}
@@ -84,8 +86,7 @@ func prometheus(w http.ResponseWriter, r *http.Request) {
 	// (https://prometheus.io/docs/concepts/metric_types/)
 	monkit.Default.Stats(func(name string, val float64) {
 		metric := sanitize(name)
-		_, _ = fmt.Fprintf(w, "# HELP %s %s\n%s %g\n",
-			metric, strings.ReplaceAll(name, "\n", " "),
-			metric, val)
+		_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %g\n",
+			metric, metric, val)
 	})
 }

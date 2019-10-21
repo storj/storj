@@ -13,11 +13,9 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-type reporter interface {
-	RecordAudits(ctx context.Context, req *Report) (failed *Report, err error)
-}
-
 // Reporter records audit reports in overlay and implements the reporter interface
+//
+// architecture: Service
 type Reporter struct {
 	log              *zap.Logger
 	overlay          *overlay.Service
@@ -47,11 +45,8 @@ func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containm
 // RecordAudits saves audit results to overlay. When no error, it returns
 // nil for both return values, otherwise it returns the report with the fields
 // set to the values which have been saved and the error.
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path storj.Path) (_ Report, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if req == nil {
-		return nil, nil
-	}
 
 	successes := req.Successes
 	fails := req.Fails
@@ -63,6 +58,8 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 		zap.Int("failures", len(fails)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
+		zap.Binary("Segment", []byte(path)),
+		zap.String("Segment Path", path),
 	)
 
 	var errlist errs.Group
@@ -70,7 +67,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 	tries := 0
 	for tries <= reporter.maxRetries {
 		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
-			return nil, nil
+			return Report{}, nil
 		}
 
 		errlist = errs.Group{}
@@ -105,14 +102,14 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 
 	err = errlist.Err()
 	if tries >= reporter.maxRetries && err != nil {
-		return &Report{
+		return Report{
 			Successes:     successes,
 			Fails:         fails,
 			Offlines:      offlines,
 			PendingAudits: pendingAudits,
 		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
 	}
-	return nil, nil
+	return Report{}, nil
 }
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
@@ -137,7 +134,9 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	return nil, nil
 }
 
-// recordOfflineStatus updates nodeIDs in overlay with isup=false
+// recordOfflineStatus updates nodeIDs in overlay with isup=false. When there
+// is any error the function return the list of nodes which haven't been
+// recorded.
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group

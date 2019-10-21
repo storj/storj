@@ -45,33 +45,42 @@
                 </svg>
             </div>
             <div class="delete-project-popup__form-container">
-                <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
+                <p class="delete-project-popup__form-container__confirmation-text">Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
                     <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
-                        <img src="../../../static/images/register/ErrorInfo.svg"/>
+                        <img src="../../../static/images/register/ErrorInfo.svg" alt="Red error icon with explanation mark"/>
                         <p class="text">{{nameError}}</p>
                     </div>
-                    <input 
+                    <input
+                        class="delete-project-input"
                         type="text" 
                         placeholder="Enter Project Name"
                         v-model="projectName"
-                        v-on:keyup="resetError" >
+                        @keyup="resetError"
+                    />
                 </div>
                 <div class="delete-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
-                    <Button 
+                    <VButton
+                        label="Cancel"
+                        width="205px"
+                        height="48px"
+                        :on-press="onCloseClick"
+                        is-white="true"
+                    />
+                    <VButton
                         label="Delete"
                         width="205px" 
                         height="48px" 
                         class="red"
-                        :onPress="onDeleteProjectClick" 
-                        :isDisabled="isDeleteButtonDisabled" />
+                        :on-press="onDeleteProjectClick"
+                        :is-disabled="isDeleteButtonDisabled"
+                    />
                 </div>
             </div>
             <div class="delete-project-popup__close-cross-container" @click="onCloseClick">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
+                    <path class="close-cross-svg-path" d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
         </div>
@@ -79,89 +88,97 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button
-        }
-    })
-    export default class DeleteProjectPopup extends Vue {
-        private projectName: string = '';
-        private nameError: string = '';
-        private isLoading: boolean = false;
+import VButton from '@/components/common/VButton.vue';
 
-        public resetError (): void {
-            this.nameError = '';
-        }
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+} from '@/utils/constants/actionNames';
 
-        public async onDeleteProjectClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
+@Component({
+    components: {
+        VButton,
+    },
+})
+export default class DeleteProjectPopup extends Vue {
+    private projectName: string = '';
+    private nameError: string = '';
+    private isLoading: boolean = false;
 
-            this.isLoading = true;
-
-            if (!this.validateProjectName()) {
-                return;
-            }
-
-            if (!await this.deleteProject()) {
-                return;
-            }
-
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-
-            this.selectProject();
-
-            this.isLoading = false;
-        }
-
-        public  onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-        }
-
-        public get isDeleteButtonDisabled(): boolean {
-            return !this.projectName || !!this.nameError;
-        }
-
-        private validateProjectName(): boolean {
-            if (this.projectName === this.$store.getters.selectedProject.name) {
-                return true;
-            }
-
-            this.nameError = 'Name doesn\'t match with current project name';
-            this.isLoading = false;
-
-            return false;
-        }
-
-        private async deleteProject(): Promise<boolean> {
-            let response = await this.$store.dispatch(PROJETS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                this.isLoading = false;
-            }
-
-            return response.isSuccess;
-        }
-
-        private selectProject(): void {
-            if (this.$store.state.projectsModule.projects.length === 0) {
-                return;
-            }
-
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
-            this.$store.dispatch(PM_ACTIONS.FETCH);
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        }
+    public resetError (): void {
+        this.nameError = '';
     }
+
+    public async onDeleteProjectClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        if (!this.validateProjectName()) {
+            return;
+        }
+
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
+
+            await this.selectProject();
+        } catch (e) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        }
+
+        this.isLoading = false;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+    }
+
+    public get isDeleteButtonDisabled(): boolean {
+        return !this.projectName || !!this.nameError;
+    }
+
+    private validateProjectName(): boolean {
+        if (this.projectName === this.$store.getters.selectedProject.name) {
+            return true;
+        }
+
+        this.nameError = 'Name doesn\'t match with current project name';
+        this.isLoading = false;
+
+        return false;
+    }
+
+    private async selectProject(): Promise<void> {
+        if (this.$store.state.projectsModule.projects.length === 0) {
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+
+            return;
+        }
+
+        // TODO: reuse select project functionality
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
+        await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -176,6 +193,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_medium';
     }
 
     .input-container.full-input {
@@ -197,7 +215,7 @@
         align-items: center;
         position: relative;
         justify-content: space-between;
-        padding: 20px 100px 0px 100px;
+        padding: 20px 100px 0 100px;
 
         &__info-panel-container {
             display: flex;
@@ -221,7 +239,7 @@
             max-width: 440px;
             height: 335px;
 
-            p {
+            &__confirmation-text {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 21px;
@@ -233,18 +251,18 @@
                 flex-direction: row;
                 align-items: center;
 
-                p {
+                .text {
+                    font-family: 'font_medium';
                     padding-left: 10px;
                     color: #EB5757;
-                    margin: 0;
                 }
             }
 
             .text {
-                margin: 0px;
+                margin: 0;
             }
 
-            input {
+            .delete-project-input {
                 font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;
@@ -281,7 +299,7 @@
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }

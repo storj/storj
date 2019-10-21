@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 // ProjectMember stores needed info about user info to show it on UI
-import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
+import { User } from '@/types/users';
 
 export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<void>;
 
@@ -11,6 +11,18 @@ export enum ProjectMemberOrderBy {
     NAME = 1,
     EMAIL,
     CREATED_AT,
+}
+
+/**
+ * Contains values of project members header component state
+ * used in ProjectMembersArea and HeaderArea.
+ */
+export enum ProjectMemberHeaderState {
+    DEFAULT = 0,
+    /**
+     * Used when some project members selected
+     */
+    ON_SELECT,
 }
 
 /**
@@ -81,8 +93,8 @@ export class ProjectMember {
     public joinedAt: string;
     public isSelected: boolean;
 
-    public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id?: string) {
-        this.user = new User(id || '', fullName, shortName, email);
+    public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id: string = '') {
+        this.user = new User(id, fullName, shortName, email);
         this.joinedAt = joinedAt;
         this.isSelected = false;
     }
@@ -113,4 +125,3 @@ export class ProjectMember {
         return new Date(this.joinedAt).toLocaleDateString();
     }
 }
-

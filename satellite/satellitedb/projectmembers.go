@@ -205,13 +205,13 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	case 2:
 		return "u.email"
 	case 3:
-		return "u.created_at"
+		return "pm.created_at"
 	default:
 		return "u.full_name"
 	}
 }
 
-func sanitizeOrderDirectionName(pmo console.ProjectMemberOrderDirection) string {
+func sanitizeOrderDirectionName(pmo console.OrderDirection) string {
 	if pmo == 2 {
 		return "DESC"
 	}

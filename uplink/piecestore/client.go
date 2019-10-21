@@ -9,12 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 // Error is the default error class for piecestore client.
@@ -41,21 +40,21 @@ var DefaultConfig = Config{
 // Client implements uploading, downloading and deleting content from a piecestore.
 type Client struct {
 	log    *zap.Logger
-	client pb.PiecestoreClient
-	conn   *grpc.ClientConn
+	client rpc.PiecestoreClient
+	conn   *rpc.Conn
 	config Config
 }
 
 // Dial dials the target piecestore endpoint.
-func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log *zap.Logger, config Config) (*Client, error) {
-	conn, err := transport.DialNode(ctx, target)
+func Dial(ctx context.Context, dialer rpc.Dialer, target *pb.Node, log *zap.Logger, config Config) (*Client, error) {
+	conn, err := dialer.DialNode(ctx, target)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &Client{
 		log:    log,
-		client: pb.NewPiecestoreClient(conn),
+		client: conn.PiecestoreClient(),
 		conn:   conn,
 		config: config,
 	}, nil

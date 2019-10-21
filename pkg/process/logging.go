@@ -5,6 +5,7 @@ package process
 
 import (
 	"flag"
+	"net/url"
 	"os"
 	"runtime"
 
@@ -31,6 +32,17 @@ var (
 	logEncoding = flag.String("log.encoding", "console", "configures log encoding. can either be 'console' or 'json'")
 	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
 )
+
+func init() {
+	winFileSink := func(u *url.URL) (zap.Sink, error) {
+		// Remove leading slash left by url.Parse()
+		return os.OpenFile(u.Path[1:], os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	}
+	err := zap.RegisterSink("winfile", winFileSink)
+	if err != nil {
+		panic("Unable to register winfile sink: " + err.Error())
+	}
+}
 
 func isDev() bool { return cfgstruct.DefaultsType() != "release" }
 

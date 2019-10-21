@@ -6,15 +6,13 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -38,7 +36,6 @@ const (
 
 // Error messages
 const (
-	internalErrMsg                       = "It looks like we had a problem on our end. Please try again"
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
 	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	emailUsedErrMsg                      = "This email is already in use, try another"
@@ -47,6 +44,8 @@ const (
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
+	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
+	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -55,20 +54,33 @@ const (
 	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
+// ErrConsoleInternal describes internal console error
+var ErrConsoleInternal = errs.Class("internal error")
+
+// ErrNoMembership is error type of not belonging to a specific project
+var ErrNoMembership = errs.Class("no membership error")
+
 // Service is handling accounts related logic
+//
+// architecture: Service
 type Service struct {
 	Signer
 
-	log     *zap.Logger
-	pm      payments.Service
-	store   DB
-	rewards rewards.DB
+	log      *zap.Logger
+	store    DB
+	rewards  rewards.DB
+	accounts payments.Accounts
 
 	passwordCost int
 }
 
+// PaymentsService separates all payment related functionality
+type PaymentsService struct {
+	service *Service
+}
+
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm payments.Service, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -87,9 +99,50 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 		Signer:       signer,
 		store:        store,
 		rewards:      rewards,
-		pm:           pm,
+		accounts:     accounts,
 		passwordCost: passwordCost,
 	}, nil
+}
+
+// Payments separates all payment related functionality
+func (s *Service) Payments() PaymentsService {
+	return PaymentsService{service: s}
+}
+
+// SetupAccount creates payment account for authorized user.
+func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+}
+
+// AccountBalance return account balance.
+func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return payments.service.accounts.Balance(ctx, auth.User.ID)
+}
+
+// AddCreditCard adds a card as a new payment method.
+func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -110,12 +163,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	// TODO: remove after vanguard release
@@ -126,7 +179,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// set the project limit to be 1 for open source partner invitees
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
 		if err != nil {
-			return nil, errs.New(internalErrMsg)
+			return nil, ErrConsoleInternal.Wrap(err)
 		}
 	} else {
 		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
@@ -140,18 +193,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 	}
 
-	// TODO: store original email input in the db,
-	// add normalization
-	email := normalizeEmail(user.Email)
-
-	u, err = s.store.Users().GetByEmail(ctx, email)
+	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
 		return nil, errs.New(emailUsedErrMsg)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	// store data
@@ -170,7 +219,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if user.PartnerID != "" {
 			partnerID, err := uuid.Parse(user.PartnerID)
 			if err != nil {
-				return errs.New(internalErrMsg)
+				return ErrConsoleInternal.Wrap(err)
 			}
 			newUser.PartnerID = *partnerID
 		}
@@ -179,12 +228,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser,
 		)
 		if err != nil {
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 
 		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 		if err != nil {
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 
 		if currentReward != nil {
@@ -192,7 +241,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			if refUserID != "" {
 				refID, err = uuid.Parse(refUserID)
 				if err != nil {
-					return errs.New(internalErrMsg)
+					return ErrConsoleInternal.Wrap(err)
 				}
 			}
 			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
@@ -204,20 +253,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 				return err
 			}
 		}
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
-			Email: email,
-			Name:  user.FullName,
-		})
-		if err != nil {
-			return err
-		}
 
-		_, err = tx.UserPayments().Create(ctx, UserPayment{
-			UserID:     u.ID,
-			CustomerID: cus.ID,
-		})
-
-		return err
+		return nil
 	})
 
 	if err != nil {
@@ -225,164 +262,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	return u, nil
-}
-
-// AddNewPaymentMethod adds new payment method for project
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	authorization, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	params := payments.AddPaymentMethodParams{
-		Token:      paymentMethodToken,
-		CustomerID: string(userPayments.CustomerID),
-	}
-
-	method, err := s.pm.AddPaymentMethod(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var pp *ProjectPayment
-	err = withTx(tx, func(tx DBTx) error {
-		if isDefault {
-			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-			if err != nil {
-				if err != sql.ErrNoRows {
-					return err
-				}
-			}
-			if projectPayment != nil {
-				projectPayment.IsDefault = false
-
-				err = tx.ProjectPayments().Update(ctx, *projectPayment)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		projectPaymentInfo := ProjectPayment{
-			ProjectID:       projectID,
-			PayerID:         authorization.User.ID,
-			PaymentMethodID: method.ID,
-			CreatedAt:       time.Now(),
-			IsDefault:       isDefault,
-		}
-
-		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
-		return err
-	})
-
-	return pp, nil
-}
-
-// SetDefaultPaymentMethod set default payment method for given project
-func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
-		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-		if err != nil {
-			return err
-		}
-		projectPayment.IsDefault = false
-
-		err = tx.ProjectPayments().Update(ctx, *projectPayment)
-		if err != nil {
-			return err
-		}
-
-		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
-		if err != nil {
-			return err
-		}
-		projectPayment.IsDefault = true
-
-		return tx.ProjectPayments().Update(ctx, *projectPayment)
-	})
-
-	return err
-}
-
-// DeleteProjectPaymentMethod deletes selected payment method
-func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.ProjectPayments().Delete(ctx, projectPayment)
-}
-
-// GetProjectPaymentMethods retrieves project payment methods
-func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var projectPayments []ProjectPayment
-	for _, payment := range projectPaymentInfos {
-		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
-		if err != nil {
-			return nil, err
-		}
-
-		projectPayment := ProjectPayment{
-			ID:              payment.ID,
-			CreatedAt:       pm.CreatedAt,
-			PaymentMethodID: pm.ID,
-			IsDefault:       payment.IsDefault,
-			PayerID:         payment.PayerID,
-			ProjectID:       projectID,
-			Card: Card{
-				LastFour:        pm.Card.LastFour,
-				Name:            pm.Card.Name,
-				Brand:           pm.Card.Brand,
-				Country:         pm.Card.Country,
-				ExpirationMonth: pm.Card.ExpMonth,
-				ExpirationYear:  pm.Card.ExpYear,
-			},
-		}
-
-		projectPayments = append(projectPayments, projectPayment)
-	}
-
-	return projectPayments, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -425,7 +304,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	token, err := consoleauth.FromBase64URLString(activationToken)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	claims, err := s.authenticate(ctx, token)
@@ -433,14 +312,14 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return
 	}
 
-	_, err = s.store.Users().GetByEmail(ctx, normalizeEmail(claims.Email))
+	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
 		return errs.New(emailUsedErrMsg)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	now := time.Now()
@@ -456,12 +335,12 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	user.Status = Active
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
 	if err != nil && !NoCreditForUpdateErr.Has(err) {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	return nil
@@ -524,8 +403,6 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	email = normalizeEmail(email)
-
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
 		return "", errs.New(credentialsErrMsg)
@@ -555,7 +432,7 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return user, nil
@@ -589,7 +466,7 @@ func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) 
 		Status:       auth.User.Status,
 	})
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	return nil
@@ -614,13 +491,13 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	auth.User.PasswordHash = hash
 	err = s.store.Users().Update(ctx, &auth.User)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	return nil
@@ -641,7 +518,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = s.store.Users().Delete(ctx, auth.User.ID)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	return nil
@@ -657,7 +534,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 
 	p, err = s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return
@@ -673,7 +550,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 
 	ps, err = s.store.Projects().GetByUserID(ctx, auth.User.ID)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return
@@ -686,7 +563,7 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 	return offers.GetActiveOffer(offerType, "")
 }
@@ -723,7 +600,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	err = withTx(tx, func(tx DBTx) (err error) {
@@ -737,12 +614,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		)
 		if err != nil {
 			s.log.Error("internal error", zap.Error(err))
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 
 		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
 		if err != nil {
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 
 		return err
@@ -769,7 +646,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 
 	err = s.store.Projects().Delete(ctx, projectID)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	return nil
@@ -793,7 +670,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 
 	err = s.store.Projects().Update(ctx, project)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return project, nil
@@ -831,7 +708,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	defer func() {
@@ -847,7 +724,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return nil, errs.New(internalErrMsg)
+			return nil, ErrConsoleInternal.Wrap(err)
 		}
 	}
 
@@ -857,12 +734,8 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // DeleteProjectMembers removes users by email from given project
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	_, err = GetAuth(ctx)
 	if err != nil {
-		return err
-	}
-
-	if err = s.isProjectOwner(ctx, auth.User.ID, projectID); err != nil {
 		return err
 	}
 
@@ -876,6 +749,15 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil {
 			userErr.Add(err)
 			continue
+		}
+
+		err = s.isProjectOwner(ctx, user.ID, projectID)
+		if err == nil {
+			return errs.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
+		}
+
+		if ErrConsoleInternal.Has(err) {
+			return err
 		}
 
 		userIDs = append(userIDs, user.ID)
@@ -904,7 +786,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
 		if err != nil {
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 	}
 
@@ -930,7 +812,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 
 	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return
@@ -950,9 +832,14 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	if err == nil {
+		return nil, nil, errs.New(apiKeyWithNameExistsErrMsg)
+	}
+
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		return nil, nil, errs.New(internalErrMsg)
+		return nil, nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	key, err := macaroon.NewAPIKey(secret)
@@ -969,7 +856,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
-		return nil, nil, errs.New(internalErrMsg)
+		return nil, nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return info, key, nil
@@ -986,7 +873,7 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInf
 
 	key, err := s.store.APIKeys().Get(ctx, id)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
@@ -1022,12 +909,12 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	}
 
 	if err = keysErr.Err(); err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	defer func() {
@@ -1042,16 +929,17 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	for _, keyToDeleteID := range ids {
 		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
 		if err != nil {
-			return errs.New(internalErrMsg)
+			return ErrConsoleInternal.Wrap(err)
 		}
 	}
 
 	return nil
 }
 
-// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
-func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
+// GetAPIKeys returns paged api key list for given Project
+func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -1062,12 +950,16 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	info, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
 	}
 
-	return info, nil
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
+	if err != nil {
+		return nil, ErrConsoleInternal.Wrap(err)
+	}
+
+	return
 }
 
 // GetProjectUsage retrieves project usage for a given period
@@ -1086,7 +978,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 
 	projectUsage, err := s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return projectUsage, nil
@@ -1124,88 +1016,6 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
-}
-
-// CreateMonthlyProjectInvoices creates invoices for all created projects on monthly basis.
-// Edge Dates are derived from the date parameter taking UTC year and month, then adding first
-// and last date of the month accordingly
-func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	utc := date.UTC()
-	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
-
-	// disallow invoice generation for future periods
-	if endDate.After(time.Now()) {
-		return errs.New("can not create invoices for future periods")
-	}
-
-	projects, err := s.store.Projects().GetCreatedBefore(ctx, endDate)
-	if err != nil {
-		return
-	}
-
-	var invoiceError errs.Group
-	for _, proj := range projects {
-		// check if there is entry in the db for selected project and date
-		// range, if so skip project as invoice has already been created
-		// this way we can run this function for the second time to generate
-		// invoices only for project that failed before
-		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
-		if err == nil {
-			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp already exists", proj.ID))
-			continue
-		}
-
-		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		payerInfo, err := s.store.UserPayments().Get(ctx, paymentInfo.PayerID)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		totals, err := s.store.UsageRollups().GetProjectTotal(ctx, proj.ID, startDate, endDate)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		inv, err := s.pm.CreateProjectInvoice(ctx,
-			payments.CreateProjectInvoiceParams{
-				ProjectName:     proj.Name,
-				CustomerID:      payerInfo.CustomerID,
-				PaymentMethodID: paymentInfo.PaymentMethodID,
-				Storage:         totals.Storage,
-				Egress:          totals.Egress,
-				ObjectCount:     totals.ObjectCount,
-				StartDate:       startDate,
-				EndDate:         endDate,
-			},
-		)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		_, err = s.store.ProjectInvoiceStamps().Create(ctx,
-			ProjectInvoiceStamp{
-				ProjectID: proj.ID,
-				InvoiceID: inv.ID,
-				StartDate: startDate,
-				EndDate:   endDate,
-				CreatedAt: inv.CreatedAt,
-			},
-		)
-		invoiceError.Add(err)
-	}
-
-	return invoiceError.Err()
 }
 
 // Authorize validates token from context and returns authorized Authorization
@@ -1247,7 +1057,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 	if len(projects) >= registrationToken.ProjectLimit {
 		return errs.New(projLimitVanguardErrMsg)
@@ -1268,13 +1078,13 @@ func (s *Service) createToken(ctx context.Context, claims *consoleauth.Claims) (
 
 	json, err := claims.JSON()
 	if err != nil {
-		return "", errs.New(internalErrMsg)
+		return "", ErrConsoleInternal.Wrap(err)
 	}
 
 	token := consoleauth.Token{Payload: json}
 	err = signToken(&token, s.Signer)
 	if err != nil {
-		return "", errs.New(internalErrMsg)
+		return "", ErrConsoleInternal.Wrap(err)
 	}
 
 	return token.String(), nil
@@ -1287,7 +1097,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 
 	err = signToken(&token, s.Signer)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	if subtle.ConstantTimeCompare(signature, token.Signature) != 1 {
@@ -1296,7 +1106,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 
 	claims, err := consoleauth.FromJSON(token.Payload)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	return claims, nil
@@ -1323,16 +1133,13 @@ type isProjectMember struct {
 	membership *ProjectMember
 }
 
-// ErrNoMembership is error type of not belonging to a specific project
-var ErrNoMembership = errs.Class("no membership error")
-
 // isProjectOwner checks if the user is an owner of a project
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
 		s.log.Error("internal error", zap.Error(err))
-		return errs.New(internalErrMsg)
+		return ErrConsoleInternal.Wrap(err)
 	}
 
 	if project.OwnerID != userID {
@@ -1347,12 +1154,12 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return result, errs.New(internalErrMsg)
+		return result, ErrConsoleInternal.Wrap(err)
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
 	if err != nil {
-		return result, errs.New(internalErrMsg)
+		return result, ErrConsoleInternal.Wrap(err)
 	}
 
 	for _, membership := range memberships {

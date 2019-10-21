@@ -4,20 +4,22 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { BucketsApiGql } from '@/api/buckets';
 import { CreditsApiGql } from '@/api/credits';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectsApiGql } from '@/api/projects';
+import { ProjectUsageApiGql } from '@/api/usage';
 import { UsersApiGql } from '@/api/users';
-import { appStateModule } from '@/store/modules/appState';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
-import { makeCreditsModule } from '@/store/modules/credits';
+import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
+import { makeCreditsModule } from '@/store/modules/credits';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { usageModule } from '@/store/modules/usage';
+import { makeUsageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
 
 Vue.use(Vuex);
@@ -35,6 +37,8 @@ const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
+const projectsApi = new ProjectsApiGql();
+const projectUsageApi = new ProjectUsageApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
@@ -46,10 +50,10 @@ const store = new Vuex.Store({
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
         usersModule: makeUsersModule(usersApi),
-        projectsModule: makeProjectsModule(),
-        usageModule,
+        projectsModule: makeProjectsModule(projectsApi),
+        usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
-    }
+    },
 });
 
 export default store;

@@ -4,22 +4,25 @@
 <template>
     <div>
         <EmptyState
-            mainTitle="Create your first new project"
-            :imageSource="emptyImage" />
+            main-title="Create your first new project"
+            :image-source="emptyImage"
+        />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            EmptyState,
-        }
-    })
-    export default class DashboardArea extends Vue {
-        public emptyImage: string = EMPTY_STATE_IMAGES.PROJECT;
-    }
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
+@Component({
+    components: {
+        EmptyState,
+    },
+})
+export default class DashboardArea extends Vue {
+    public emptyImage: string = EMPTY_STATE_IMAGES.PROJECT;
+}
 </script>

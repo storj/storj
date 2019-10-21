@@ -102,7 +102,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							zap.Error(err))
 						log.Debug("register: ", zap.String("rawSecret", secretInput))
 
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
@@ -112,7 +112,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							zap.String("email", user.Email),
 							zap.Error(err))
 
-						return user, nil
+						return user, HandleError(err)
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
@@ -147,14 +147,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					info := fillUserInfo(&auth.User, input)
 
 					err = service.UpdateAccount(p.Context, info)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return auth.User, nil
@@ -176,12 +176,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					err = service.ChangePassword(p.Context, pass, newPass)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return auth.User, nil
@@ -199,12 +199,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					err = service.DeleteAccount(p.Context, password)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return auth.User, nil
@@ -221,7 +221,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					var projectInput = fromMapProjectInfo(p.Args[InputArg].(map[string]interface{}))
 
-					return service.CreateProject(p.Context, projectInput)
+					project, err := service.CreateProject(p.Context, projectInput)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return project, nil
 				},
 			},
 			// deletes project by id, taken from input params
@@ -241,11 +246,11 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					if err = service.DeleteProject(p.Context, project.ID); err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return project, nil
@@ -271,7 +276,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					return service.UpdateProject(p.Context, *projectID, description)
+					project, err := service.UpdateProject(p.Context, *projectID, description)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return project, nil
 				},
 			},
 			// add user as member of given project
@@ -301,12 +311,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
@@ -319,14 +329,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							userName = user.FullName
 						}
 
+						contactInfoURL := rootObject[ContactInfoURL].(string)
+						letUsKnowURL := rootObject[LetUsKnowURL].(string)
+						termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 						mailService.SendRenderedAsync(
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
 							&ProjectInvitationEmail{
-								Origin:      origin,
-								UserName:    userName,
-								ProjectName: project.Name,
-								SignInLink:  signIn,
+								Origin:                origin,
+								UserName:              userName,
+								ProjectName:           project.Name,
+								SignInLink:            signIn,
+								LetUsKnowURL:          letUsKnowURL,
+								TermsAndConditionsURL: termsAndConditionsURL,
+								ContactInfoURL:        contactInfoURL,
 							},
 						)
 					}
@@ -361,10 +378,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					err = service.DeleteProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
-					return service.GetProject(p.Context, *projectID)
+					project, err := service.GetProject(p.Context, *projectID)
+					if err != nil {
+						return nil, HandleError(err)
+					}
+
+					return project, nil
 				},
 			},
 			// creates new api key
@@ -389,7 +411,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					info, key, err := service.CreateAPIKey(p.Context, *pID, name)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return createAPIKey{
@@ -419,7 +441,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 						key, err := service.GetAPIKeyInfo(p.Context, *keyID)
 						if err != nil {
-							return nil, err
+							return nil, HandleError(err)
 						}
 
 						keyIds = append(keyIds, *keyID)
@@ -428,7 +450,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					err := service.DeleteAPIKeys(p.Context, keyIds)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					return keys, nil
@@ -436,88 +458,23 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			AddPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldCardToken: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldIsDefault: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Boolean),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectID, _ := p.Args[FieldProjectID].(string)
-					cardToken, _ := p.Args[FieldCardToken].(string)
-					isDefault, _ := p.Args[FieldIsDefault].(bool)
-
-					projID, err := uuid.Parse(projectID)
-					if err != nil {
-						return false, err
-					}
-
-					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID)
-					if err != nil {
-						return false, err
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 			DeletePaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					paymentID, err := uuid.Parse(fieldProjectPaymentID)
-					if err != nil {
-						return false, err
-					}
-
-					err = service.DeleteProjectPaymentMethod(p.Context, *paymentID)
-					if err != nil {
-						return false, err
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 			SetDefaultPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					fieldProjectID, _ := p.Args[FieldProjectID].(string)
-					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					paymentID, err := uuid.Parse(fieldProjectPaymentID)
-					if err != nil {
-						return false, err
-					}
-
-					projectID, err := uuid.Parse(fieldProjectID)
-					if err != nil {
-						return false, err
-					}
-
-					err = service.SetDefaultPaymentMethod(p.Context, *paymentID, *projectID)
-					if err != nil {
-						return false, err
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 		},

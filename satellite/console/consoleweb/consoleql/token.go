@@ -32,7 +32,7 @@ func graphqlToken(service *console.Service, types *TypeCreator) *graphql.Object 
 
 					auth, err := service.Authorize(ctx)
 					if err != nil {
-						return nil, err
+						return nil, HandleError(err)
 					}
 
 					// pass context to root value so child resolvers could get auth auth

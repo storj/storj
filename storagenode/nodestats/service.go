@@ -9,12 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -28,9 +27,11 @@ var (
 )
 
 // Client encapsulates NodeStatsClient with underlying connection
+//
+// architecture: Client
 type Client struct {
-	conn *grpc.ClientConn
-	pb.NodeStatsClient
+	conn *rpc.Conn
+	rpc.NodeStatsClient
 }
 
 // Close closes underlying client connection
@@ -38,20 +39,22 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-// Service retrieves info from satellites using GRPC client
+// Service retrieves info from satellites using an rpc client
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 
-	transport transport.Client
-	trust     *trust.Pool
+	dialer rpc.Dialer
+	trust  *trust.Pool
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, transport transport.Client, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
-		log:       log,
-		transport: transport,
-		trust:     trust,
+		log:    log,
+		dialer: dialer,
+		trust:  trust,
 	}
 }
 
@@ -63,12 +66,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
-
-	defer func() {
-		if cerr := client.Close(); cerr != nil {
-			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
-		}
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	resp, err := client.GetStats(ctx, &pb.GetStatsRequest{})
 	if err != nil {
@@ -94,7 +92,8 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Beta:         audit.GetReputationBeta(),
 			Score:        audit.GetReputationScore(),
 		},
-		UpdatedAt: time.Now(),
+		Disqualified: resp.GetDisqualified(),
+		UpdatedAt:    time.Now(),
 	}, nil
 }
 
@@ -106,12 +105,7 @@ func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.No
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
-
-	defer func() {
-		if cerr := client.Close(); cerr != nil {
-			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
-		}
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{From: from, To: to})
 	if err != nil {
@@ -121,7 +115,7 @@ func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.No
 	return fromSpaceUsageResponse(resp, satelliteID), nil
 }
 
-// dial dials GRPC NodeStats client for the satellite by id
+// dial dials the NodeStats client for the satellite by id
 func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -130,22 +124,14 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
 	}
 
-	satellite := pb.Node{
-		Id: satelliteID,
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   address,
-		},
-	}
-
-	conn, err := s.transport.DialNode(ctx, &satellite)
+	conn, err := s.dialer.DialAddressID(ctx, address, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
 	}
 
 	return &Client{
 		conn:            conn,
-		NodeStatsClient: pb.NewNodeStatsClient(conn),
+		NodeStatsClient: conn.NodeStatsClient(),
 	}, nil
 }
 
@@ -155,9 +141,9 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID: satelliteID,
-			AtRestTotal: pbUsage.AtRestTotal,
-			Timestamp:   pbUsage.Timestamp,
+			SatelliteID:   satelliteID,
+			AtRestTotal:   pbUsage.AtRestTotal,
+			IntervalStart: pbUsage.Timestamp,
 		})
 	}
 

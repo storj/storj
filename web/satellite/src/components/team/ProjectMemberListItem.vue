@@ -4,48 +4,59 @@
 <template>
     <div class="user-container">
         <div class="user-container__base-info">
-            <div class="checkbox" >
-            </div>
+            <div class="checkbox"></div>
             <div class="user-container__base-info__avatar" :style="avatarData.style">
-                <h1>{{avatarData.letter}}</h1>
+                <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <p class="user-container__base-info__user-name">{{this.itemData.formattedFullName()}}</p>
+            <p class="user-container__base-info__user-name">{{itemName}}</p>
         </div>
-        <p class="user-container__date">{{this.itemData.joinedAtLocal()}}</p>
-        <p class="user-container__user-email">{{this.itemData.formattedEmail()}}</p>
+        <p class="user-container__date">{{itemDate}}</p>
+        <p class="user-container__user-email">{{itemEmail}}</p>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { getColor } from '@/utils/avatarColorManager';
-    import { ProjectMember } from '@/types/projectMembers';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class ProjectMemberListItem extends Vue {
-        @Prop({default: new ProjectMember('', '', '', '', '')})
-        public itemData: ProjectMember;
+import { ProjectMember } from '@/types/projectMembers';
+import { getColor } from '@/utils/avatarColorManager';
 
-        public get avatarData(): object {
-            let fullName: string = this.itemData.user.getFullName();
+@Component
+export default class ProjectMemberListItem extends Vue {
+    @Prop({default: new ProjectMember('', '', '', '', '')})
+    public itemData: ProjectMember;
 
-            const letter = fullName.slice(0, 1).toLocaleUpperCase();
+    public get avatarData(): object {
+        const fullName: string = this.itemData.user.getFullName();
 
-            const style = {
-                background: getColor(letter)
-            };
+        const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
-            return {
-                letter,
-                style
-            };
-        }
+        const style = {
+            background: getColor(letter),
+        };
+
+        return {
+            letter,
+            style,
+        };
     }
+
+    public get itemName(): string {
+        return this.itemData.formattedFullName();
+    }
+
+    public get itemDate(): string {
+        return this.itemData.joinedAtLocal();
+    }
+
+    public get itemEmail(): string {
+        return this.itemData.formattedEmail();
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .user-container {
-        margin-top: 2px;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -54,6 +65,7 @@
         background-color: #fff;
         cursor: pointer;
         width: calc(100% - 28px);
+        font-family: 'font_regular';
 
         &__base-info {
             width: 50%;
@@ -73,9 +85,8 @@
                 justify-content: center;
                 background-color: #FF8658;
 
-                h1 {
+                &__letter {
                     font-size: 16px;
-                    font-family: 'font_regular';
                     color: #F5F6FA;
                 }
             }
@@ -91,19 +102,16 @@
 
         &__date {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
 
         &__user-email {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
     }
-
 
     .checkbox {
         background-image: url("../../../static/images/team/checkboxEmpty.svg");
@@ -111,9 +119,7 @@
         height: 23px;
     }
 
-
     .user-container.selected {
-        box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;
 
         .checkbox {
@@ -122,13 +128,9 @@
             background-image: url("../../../static/images/team/checkboxChecked.svg");
         }
 
-        h1 {
-            font-size: 16px;
-            font-family: 'font_regular';
-            color: #FFFFFF;
-        }
-
-        p {
+        .user-container__base-info__user-name,
+        .user-container__date,
+        .user-container__user-email {
             color: #FFFFFF;
         }
     }

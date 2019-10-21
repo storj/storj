@@ -3,28 +3,33 @@
 
 <template>
     <div class="team-area">
-        <div class="team-header">
-            <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
+        <div class="team-area__header">
+            <HeaderArea
+                :header-state="headerState"
+                :selected-project-members-count="selectedProjectMembersLength"
+                @onSuccessAction="resetPaginator"
+            />
         </div>
-        <div id="team_container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0" class="team-container">
-            <div class="team-container__content">
-                <SortingListHeader
-                    class="team-container__content__sort-header-container"
-                    :onHeaderClickCallback="onHeaderSectionClickCallback"/>
-                <List
-                    :dataSet="projectMembers"
-                    :itemComponent="getItemComponent"
-                    :onItemClick="onMemberClick"/>
+        <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
+            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
+            <div class="team-area__container__content">
+                <VList
+                    :data-set="projectMembers"
+                    :item-component="getItemComponent"
+                    :on-item-click="onMemberClick"
+                />
             </div>
-            <Pagination
+            <VPagination
+                v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
-                :totalPageCount="totalPageCount"
-                :onPageClickCallback="onPageClick"/>
+                :total-page-count="totalPageCount"
+                :on-page-click-callback="onPageClick"
+            />
         </div>
-        <div class="empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
-            <h1 class="empty-search-result-area__text">No results found</h1>
-            <svg width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
+            <h1 class="team-area__empty-search-result-area__title">No results found</h1>
+            <svg class="team-area__empty-search-result-area__image" width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M23.3168 98C21.4071 98 20 96.5077 20 94.6174C20.9046 68.9496 31.8599 45.769 49.0467 28.7566C66.2335 11.7442 89.6518 0.900089 115.583 0.00470057C117.492 -0.094787 119 1.39753 119 3.28779V32.4377C119 34.2284 117.593 35.6213 115.784 35.7208C99.7025 36.5167 85.2294 43.3813 74.4751 53.927C63.8213 64.5722 56.8863 78.8984 56.0822 94.8164C55.9817 96.6072 54.5746 98 52.7655 98H23.3168Z" fill="#B0B6C9"/>
                 <path d="M117.5 30C124.404 30 130 25.0751 130 19C130 12.9249 124.404 8 117.5 8C110.596 8 105 12.9249 105 19C105 25.0751 110.596 30 117.5 30Z" fill="#8F96AD"/>
@@ -59,191 +64,190 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    import List from '@/components/common/List.vue';
-    import Pagination from '@/components/common/Pagination.vue';
-    import HeaderArea from '@/components/team/HeaderArea.vue';
-    import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-    import SortingListHeader from '@/components/team/SortingListHeader.vue';
-    import { ProjectMember, ProjectMemberOrderBy } from '@/types/projectMembers';
-    import { SortDirection } from '@/types/common';
-    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
+import HeaderArea from '@/components/team/HeaderArea.vue';
+import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
-    enum HeaderState {
-        DEFAULT = 0,
-        ON_SELECT,
+import { SortDirection } from '@/types/common';
+import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
+import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    FETCH,
+    DELETE,
+    TOGGLE_SELECTION,
+    CLEAR,
+    CLEAR_SELECTION,
+    SET_SEARCH_QUERY,
+    SET_SORT_BY,
+    SET_SORT_DIRECTION,
+} = PM_ACTIONS;
+
+declare interface ResetPagination {
+    resetPageIndex(): void;
+}
+
+@Component({
+    components: {
+        HeaderArea,
+        VList,
+        VPagination,
+        SortingListHeader,
+    },
+})
+export default class ProjectMembersArea extends Vue {
+    private FIRST_PAGE = 1;
+
+    public $refs!: {
+        pagination: HTMLElement & ResetPagination;
+    };
+
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
     }
 
-    @Component({
-        components: {
-            HeaderArea,
-            List,
-            Pagination,
-            SortingListHeader,
-        }
-    })
-    export default class ProjectMembersArea extends Vue {
-        private FIRST_PAGE = 1;
+    public async beforeDestroy(): Promise<void> {
+        await this.$store.dispatch(CLEAR);
+    }
 
-        public onMemberClick(member: ProjectMember): void {
-            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
-        }
+    public onMemberClick(member: ProjectMember): void {
+        this.$store.dispatch(TOGGLE_SELECTION, member);
+    }
 
-        public get projectMembers(): ProjectMember[] {
-            return this.$store.state.projectMembersModule.page.projectMembers;
-        }
+    public get projectMembers(): ProjectMember[] {
+        return this.$store.state.projectMembersModule.page.projectMembers;
+    }
 
-        public get getItemComponent() {
-            return ProjectMemberListItem;
-        }
+    public get getItemComponent() {
+        return ProjectMemberListItem;
+    }
 
-        public get projectMembersTotalCount(): number {
-            return this.$store.state.projectMembersModule.page.totalCount;
-        }
+    public get projectMembersTotalCount(): number {
+        return this.$store.state.projectMembersModule.page.totalCount;
+    }
 
-        public get projectMembersCount(): number {
-            return this.$store.state.projectMembersModule.page.projectMembers.length;
-        }
+    public get projectMembersCount(): number {
+        return this.$store.state.projectMembersModule.page.projectMembers.length;
+    }
 
-        public get totalPageCount(): number {
-            return this.$store.state.projectMembersModule.page.pageCount;
-        }
+    public get totalPageCount(): number {
+        return this.$store.state.projectMembersModule.page.pageCount;
+    }
 
-        public get selectedProjectMembers(): ProjectMember[] {
-            return this.$store.getters.selectedProjectMembers;
+    public get selectedProjectMembersLength(): number {
+        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
+    }
+
+    public get headerState(): number {
+        if (this.selectedProjectMembersLength > 0) {
+            return ProjectMemberHeaderState.ON_SELECT;
         }
 
-        public get headerState(): number {
-            if (this.selectedProjectMembers.length > 0) {
-                return HeaderState.ON_SELECT;
-            }
+        return ProjectMemberHeaderState.DEFAULT;
+    }
 
-            return HeaderState.DEFAULT;
-        }
+    public get isTeamAreaShown(): boolean {
+        return this.projectMembersCount > 0 || this.projectMembersTotalCount > 0;
+    }
 
-        public async onPageClick(index: number):Promise<void> {
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, index);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
-            }
-        }
+    public get isEmptySearchResultShown(): boolean {
+        return this.projectMembersCount === 0 && this.projectMembersTotalCount === 0;
+    }
 
-        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-            this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-            this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
-            }
-
-            (this.$refs.pagination as Pagination).resetPageIndex();
+    public async onPageClick(index: number): Promise<void> {
+        try {
+            await this.$store.dispatch(FETCH, index);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
     }
+
+    public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
+        await this.$store.dispatch(SET_SORT_BY, sortBy);
+        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
+        try {
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+        }
+
+        this.resetPaginator();
+    }
+
+    public resetPaginator(): void {
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .team-area {
-        position: relative;
-    }
-    
-    .team-header {
-        position: fixed;
-        padding: 40px 30px 0px 64px;
-        max-width: 78.7%;
-        width: 100%;
-        background-color: #F5F6FA;
-        z-index: 1;
-        top: auto;
-    }
-    
-    .team-container {
-        padding: 0px 30px 55px 64px;
-        max-height: 84vh;
-        height: 84vh;
-        position: relative;
+        padding: 40px 65px 55px 64px;
+        font-family: 'font_regular';
 
-
-        &__content {
-            display: flex;
-            justify-content: space-between;
-            /*margin-top: 225px;*/
-            margin-bottom: 20px;
-            flex-direction: column;
+        &__header {
+            width: 100%;
+            background-color: #F5F6FA;
+            top: auto;
         }
-    }
 
-    .sort-header-container {
-        margin-top: 190px;
+        &__container {
+            max-height: 84vh;
+
+            &__content {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                flex-direction: column;
+                height: 49.4vh;
+            }
+        }
+
+        &__empty-search-result-area {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+
+            &__title {
+                font-family: 'font_bold';
+                font-size: 32px;
+                line-height: 39px;
+                margin-top: 100px;
+            }
+
+            &__image {
+                margin-top: 40px;
+            }
+        }
     }
 
     .pagination-area {
         margin-left: -25px;
     }
 
-    .empty-search-result-area {
-        height: 80vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        
-        &__text {
-            font-family: 'font_bold';
-            font-size: 32px;
-            line-height: 39px;
-            margin-top: 100px;
-        }
-        
-        svg {
-            margin-top: 40px;
+    @media screen and (max-width: 1024px) {
+        .team-area {
+            padding: 40px 40px 55px 40px;
         }
     }
-    
-    @media screen and (max-width: 1600px) {
-        .team-header {
-            max-width: 76%;
-        }
-    }
-    
-    @media screen and (max-width: 1600px) {
-        .team-container {
-        
-            &__content {
-                grid-template-columns: 220px 220px 220px 220px 220px;
-            }
-        }
-        
-        .team-header {
-            max-width: 75%;
-        }
-    }
-    
-    @media screen and (max-width: 1366px) {
-        .team-container {
 
-            &__content {
-                grid-template-columns: 210px 210px 210px 210px;
+    @media screen and (max-height: 800px) {
+        .team-area {
+
+            &__container {
+
+                &__content {
+                    height: 41.5vh !important;
+                }
             }
-        }
-        
-        .team-header {
-            max-width: 70.2%;
-        }
-    }
-    
-    @media screen and (max-width: 1120px) {
-        .team-container {
-    
-            &__content {
-                grid-template-columns: 200px 200px 200px 200px;
-            }
-        }
-        
-        .team-header {
-            max-width: 82.7%;
         }
     }
 </style>

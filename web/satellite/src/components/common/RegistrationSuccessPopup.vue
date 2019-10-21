@@ -4,103 +4,78 @@
 <template src="./registrationSuccessPopup.html"></template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import { AuthApi } from '@/api/auth';
-    import { getUserId } from '@/utils/consoleLocalStorage';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button,
-        },
-    })
-    export default class RegistrationSuccessPopup extends Vue {
-        private isResendEmailButtonDisabled: boolean = true;
-        private timeToEnableResendEmailButton: string = '00:30';
-        private intervalID: any = null;
+import VButton from '@/components/common/VButton.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { getUserId } from '@/utils/consoleLocalStorage';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public beforeDestroy(): void {
-            if (this.intervalID) {
-                clearInterval(this.intervalID);
-            }
-        }
+@Component({
+    components: {
+        VButton,
+    },
+})
+export default class RegistrationSuccessPopup extends Vue {
+    private isResendEmailButtonDisabled: boolean = true;
+    private timeToEnableResendEmailButton: string = '00:30';
+    private intervalID: any = null;
 
-        public async onResendEmailButtonClick(): Promise<void> {
-            this.isResendEmailButtonDisabled = true;
+    private readonly auth: AuthApi = new AuthApi();
 
-            const userId = getUserId();
-            if (!userId) {
-                return;
-            }
-
-            try {
-                await this.auth.resendEmail(userId);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
-            }
-
-            this.startResendEmailCountdown();
-        }
-
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            this.$router.push(ROUTES.LOGIN.path);
-        }
-
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-        }
-
-        private startResendEmailCountdown(): void {
-            let countdown = 30;
-
-            this.intervalID = setInterval(() => {
-                countdown--;
-
-                let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-                this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-                if (countdown <= 0) {
-                    clearInterval(this.intervalID);
-                    this.isResendEmailButtonDisabled = false;
-                }
-            }, 1000);
+    public beforeDestroy(): void {
+        if (this.intervalID) {
+            clearInterval(this.intervalID);
         }
     }
+
+    public async onResendEmailButtonClick(): Promise<void> {
+        this.isResendEmailButtonDisabled = true;
+
+        const userId = getUserId();
+        if (!userId) {
+            return;
+        }
+
+        try {
+            await this.auth.resendEmail(userId);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
+        }
+
+        this.startResendEmailCountdown();
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        this.$router.push(RouteConfig.Login.path);
+    }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
+    }
+
+    private startResendEmailCountdown(): void {
+        let countdown = 30;
+
+        this.intervalID = setInterval(() => {
+            countdown--;
+
+            const secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+            this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+            if (countdown <= 0) {
+                clearInterval(this.intervalID);
+                this.isResendEmailButtonDisabled = false;
+            }
+        }, 1000);
+    }
+}
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
-    h3 {
-        font-family: 'font_medium';
-        font-size: 12px;
-        line-height: 16px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
-    b {
-        color: #2683FF;
-    }
-
-    a {
-        font-family: 'font_bold';
-        color: #2683ff;
-    }
-
     .register-success-popup-container {
         position: fixed;
         top: 0;
@@ -140,12 +115,34 @@
             max-width: 440px;
             margin-top: 10px;
 
-            &__main-label-text {
+            &__title {
                 font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
                 margin: 0;
+            }
+
+            &__text {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+            }
+
+            &__verification-cooldown {
+                font-family: 'font_medium';
+                font-size: 12px;
+                line-height: 16px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+
+                &__bold-text {
+                    color: #2683FF;
+                }
             }
 
             &__button-container {
@@ -169,7 +166,7 @@
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }
@@ -180,7 +177,6 @@
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

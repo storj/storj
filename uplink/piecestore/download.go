@@ -18,10 +18,12 @@ import (
 )
 
 // Downloader is interface that can be used for downloading content.
-// It matches signature of `io.ReadCloser`.
+// It matches signature of `io.ReadCloser`, with one extra function,
+// GetHashAndLimit(), used for accessing information during GET_REPAIR.
 type Downloader interface {
 	Read([]byte) (int, error)
 	Close() error
+	GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit)
 }
 
 // Download implements downloading from a piecestore.
@@ -30,7 +32,7 @@ type Download struct {
 	limit      *pb.OrderLimit
 	privateKey storj.PiecePrivateKey
 	peer       *identity.PeerIdentity
-	stream     pb.Piecestore_DownloadClient
+	stream     downloadStream
 	ctx        context.Context
 
 	read         int64 // how much data we have read so far
@@ -43,24 +45,32 @@ type Download struct {
 
 	unread ReadBuffer
 
+	// hash and originLimit are received in the event of a GET_REPAIR
+	hash        *pb.PieceHash
+	originLimit *pb.OrderLimit
+
 	closed       bool
 	closingError error
+}
+
+type downloadStream interface {
+	CloseSend() error
+	Send(*pb.PieceDownloadRequest) error
+	Recv() (*pb.PieceDownloadResponse, error)
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
 func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey, offset, size int64) (_ Downloader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	peer, err := client.conn.PeerIdentity()
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	peer, err := identity.PeerIdentityFromContext(stream.Context())
-	if err != nil {
-		closeErr := stream.CloseSend()
-		_, recvErr := stream.Recv()
-		return nil, ErrInternal.Wrap(errs.Combine(err, ignoreEOF(closeErr), ignoreEOF(recvErr)))
 	}
 
 	err = stream.Send(&pb.PieceDownloadRequest{
@@ -184,6 +194,11 @@ func (client *Download) Read(data []byte) (read int, err error) {
 			client.downloaded += int64(len(response.Chunk.Data))
 			client.unread.Fill(response.Chunk.Data)
 		}
+		// This is a GET_REPAIR because we got a piece hash and the original order limit.
+		if response != nil && response.Hash != nil && response.Limit != nil {
+			client.hash = response.Hash
+			client.originLimit = response.Limit
+		}
 
 		// we may have some data buffered, so we cannot immediately return the error
 		// we'll queue the error and use the received error as the closing error
@@ -243,6 +258,11 @@ func (client *Download) Close() (err error) {
 
 	client.closeWithError(nil)
 	return client.closingError
+}
+
+// GetHashAndLimit gets the download's hash and original order limit.
+func (client *Download) GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit) {
+	return client.hash, client.originLimit
 }
 
 // ReadBuffer implements buffered reading with an error.

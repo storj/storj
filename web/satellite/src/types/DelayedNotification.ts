@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { getId } from '@/utils/idGenerator';
 import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { getId } from '@/utils/idGenerator';
 
 export class DelayedNotification {
     private readonly successColor: string = '#DBF1D3';

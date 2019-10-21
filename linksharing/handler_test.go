@@ -122,7 +122,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
 	require.NoError(t, err)
 
-	apiKey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
+	apiKey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize())
 	require.NoError(t, err)
 
 	scope, err := (&uplink.Scope{

@@ -4,26 +4,29 @@
 <template>
     <div class="pagination-container">
         <div class="pagination-container__pages">
-            <div v-html="arrowLeft" class="pagination-container__button"></div>
-            <div class="pagination-container__items">
-                <span class="selected">1</span>
-                <span>2</span>
+            <div class="pagination-container__button" @click="prevPage">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M2.80077e-07 4.26316L6 0L6 9L2.80077e-07 4.26316Z" fill="#354049"/>
+                </svg>
             </div>
-            <div v-html="arrowRight" class="pagination-container__button"></div>
+            <div class="pagination-container__items">
+                <span class="pagination-container__items__page-number selected">1</span>
+                <span class="pagination-container__items__page-number">2</span>
+            </div>
+            <div class="pagination-container__button">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M6 4.73684L0 9L1.20219e-06 -9.53674e-07L6 4.73684Z" fill="#354049"/>
+                </svg>
+            </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class PaginationArea extends Vue {
-        // TODO: use svg loader in future
-        public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-        public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
-    }
+@Component
+export default class PaginationArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -31,21 +34,11 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-left: 25px;
-        margin-top: 25px;
+        margin-top: 39px;
     
         &__pages {
             display: flex;
             align-items: center;
-        }
-    
-        &__counter {
-            
-            p {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #AFB7C1;
-            }
         }
     
         &__button {
@@ -59,12 +52,9 @@
             height: 30px;
         
             &:hover {
-            
-                svg {
-                
-                    path {
-                        fill: #fff !important;
-                    }
+
+                .pagination-svg-path {
+                    fill: #fff !important;
                 }
             }
         }
@@ -89,7 +79,7 @@
                 }
             }
         
-            span {
+            &__page-number {
                 font-family: 'font_medium';
                 font-size: 16px;
                 margin-right: 15px;

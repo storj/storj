@@ -3,10 +3,10 @@
 
 <template>
     <div class="save-api-popup" v-if="isPopupShown">
-        <h2>Name Your API Key</h2>
+        <h2 class="save-api-popup__title">Save Your API Key! It Will Appear Only Once.</h2>
         <div class="save-api-popup__copy-area">
             <div class="save-api-popup__copy-area__key-area">
-                <p>{{apiKeySecret}}</p>
+                <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
             </div>
             <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick" v-if="!isCopiedButtonShown">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -15,7 +15,7 @@
                     <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"/>
                     <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"/>
                 </svg>
-                <p>Copy</p>
+                <p class="copy-button__label">Copy</p>
             </div>
             <div class="copied-button" v-if="isCopiedButtonShown">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -24,48 +24,48 @@
                     <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"/>
                     <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"/>
                 </svg>
-                <p>Copied</p>
+                <p class="copied-button__label">Copied</p>
             </div>
         </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
-        </svg>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path class="close-cross-svg-path" d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
+            </svg>
         </div>
         <div class="blur-content"></div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import Button from '@/components/common/Button.vue';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderlessInput,
-            Button,
-        },
-    })
-    export default class ApiKeysCopyPopup extends Vue {
-        @Prop({default: false})
-        private readonly isPopupShown: boolean;
-        @Prop({default: ''})
-        private readonly apiKeySecret: string;
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-        private isCopiedButtonShown: boolean = false;
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public onCloseClick(): void {
-            this.isCopiedButtonShown = false;
-            this.$emit('closePopup');
-        }
+@Component({
+    components: {
+        HeaderlessInput,
+    },
+})
+export default class ApiKeysCopyPopup extends Vue {
+    @Prop({default: false})
+    private readonly isPopupShown: boolean;
+    @Prop({default: ''})
+    private readonly apiKeySecret: string;
 
-        public onCopyClick(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-            this.isCopiedButtonShown = true;
-        }
+    public isCopiedButtonShown: boolean = false;
+
+    public onCloseClick(): void {
+        this.isCopiedButtonShown = false;
+        this.$emit('closePopup');
     }
+
+    public onCopyClick(): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
+        this.isCopiedButtonShown = true;
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -77,8 +77,9 @@
         max-width: 94.8%;
         height: auto;
         position: relative;
+        font-family: 'font_regular';
 
-        h2 {
+        &__title {
             font-family: 'font_bold';
             font-size: 24px;
             line-height: 29px;
@@ -96,8 +97,7 @@
 
             &__key-area {
 
-                p {
-                    font-family: 'font_regular';
+                &__key {
                     margin: 0;
                     font-size: 16px;
                     line-height: 21px;
@@ -121,7 +121,7 @@
                 font-family: 'font_bold';
                 margin-left: 10px;
 
-                p {
+                &__label {
                     margin: 0;
                 }
 
@@ -148,7 +148,7 @@
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }

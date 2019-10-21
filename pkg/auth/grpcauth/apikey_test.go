@@ -52,7 +52,7 @@ func TestAPIKey(t *testing.T) {
 		{"good key", codes.OK},
 	} {
 		conn, err := grpc.DialContext(ctx, listener.Addr().String(),
-			grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(test.apikey)),
+			grpc.WithPerRPCCredentials(grpcauth.NewDeprecatedAPIKeyCredentials(test.apikey)),
 			grpc.WithBlock(),
 			grpc.WithInsecure(),
 		)
@@ -63,10 +63,10 @@ func TestAPIKey(t *testing.T) {
 
 		if test.expected == codes.OK {
 			require.NoError(t, err)
-			require.Equal(t, response.Message, "Hello Me")
+			require.Equal(t, "Hello Me", response.Message)
 		} else {
 			require.Error(t, err)
-			require.Equal(t, status.Code(err), test.expected)
+			require.Equal(t, test.expected, status.Code(err))
 		}
 
 		require.NoError(t, conn.Close())
@@ -79,10 +79,10 @@ type helloServer struct{}
 func (s *helloServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	key, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credentials")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credentials")
 	}
 	if string(key) != "good key" {
-		return nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credentials")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credentials")
 	}
 
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
