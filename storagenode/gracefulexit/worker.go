@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
@@ -67,6 +68,12 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	defer func() {
 		err = errs.Combine(err, conn.Close())
 	}()
+
+	identity, err := conn.PeerIdentity()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	signee := signing.SigneeFromPeerIdentity(identity)
 
 	client := conn.SatelliteGracefulExitClient()
 
@@ -125,7 +132,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				continue
 			}
 
-			err = verifyPieceHash(ctx, addrLimit.GetLimit(), pieceHash, originalHash.Hash)
+			err = verifyPieceHash(ctx, addrLimit.GetLimit(), signee, pieceHash, originalHash.Hash)
+
 			if err != nil {
 				worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
@@ -233,8 +241,8 @@ func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.R
 	return
 }
 
-// verifyPieceHash verifies whether the piece hash matches the locally computed hash.
-func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
+// verifyPieceHash verifies whether the piece hash matches the locally computed hash and the piece hash signature is valid.
+func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, signee signing.Signee, hash *pb.PieceHash, expectedHash []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if limit == nil || hash == nil || len(expectedHash) == 0 {
@@ -245,6 +253,11 @@ func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHa
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
 		return Error.New("hashes don't match")
+	}
+
+	err = signee.HashAndVerifySignature(ctx, hash.GetHash(), hash.GetSignature())
+	if !bytes.Equal(hash.Hash, expectedHash) {
+		return Error.New("invalid piece hash signature")
 	}
 
 	return nil
