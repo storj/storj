@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
@@ -27,15 +28,22 @@ type virtualFile struct {
 
 	path   string
 	cipher storj.CipherSuite
+	size   int64
 
-	//meta    streams.Meta
 	reader io.ReadCloser
 	writer io.WriteCloser
-	bucket uplink.Bucket
+	bucket *uplink.Bucket
 
 	writeOffset int64 // Writer offset
 	readOffset  int64 // Reader offset
 	flag        int   // determines read/write/append
+}
+
+func (f *virtualFile) Size() int64 {
+	if f.writeOffset != 0 {
+		return f.writeOffset
+	}
+	return 0
 }
 
 func (f *virtualFile) Close() (err error) {
@@ -43,19 +51,8 @@ func (f *virtualFile) Close() (err error) {
 		err = errs.Combine(err, closingWriter.Wrap(f.writer.Close()))
 		f.writer = nil
 	}
-	// if f.reader != nil {
-	// 	err = errs.Combine(err, closingReader.Wrap(f.reader.Close()))
-	// 	f.reader = nil
-	// }
 	return err
 }
-
-// func (f *virtualFile) Reader() (_ io.ReadCloser, err error) {
-// 	if f.reader == nil {
-// 		f.reader, err = f.bucket.NewReader(f.ctx, f.path)
-// 	}
-// 	return f.reader, err
-// }
 
 func (f *virtualFile) Writer() (_ io.WriteCloser, err error) {
 	if f.writer == nil {
@@ -68,8 +65,8 @@ func (f *virtualFile) Read(buffer []byte) (byteCount int, err error) {
 	defer mon.Task()(&f.ctx)(&err)
 
 	bytesToRead := int64(len(buffer))
-	if f.readOffset+bytesToRead > size {
-		bytesToRead = size - f.readOffset
+	if f.readOffset+bytesToRead > f.Size() {
+		bytesToRead = f.Size() - f.readOffset
 	}
 	if bytesToRead <= 0 {
 		return 0, io.EOF
@@ -107,10 +104,7 @@ func (f *virtualFile) Seek(n int64, w int) (_ int64, err error) {
 	case os.SEEK_CUR:
 		f.readOffset += n
 	case os.SEEK_END:
-		ranger, err := f.Ranger()
-		if err == nil {
-			f.readOffset = ranger.Size() - n
-		}
+		f.readOffset = f.Size() - n
 	default:
 		err = fmt.Errorf("Bad seek whence")
 	}
@@ -118,7 +112,18 @@ func (f *virtualFile) Seek(n int64, w int) (_ int64, err error) {
 }
 
 func (f *virtualFile) Write(buffer []byte) (int, error) {
-	return 0, nil
+	writer, err := f.Writer()
+	if err != nil {
+		return 0, err
+	}
+	zap.S().Debug("Starts writting: ", f.path)
+	written, err := writer.Write(buffer)
+	if err != nil {
+		return 0, err
+	}
+	f.readOffset += int64(written)
+	zap.S().Debug("Stops writting: ", f.path)
+	return written, nil
 }
 
 type virtualFileInfo struct {

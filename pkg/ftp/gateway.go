@@ -4,6 +4,7 @@
 package ftp
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -111,10 +112,10 @@ func (driver *Driver) ChangeDirectory(cc server.ClientContext, directory string)
 
 // MakeDirectory creates a directory
 func (driver *Driver) MakeDirectory(cc server.ClientContext, directory string) (err error) {
-	ctx, _, _ := ParsePath(cc.Path())
+	ctx, bucketName, _ := ParsePath(cc.Path())
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket == "" {
+	if bucketName == "" {
 		zap.S().Debug("creating bucket: ", directory)
 		cfg := uplink.BucketConfig{
 			PathCipher:           driver.pathCipher,
@@ -128,9 +129,15 @@ func (driver *Driver) MakeDirectory(cc server.ClientContext, directory string) (
 	}
 	zap.S().Debug("Mkdir: ", directory)
 
-	return sf.bucket.UploadObject(sf.ctx, directory+"/", bytes.NewReader([]byte{}), &libuplink.UploadOptions{
+	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+	return bucket.UploadObject(ctx, directory+"/", bytes.NewReader([]byte{}), &uplink.UploadOptions{
 		ContentType: "application/directory",
 	})
+
 }
 
 // ListBuckets lists all the top level prefixes
@@ -247,13 +254,17 @@ func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
-		
-	return &virtualFile{
-		ctx: ctx, 
-		path: storj.Path(path),
-		bucket: bucket,
-		flag: flag,
-	}, nil
+	object, err := bucket.OpenObject(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if storj.ErrObjectNotFound.Has(err) {
+		if (flag&os.O_APPEND) == 0 || (flag&os.O_APPEND) == 0 {
+			return nil, os.ErrNotExist
+		}
+	}
+
+	return &virtualFile{ctx: ctx, path: path, bucket: bucket, size: object.Meta.Size, flag: flag}, nil
 }
 
 // GetFileInfo gets some info around a file or a directory
@@ -275,23 +286,14 @@ func (driver *Driver) GetFileInfo(cc server.ClientContext, path string) (fi os.F
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
-
-	
-	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
-		Direction: storj.After,
-		Cursor:    path,
-		Prefix:    "",
-		Recursive: false,
-		Limit:     1,
-	})
+	object, err := bucket.OpenObject(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	if len(list.Items) == 0 {
+	if storj.ErrObjectNotFound.Has(err) {
 		return nil, os.ErrNotExist
 	}
-	i := list.Items[0]
-	return virtualFileInfo{name: i.Path, modTime: i.Modified, size: i.Size}, nil
+	return virtualFileInfo{name: object.Meta.Path, modTime: object.Meta.Modified, size: object.Meta.Size}, nil
 }
 
 // CanAllocate gives the approval to allocate some data
