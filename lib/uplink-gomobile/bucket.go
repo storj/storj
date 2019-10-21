@@ -329,12 +329,12 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 }
 
 // Read reads data into byte array
-func (r *Reader) Read(data []byte, off, len int) (n int32, err error) {
+func (r *Reader) Read(data []byte, offset, length int32) (n int32, err error) {
 	if r.readError != nil {
 		err = r.readError
 	} else {
 		var read int
-		read, err = r.reader.Read(data[off : off+len])
+		read, err = r.reader.Read(data[offset : offset+length])
 		n = int32(read)
 	}
 
