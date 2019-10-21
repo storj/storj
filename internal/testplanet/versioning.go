@@ -27,7 +27,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
@@ -47,14 +47,16 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 // NewVersionInfo returns the Version Info for this planet with tuned metrics.
 func (planet *Planet) NewVersionInfo() version.Info {
+	ver, err := version.NewSemVer("v0.0.1")
+	if err != nil {
+		panic(err)
+	}
+
 	info := version.Info{
 		Timestamp:  time.Now(),
 		CommitHash: "testplanet",
-		Version: version.SemVer{
-			Major: 0,
-			Minor: 0,
-			Patch: 1},
-		Release: false,
+		Version:    ver,
+		Release:    false,
 	}
 	return info
 }
