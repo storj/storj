@@ -41,6 +41,7 @@ func main() {
 	}
 
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
+
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")
@@ -56,7 +57,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
-	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use postgres for all databases that support it.")
+	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
