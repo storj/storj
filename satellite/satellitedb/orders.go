@@ -10,13 +10,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/orders"
@@ -64,7 +61,7 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	)
 	_, err = db.db.ExecContext(ctx, statement, storageNodeID.Bytes(), serialNumber.Bytes())
 	if err != nil {
-		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+		if pgutil.IsConstraintError(err) {
 			return nil, orders.ErrUsingSerialNumber.New("serial number already used")
 		}
 		return nil, err
@@ -142,42 +139,18 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement := db.db.Rebind(
-			`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?)
-			ON CONFLICT(storagenode_id, interval_start, action)
-			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated`,
-		)
-		for _, storageNode := range storageNodes {
-			_, err = db.db.ExecContext(ctx, statement,
-				storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0,
-			)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
+	// sort nodes to avoid update deadlock
+	sort.Sort(storj.NodeIDList(storageNodes))
 
-	case *pq.Driver:
-		// sort nodes to avoid update deadlock
-		sort.Sort(storj.NodeIDList(storageNodes))
+	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
+		INSERT INTO storagenode_bandwidth_rollups
+			(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
+		ON CONFLICT(storagenode_id, interval_start, action)
+		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
+	`), postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
 
-		_, err := db.db.ExecContext(ctx, `
-			INSERT INTO storagenode_bandwidth_rollups
-				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-			SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
-			ON CONFLICT(storagenode_id, interval_start, action)
-			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
-		`, postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	default:
-		return Error.New("Unsupported database %t", t)
-	}
-
-	return nil
+	return Error.Wrap(err)
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time

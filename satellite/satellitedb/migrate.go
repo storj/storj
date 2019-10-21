@@ -1293,6 +1293,32 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add coinpayments_transactions table",
+				Version:     60,
+				Action: migrate.SQL{
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add graceful exit success column to nodes table",
+				Version:     61,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
+				},
+			},
 		},
 	}
 }
