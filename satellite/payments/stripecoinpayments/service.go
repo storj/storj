@@ -150,9 +150,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 			},
 		)
 
-		if info.Status == coinpayments.StatusReceived {
-			// TODO: update balance for stripe cusotmers balance
-		}
+		// TODO: update balance for stripe cusotmers balance
 	}
 
 	return service.transactionsDB.Update(ctx, updates)
