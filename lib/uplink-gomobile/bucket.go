@@ -288,7 +288,7 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 // Write writes data.length bytes from data to the underlying data stream.
 func (w *Writer) Write(data []byte, offset, length int32) (int32, error) {
 	// in Java byte array size is max int32
-	n, err := w.writer.Write(data[offset:length])
+	n, err := w.writer.Write(data[offset : offset+length])
 	return int32(n), safeError(err)
 }
 
