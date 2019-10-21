@@ -33,7 +33,7 @@
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
-                <Control Id="Wallet" Type="Text" X="135" Y="154" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You've an ERC20 compatible wallet to receive payouts" >
+                <Control Id="Wallet" Type="Text" X="135" Y="154" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You have an ERC20 compatible wallet to receive payouts" >
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
@@ -46,7 +46,7 @@
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
-                <Control Id="ClickNextInstruction" Type="Text" X="135" Y="210" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="Click Next to continue or Cancel to exit the Setup Wizard." >
+                <Control Id="ClickNextInstruction" Type="Text" X="135" Y="208" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="Click Next to continue or Cancel to exit the Setup Wizard." >
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
