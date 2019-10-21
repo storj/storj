@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --privileged --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
             label 'main'
         }
     }
@@ -29,8 +29,6 @@ pipeline {
 
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
-                sh 'make libuplink-gomobile'
-                sh 'mv libuplink-android* .build'
             }
         }
 

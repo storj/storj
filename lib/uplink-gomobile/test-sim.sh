@@ -12,6 +12,11 @@ then
       echo "ANDROID NDK is not available" && exit 1
 fi
 
+if [[ -z "$STORJ_NETWORK_HOST4" ]] || [[ $STORJ_NETWORK_HOST4 == "127.0.0.1" ]]
+then
+      echo "storj-sim host needs to be set (\$STORJ_NETWORK_HOST4) to local IP address to make it accesible for Android emulator" && exit 1
+fi
+
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 PORT=5556
@@ -39,8 +44,8 @@ $ANDROID_HOME/emulator/emulator-headless -avd ${AVD_NAME} -port ${PORT} -no-boot
 # copy test project and build aar file
 cp -r "$SCRIPTDIR/libuplink_android/" "$TMP/libuplink_android"
 mkdir -p "$TMP/libuplink_android/app/libs/"
-mv "$SCRIPTDIR/../../.build/libuplink-android.aar" "$TMP/libuplink_android/app/libs/"
-# cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
+# mv "$SCRIPTDIR/../../.build/libuplink-android.aar" "$TMP/libuplink_android/app/libs/"
+cd "$TMP/libuplink_android/app/libs/" && $SCRIPTDIR/build.sh
 export TEST_PROJECT="$TMP/libuplink_android/"
 
 #Ensure Android Emulator has booted successfully before continuing
