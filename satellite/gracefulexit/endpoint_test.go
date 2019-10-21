@@ -8,6 +8,7 @@ import (
 	"io"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -17,6 +18,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
@@ -31,7 +33,7 @@ type exitProcessClient interface {
 }
 
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
 		for {
@@ -52,16 +54,47 @@ func TestSuccess(t *testing.T) {
 				}
 
 				if failedCount > 0 || pieceID != m.TransferPiece.OriginalPieceId {
+
+					pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+					require.NoError(t, err)
+
+					header, err := pieceReader.GetPieceHeader()
+					require.NoError(t, err)
+
+					orderLimit := header.OrderLimit
+					originalPieceHash := &pb.PieceHash{
+						PieceId:   orderLimit.PieceId,
+						Hash:      header.GetHash(),
+						PieceSize: pieceReader.Size(),
+						Timestamp: header.GetCreationTime(),
+						Signature: header.GetSignature(),
+					}
+
+					newPieceHash := &pb.PieceHash{
+						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+						Hash:      originalPieceHash.Hash,
+						PieceSize: originalPieceHash.PieceSize,
+						Timestamp: time.Now(),
+					}
+
+					receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+					require.NotNil(t, receivingNode)
+					signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+
+					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+					require.NoError(t, err)
+
 					success := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Succeeded{
 							Succeeded: &pb.TransferSucceeded{
 								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
-								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.OriginalPieceId},
+								OriginalPieceHash: originalPieceHash,
 								AddressedOrderLimit: &pb.AddressedOrderLimit{
 									Limit: &pb.OrderLimit{
 										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
 									},
 								},
+								ReplacementPieceHash: signedNewPieceHash,
 							},
 						},
 					}
@@ -99,7 +132,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, fullIDs map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		for {
 			response, err := processClient.Recv()
 			if errs.Is(err, io.EOF) {
@@ -139,7 +172,7 @@ func TestFailure(t *testing.T) {
 	})
 }
 
-func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
+func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 8
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -150,6 +183,11 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		satellite := planet.Satellites[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
+
+		storageNodes := make(map[storj.NodeID]*storagenode.Peer)
+		for _, node := range planet.StorageNodes {
+			storageNodes[node.ID()] = node
+		}
 
 		rs := &uplink.RSConfig{
 			MinThreshold:     4,
@@ -214,7 +252,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			err = errs.Combine(err, c.CloseSend())
 		}()
 
-		verifier(ctx, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(ctx, storageNodes, satellite, c, exitingNode, len(incompleteTransfers))
 	})
 }
 
