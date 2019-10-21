@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
+// Error - console auth api error type
 var Error = errs.Class("console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
@@ -136,7 +137,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// PasswordChange auth user, changes users password for a new one.
+// ChangePassword auth user, changes users password for a new one.
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -165,11 +166,11 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	params := mux.Vars(r)
 	email, ok := params["email"]
 	if !ok {
 		err = errs.New("email expected")
-
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -217,6 +218,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	params := mux.Vars(r)
 	val, ok := params["id"]
 	if !ok {
