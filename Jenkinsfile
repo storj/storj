@@ -18,7 +18,7 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
-      node('windows') { 
+      node('windows') {
         checkout scm
 
         unstash "storagenode-binaries"
@@ -49,14 +49,6 @@ node('node') {
       echo 'Push to Repo'
       sh 'make push-images'
       echo "Current build result: ${currentBuild.result}"
-    }
-
-    if (env.BRANCH_NAME == "master") {
-      /* This should only deploy to staging if the branch is master */
-      stage('Deploy to staging') {
-        sh 'make deploy'
-        echo "Current build result: ${currentBuild.result}"
-      }
     }
 
     stage('Upload') {
