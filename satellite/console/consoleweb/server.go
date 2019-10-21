@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -115,36 +114,35 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
+	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	paymentController := consoleapi.NewPayments(logger, service)
 
-	router := mux.NewRouter()
-
-	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
-	router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-	router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
+	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
+	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	authRouter := router.PathPrefix("/api/auth").Subrouter()
 	authRouter.Use(server.authMiddlewareHandler)
 
-	authRouter.Handle("/token", http.HandlerFunc(authController.Token)).Methods("POST")
-	authRouter.Handle("/register", http.HandlerFunc(authController.Register)).Methods("POST")
-	authRouter.Handle("/passwordChange", http.HandlerFunc(authController.PasswordChange)).Methods("POST")
-	authRouter.Handle("/forgotPassword", http.HandlerFunc(authController.ForgotPassword)).Methods("POST")
-	authRouter.Handle("/resendEmail", http.HandlerFunc(authController.ResendEmail)).Methods("POST")
+	authRouter.HandleFunc("/token", authController.Token).Methods("POST")
+	authRouter.HandleFunc("/register", authController.Register).Methods("POST")
+	authRouter.HandleFunc("/passwordChange", authController.PasswordChange).Methods("POST")
+	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods("POST")
+	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods("POST")
 
-	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
-	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
-	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+	router.HandleFunc("/api/v0/payments/cards", paymentController.AddCreditCard)
+	router.HandleFunc("/api/v0/payments/account/balance", paymentController.AccountBalance)
+	router.HandleFunc("/api/v0/payments/account", paymentController.SetupAccount)
 
 	if server.config.StaticDir != "" {
-		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.HandleFunc("/activation/", server.accountActivationHandler)
+		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
+		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
+		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
-		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
+		router.PathPrefix("/").Handler(server.gzipHandler(http.HandlerFunc(server.appHandler)))
 	}
 
 	server.server = http.Server{

@@ -9,9 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"github.com/gorilla/mux"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"go.uber.org/zap"
@@ -22,6 +21,8 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
+
+var Error = errs.Class("satellite console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
@@ -47,7 +48,7 @@ func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice
 	}
 }
 
-// Token authenticates User by credentials and returns auth token.
+// Token authenticates user by credentials and returns auth token.
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -76,12 +77,12 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(tokenResponse)
 	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(err))
+		a.log.Error("token handler could not encode token response", zap.Error(Error.Wrap(err)))
 		return
 	}
 }
 
-// Register creates new User, sends activation e-mail.
+// Register creates new user, sends activation e-mail.
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -134,7 +135,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(&user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(err))
+		a.log.Error("registration handler could not encode error", zap.Error(Error.Wrap(err)))
 		return
 	}
 }
@@ -280,7 +281,7 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(err))
+		a.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 	}
 }
 
