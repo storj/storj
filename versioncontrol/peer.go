@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"net"
 	"net/http"
 	"reflect"
@@ -33,13 +32,14 @@ var (
 // Config is all the configuration parameters for a Version Control Server.
 type Config struct {
 	Address  string `user:"true" help:"public address to listen on" default:":8080"`
-	Versions ServiceVersions
+	Versions OldVersionConfig
 
-	Binary Versions
+	Binary ProcessesConfig
 }
 
-// ServiceVersions provides a list of allowed Versions per Service.
-type ServiceVersions struct {
+// OldVersionConfig provides a list of allowed Versions per process.
+// NB: this will be deprecated in favor of `ProcessesConfig`.
+type OldVersionConfig struct {
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
@@ -47,32 +47,30 @@ type ServiceVersions struct {
 	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
-// Versions represents versions for all binaries.
-// TODO: this name is inconsistent with the internal/version pkg's analogue, `Processes`.
-type Versions struct {
-	Satellite   Binary
-	Storagenode Binary
-	Uplink      Binary
-	Gateway     Binary
-	Identity    Binary
+// ProcessesConfig represents versions configuration for all processes.
+type ProcessesConfig struct {
+	Satellite   ProcessConfig
+	Storagenode ProcessConfig
+	Uplink      ProcessConfig
+	Gateway     ProcessConfig
+	Identity    ProcessConfig
 }
 
-// Binary represents versions for single binary.
-// TODO: This name is inconsistent with the internal/version pkg's analogue, `Process`.
-type Binary struct {
-	Minimum   Version
-	Suggested Version
-	Rollout   Rollout
+// ProcessConfig represents versions configuration for a single process.
+type ProcessConfig struct {
+	Minimum   VersionConfig
+	Suggested VersionConfig
+	Rollout   RolloutConfig
 }
 
-// Version single version.
-type Version struct {
+// VersionConfig single version configuration.
+type VersionConfig struct {
 	Version string `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string `user:"true" help:"URL for specific binary" default:""`
 }
 
-// Rollout represents the state of a version rollout of a binary to the suggested version.
-type Rollout struct {
+// RolloutConfig represents the state of a version rollout configuration of a process.
+type RolloutConfig struct {
 	Seed   string `user:"true" help:"random 32 byte, hex-encoded string"`
 	Cursor int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`
 }
@@ -126,7 +124,7 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		Log: log,
 	}
 
-	// Convert each Service's Version String to SemVer
+	// Convert each Service's VersionConfig String to SemVer
 	peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
 	if err != nil {
 		return &Peer{}, err
@@ -225,12 +223,12 @@ func (peer *Peer) Close() (err error) {
 func (peer *Peer) Addr() string { return peer.Server.Listener.Addr().String() }
 
 // ValidateRollouts validates the rollout field of each field in the Versions struct.
-func (versions Versions) ValidateRollouts(log *zap.Logger) error {
+func (versions ProcessesConfig) ValidateRollouts(log *zap.Logger) error {
 	value := reflect.ValueOf(versions)
 	fieldCount := value.NumField()
 	validationErrs := errs.Group{}
 	for i := 0; i < fieldCount; i++ {
-		binary, ok := value.Field(i).Interface().(Binary)
+		binary, ok := value.Field(i).Interface().(ProcessConfig)
 		if !ok {
 			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
 			continue
@@ -247,7 +245,7 @@ func (versions Versions) ValidateRollouts(log *zap.Logger) error {
 }
 
 // Validate validates the rollout seed and cursor config values.
-func (rollout Rollout) Validate() error {
+func (rollout RolloutConfig) Validate() error {
 	seedLen := len(rollout.Seed)
 	if seedLen == 0 {
 		return EmptySeedErr
@@ -267,23 +265,7 @@ func (rollout Rollout) Validate() error {
 	return nil
 }
 
-func percentageToCursor(pct int) version.RolloutBytes {
-	// NB: convert the max value to a number, multiply by the percentage, convert back.
-	var maxInt, maskInt big.Int
-	var maxBytes version.RolloutBytes
-	for i := 0; i < len(maxBytes); i++ {
-		maxBytes[i] = 255
-	}
-	maxInt.SetBytes(maxBytes[:])
-	maskInt.Div(maskInt.Mul(&maxInt, big.NewInt(int64(pct))), big.NewInt(100))
-
-	var cursor version.RolloutBytes
-	copy(cursor[:], maskInt.Bytes())
-
-	return cursor
-}
-
-func configToProcess(binary Binary) (version.Process, error) {
+func configToProcess(binary ProcessConfig) (version.Process, error) {
 	process := version.Process{
 		Minimum: version.Version{
 			Version: binary.Minimum.Version,
@@ -294,7 +276,7 @@ func configToProcess(binary Binary) (version.Process, error) {
 			URL:     binary.Suggested.URL,
 		},
 		Rollout: version.Rollout{
-			Cursor: percentageToCursor(binary.Rollout.Cursor),
+			Cursor: version.PercentageToCursor(binary.Rollout.Cursor),
 		},
 	}
 
