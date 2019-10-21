@@ -8,11 +8,12 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
-	"storj.io/storj/satellite/payments"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
@@ -49,6 +50,7 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
