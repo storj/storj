@@ -52,6 +52,7 @@ func TestChore(t *testing.T) {
 		exitSatellite(ctx, t, planet, exitingNode)
 
 		newNodePieceCounts, err := getNodePieceCounts(ctx, planet)
+		require.NoError(t, err)
 		var newExitingNodeID storj.NodeID
 		for k, v := range newNodePieceCounts {
 			if v > nodePieceCounts[k] {
@@ -138,7 +139,8 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 }
 func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[storj.NodeID]int, err error) {
 	nodePieceCounts := make(map[storj.NodeID]int)
-	for _, node := range planet.StorageNodes {
+	for _, n := range planet.StorageNodes {
+		node := n
 		// make sure there are no more pieces on the node.
 		namespaces, err := node.DB.Pieces().ListNamespaces(ctx)
 		if err != nil {
