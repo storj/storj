@@ -87,11 +87,9 @@ func TestSuccess(t *testing.T) {
 					success := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Succeeded{
 							Succeeded: &pb.TransferSucceeded{
-								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
-								OriginalPieceHash: originalPieceHash,
-								AddressedOrderLimit: &pb.AddressedOrderLimit{
-									Limit: &orderLimit,
-								},
+								OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+								OriginalPieceHash:    originalPieceHash,
+								OriginalOrderLimit:   &orderLimit,
 								ReplacementPieceHash: signedNewPieceHash,
 							},
 						},

@@ -384,8 +384,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	addressedOrderLimit := message.Succeeded.GetAddressedOrderLimit()
-	if addressedOrderLimit == nil {
+	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
+	if originalOrderLimit == nil {
 		return Error.New("Addressed order limit cannot be nil.")
 	}
 	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
@@ -401,7 +401,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	endpoint.log.Debug("transfer succeeded", zap.Stringer("piece ID", pieceID))
 
 	// verify that the satellite signed the original order limit
-	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetAddressedOrderLimit().Limit)
+	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetOriginalOrderLimit())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -412,7 +412,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
-	err = signing.VerifyUplinkPieceHashSignature(ctx, addressedOrderLimit.Limit.UplinkPublicKey, originalPieceHash)
+	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
 		return Error.Wrap(err)
 	}
