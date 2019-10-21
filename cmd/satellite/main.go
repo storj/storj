@@ -329,7 +329,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	//Adding one day to properly account for the entire end day
-	end = end.Add(time.Hour * 24)
+	end = end.AddDate(0, 0, 1)
 
 	// Ensure that start date is not after end date
 	if start.After(end) {

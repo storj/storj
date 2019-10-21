@@ -44,24 +44,13 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 	}
 
 	w := csv.NewWriter(output)
-	var headers []string
-	if completed {
-		headers = []string{
-			"nodeID",
-			"walletAddress",
-			"nodeCreationDate",
-			"initiatedGracefulExit",
-			"completedGracefulExit",
-			"transferredGB",
-		}
-	} else {
-		headers = []string{
-			"nodeID",
-			"walletAddress",
-			"nodeCreationDate",
-			"initiatedGracefulExit",
-			"transferredGB",
-		}
+	headers := []string{
+		"nodeID",
+		"walletAddress",
+		"nodeCreationDate",
+		"initiatedGracefulExit",
+		"completedGracefulExit",
+		"transferredGB",
 	}
 	if err := w.Write(headers); err != nil {
 		return err
@@ -83,24 +72,17 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 			return err
 		}
 
-		var nextRow []string
-		if completed {
-			nextRow = []string{
-				node.Id.String(),
-				node.Operator.Wallet,
-				node.CreatedAt.Format("2006-01-02"),
-				exitStatus.ExitInitiatedAt.Format("2006-01-02"),
-				exitStatus.ExitFinishedAt.Format("2006-01-02"),
-				strconv.FormatInt(exitProgress.BytesTransferred, 10),
-			}
-		} else {
-			nextRow = []string{
-				node.Id.String(),
-				node.Operator.Wallet,
-				node.CreatedAt.Format("2006-01-02"),
-				exitStatus.ExitInitiatedAt.Format("2006-01-02"),
-				strconv.FormatInt(exitProgress.BytesTransferred, 10),
-			}
+		exitFinished := ""
+		if !exitStatus.ExitFinishedAt.IsZero() {
+			exitFinished = exitStatus.ExitFinishedAt.Format("2006-01-02")
+		}
+		nextRow := []string{
+			node.Id.String(),
+			node.Operator.Wallet,
+			node.CreatedAt.Format("2006-01-02"),
+			exitStatus.ExitInitiatedAt.Format("2006-01-02"),
+			exitFinished,
+			strconv.FormatInt(exitProgress.BytesTransferred, 10),
 		}
 		if err := w.Write(nextRow); err != nil {
 			return err
