@@ -235,9 +235,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				},
 			}
 
+			exitStatusRequest := &overlay.ExitStatusRequest{
+				NodeID:         nodeID,
+				ExitSuccess:    true,
+				ExitFinishedAt: time.Now().UTC(),
+			}
 			// check node's exiting progress to see if it has failed passed max failure threshold
 			overallFailurePercentage := (float64(progress.PiecesFailed) / float64(progress.PiecesTransferred)) * 100
 			if overallFailurePercentage > endpoint.config.OverallMaxFailuresPercentage {
+				exitStatusRequest.ExitSuccess = false
 				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
 					ExitFailed: &pb.ExitFailed{
 						Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
@@ -245,13 +251,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 			}
 
-			// check inactive time frame
-			if progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
-				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
-					ExitFailed: &pb.ExitFailed{
-						Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
-					},
-				}
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+			if err != nil {
+				return Error.Wrap(err)
 			}
 
 			err = stream.Send(transferMsg)
@@ -263,6 +265,31 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		// skip if there are none pending
 		if pendingCount == 0 {
 			continue
+		}
+
+		// check inactive timeframe
+		if progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
+			exitStatusRequest := &overlay.ExitStatusRequest{
+				NodeID:         nodeID,
+				ExitSuccess:    false,
+				ExitFinishedAt: time.Now().UTC(),
+			}
+			transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
+				ExitFailed: &pb.ExitFailed{
+					Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+				},
+			}
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// remove all items from the transfer queue
+			err := endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			break
 		}
 
 		request, err := stream.Recv()
