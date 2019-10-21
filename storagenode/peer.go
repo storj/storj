@@ -302,7 +302,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
-		dialer.RequestTimeout = config.Storage2.Orders.SenderRequestTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
