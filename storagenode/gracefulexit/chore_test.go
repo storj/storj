@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -16,6 +17,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
@@ -91,6 +93,15 @@ func TestChore(t *testing.T) {
 			if progress.SatelliteID == satellite1.ID() {
 				require.NotNil(t, progress.FinishedAt)
 			}
+		}
+
+		// make sure there are no more pieces on the node.
+		namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
+		for _, ns := range namespaces {
+			err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+				return errs.New("found a piece on the node. this shouldn't happen.")
+			})
+			require.NoError(t, err)
 		}
 	})
 }
