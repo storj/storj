@@ -6,6 +6,7 @@ package gracefulexit
 import (
 	"context"
 	"io"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -221,13 +222,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	for {
 		pendingCount := pending.length()
+
+		progress, err := endpoint.db.GetProgress(ctx, nodeID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
-
-			progress, err := endpoint.db.GetProgress(ctx, nodeID)
-			if err != nil {
-				return Error.Wrap(err)
-			}
 			// TODO needs exit signature
 			transferMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_ExitCompleted{
@@ -241,8 +243,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				ExitFinishedAt: time.Now().UTC(),
 			}
 			// check node's exiting progress to see if it has failed passed max failure threshold
-			overallFailurePercentage := (float64(progress.PiecesFailed) / float64(progress.PiecesTransferred)) * 100
-			if overallFailurePercentage > endpoint.config.OverallMaxFailuresPercentage {
+			overallFailurePercentage := math.Round(float64(progress.PiecesFailed)/float64(progress.PiecesTransferred)) * 100
+			if int(overallFailurePercentage) > endpoint.config.OverallMaxFailuresPercentage {
 				exitStatusRequest.ExitSuccess = false
 				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
 					ExitFailed: &pb.ExitFailed{
@@ -251,7 +253,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 			}
 
-			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -274,18 +276,25 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				ExitSuccess:    false,
 				ExitFinishedAt: time.Now().UTC(),
 			}
-			transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
-				ExitFailed: &pb.ExitFailed{
-					Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+			transferMsg := &pb.SatelliteMessage{
+				Message: &pb.SatelliteMessage_ExitFailed{
+					ExitFailed: &pb.ExitFailed{
+						Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+					},
 				},
 			}
-			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 
 			// remove all items from the transfer queue
 			err := endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			err = stream.Send(transferMsg)
 			if err != nil {
 				return Error.Wrap(err)
 			}
