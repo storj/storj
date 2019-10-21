@@ -931,7 +931,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 		}
 		exitedNodes = append(exitedNodes, id)
 	}
-	return exitedNodes, nil
+	return exitedNodes, rows.Err()
 }
 
 // GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
@@ -962,7 +962,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 		}
 		exitingNodes = append(exitingNodes, id)
 	}
-	return exitingNodes, nil
+	return exitingNodes, rows.Err()
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.
