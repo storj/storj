@@ -139,7 +139,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 	log.Println("downloading versions from", runCfg.ServerAddress)
 	shouldUpdate, newVersion, err := client.ShouldUpdate(ctx, runCfg.ServiceName, nodeID)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	if shouldUpdate {
