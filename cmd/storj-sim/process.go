@@ -200,6 +200,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		executable = localExecutable
 	}
 
+	if _, ok := process.Arguments[command]; !ok {
+		fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
+		return
+	}
+
 	cmd := exec.CommandContext(ctx, executable, process.Arguments[command]...)
 	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")

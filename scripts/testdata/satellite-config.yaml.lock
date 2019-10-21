@@ -128,7 +128,7 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: plainmemory
+# live-accounting.storage-backend: memory
 
 # if true, log function filename and line number
 # log.caller: false
@@ -238,6 +238,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix
 # metrics.app-suffix: -release
 
+# the time between each metrics chore run
+# metrics.chore-interval: 15m0s
+
 # instance id prefix
 # metrics.instance-prefix: ""
 
@@ -329,7 +332,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 2h0m0s
+# repairer.timeout: 10m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false

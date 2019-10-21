@@ -33,6 +33,7 @@ linters:
     #TODO#- gosec
   disable:
     - godox
+    - wsl         # too much noise
     - goimports   # disabled, because it's slow, using scripts/check-imports.go instead.
     - goconst     # check for things that could be replaced by constants
     - gocyclo     # needs tweaking

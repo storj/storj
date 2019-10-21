@@ -24,8 +24,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -92,7 +94,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -112,24 +114,31 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
+	paymentController := consoleapi.NewPayments(logger, service)
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
+	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+
+	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
+	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
+	router.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
+	router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+	router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
-		Handler:        mux,
+		Handler:        router,
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -188,6 +197,94 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
 		server.serveError(w, r, http.StatusNotFound)
+		return
+	}
+}
+
+// tokenRequestHandler authenticates User by credentials and returns auth token.
+func (server *Server) tokenHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var tokenRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var tokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	tokenResponse.Token, err = server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	if err != nil {
+		server.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(tokenResponse)
+	if err != nil {
+		server.log.Error("token handler could not encode token response", zap.Error(err))
+		return
+	}
+}
+
+// registerHandler registers new User.
+func (server *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		UserInfo       console.CreateUser `json:"userInfo"`
+		SecretInput    string             `json:"secret"`
+		ReferrerUserID string             `json:"referrerUserID"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
+	if err != nil {
+		server.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := server.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
+	if err != nil {
+		server.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		server.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	link := server.config.ExternalAddress + consoleql.ActivationPath + token
+
+	server.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&consoleql.AccountActivationEmail{
+			ActivationLink: link,
+			Origin:         server.config.ExternalAddress,
+		},
+	)
+
+	err = json.NewEncoder(w).Encode(&user.ID)
+	if err != nil {
+		server.log.Error("registration handler could not encode error", zap.Error(err))
 		return
 	}
 }
@@ -384,6 +481,22 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 
 	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
 		server.log.Error("error occurred in console/server", zap.Error(err))
+	}
+}
+
+// serveJSONError writes JSON error to response output stream.
+func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+
+	var response struct {
+		Error string `json:"error"`
+	}
+
+	response.Error = err.Error()
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		server.log.Error("failed to write json error response", zap.Error(err))
 	}
 }
 
