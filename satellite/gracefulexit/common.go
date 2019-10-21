@@ -24,4 +24,8 @@ type Config struct {
 
 	EndpointBatchSize   int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"100"`
 	EndpointMaxFailures int `help:"maximum number of transfer failures per piece." default:"3"`
+
+	// TODO: what's the default number?
+	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:""`
+	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:""`
 }

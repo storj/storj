@@ -223,13 +223,38 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		pendingCount := pending.length()
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
-			// TODO check whether failure threshold is met before sending completed
+
+			// check node's exiting progress to see if it has failed passed max failure threshold, we should consider it as exit failed
+			progress, err := endpoint.db.GetProgress(ctx, nodeID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 			// TODO needs exit signature
 			transferMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_ExitCompleted{
 					ExitCompleted: &pb.ExitCompleted{},
 				},
 			}
+
+			// check overall failure percentage
+			overallFailurePercentage := (float64(progress.PiecesFailed) / float64(progress.PiecesTransferred)) * 100
+			if overallFailurePercentage > endpoint.config.OverallMaxFailuresPercentage {
+				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
+					ExitFailed: &pb.ExitFailed{
+						Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+					},
+				}
+			}
+
+			// check inactive time frame
+			if progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
+				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
+					ExitFailed: &pb.ExitFailed{
+						Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+					},
+				}
+			}
+
 			err = stream.Send(transferMsg)
 			if err != nil {
 				return Error.Wrap(err)
