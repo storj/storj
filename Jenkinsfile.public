@@ -85,19 +85,7 @@ pipeline {
                     }
                 }
 
-                stage('Tests Gomobile') {
-                    environment {
-                        // docker container IP
-                        STORJ_NETWORK_HOST4 = '172.17.0.2'
-                        STORJ_NETWORK_HOST6 = '172.17.0.2'
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
-                    }
 
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj4;\''
-                        sh 'make test-libuplink-gomobile'
-                    }
-                }
  
                 stage('Integration') {
                     environment {
@@ -140,6 +128,19 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage('Tests Gomobile') {
+            environment {
+                // docker container IP
+                STORJ_NETWORK_HOST4 = '172.17.0.2'
+                STORJ_NETWORK_HOST6 = '172.17.0.2'
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj4;\''
+                sh 'make test-libuplink-gomobile'
             }
         }
     }
