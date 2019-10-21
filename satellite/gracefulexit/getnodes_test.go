@@ -95,7 +95,7 @@ func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
 		exitedLastWeek := make(map[storj.NodeID]bool)
 
 		now := time.Now()
-		lastWeek := time.Now().Add(-7 * 24 * time.Hour)
+		lastWeek := time.Now().AddDate(0, 0, -7)
 
 		testData := []struct {
 			nodeID      storj.NodeID
@@ -128,13 +128,13 @@ func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
 			_, err = cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
 
-			if data.finishedAt != (time.Time{}) {
+			if !data.finishedAt.IsZero() {
 				if data.finishedAt == now {
 					exitedToday[data.nodeID] = true
 				} else {
 					exitedLastWeek[data.nodeID] = true
 				}
-			} else if data.initiatedAt != (time.Time{}) {
+			} else if !data.initiatedAt.IsZero() {
 				if data.initiatedAt == now {
 					exitingToday[data.nodeID] = true
 				} else {
