@@ -38,7 +38,7 @@ type Transaction struct {
 	CreatedAt time.Time
 }
 
-// TransactionUpdate
+// TransactionUpdate holds transaction update info.
 type TransactionUpdate struct {
 	TransactionID coinpayments.TransactionID
 	Status        coinpayments.Status
