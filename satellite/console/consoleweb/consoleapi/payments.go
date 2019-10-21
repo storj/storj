@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"

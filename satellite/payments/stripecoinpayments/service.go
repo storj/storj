@@ -4,9 +4,9 @@
 package stripecoinpayments
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"

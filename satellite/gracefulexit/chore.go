@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"

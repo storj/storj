@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 )

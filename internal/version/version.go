@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
