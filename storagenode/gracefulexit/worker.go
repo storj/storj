@@ -4,7 +4,6 @@
 package gracefulexit
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"os"
@@ -15,9 +14,9 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/uplink/ecclient"
@@ -69,12 +68,6 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	identity, err := conn.PeerIdentity()
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	signee := signing.SigneeFromPeerIdentity(identity)
-
 	client := conn.SatelliteGracefulExitClient()
 
 	c, err := client.Process(ctx)
@@ -125,19 +118,14 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			// TODO what's the typical expiration setting?
 			pieceHash, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
 			if err != nil {
-				worker.log.Error("failed to put piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				// TODO look at error type to decide on the transfer error
-				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
-
-				continue
-			}
-
-			err = verifyPieceHash(ctx, addrLimit.GetLimit(), signee, pieceHash, originalHash.Hash)
-
-			if err != nil {
-				worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
-
+				if piecestore.ErrVerifyUntrusted.Has(err) {
+					worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+					worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+				} else {
+					worker.log.Error("failed to put piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+					// TODO look at error type to decide on the transfer error
+					worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
+				}
 				continue
 			}
 
@@ -239,26 +227,4 @@ func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.R
 	}
 
 	return
-}
-
-// verifyPieceHash verifies whether the piece hash matches the locally computed hash and the piece hash signature is valid.
-func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, signee signing.Signee, hash *pb.PieceHash, expectedHash []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if limit == nil || hash == nil || len(expectedHash) == 0 {
-		return Error.New("invalid arguments")
-	}
-	if limit.PieceId != hash.PieceId {
-		return Error.New("piece id changed")
-	}
-	if !bytes.Equal(hash.Hash, expectedHash) {
-		return Error.New("hashes don't match")
-	}
-
-	err = signee.HashAndVerifySignature(ctx, hash.GetHash(), hash.GetSignature())
-	if !bytes.Equal(hash.Hash, expectedHash) {
-		return Error.New("invalid piece hash signature")
-	}
-
-	return nil
 }
