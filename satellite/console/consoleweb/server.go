@@ -131,14 +131,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/token", http.HandlerFunc(authController.Token)).Methods("POST")
 	authRouter.Handle("/register", http.HandlerFunc(authController.Register)).Methods("POST")
 	authRouter.Handle("/passwordChange", http.HandlerFunc(authController.PasswordChange)).Methods("POST")
-	authRouter.Handle("/forgotPassword", http.HandlerFunc(authController.ForgotPassword)).Methods("GET")
+	authRouter.Handle("/forgotPassword", http.HandlerFunc(authController.ForgotPassword)).Methods("POST")
+	authRouter.Handle("/resendEmail", http.HandlerFunc(authController.ResendEmail)).Methods("POST")
 
-	paymentsRouter := router.PathPrefix("api/payments").Subrouter()
-	paymentsRouter.Use(server.authMiddlewareHandler)
-
-	paymentsRouter.Handle("/cards", http.HandlerFunc(paymentController.AddCreditCard)).Methods("POST")
-	paymentsRouter.Handle("/account/balance", http.HandlerFunc(paymentController.AccountBalance)).Methods("GET")
-	paymentsRouter.Handle("/account", http.HandlerFunc(paymentController.SetupAccount)).Methods("POST")
+	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.AddCreditCard))
+	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
+	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
 
 	if server.config.StaticDir != "" {
 		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
@@ -146,7 +144,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
 		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
-		router.Handle("/", http.HandlerFunc(server.appHandler))
+		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{

@@ -9,6 +9,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"github.com/gorilla/mux"
+	"github.com/zeebo/errs"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/post"
@@ -165,18 +170,16 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+	params := mux.Vars(r)
+	email, ok := params["email"]
+	if !ok {
+		err = errs.New("email expected")
 
-	var request struct {
-		Email string `json:"email"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	user, err := a.service.GetUserByEmail(ctx, request.Email)
+	user, err := a.service.GetUserByEmail(ctx, email)
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
@@ -210,6 +213,57 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 			LetUsKnowURL:               letUsKnowURL,
 			ContactInfoURL:             contactInfoURL,
 			TermsAndConditionsURL:      termsAndConditionsURL,
+		},
+	)
+}
+
+// ResendEmail
+func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	params := mux.Vars(r)
+	val, ok := params["id"]
+	if !ok {
+		a.serveJSONError(w, http.StatusBadRequest, errs.New("id expected"))
+		return
+	}
+
+	userID, err := uuid.Parse(val)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := a.service.GetUser(ctx, *userID)
+	if err != nil {
+		a.serveJSONError(w, http.StatusNotFound, err)
+		return
+	}
+
+	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	link := a.ExternalAddress + consoleql.ActivationPath + token
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := a.ContactInfoURL
+	termsAndConditionsURL := a.TermsAndConditionsURL
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.AccountActivationEmail{
+			Origin:                a.ExternalAddress,
+			ActivationLink:        link,
+			TermsAndConditionsURL: termsAndConditionsURL,
+			ContactInfoURL:        contactInfoURL,
 		},
 	)
 }
