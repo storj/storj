@@ -65,7 +65,7 @@ pipeline {
                         sh 'export USE_PORTS_PID=!$'
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
-                        sh 'kill $USE_PORTS_PID'
+                        sh 'kill -SIGQUIT $USE_PORTS_PID'
                     }
 
                     post {
