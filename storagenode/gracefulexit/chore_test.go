@@ -45,65 +45,116 @@ func TestChore(t *testing.T) {
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
 		require.NoError(t, err)
-		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		exitStatus := overlay.ExitStatusRequest{
-			NodeID:          exitingNode.ID(),
-			ExitInitiatedAt: time.Now(),
-		}
-
-		_, err = satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+		nodePieceCounts, err := getNodePieceCounts(ctx, planet)
 		require.NoError(t, err)
 
-		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 10000)
-		require.NoError(t, err)
+		exitSatellite(ctx, t, planet, exitingNode)
 
-		// check that the storage node is exiting
-		exitProgress, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
-		require.NoError(t, err)
-		require.Len(t, exitProgress, 1)
-
-		// initiate graceful exit on satellite side by running the SN chore.
-		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
-
-		// run the satellite chore to build the transfer queue.
-		satellite1.GracefulExit.Chore.Loop.TriggerWait()
-
-		// check that the satellite knows the storage node is exiting.
-		exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
-		require.NoError(t, err)
-		require.Len(t, exitingNodes, 1)
-		require.Equal(t, exitingNode.ID(), exitingNodes[0])
-
-		queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 1)
-
-		// run the SN chore again to start processing transfers.
-		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
-
-		// check that there are no more items to process
-		queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 0)
-
-		exitProgress, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
-		require.NoError(t, err)
-		for _, progress := range exitProgress {
-			if progress.SatelliteID == satellite1.ID() {
-				require.NotNil(t, progress.FinishedAt)
+		newNodePieceCounts, err := getNodePieceCounts(ctx, planet)
+		var newExitingNodeID storj.NodeID
+		for k, v := range newNodePieceCounts {
+			if v > nodePieceCounts[k] {
+				newExitingNodeID = k
 			}
 		}
+		require.NotNil(t, newExitingNodeID)
 
-		// make sure there are no more pieces on the node.
-		namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
-		for _, ns := range namespaces {
-			err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
-				return errs.New("found a piece on the node. this shouldn't happen.")
-			})
-			require.NoError(t, err)
+		var newExitingNode *storagenode.Peer
+		for _, node := range planet.StorageNodes {
+			if node.ID() == newExitingNodeID {
+				newExitingNode = node
+			}
 		}
+		require.NotNil(t, newExitingNode)
+
+		// TODO enable this after the satellite endpoint starts updating graceful exit status tables
+		// otherwise this fails because the original exiting node information is still returned in several queries
+		//exitSatellite(ctx, t, planet, newExitingNode)
 	})
+}
+
+func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet, exitingNode *storagenode.Peer) {
+	satellite1 := planet.Satellites[0]
+	exitingNode.GracefulExit.Chore.Loop.Pause()
+
+	exitStatus := overlay.ExitStatusRequest{
+		NodeID:          exitingNode.ID(),
+		ExitInitiatedAt: time.Now(),
+	}
+
+	_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+	require.NoError(t, err)
+
+	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 10000)
+	require.NoError(t, err)
+
+	// check that the storage node is exiting
+	exitProgress, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
+	require.NoError(t, err)
+	require.Len(t, exitProgress, 1)
+
+	// initiate graceful exit on satellite side by running the SN chore.
+	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+
+	// run the satellite chore to build the transfer queue.
+	satellite1.GracefulExit.Chore.Loop.TriggerWait()
+
+	// check that the satellite knows the storage node is exiting.
+	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
+	require.NoError(t, err)
+	require.Len(t, exitingNodes, 1)
+	require.Equal(t, exitingNode.ID(), exitingNodes[0])
+
+	queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+	require.NoError(t, err)
+	require.Len(t, queueItems, 1)
+
+	// run the SN chore again to start processing transfers.
+	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+
+	// check that there are no more items to process
+	queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+	require.NoError(t, err)
+	require.Len(t, queueItems, 0)
+
+	exitProgress, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
+	require.NoError(t, err)
+	for _, progress := range exitProgress {
+		if progress.SatelliteID == satellite1.ID() {
+			require.NotNil(t, progress.FinishedAt)
+		}
+	}
+
+	// make sure there are no more pieces on the node.
+	namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
+	require.NoError(t, err)
+	for _, ns := range namespaces {
+		err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+			return errs.New("found a piece on the node. this shouldn't happen.")
+		})
+		require.NoError(t, err)
+	}
+}
+func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[storj.NodeID]int, err error) {
+	nodePieceCounts := make(map[storj.NodeID]int)
+	for _, node := range planet.StorageNodes {
+		// make sure there are no more pieces on the node.
+		namespaces, err := node.DB.Pieces().ListNamespaces(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, ns := range namespaces {
+			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+				nodePieceCounts[node.ID()]++
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return nodePieceCounts, err
 }
 
 // findNodeToExit selects the node storing the most pieces as the node to graceful exit.
