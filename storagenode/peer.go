@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -91,9 +92,11 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version version.Config
+	Version checker.Config
 
 	Bandwidth bandwidth.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -114,7 +117,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *checker.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -155,6 +158,7 @@ type Peer struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
 	}
 
 	Bandwidth *bandwidth.Service
@@ -171,12 +175,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
@@ -390,6 +393,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+
+		peer.GracefulExit.Chore = gracefulexit.NewChore(
+			peer.Log.Named("gracefulexit:chore"),
+			config.GracefulExit,
+			peer.DB.Satellites(),
+		)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
@@ -446,6 +455,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -461,6 +474,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
+	}
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}

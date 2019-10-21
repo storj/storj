@@ -45,9 +45,10 @@
                             is-white="true"
                             :on-press="onClearSelection"
                         />
+                        <span class="header-selected-api-keys__info-text"><b>{{selectedAPIKeysCount}}</b> API Keys selected</span>
                     </div>
                     <div class="header-after-delete-click" v-if="areSelectedApiKeysBeingDeleted">
-                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
+                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete <b>{{selectedAPIKeysCount}}</b> {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
                             <VButton
                                 class="button deletion"
@@ -90,7 +91,7 @@
             </div>
             <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
                 <h1 class="empty-search-result-area__title">No results found</h1>
-                <svg class="empty-search-result-area__image" width="254" height="195" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="empty-search-result-area__image" width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M23.3168 98C21.4071 98 20 96.5077 20 94.6174C20.9046 68.9496 31.8599 45.769 49.0467 28.7566C66.2335 11.7442 89.6518 0.900089 115.583 0.00470057C117.492 -0.094787 119 1.39753 119 3.28779V32.4377C119 34.2284 117.593 35.6213 115.784 35.7208C99.7025 36.5167 85.2294 43.3813 74.4751 53.927C63.8213 64.5722 56.8863 78.8984 56.0822 94.8164C55.9817 96.6072 54.5746 98 52.7655 98H23.3168Z" fill="#B0B6C9"/>
                     <path d="M117.5 30C124.404 30 130 25.0751 130 19C130 12.9249 124.404 8 117.5 8C110.596 8 105 12.9249 105 19C105 25.0751 110.596 30 117.5 30Z" fill="#8F96AD"/>
@@ -166,6 +167,7 @@ const {
     FETCH,
     DELETE,
     TOGGLE_SELECTION,
+    CLEAR,
     CLEAR_SELECTION,
     SET_SEARCH_QUERY,
     SET_SORT_BY,
@@ -201,12 +203,16 @@ export default class ApiKeysArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
+    }
+
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+        await this.$store.dispatch(CLEAR);
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
-        await this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
+        await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
 
     public onCreateApiKeyClick(): void {
@@ -236,12 +242,9 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        const selectedKeys: string[] = this.$store.getters.selectedApiKeys.map((key) => key.id);
-        const keySuffix = selectedKeys.length > 1 ? '\'s' : '';
-
         try {
-            await this.$store.dispatch(DELETE, selectedKeys);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+            await this.$store.dispatch(DELETE);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API keys deleted successfully`);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
@@ -283,16 +286,12 @@ export default class ApiKeysArea extends Vue {
         return this.$store.getters.apiKeys.length === 0;
     }
 
-    public get isSelected(): boolean {
-        return this.$store.getters.selectedApiKeys.length > 0;
-    }
-
     public get hasSearchQuery(): boolean {
         return this.$store.state.apiKeysModule.cursor.search;
     }
 
     public get selectedAPIKeysCount(): number {
-        return this.$store.getters.selectedApiKeys.length;
+        return this.$store.state.apiKeysModule.selectedApiKeysIds.length;
     }
 
     public get headerState(): number {
@@ -437,9 +436,9 @@ export default class ApiKeysArea extends Vue {
 
         &__title {
             font-family: 'font_bold';
-            font-size: 21px;
+            font-size: 32px;
             line-height: 39px;
-            margin-top: 100px;
+            margin-top: 104px;
         }
 
         &__image {
@@ -455,26 +454,17 @@ export default class ApiKeysArea extends Vue {
     .header-selected-api-keys {
         display: flex;
         align-items: center;
-        position: relative;
 
-        .button {
-            position: absolute;
-            top: -6px;
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
         }
     }
 
     .header-selected-api-keys {
 
-        .button {
-            position: absolute;
-            top: -7px;
-            left: 134px;
-        }
-
         .deletion {
-            position: absolute;
-            top: -6px;
-            left: 0
+            margin-right: 12px;
         }
     }
 
