@@ -4,10 +4,8 @@
 package consoleapi
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/post"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
@@ -141,7 +138,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // PasswordChange auth user, changes users password for a new one.
-func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -150,8 +147,6 @@ func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
 		CurrentPassword string `json:"password"`
 		NewPassword     string `json:"newPassword"`
 	}
-
-	ctx = a.authorize(ctx, r)
 
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
@@ -283,17 +278,4 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 	if err != nil {
 		a.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 	}
-}
-
-// authorize checks request for authorization token, validates it and updates context with auth data.
-func (a *Auth) authorize(ctx context.Context, r *http.Request) context.Context {
-	authHeaderValue := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeaderValue, "Bearer ")
-
-	auth, err := a.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-	if err != nil {
-		return console.WithAuthFailure(ctx, err)
-	}
-
-	return console.WithAuth(ctx, auth)
 }

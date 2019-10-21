@@ -124,11 +124,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	authRouter := router.PathPrefix("/api/auth").Subrouter()
-	authRouter.Use(server.authMiddlewareHandler)
+	authRouter.Use()
 
 	authRouter.HandleFunc("/token", authController.Token).Methods("POST")
 	authRouter.HandleFunc("/register", authController.Register).Methods("POST")
-	authRouter.HandleFunc("/passwordChange", authController.PasswordChange).Methods("POST")
+	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods("POST")
+	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods("POST")
 	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods("POST")
 	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods("POST")
 
@@ -210,7 +211,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // authMiddlewareHandler performs initial authorization before every request.
-func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
+func (server *Server) withAuth(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var err error
