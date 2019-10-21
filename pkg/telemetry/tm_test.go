@@ -44,7 +44,7 @@ func TestMetrics(t *testing.T) {
 			func(application, instance string, key []byte, val float64) {
 				assert.Equal(t, application, "testapp")
 				assert.Equal(t, instance, "testinst")
-				if string(key) == "testpkg.testint.recent" {
+				if string(key) == "int_val,name=testint,scope=testpkg recent" {
 					assert.Equal(t, val, float64(3))
 					errs <- nil
 				}
