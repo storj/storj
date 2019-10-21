@@ -217,7 +217,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// ResendEmail
+// ResendEmail generates activation token by userID and sends email account activation email to user.
 func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
