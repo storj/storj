@@ -28,6 +28,10 @@ import (
 // millis for the transfer queue building ticker
 const buildQueueMillis = 100
 
+var (
+	ErrorHashMismatch = Error.New("Piece hashes for transferred piece don't match")
+)
+
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
 type drpcEndpoint struct{ *Endpoint }
 
@@ -386,7 +390,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
-		return Error.New("Addressed order limit cannot be nil.")
+		return Error.New("Original order limit cannot be nil.")
 	}
 	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
 	if originalPieceHash == nil {
@@ -408,7 +412,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		return Error.New("Piece hashes for transferred piece don't match.")
+		return ErrorHashMismatch
 	}
 
 	// verify that the public key on the order limit signed the original piece hash

@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
@@ -128,44 +129,109 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestFailure(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, fullIDs map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		for {
-			response, err := processClient.Recv()
-			if errs.Is(err, io.EOF) {
-				// Done
-				break
+	for _, tt := range []struct {
+		name                string
+		transferFailUnknown bool
+		hashesMatch         bool
+		failMessage         *pb.StorageNodeMessage
+	}{
+		{
+			name:                "unknown error",
+			hashesMatch:         true,
+			transferFailUnknown: true,
+		},
+		{
+			name:                "signatures valid, hashes don't match",
+			transferFailUnknown: false,
+			hashesMatch:         false,
+		},
+	} {
+		testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+			for {
+				response, err := processClient.Recv()
+				if errs.Is(err, io.EOF) {
+					// Done
+					break
+				}
+				if !tt.hashesMatch {
+					require.True(t, errs.Is(gracefulexit.ErrorHashMismatch, err))
+				} else {
+					require.NoError(t, err)
+				}
+
+				switch m := response.GetMessage().(type) {
+				case *pb.SatelliteMessage_TransferPiece:
+					require.NotNil(t, m)
+					if tt.transferFailUnknown {
+						tt.failMessage = &pb.StorageNodeMessage{
+							Message: &pb.StorageNodeMessage_Failed{
+								Failed: &pb.TransferFailed{
+									Error:           pb.TransferFailed_UNKNOWN,
+									OriginalPieceId: m.TransferPiece.OriginalPieceId,
+								},
+							},
+						}
+					}
+					if !tt.hashesMatch {
+						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+						require.NoError(t, err)
+
+						header, err := pieceReader.GetPieceHeader()
+						require.NoError(t, err)
+
+						orderLimit := header.OrderLimit
+						originalPieceHash := &pb.PieceHash{
+							PieceId:   orderLimit.PieceId,
+							Hash:      header.GetHash(),
+							PieceSize: pieceReader.Size(),
+							Timestamp: header.GetCreationTime(),
+							Signature: header.GetSignature(),
+						}
+
+						newPieceHash := &pb.PieceHash{
+							PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+							Hash:      originalPieceHash.Hash[:1],
+							PieceSize: originalPieceHash.PieceSize,
+							Timestamp: time.Now(),
+						}
+
+						receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+						require.NotNil(t, receivingNode)
+						signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+
+						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+						require.NoError(t, err)
+
+						tt.failMessage = &pb.StorageNodeMessage{
+							Message: &pb.StorageNodeMessage_Succeeded{
+								Succeeded: &pb.TransferSucceeded{
+									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+									OriginalPieceHash:    originalPieceHash,
+									OriginalOrderLimit:   &orderLimit,
+									ReplacementPieceHash: signedNewPieceHash,
+								},
+							},
+						}
+					}
+
+					err = processClient.Send(tt.failMessage)
+					require.NoError(t, err)
+				case *pb.SatelliteMessage_ExitCompleted:
+					// TODO test completed signature stuff
+					break
+				default:
+					t.FailNow()
+				}
 			}
+
+			// check that the exit has completed and we have the correct transferred/failed values
+			progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 			require.NoError(t, err)
 
-			switch m := response.GetMessage().(type) {
-			case *pb.SatelliteMessage_TransferPiece:
-				require.NotNil(t, m)
-
-				failed := &pb.StorageNodeMessage{
-					Message: &pb.StorageNodeMessage_Failed{
-						Failed: &pb.TransferFailed{
-							OriginalPieceId: m.TransferPiece.OriginalPieceId,
-							Error:           pb.TransferFailed_UNKNOWN,
-						},
-					},
-				}
-				err = processClient.Send(failed)
-				require.NoError(t, err)
-			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
-			default:
-				t.FailNow()
-			}
-		}
-
-		// check that the exit has completed and we have the correct transferred/failed values
-		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		require.NoError(t, err)
-
-		require.Equal(t, int64(0), progress.PiecesTransferred)
-		require.Equal(t, int64(1), progress.PiecesFailed)
-	})
+			require.Equal(t, int64(0), progress.PiecesTransferred)
+			require.Equal(t, int64(1), progress.PiecesFailed)
+		})
+	}
 }
 
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
