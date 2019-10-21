@@ -23,9 +23,9 @@ STORJ_SIM_REDIS=${STORJ_SIM_REDIS:-""}
 # setup the network
 if [ -z ${STORJ_SIM_POSTGRES} ] && [ -z ${STORJ_SIM_REDIS} ]; then
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network setup
-elif [ -z ${STORJ_SIM_POSTGRES} ]; then
-	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 elif [ -z ${STORJ_SIM_REDIS} ]; then
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+elif [ -z ${STORJ_SIM_POSTGRES} ]; then
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --redis=$STORJ_SIM_REDIS setup
 else
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES --redis=$STORJ_SIM_REDIS setup
