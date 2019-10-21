@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -22,29 +21,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
 
-	var lastResponse *pb.BatchResponseItem
 	var lastStreamID storj.StreamID
 	var lastSegmentID storj.SegmentID
 	for _, request := range req.Requests {
-
-		if lastResponse != nil {
-			responseElem := reflect.ValueOf(lastResponse.Response).Elem()
-			if responseElem.NumField() == 1 {
-				fieldElem := responseElem.Field(0).Elem()
-
-				streamID, segmentID := findIDs(fieldElem)
-				if !streamID.IsZero() {
-					lastStreamID = streamID
-				}
-				if !segmentID.IsZero() {
-					lastSegmentID = segmentID
-				}
-			} else {
-				endpoint.log.Error("BatchResponseItem.Response object should have only one field")
-				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to process batch request")
-			}
-		}
-
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
@@ -114,6 +93,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBegin: response,
 				},
 			})
+			lastStreamID = response.StreamId
 		case *pb.BatchRequestItem_ObjectCommit:
 			singleRequest.ObjectCommit.Header = req.Header
 
@@ -141,6 +121,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectGet: response,
 				},
 			})
+			lastStreamID = response.Object.StreamId
 		case *pb.BatchRequestItem_ObjectList:
 			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
@@ -163,6 +144,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBeginDelete: response,
 				},
 			})
+			lastStreamID = response.StreamId
 		case *pb.BatchRequestItem_ObjectFinishDelete:
 			singleRequest.ObjectFinishDelete.Header = req.Header
 
@@ -196,6 +178,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBegin: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentCommit:
 			singleRequest.SegmentCommit.Header = req.Header
 
@@ -260,6 +243,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentDownload: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentBeginDelete:
 			singleRequest.SegmentBeginDelete.Header = req.Header
 
@@ -276,6 +260,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBeginDelete: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentFinishDelete:
 			singleRequest.SegmentFinishDelete.Header = req.Header
 
@@ -295,8 +280,6 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		default:
 			return nil, errs.New("unsupported request type")
 		}
-
-		lastResponse = resp.Responses[len(resp.Responses)-1]
 	}
 
 	return resp, nil
