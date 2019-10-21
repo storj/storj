@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product Id="{E97D368F-CB18-45B5-8799-1EBB10728A99}" Name="Storj V3 Storage Node" Language="1033" Version="0.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -58,13 +58,17 @@
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
-          />
-        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
-        <ServiceConfigFailureActions OnInstall="yes" Command="[INSTALLFOLDER]\storagenode-updater.backup.exe --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
-            <Failure Action="restartService" Delay="3000"/>
-            <Failure Action="restartService" Delay="10000"/>
-            <Failure Action="runCommand" Delay="10000"/>
-        </ServiceConfigFailureActions>
+          >
+		  <util:ServiceConfig
+		    ServiceName="storagenode-updater"
+		    RestartServiceDelayInSeconds="5"
+		    FirstFailureActionType="restart"
+		    SecondFailureActionType="restart"
+		    ThirdFailureActionType="runCommand"
+		    ProgramCommandLine="&quot;[INSTALLFOLDER]storagenode-updater.backup.exe&quot; --binary-location &quot;[INSTALLFOLDER]storagenode.exe&quot; --log &quot;[INSTALLFOLDER]storagenode-updater.log&quot;"
+		    />
+        </ServiceInstall>
+		<ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
       </Component>
       
       <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">
