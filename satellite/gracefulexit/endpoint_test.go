@@ -90,9 +90,7 @@ func TestSuccess(t *testing.T) {
 								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
 								OriginalPieceHash: originalPieceHash,
 								AddressedOrderLimit: &pb.AddressedOrderLimit{
-									Limit: &pb.OrderLimit{
-										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-									},
+									Limit: &orderLimit,
 								},
 								ReplacementPieceHash: signedNewPieceHash,
 							},
