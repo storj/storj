@@ -8,14 +8,40 @@ package rpc
 import (
 	"context"
 	"crypto/tls"
+	"net"
 
+	"storj.io/drpc"
 	"storj.io/drpc/drpcconn"
+	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
 const drpcHeader = "DRPC!!!1"
 
 // dial performs the dialing to the drpc endpoint with tls.
 func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config) (_ *Conn, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pool := rpcpool.New(d.PoolCapacity, func(ctx context.Context) (drpc.Transport, error) {
+		return d.dialTransport(ctx, address, tlsConfig)
+	})
+
+	conn, err := d.dialTransport(ctx, address, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	state := conn.ConnectionState()
+
+	if err := pool.Put(drpcconn.New(conn)); err != nil {
+		return nil, err
+	}
+
+	return &Conn{
+		state: state,
+		raw:   pool,
+	}, nil
+}
+
+func (d Dialer) dialTransport(ctx context.Context, address string, tlsConfig *tls.Config) (_ *tls.Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// open the tcp socket to the address
@@ -49,14 +75,22 @@ func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config)
 		return nil, Error.Wrap(err)
 	}
 
+	return conn, nil
+}
+
+// dialUnencrypted performs dialing to the drpc endpoint with no tls.
+func (d Dialer) dialUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return &Conn{
-		raw:   drpcconn.New(conn),
-		state: conn.ConnectionState(),
+		raw: rpcpool.New(d.PoolCapacity, func(ctx context.Context) (drpc.Transport, error) {
+			return d.dialTransportUnencrypted(ctx, address)
+		}),
 	}, nil
 }
 
-// dialInsecure performs dialing to the drpc endpoint with no tls.
-func (d Dialer) dialInsecure(ctx context.Context, address string) (_ *Conn, err error) {
+// dialTransportUnencrypted performs dialing to the drpc endpoint with no tls.
+func (d Dialer) dialTransportUnencrypted(ctx context.Context, address string) (_ net.Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// open the tcp socket to the address
@@ -71,5 +105,5 @@ func (d Dialer) dialInsecure(ctx context.Context, address string) (_ *Conn, err 
 		return nil, Error.Wrap(err)
 	}
 
-	return &Conn{raw: drpcconn.New(conn)}, nil
+	return conn, nil
 }
