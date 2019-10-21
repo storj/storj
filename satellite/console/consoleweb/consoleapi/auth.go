@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/post"
@@ -19,7 +18,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
-var Error = errs.Class("satellite console auth api error")
+var Error = errs.Class("console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
