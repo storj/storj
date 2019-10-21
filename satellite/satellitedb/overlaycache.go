@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -205,83 +204,6 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch t := cache.db.DB.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		return cache.sqliteQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
-	case *pq.Driver:
-		return cache.postgresQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
-	default:
-		return []*pb.Node{}, Error.New("Unsupported database %t", t)
-	}
-}
-
-func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if count == 0 {
-		return nil, nil
-	}
-
-	safeExcludeNodes := ""
-	if len(excludedNodes) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
-		for _, id := range excludedNodes {
-			args = append(args, id.Bytes())
-		}
-	}
-
-	safeExcludeIPs := ""
-	if len(excludedIPs) > 0 {
-		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
-		for _, ip := range excludedIPs {
-			args = append(args, ip)
-		}
-	}
-
-	args = append(args, count)
-
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
-	free_bandwidth, free_disk, total_audit_count, audit_success_count,
-	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
-	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT *, Row_number() OVER(PARTITION BY last_net ORDER BY RANDOM()) rn
-		FROM nodes
-		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
-	WHERE rn = 1
-	ORDER BY RANDOM()
-	LIMIT ?`), args...)
-
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-	var nodes []*pb.Node
-	for rows.Next() {
-		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
-			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
-			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		dossier, err := convertDBNode(ctx, dbNode)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, &dossier.Node)
-	}
-
-	return nodes, rows.Err()
-}
-
-func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	if count == 0 {
 		return nil, nil
 	}
@@ -375,41 +297,18 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 
 	// get offline nodes
 	var rows *sql.Rows
-	switch t := cache.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		args := make([]interface{}, 0, len(nodeIds)+1)
-		for i := range nodeIds {
-			args = append(args, nodeIds[i].Bytes())
-		}
-		args = append(args, time.Now().Add(-criteria.OnlineWindow))
-
-		rows, err = cache.db.Query(cache.db.Rebind(`
-			SELECT id FROM nodes
-			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+	rows, err = cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+			WHERE id = any($1::bytea[])
 			AND (
-				last_contact_success < last_contact_failure AND last_contact_success < ?
+				last_contact_success < last_contact_failure AND last_contact_success < $2
 			)
-		`), args...)
-
-	case *pq.Driver:
-		rows, err = cache.db.Query(`
-			SELECT id FROM nodes
-				WHERE id = any($1::bytea[])
-				AND (
-					last_contact_success < last_contact_failure AND last_contact_success < $2
-				)
-			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
-		)
-	default:
-		return nil, Error.New("Unsupported database %t", t)
-	}
-
+		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var id storj.NodeID
@@ -432,39 +331,17 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 
 	// get reliable and online nodes
 	var rows *sql.Rows
-	switch t := cache.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		args := make([]interface{}, 0, len(nodeIds)+3)
-		for i := range nodeIds {
-			args = append(args, nodeIds[i].Bytes())
-		}
-		args = append(args, time.Now().Add(-criteria.OnlineWindow))
-
-		rows, err = cache.db.Query(cache.db.Rebind(`
-			SELECT id FROM nodes
-			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+	rows, err = cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND (last_contact_success > ? OR last_contact_success > last_contact_failure)
-		`), args...)
-
-	case *pq.Driver:
-		rows, err = cache.db.Query(`
-			SELECT id FROM nodes
-				WHERE id = any($1::bytea[])
-				AND disqualified IS NULL
-				AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
-			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
-		)
-	default:
-		return nil, Error.New("Unsupported database %t", t)
-	}
-
+			AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
+		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIds))
 	for rows.Next() {
@@ -932,37 +809,21 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return counts[i].ID.Less(counts[k].ID)
 	})
 
-	switch t := cache.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			query := tx.Rebind(`UPDATE nodes SET piece_count = ? WHERE id = ?`)
-			for _, count := range counts {
-				_, err := tx.Tx.ExecContext(ctx, query, count.Count, count.ID)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-			return nil
-		})
-	case *pq.Driver:
-		var nodeIDs []storj.NodeID
-		var countNumbers []int64
-		for _, count := range counts {
-			nodeIDs = append(nodeIDs, count.ID)
-			countNumbers = append(countNumbers, count.Count)
-		}
-
-		_, err = cache.db.ExecContext(ctx, `
-			UPDATE nodes
-				SET piece_count = update.count
-			FROM (
-				SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
-			) as update
-			WHERE nodes.id = update.id
-		`, postgresNodeIDList(nodeIDs), pq.Array(countNumbers))
-	default:
-		return Error.New("Unsupported database %t", t)
+	var nodeIDs []storj.NodeID
+	var countNumbers []int64
+	for _, count := range counts {
+		nodeIDs = append(nodeIDs, count.ID)
+		countNumbers = append(countNumbers, count.Count)
 	}
+
+	_, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+			SET piece_count = update.count
+		FROM (
+			SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
+		) as update
+		WHERE nodes.id = update.id
+	`, postgresNodeIDList(nodeIDs), pq.Array(countNumbers))
 
 	return Error.Wrap(err)
 }
@@ -1282,16 +1143,9 @@ func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
 		return ""
 	}
 	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
-	switch db.DB.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		sql += fmt.Sprintf(" WHERE nodes.id = X'%v';\n", hexNodeID)
-		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v';\n", hexNodeID)
-	case *pq.Driver:
-		sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
-		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
-	default:
-		return ""
-	}
+
+	sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
+	sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
 
 	return sql
 }
@@ -1449,47 +1303,20 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.New("error UpdateCheckIn: missing the storage node address")
 	}
 
-	switch t := cache.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		value := pb.Node{
-			Id:      node.NodeID,
-			Address: node.Address,
-			LastIp:  node.LastIP,
-		}
-		err := cache.UpdateAddress(ctx, &value, config)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	// v is a single feedback value that allows us to update both alpha and beta
+	var v float64 = -1
+	if node.IsUp {
+		v = 1
+	}
 
-		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, config.UptimeReputationLambda, config.UptimeReputationWeight, config.UptimeReputationDQ)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
+	uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
+	semVer, err := version.NewSemVer(node.Version.GetVersion())
+	if err != nil {
+		return Error.New("unable to convert version to semVer")
+	}
 
-		pbInfo := pb.InfoResponse{
-			Operator: node.Operator,
-			Capacity: node.Capacity,
-			Type:     pb.NodeType_STORAGE,
-			Version:  node.Version,
-		}
-		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	case *pq.Driver:
-		// v is a single feedback value that allows us to update both alpha and beta
-		var v float64 = -1
-		if node.IsUp {
-			v = 1
-		}
-		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
-		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
-		semVer, err := version.NewSemVer(node.Version.GetVersion())
-		if err != nil {
-			return Error.New("unable to convert version to semVer")
-		}
-		start := time.Now()
-		query := `
+	query := `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
@@ -1543,26 +1370,22 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE nodes.disqualified
 				END;
 			`
-		_, err = cache.db.ExecContext(ctx, query,
-			// args $1 - $5
-			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
-			// args $6 - $9
-			node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
-			// args $10
-			node.IsUp,
-			// args $11 - $14
-			config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
-			// args $15 - $17
-			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
-			// args $18 - $23
-			semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		mon.FloatVal("UpdateCheckIn query execution time (seconds)").Observe(time.Since(start).Seconds())
-	default:
-		return Error.New("Unsupported database %t", t)
+	_, err = cache.db.ExecContext(ctx, query,
+		// args $1 - $5
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+		// args $6 - $9
+		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
+		// args $10
+		node.IsUp,
+		// args $11 - $14
+		config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
+		// args $15 - $17
+		config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
+		// args $18 - $23
+		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+	)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil

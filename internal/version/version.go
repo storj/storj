@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -26,8 +25,6 @@ const (
 )
 
 var (
-	mon = monkit.Package()
-
 	// VerError is the error class for version-related errors.
 	VerError = errs.Class("version error")
 
