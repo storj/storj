@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -35,6 +36,8 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
+
+const minCheckInterval = time.Minute
 
 var (
 	cancel context.CancelFunc
@@ -116,9 +119,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	if runCfg.CheckInterval <= 0 {
+	switch {
+	case runCfg.CheckInterval <= 0:
 		err = loopFunc(ctx)
-	} else {
+	case runCfg.CheckInterval < minCheckInterval:
+		log.Printf("check interval below minimum: \"%s\", setting to %s", runCfg.CheckInterval, minCheckInterval)
+		runCfg.CheckInterval = minCheckInterval
+		fallthrough
+	default:
 		loop := sync2.NewCycle(runCfg.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
@@ -195,6 +203,7 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 			log.Println("restarting service", runCfg.ServiceName)
 			err = restartSNService(runCfg.ServiceName)
 			if err != nil {
+				// TODO: should we try to recover from this?
 				return errs.New("unable to restart service: %v", err)
 			}
 			log.Println("service", runCfg.ServiceName, "restarted successfully")
