@@ -10,9 +10,8 @@ import (
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -32,12 +31,11 @@ type Config struct {
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
 type Service struct {
-	log              *zap.Logger
-	customers        CustomersDB
-	transactionsDB   TransactionsDB
-	stripeClient     *client.API
-	coinpayments     *coinpayments.Client
-	transactionCycle sync2.Cycle
+	log            *zap.Logger
+	customers      CustomersDB
+	transactionsDB TransactionsDB
+	stripeClient   *client.API
+	coinpayments   *coinpayments.Client
 }
 
 // NewService creates a Service instance.
@@ -52,12 +50,11 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 	)
 
 	return &Service{
-		log:              log,
-		customers:        customers,
-		transactionsDB:   transactionsDB,
-		stripeClient:     stripeClient,
-		coinpayments:     coinpaymentsClient,
-		transactionCycle: *sync2.NewCycle(config.TransactionUpdateInterval),
+		log:            log,
+		customers:      customers,
+		transactionsDB: transactionsDB,
+		stripeClient:   stripeClient,
+		coinpayments:   coinpaymentsClient,
 	}
 }
 
