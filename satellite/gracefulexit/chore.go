@@ -5,8 +5,10 @@ package gracefulexit
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
@@ -67,7 +69,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 
 			progress, err := chore.db.GetProgress(ctx, node.NodeID)
-			if err != nil {
+			if err != nil && !errs.Is(err, sql.ErrNoRows) {
 				chore.log.Error("error retrieving progress for node", zap.Stringer("Node ID", node.NodeID), zap.Error(err))
 				continue
 			}
