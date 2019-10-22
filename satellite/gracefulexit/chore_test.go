@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -23,10 +24,16 @@ import (
 )
 
 func TestChore(t *testing.T) {
+	var maximumInActiveTimeFrame = time.Second * 5
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 8,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.MaxInactiveTimeFrame = maximumInActiveTimeFrame
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -47,12 +54,12 @@ func TestChore(t *testing.T) {
 		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		exitStatus := overlay.ExitStatusRequest{
+		exitStatusRequest := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
 			ExitInitiatedAt: time.Now().UTC(),
 		}
 
-		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)
 		require.NoError(t, err)
 
 		exitingNodes, err := satellite.Overlay.DB.GetExitingNodes(ctx)
@@ -93,6 +100,23 @@ func TestChore(t *testing.T) {
 			}
 		}
 		require.Len(t, nodeIDs, 0)
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		require.NoError(t, err)
+
+		// node should fail graceful exit if it has been inactive for maximum inactive time frame since last activity
+		time.Sleep(maximumInActiveTimeFrame)
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.False(t, exitStatus.ExitSuccess)
+
+		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
+		require.NoError(t, err)
+		require.Len(t, incompleteTransfers, 0)
+
 	})
 }
 

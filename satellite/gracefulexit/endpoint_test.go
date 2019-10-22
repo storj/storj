@@ -169,9 +169,9 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			require.NoError(t, err)
 		}
 		// check that there are no exiting nodes.
-		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
-		require.Len(t, exitingNodeIDs, 0)
+		require.Len(t, exitingNodes, 0)
 
 		exitingNode, err := findNodeToExit(ctx, planet, objects)
 		require.NoError(t, err)

@@ -496,6 +496,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		return Error.Wrap(err)
 	}
 
+	// TODO: only increment failed if it has failed the same piece more than endpoint.config.EndpointMaxFailures
 	// only increment failed if it hasn't failed before
 	if failedCount == 1 {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
