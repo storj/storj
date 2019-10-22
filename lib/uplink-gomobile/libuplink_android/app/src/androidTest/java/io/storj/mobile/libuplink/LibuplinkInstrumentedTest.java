@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {
 
+    public static final String SATELLITE_ADDRESS = InstrumentationRegistry.getArguments().getString("satellite-address", "10.0.2.2:10000");
     public static final String VALID_SCOPE = InstrumentationRegistry.getArguments().getString("scope", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
     public static Scope SCOPE;
 
@@ -64,7 +65,7 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = null;
             try {
-                project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+                project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
 
                 String expectedBucket = "test-bucket";
                 BucketConfig bucketConfig = new BucketConfig();
@@ -103,7 +104,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
             try {
                 BucketConfig bucketConfig = new BucketConfig();
                 RedundancyScheme scheme = new RedundancyScheme();
@@ -151,7 +152,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
             try {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
@@ -215,7 +216,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
             try {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
@@ -286,7 +287,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
 
             try {
                 EncryptionAccess access = new EncryptionAccess();
@@ -352,7 +353,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
             try {
                 byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
                 EncryptionAccess ea = new EncryptionAccess(saltedKey);
@@ -373,7 +374,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
+            Project project = uplink.openProject(SATELLITE_ADDRESS, SCOPE.apiKey().serialize());
             try {
                 byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
                 EncryptionAccess ea = Mobile.newEncryptionAccessWithRoot("bucket", "unencryptedPath", "encryptedPath", saltedKey);
