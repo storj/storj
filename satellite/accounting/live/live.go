@@ -25,6 +25,7 @@ type Config struct {
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
+	DelProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
 	ResetTotals()
 }
 
@@ -88,6 +89,19 @@ func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Contex
 	curVal := pmac.spaceDeltas[projectID]
 	curVal.inlineSpace += inlineSpaceUsed
 	curVal.remoteSpace += remoteSpaceUsed
+	pmac.spaceDeltas[projectID] = curVal
+	return nil
+}
+
+// DelProjectStorageUsage lets the live accounting know that the given
+// project has just removed inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
+func (pmac *plainMemoryLiveAccounting) DelProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+	pmac.spaceMapLock.Lock()
+	defer pmac.spaceMapLock.Unlock()
+	curVal := pmac.spaceDeltas[projectID]
+	curVal.inlineSpace -= inlineSpaceUsed
+	curVal.remoteSpace -= remoteSpaceUsed
 	pmac.spaceDeltas[projectID] = curVal
 	return nil
 }

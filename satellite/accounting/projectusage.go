@@ -146,3 +146,11 @@ func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID
 	defer mon.Task()(&ctx)(&err)
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
 }
+
+// DelProjectStorageUsage lets the live accounting know that the given
+// project has just removed inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
+func (usage *ProjectUsage) DelProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return usage.liveAccounting.DelProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
+}

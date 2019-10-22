@@ -1635,6 +1635,14 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		CreationDate:        time.Now(),
 	})
 
+	inlineUsed, remoteUsed := calculateSpaceUsed(pointer)
+
+	if err := endpoint.projectUsage.DelProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+		endpoint.log.Sugar().Errorf("Could not track removed storage usage by project %v: %v", keyInfo.ProjectID, err)
+		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
+		// that will be affected is our per-project bandwidth and storage limits.
+	}
+
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
 		AddressedLimits: limits,
