@@ -23,10 +23,6 @@ type Dialer struct {
 	// insecure connections can be made.
 	TLSOptions *tlsopts.Options
 
-	// RequestTimeout causes any read/write operations on the raw socket
-	// to error if they take longer than it if it is non-zero.
-	RequestTimeout time.Duration
-
 	// DialTimeout causes all the tcp dials to error if they take longer
 	// than it if it is non-zero.
 	DialTimeout time.Duration
@@ -43,9 +39,8 @@ type Dialer struct {
 // NewDefaultDialer returns a Dialer with default timeouts set.
 func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 	return Dialer{
-		TLSOptions:     tlsOptions,
-		RequestTimeout: 10 * time.Minute,
-		DialTimeout:    20 * time.Second,
+		TLSOptions:  tlsOptions,
+		DialTimeout: 20 * time.Second,
 	}
 }
 
@@ -86,9 +81,8 @@ func (d Dialer) dialContext(ctx context.Context, address string) (net.Conn, erro
 	}
 
 	return &timedConn{
-		Conn:    conn,
-		timeout: d.RequestTimeout,
-		rate:    d.TransferRate,
+		Conn: conn,
+		rate: d.TransferRate,
 	}, nil
 }
 
