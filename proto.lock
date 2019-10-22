@@ -862,8 +862,12 @@
                 "integer": 1
               },
               {
-                "name": "UNKNOWN",
+                "name": "HASH_VERIFICATION",
                 "integer": 2
+              },
+              {
+                "name": "UNKNOWN",
+                "integer": 10
               }
             ]
           },
@@ -1003,8 +1007,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "addressed_order_limit",
-                "type": "metainfo.AddressedOrderLimit"
+                "name": "original_order_limit",
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
@@ -3434,7 +3438,17 @@
               {
                 "id": 1,
                 "name": "stream_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -3559,7 +3573,17 @@
               {
                 "id": 1,
                 "name": "stream_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,

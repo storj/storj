@@ -184,6 +184,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := newPendingMap()
 
 	var morePiecesFlag int32 = 1
+	errChan := make(chan error, 1)
+	handleError := func(err error) error {
+		errChan <- err
+		close(errChan)
+		return Error.Wrap(err)
+	}
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -194,13 +200,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
-					return Error.Wrap(err)
+					return handleError(err)
 				}
 
 				if len(incomplete) == 0 {
 					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 
@@ -213,7 +219,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 			}
@@ -222,6 +228,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
+		select {
+		case <-errChan:
+			return group.Wait()
+		default:
+		}
+
 		pendingCount := pending.length()
 
 		// if there are no more transfers and the pending queue is empty, send complete
@@ -294,7 +306,17 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			}
-
+			deleteMsg := &pb.SatelliteMessage{
+				Message: &pb.SatelliteMessage_DeletePiece{
+					DeletePiece: &pb.DeletePiece{
+						OriginalPieceId: m.Succeeded.OriginalPieceId,
+					},
+				},
+			}
+			err = stream.Send(deleteMsg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
@@ -391,7 +413,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -420,11 +442,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if message.Succeeded.GetAddressedOrderLimit() == nil {
-		return Error.New("Addressed order limit cannot be nil.")
+	if message.Succeeded.GetOriginalOrderLimit() == nil {
+		return Error.New("original order limit cannot be nil.")
 	}
 	if message.Succeeded.GetOriginalPieceHash() == nil {
-		return Error.New("Original piece hash cannot be nil.")
+		return Error.New("original piece hash cannot be nil.")
 	}
 
 	pieceID := message.Succeeded.OriginalPieceId

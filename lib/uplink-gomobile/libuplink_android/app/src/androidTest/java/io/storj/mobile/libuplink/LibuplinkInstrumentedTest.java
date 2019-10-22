@@ -9,6 +9,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
@@ -20,10 +21,10 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {
 
-    public static final String VALID_SCOPE = InstrumentationRegistry.getArguments().getString("scope", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
-    public static Scope SCOPE;
+    private static final String VALID_SCOPE = InstrumentationRegistry.getArguments().getString("scope", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
+    private static Scope SCOPE;
 
-    String filesDir;
+    private String filesDir;
 
     @Before
     public void setUp() throws Exception {
@@ -121,20 +122,20 @@ public class LibuplinkInstrumentedTest {
                 }
 
                 BucketList bucketList = project.listBuckets("", 100);
-                assertEquals(false, bucketList.more());
-                String aa = "";
+                assertFalse(bucketList.more());
+                StringBuilder aa = new StringBuilder();
                 for (int i = 0; i < bucketList.length(); i++) {
-                    aa += bucketList.item(i).getName() + "|";
+                    aa.append(bucketList.item(i).getName()).append("|");
                 }
 
-                assertEquals(aa, expectedBuckets.size(), bucketList.length());
+                assertEquals(aa.toString(), expectedBuckets.size(), bucketList.length());
 
                 for (String bucket : expectedBuckets) {
                     project.deleteBucket(bucket);
                 }
 
                 bucketList = project.listBuckets("", 1);
-                assertEquals(false, bucketList.more());
+                assertFalse(bucketList.more());
                 assertEquals(0, bucketList.length());
             } finally {
                 project.close();
@@ -186,7 +187,7 @@ public class LibuplinkInstrumentedTest {
                     try {
                         ByteArrayOutputStream writer = new ByteArrayOutputStream();
                         byte[] buf = new byte[256];
-                        int read = 0;
+                        int read;
                         while ((read = reader.read(buf, 0, buf.length)) != -1) {
                             writer.write(buf, 0, read);
                         }
@@ -245,16 +246,31 @@ public class LibuplinkInstrumentedTest {
                     }
                 }
 
-                {
+                { // full download
                     Reader reader = bucket.newReader("object/path", new ReaderOptions());
                     try {
                         ByteArrayOutputStream writer = new ByteArrayOutputStream();
                         byte[] buf = new byte[4096];
-                        int read = 0;
+                        int read;
                         while ((read = reader.read(buf, 0, buf.length)) != -1) {
                             writer.write(buf, 0, read);
                         }
-                        assertEquals(expectedData.length, writer.size());
+                        assertArrayEquals(expectedData, writer.toByteArray());
+                    } finally {
+                        reader.close();
+                    }
+                }
+
+                { // range download
+                    Reader reader = bucket.newRangeReader("object/path", 10, 20, new ReaderOptions());
+                    try {
+                        ByteArrayOutputStream writer = new ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        int read;
+                        while ((read = reader.read(buf, 0, buf.length)) != -1) {
+                            writer.write(buf, 0, read);
+                        }
+                        assertArrayEquals(Arrays.copyOfRange(expectedData, 10, 30), writer.toByteArray());
                     } finally {
                         reader.close();
                     }
