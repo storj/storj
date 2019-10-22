@@ -594,14 +594,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 		service := stripecoinpayments.NewService(
 			peer.Log.Named("stripecoinpayments service"),
-			config.StripeCoinpayments,
+			config.StripeCoinPayments,
 			peer.DB.Customers(),
 			peer.DB.CoinpaymentsTransactions())
 
 		clearing := stripecoinpayments.NewClearing(
 			peer.Log.Named("stripecoinpayments clearing loop"),
 			service,
-			config.StripeCoinpayments.TransactionUpdateInterval)
+			config.StripeCoinPayments.TransactionUpdateInterval)
 
 		peer.Payments.Accounts = service.Accounts()
 		peer.Payments.Clearing = clearing

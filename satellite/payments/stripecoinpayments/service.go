@@ -35,14 +35,14 @@ type Service struct {
 	customers      CustomersDB
 	transactionsDB TransactionsDB
 	stripeClient   *client.API
-	coinpayments   *coinpayments.Client
+	coinPayments   *coinpayments.Client
 }
 
 // NewService creates a Service instance.
 func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
-	coinpaymentsClient := coinpayments.NewClient(
+	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
 			PublicKey:  config.CoinpaymentsPublicKey,
 			PrivateKey: config.CoinpaymentsPrivateKey,
@@ -54,7 +54,7 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 		customers:      customers,
 		transactionsDB: transactionsDB,
 		stripeClient:   stripeClient,
-		coinpayments:   coinpaymentsClient,
+		coinPayments:   coinPaymentsClient,
 	}
 }
 
@@ -107,7 +107,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 		return nil
 	}
 
-	infos, err := service.coinpayments.Transactions().ListInfos(ctx, ids)
+	infos, err := service.coinPayments.Transactions().ListInfos(ctx, ids)
 	if err != nil {
 		return err
 	}

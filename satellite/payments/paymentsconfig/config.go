@@ -8,5 +8,5 @@ import "storj.io/storj/satellite/payments/stripecoinpayments"
 // Config defines global payments config.
 type Config struct {
 	Provider           string `help:"payments provider to use" default:""`
-	StripeCoinpayments stripecoinpayments.Config
+	StripeCoinPayments stripecoinpayments.Config
 }
