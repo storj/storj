@@ -225,11 +225,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	for {
 		pendingCount := pending.length()
 
-		progress, err := endpoint.db.GetProgress(ctx, nodeID)
-		if err != nil && !errs.Is(err, sql.ErrNoRows) {
-			return Error.Wrap(err)
-		}
-
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
 			// TODO needs exit signature
@@ -243,6 +238,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				NodeID:         nodeID,
 				ExitSuccess:    true,
 				ExitFinishedAt: time.Now().UTC(),
+			}
+			progress, err := endpoint.db.GetProgress(ctx, nodeID)
+			if err != nil && !errs.Is(err, sql.ErrNoRows) {
+				return Error.Wrap(err)
 			}
 
 			// check node's exiting progress to see if it has failed passed max failure threshold
@@ -279,38 +278,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		// skip if there are none pending
 		if pendingCount == 0 {
 			continue
-		}
-
-		// check inactive timeframe
-		if progress != nil && progress.UpdatedAt.Before(time.Now().UTC().Add(-endpoint.config.MaxInactiveTimeFrame)) {
-			exitStatusRequest := &overlay.ExitStatusRequest{
-				NodeID:         nodeID,
-				ExitSuccess:    false,
-				ExitFinishedAt: time.Now().UTC(),
-			}
-			transferMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_ExitFailed{
-					ExitFailed: &pb.ExitFailed{
-						Reason: pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
-					},
-				},
-			}
-
-			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			// remove all items from the transfer queue
-			err := endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			err = stream.Send(transferMsg)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			break
 		}
 
 		request, err := stream.Recv()

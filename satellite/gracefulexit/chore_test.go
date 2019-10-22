@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/overlay"
@@ -54,8 +55,14 @@ func TestChore(t *testing.T) {
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 		require.NoError(t, err)
 
-		nodeIDs, err := satellite.Overlay.DB.GetExitingNodesLoopIncomplete(ctx)
+		exitingNodes, err := satellite.Overlay.DB.GetExitingNodes(ctx)
 		require.NoError(t, err)
+		nodeIDs := make(storj.NodeIDList, 0, len(exitingNodes))
+		for _, exitingNode := range exitingNodes {
+			if exitingNode.ExitLoopCompletedAt == nil {
+				nodeIDs = append(nodeIDs, exitingNode.NodeID)
+			}
+		}
 		require.Len(t, nodeIDs, 1)
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
@@ -77,8 +84,14 @@ func TestChore(t *testing.T) {
 			require.Len(t, incompleteTransfers, 0)
 		}
 
-		nodeIDs, err = satellite.Overlay.DB.GetExitingNodesLoopIncomplete(ctx)
+		exitingNodes, err = satellite.Overlay.DB.GetExitingNodes(ctx)
 		require.NoError(t, err)
+		nodeIDs = make(storj.NodeIDList, 0, len(exitingNodes))
+		for _, exitingNode := range exitingNodes {
+			if exitingNode.ExitLoopCompletedAt == nil {
+				nodeIDs = append(nodeIDs, exitingNode.NodeID)
+			}
+		}
 		require.Len(t, nodeIDs, 0)
 	})
 }

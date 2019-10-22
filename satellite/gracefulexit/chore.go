@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 )
@@ -46,9 +47,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		chore.log.Info("running graceful exit chore.")
 
-		exitingNodes, err := chore.overlay.GetExitingNodesLoopIncomplete(ctx)
+		// check if node has been inactive for too long
+		exitingNodes, err := chore.overlay.GetExitingNodes(ctx)
 		if err != nil {
-			chore.log.Error("error retrieving nodes that have not completed the metainfo loop.", zap.Error(err))
+			chore.log.Error("error retrieving nodes that have not finished exiting", zap.Error(err))
 			return nil
 		}
 
@@ -58,7 +60,39 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		pathCollector := NewPathCollector(chore.db, exitingNodes, chore.log, chore.config.ChoreBatchSize)
+		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, nodeCount)
+		for _, node := range exitingNodes {
+			if node.ExitLoopCompletedAt == nil {
+				exitingNodesLoopIncomplete = append(exitingNodesLoopIncomplete, node.NodeID)
+			}
+
+			progress, err := chore.db.GetProgress(ctx, node.NodeID)
+			if err != nil {
+				chore.log.Error("error retrieving progress for node", zap.Stringer("Node ID", node.NodeID), zap.Error(err))
+				continue
+			}
+			// check inactive timeframe
+			if progress != nil && progress.UpdatedAt.Before(time.Now().UTC().Add(-chore.config.MaxInactiveTimeFrame)) {
+				exitStatusRequest := &overlay.ExitStatusRequest{
+					NodeID:         node.NodeID,
+					ExitSuccess:    false,
+					ExitFinishedAt: time.Now().UTC(),
+				}
+				_, err = chore.overlay.UpdateExitStatus(ctx, exitStatusRequest)
+				if err != nil {
+					chore.log.Error("error updating exit status", zap.Error(err))
+					continue
+				}
+
+				// remove all items from the transfer queue
+				err := chore.db.DeleteTransferQueueItems(ctx, node.NodeID)
+				if err != nil {
+					chore.log.Error("error deleting node from transfer queue", zap.Error(err))
+				}
+			}
+		}
+
+		pathCollector := NewPathCollector(chore.db, exitingNodesLoopIncomplete, chore.log, chore.config.ChoreBatchSize)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			chore.log.Error("error joining metainfo loop.", zap.Error(err))
@@ -72,7 +106,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		now := time.Now().UTC()
-		for _, nodeID := range exitingNodes {
+		for _, nodeID := range exitingNodesLoopIncomplete {
 			exitStatus := overlay.ExitStatusRequest{
 				NodeID:              nodeID,
 				ExitLoopCompletedAt: now,
