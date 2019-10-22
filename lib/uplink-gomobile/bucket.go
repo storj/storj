@@ -328,6 +328,20 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 	}, nil
 }
 
+// NewRangeReader returns new reader for downloading a range from the object.
+func (bucket *Bucket) NewRangeReader(path storj.Path, start, limit int64, options *ReaderOptions) (*Reader, error) {
+	scope := bucket.scope.child()
+
+	reader, err := bucket.lib.DownloadRange(scope.ctx, path, start, limit)
+	if err != nil {
+		return nil, safeError(err)
+	}
+	return &Reader{
+		scope:  scope,
+		reader: reader,
+	}, nil
+}
+
 // Read reads data into byte array
 func (r *Reader) Read(data []byte, offset, length int32) (n int32, err error) {
 	if r.readError != nil {
