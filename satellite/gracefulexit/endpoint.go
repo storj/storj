@@ -198,7 +198,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures, endpoint.config.EndpointBatchSize, 0)
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						return Error.Wrap(err)
 					}
@@ -439,7 +439,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	var failed int64
-	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > endpoint.config.EndpointMaxFailures {
+	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > endpoint.config.MaxFailuresPerPiece {
 		failed = -1
 	}
 
@@ -491,7 +491,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	}
 
 	// only increment failed if it hasn't failed before
-	if failedCount > endpoint.config.EndpointMaxFailures {
+	if failedCount > endpoint.config.MaxFailuresPerPiece {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)
