@@ -4,40 +4,48 @@
 package consoleapi
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
+	"github.com/gorilla/mux"
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/post"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
 
+// Error - console auth api error type
+var Error = errs.Class("console auth api error")
+
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log         *zap.Logger
-	service     *console.Service
-	mailService *mailservice.Service
-
-	ExternalAddress string
+	log                   *zap.Logger
+	service               *console.Service
+	mailService           *mailservice.Service
+	ExternalAddress       string
+	LetUsKnowURL          string
+	TermsAndConditionsURL string
+	ContactInfoURL        string
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
-		log:             log,
-		service:         service,
-		mailService:     mailService,
-		ExternalAddress: externalAddress,
+		log:                   log,
+		service:               service,
+		mailService:           mailService,
+		ExternalAddress:       externalAddress,
+		LetUsKnowURL:          letUsKnowURL,
+		TermsAndConditionsURL: termsAndConditionsURL,
+		ContactInfoURL:        contactInfoURL,
 	}
 }
 
-// Token authenticates User by credentials and returns auth token.
+// Token authenticates user by credentials and returns auth token.
 func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -66,12 +74,12 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(tokenResponse)
 	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(err))
+		a.log.Error("token handler could not encode token response", zap.Error(Error.Wrap(err)))
 		return
 	}
 }
 
-// Register creates new User, sends activation e-mail.
+// Register creates new user, sends activation e-mail.
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -124,13 +132,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(&user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(err))
+		a.log.Error("registration handler could not encode error", zap.Error(Error.Wrap(err)))
 		return
 	}
 }
 
-// PasswordChange auth user, changes users password for a new one.
-func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
+// ChangePassword auth user, changes users password for a new one.
+func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -139,8 +147,6 @@ func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
 		CurrentPassword string `json:"password"`
 		NewPassword     string `json:"newPassword"`
 	}
-
-	ctx = a.authorize(ctx, r)
 
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
@@ -155,6 +161,110 @@ func (a *Auth) PasswordChange(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ForgotPassword creates password-reset token and sends email to user.
+func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	params := mux.Vars(r)
+	email, ok := params["email"]
+	if !ok {
+		err = errs.New("email expected")
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := a.service.GetUserByEmail(ctx, email)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	passwordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	cancelPasswordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := a.ContactInfoURL
+	letUsKnowURL := a.LetUsKnowURL
+	termsAndConditionsURL := a.TermsAndConditionsURL
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.ForgotPasswordEmail{
+			Origin:                     a.ExternalAddress,
+			UserName:                   userName,
+			ResetLink:                  passwordRecoveryLink,
+			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
+			LetUsKnowURL:               letUsKnowURL,
+			ContactInfoURL:             contactInfoURL,
+			TermsAndConditionsURL:      termsAndConditionsURL,
+		},
+	)
+}
+
+// ResendEmail generates activation token by userID and sends email account activation email to user.
+func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	params := mux.Vars(r)
+	val, ok := params["id"]
+	if !ok {
+		a.serveJSONError(w, http.StatusBadRequest, errs.New("id expected"))
+		return
+	}
+
+	userID, err := uuid.Parse(val)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := a.service.GetUser(ctx, *userID)
+	if err != nil {
+		a.serveJSONError(w, http.StatusNotFound, err)
+		return
+	}
+
+	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	link := a.ExternalAddress + consoleql.ActivationPath + token
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	contactInfoURL := a.ContactInfoURL
+	termsAndConditionsURL := a.TermsAndConditionsURL
+
+	a.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&consoleql.AccountActivationEmail{
+			Origin:                a.ExternalAddress,
+			ActivationLink:        link,
+			TermsAndConditionsURL: termsAndConditionsURL,
+			ContactInfoURL:        contactInfoURL,
+		},
+	)
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
@@ -167,19 +277,6 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(err))
+		a.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 	}
-}
-
-// authorize checks request for authorization token, validates it and updates context with auth data.
-func (a *Auth) authorize(ctx context.Context, r *http.Request) context.Context {
-	authHeaderValue := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeaderValue, "Bearer ")
-
-	auth, err := a.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-	if err != nil {
-		return console.WithAuthFailure(ctx, err)
-	}
-
-	return console.WithAuth(ctx, auth)
 }
