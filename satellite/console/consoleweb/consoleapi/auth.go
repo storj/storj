@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
-// Error - console auth api error type
+// Error - console auth api error type.
 var Error = errs.Class("console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
@@ -137,6 +137,34 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Delete - authorizes user and deletes account by password.
+func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.service.DeleteAccount(ctx, request.Password)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
 // ChangePassword auth user, changes users password for a new one.
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -156,7 +184,12 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
-		a.serveJSONError(w, http.StatusNotFound, err)
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 }
