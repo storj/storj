@@ -189,7 +189,7 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		a.serveJSONError(w, http.StatusNotFound, err)
+		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 }
