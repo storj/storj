@@ -5,13 +5,14 @@ package satellite
 
 import (
 	"context"
+	"net"
+	"net/mail"
+	"net/smtp"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-	"net"
-	"net/mail"
-	"net/smtp"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -826,9 +827,6 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())
-	}
-	if peer.Payments.Clearing != nil {
-		errlist.Add(peer.Payments.Clearing.Close())
 	}
 
 	return errlist.Err()
