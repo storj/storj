@@ -26,7 +26,7 @@ type Config struct {
 	StripeSecretKey           string        `help:"stripe API secret key" default:""`
 	CoinpaymentsPublicKey     string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey    string        `help:"coinpayments API preivate key key" default:""`
-	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:":30m"`
+	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
