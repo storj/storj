@@ -70,7 +70,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 
 		exitStatus := node.ExitStatus
 		exitFinished := ""
-		if !exitStatus.ExitFinishedAt.IsZero() {
+		if exitStatus.ExitFinishedAt != nil {
 			exitFinished = exitStatus.ExitFinishedAt.Format("2006-01-02")
 		}
 		nextRow := []string{
