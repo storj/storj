@@ -19,6 +19,7 @@ enum PieceAction {
     GET_REPAIR = 4;
     PUT_REPAIR = 5;
     DELETE = 6;
+    PUT_GRACEFUL_EXIT = 7;
 }
 
 // OrderLimit is provided by satellite to execute specific action on storage node within some limits

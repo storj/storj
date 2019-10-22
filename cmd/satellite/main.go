@@ -23,12 +23,14 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 // Satellite defines satellite configuration
 type Satellite struct {
-	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 
 	satellite.Config
 }
@@ -42,6 +44,11 @@ var (
 		Use:   "run",
 		Short: "Run the satellite",
 		RunE:  cmdRun,
+	}
+	runAPICmd = &cobra.Command{
+		Use:   "api",
+		Short: "Run the satellite API",
+		RunE:  cmdAPIRun,
 	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
@@ -77,15 +84,15 @@ var (
 	setupCfg Satellite
 
 	qdiagCfg struct {
-		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 	nodeUsageCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
 	partnerAttribtionCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
 	confDir     string
@@ -99,12 +106,14 @@ func init() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
+	runCmd.AddCommand(runAPICmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -126,7 +135,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
 
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
@@ -139,7 +155,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, revocationDB, &runCfg.Config, version.Build)
+	liveAccounting, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
+	if err != nil {
+		return errs.New("Error creating live accounting cache: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, liveAccounting.Close())
+	}()
+
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, version.Build, &runCfg.Config)
 	if err != nil {
 		return err
 	}
@@ -158,6 +182,66 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+	return errs.Combine(runError, closeError)
+}
+
+func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
+	if err != nil {
+		return errs.New("Error starting master database on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating revocation database on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
+	if err != nil {
+		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, accountingCache.Close())
+	}()
+
+	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, accountingCache, &runCfg.Config, version.Build)
+	if err != nil {
+		return err
+	}
+
+	err = peer.Version.CheckVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
 	}
 
 	runError := peer.Run(ctx)

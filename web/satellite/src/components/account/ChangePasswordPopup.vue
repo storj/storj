@@ -35,8 +35,8 @@
                 />
                 <HeaderlessInput
                     class="full-input mt"
-                    label="Confirm password"
-                    placeholder="Confirm password"
+                    label="Confirm Password"
+                    placeholder="Confirm Password"
                     width="100%"
                     ref="confirmPasswordInput"
                     is-password="true"
@@ -111,8 +111,8 @@ export default class ChangePasswordPopup extends Vue {
 
     public async onUpdateClick(): Promise<void> {
         let hasError = false;
-        if (!this.oldPassword) {
-            this.oldPasswordError = 'Password required';
+        if (this.oldPassword.length < 6) {
+            this.oldPasswordError = 'Invalid old password. Must be 6 or more characters';
             hasError = true;
         }
 

@@ -12,6 +12,14 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
+var universe = newHandles()
+
+//export internal_UniverseIsEmpty
+// internal_UniverseIsEmpty returns true if nothing is stored in the global map.
+func internal_UniverseIsEmpty() bool {
+	return universe.Empty()
+}
+
 // Uplink is a scoped uplink.Uplink.
 type Uplink struct {
 	scope

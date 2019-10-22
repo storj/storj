@@ -171,6 +171,7 @@ model node (
     field exit_initiated_at         utimestamp ( updatable, nullable )
     field exit_loop_completed_at    utimestamp ( updatable, nullable )
     field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_success              bool ( updatable )
 )
 
 create node ( noreturn )
@@ -254,24 +255,6 @@ read one (
     where user.id = ?
 )
 
-// add payment method id to indentify if it has been set up
-model user_payment (
-    key    user_id
-    unique customer_id
-
-    field user_id       user.id   cascade
-    field customer_id   blob
-
-    field created_at    timestamp ( autoinsert )
-)
-
-create user_payment ( )
-
-read one (
-    select user_payment
-    where  user_payment.user_id = ?
-)
-
 model project (
     key id
 
@@ -307,40 +290,6 @@ read all (
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
-)
-
-model project_payment (
-    key id
-
-    field id                blob
-
-    field project_id        project.id              cascade
-    field payer_id          user_payment.user_id    cascade
-    field payment_method_id blob
-    field is_default        bool ( updatable )
-
-    field created_at        timestamp  ( autoinsert )
-)
-
-create project_payment ( )
-update project_payment ( where project_payment.id = ? )
-delete project_payment ( where project_payment.id = ? )
-
-read one (
-    select project_payment
-    where project_payment.id = ? )
-read one (
-    select project_payment
-    where project_payment.project_id = ?
-    where project_payment.is_default = true
-)
-read all (
-    select project_payment
-    where project_payment.project_id = ?
-)
-read all (
-    select project_payment
-    where project_payment.payer_id = ?
 )
 
 model project_invoice_stamp (
@@ -422,6 +371,11 @@ read one (
 read one (
     select api_key
     where api_key.head = ?
+)
+read one (
+    select api_key
+    where api_key.name = ?
+    where api_key.project_id = ?
 )
 read all (
     select api_key
@@ -922,9 +876,36 @@ read one (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 )
-read limitoffset (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at = null
-	orderby asc graceful_exit_transfer_queue.queued_at
+
+//--- satellite payments ---//
+
+model stripe_customer (
+    key user_id
+    unique customer_id
+
+    field user_id     blob
+    field customer_id text
+    field created_at  timestamp ( autoinsert )
 )
+
+create stripe_customer ( )
+read one (
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
+)
+
+model coinpayments_transaction (
+    key id
+
+    field id       text
+    field user_id  blob
+    field address  text
+    field amount   blob
+    field received blob ( updatable )
+    field status   int  ( updatable )
+    field key      text
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()

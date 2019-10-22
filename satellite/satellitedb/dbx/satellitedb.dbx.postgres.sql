@@ -55,6 +55,17 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	address text NOT NULL,
+	amount bytea NOT NULL,
+	received bytea NOT NULL,
+	status integer NOT NULL,
+	key text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -125,6 +136,7 @@ CREATE TABLE nodes (
 	exit_initiated_at timestamp,
 	exit_loop_completed_at timestamp,
 	exit_finished_at timestamp,
+	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -207,6 +219,13 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id bytea NOT NULL,
+	customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -286,22 +305,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id bytea NOT NULL,
-	is_default boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
