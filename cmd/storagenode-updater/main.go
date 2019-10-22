@@ -106,6 +106,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Fatalf("error loading identity: %s", err)
 	}
 	nodeID = ident.ID
+	if nodeID.IsZero() {
+		log.Fatal("empty node ID")
+	}
+
 
 	var ctx context.Context
 	ctx, cancel = context.WithCancel(context.Background())
@@ -120,12 +124,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	loopFunc := func(ctx context.Context) (err error) {
-		if err := update(ctx, runCfg.ServiceName, renameStoragenode); err != nil {
+		if err := update(ctx, runCfg.BinaryLocation, runCfg.ServiceName, renameStoragenode); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
 		}
 
-		if err := update(ctx, updaterServiceName, renameUpdater); err != nil {
+		if err := update(ctx, os.Args[0], updaterServiceName, renameUpdater); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
 		}
@@ -149,12 +153,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func update(ctx context.Context, serviceName string, rename renameFunc) (err error) {
+func update(ctx context.Context, binPath, serviceName string, rename renameFunc) (err error) {
 	if nodeID.IsZero() {
 		log.Fatal("empty node ID")
 	}
 
-	currentVersion, err := binaryVersion(runCfg.BinaryLocation)
+	currentVersion, err := binaryVersion(binPath)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -193,12 +197,12 @@ func update(ctx context.Context, serviceName string, rename renameFunc) (err err
 				return errs.Wrap(err)
 			}
 
-			err = unpackBinary(ctx, tempArchive.Name(), runCfg.BinaryLocation)
+			err = unpackBinary(ctx, tempArchive.Name(), binPath)
 			if err != nil {
 				return errs.Wrap(err)
 			}
 
-			downloadedVersion, err := binaryVersion(runCfg.BinaryLocation)
+			downloadedVersion, err := binaryVersion(binPath)
 			if err != nil {
 				return errs.Wrap(err)
 			}
