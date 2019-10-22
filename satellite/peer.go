@@ -132,9 +132,8 @@ type Config struct {
 	Rollup         rollup.Config
 	LiveAccounting live.Config
 
-	Payments paymentsconfig.Config
-	Mail     mailservice.Config
-	Console  consoleweb.Config
+	Mail    mailservice.Config
+	Console consoleweb.Config
 
 	Marketing marketingweb.Config
 
@@ -590,7 +589,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	}
 
 	{ // setup payments
-		config := config.Payments
+		config := paymentsconfig.Config{}
 
 		service := stripecoinpayments.NewService(
 			peer.Log.Named("stripecoinpayments service"),
@@ -750,9 +749,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Payments.Clearing.Run(ctx))
 	})
 
 	return group.Wait()

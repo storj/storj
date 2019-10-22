@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/vouchers"
@@ -361,7 +362,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup payments
-		config := config.Payments
+		config := paymentsconfig.Config{}
 
 		service := stripecoinpayments.NewService(
 			peer.Log.Named("stripecoinpayments service"),
