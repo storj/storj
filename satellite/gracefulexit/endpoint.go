@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -263,7 +264,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
-				// TODO(nat) for some errors (like ErrorHashMismatch), make sure we update failed counts like in handleFailed
 				return Error.Wrap(err)
 			}
 
@@ -393,41 +393,72 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
-	if originalOrderLimit == nil {
-		return Error.New("Original order limit cannot be nil.")
-	}
-	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
-	if originalPieceHash == nil {
-		return Error.New("Original piece hash cannot be nil.")
-	}
-	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
-	if replacementPieceHash == nil {
-		return Error.New("Replacement piece hash cannot be nil.")
-	}
-
 	pieceID := message.Succeeded.OriginalPieceId
-	endpoint.log.Debug("transfer succeeded", zap.Stringer("piece ID", pieceID))
 
-	// verify that the satellite signed the original order limit
-	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetOriginalOrderLimit())
+	transfer, ok := pending.get(pieceID)
+	if !ok {
+		endpoint.log.Error("could not find transfer message in pending queue", zap.Stringer("piece ID", pieceID))
+		return Error.New("could not find transfer message in pending queue")
+	}
+
+	// TODO add nil check for getting path
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
+	failedCount := 0
+
+	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
+	if originalOrderLimit == nil {
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, Error.New("Original order limit cannot be nil.")))
+	}
+	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
+	if originalPieceHash == nil {
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, Error.New("Original piece hash cannot be nil.")))
+	}
+	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
+	if replacementPieceHash == nil {
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, Error.New("Replacement piece hash cannot be nil.")))
+	}
+
+	// verify that the satellite signed the original order limit
+	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetOriginalOrderLimit())
+	if err != nil {
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, err))
+	}
+
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		return ErrorHashMismatch
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, ErrorHashMismatch))
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
 	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
-		return Error.Wrap(err)
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, err))
 	}
 
 	// TODO add nil checks/figure out a better way to get the receiving node ID
-	receivingNodeID := pending.data[pieceID].satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
 
 	// get peerID and signee for new storage node
 	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
@@ -439,19 +470,10 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
 	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	transfer, ok := pending.get(pieceID)
-	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("piece ID", pieceID))
-
-		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properly
-	}
-
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
-	if err != nil {
-		return Error.Wrap(err)
+		failedCount++
+		transferQueueItem.FailedCount = &failedCount
+		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+		return Error.Wrap(errs.Combine(updateErr, err))
 	}
 
 	var failed int64
