@@ -83,8 +83,6 @@ pipeline {
                     }
                 }
 
-
- 
                 stage('Integration') {
                     environment {
                         // use different hostname to avoid port conflicts
@@ -101,20 +99,6 @@ pipeline {
                     }
                 }
 
-                stage('Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
                 stage('npm') {
                     steps {
                         dir("web/satellite") {
@@ -128,17 +112,36 @@ pipeline {
                 }
             }
         }
-        stage('Tests Gomobile') {
-            environment {
-                // docker container IP
-                STORJ_NETWORK_HOST4 = '172.17.0.2'
-                STORJ_NETWORK_HOST6 = '172.17.0.2'
-                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
-            }
 
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj4;\''
-                sh 'make test-libuplink-gomobile'
+        stage('Verification 2') {
+            parallel {
+                stage('Tests [gomobile]') {
+                    environment {
+                        // docker container IP
+                        STORJ_NETWORK_HOST4 = '172.17.0.2'
+                        STORJ_NETWORK_HOST6 = '172.17.0.2'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj4;\''
+                        sh 'make test-libuplink-gomobile'
+                    }
+                }
+
+                stage('Backwards Compatibility') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
             }
         }
     }
