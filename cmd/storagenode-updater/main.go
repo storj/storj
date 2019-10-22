@@ -354,5 +354,5 @@ func fileExists(filename string) bool {
 }
 
 func main() {
-	_ = rootCmd.Execute()
+	process.Exec(rootCmd)
 }
