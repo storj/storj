@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -102,6 +103,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCustomers returns table for storing stripe customers
 	Customers() stripecoinpayments.CustomersDB
+	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
 }
 
 // Config is the global config satellite
@@ -132,7 +135,7 @@ type Config struct {
 
 	Marketing marketingweb.Config
 
-	Version version.Config
+	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
 
@@ -152,7 +155,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *version_checker.Service
 
 	// services and endpoints
 	Contact struct {
@@ -257,12 +260,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	var err error
 
 	{ // setup version control
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
@@ -592,11 +594,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			return nil, errs.New("Auth token secret required")
 		}
 
+		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
+			payments.Accounts(),
 			consoleConfig.PasswordCost,
 		)
 

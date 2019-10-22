@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -26,6 +27,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -92,7 +94,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -112,25 +114,40 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	paymentController := consoleapi.NewPayments(logger, service)
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
-	mux.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
+	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
+	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	authRouter := router.PathPrefix("/api/auth").Subrouter()
+	authRouter.Use()
+
+	authRouter.HandleFunc("/token", authController.Token).Methods("POST")
+	authRouter.HandleFunc("/register", authController.Register).Methods("POST")
+	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods("POST")
+	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods("POST")
+	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods("POST")
+	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods("POST")
+
+	router.HandleFunc("/api/v0/payments/cards", paymentController.AddCreditCard)
+	router.HandleFunc("/api/v0/payments/account/balance", paymentController.AccountBalance)
+	router.HandleFunc("/api/v0/payments/account", paymentController.SetupAccount)
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.HandleFunc("/activation/", server.accountActivationHandler)
+		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
+		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
+		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
+		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
-		Handler:        mux,
+		Handler:        router,
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -193,38 +210,24 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// tokenRequestHandler authenticates User by credentials and returns auth token.
-func (server *Server) tokenHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
+// authMiddlewareHandler performs initial authorization before every request.
+func (server *Server) withAuth(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var err error
+		defer mon.Task()(&ctx)(&err)
+		token := getToken(r)
 
-	var tokenRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+		ctx = auth.WithAPIKey(ctx, []byte(token))
+		auth, err := server.service.Authorize(ctx)
+		if err != nil {
+			ctx = console.WithAuthFailure(ctx, err)
+		} else {
+			ctx = console.WithAuth(ctx, auth)
+		}
 
-	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
-	if err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	var tokenResponse struct {
-		Token string `json:"token"`
-	}
-
-	tokenResponse.Token, err = server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
-	if err != nil {
-		server.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(tokenResponse)
-	if err != nil {
-		server.log.Error("token handler could not encode token response", zap.Error(err))
-		return
-	}
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project

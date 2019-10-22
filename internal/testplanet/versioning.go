@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -26,7 +27,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
@@ -46,23 +47,27 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 
 // NewVersionInfo returns the Version Info for this planet with tuned metrics.
 func (planet *Planet) NewVersionInfo() version.Info {
+	ver, err := version.NewSemVer("v0.0.1")
+	if err != nil {
+		panic(err)
+	}
+
 	info := version.Info{
 		Timestamp:  time.Now(),
 		CommitHash: "testplanet",
-		Version: version.SemVer{
-			Major: 0,
-			Minor: 0,
-			Patch: 1},
-		Release: false,
+		Version:    ver,
+		Release:    false,
 	}
 	return info
 }
 
 // NewVersionConfig returns the Version Config for this planet with tuned metrics.
-func (planet *Planet) NewVersionConfig() version.Config {
-	return version.Config{
-		ServerAddress:  fmt.Sprintf("http://%s/", planet.VersionControl.Addr()),
-		RequestTimeout: time.Second * 15,
-		CheckInterval:  time.Minute * 5,
+func (planet *Planet) NewVersionConfig() checker.Config {
+	config := checker.Config{
+		CheckInterval: time.Minute * 5,
 	}
+
+	config.ServerAddress = fmt.Sprintf("http://%s/", planet.VersionControl.Addr())
+	config.RequestTimeout = time.Second * 15
+	return config
 }
