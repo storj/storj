@@ -134,7 +134,7 @@ func TestFailure(t *testing.T) {
 		hashesDontMatch     bool
 		badUplinkSig        bool
 		badNodeSig          bool
-		failMessage         *pb.StorageNodeMessage
+		message             *pb.StorageNodeMessage
 	}{
 		{
 			name:                "unknown error",
@@ -157,14 +157,20 @@ func TestFailure(t *testing.T) {
 			badUplinkSig:        true,
 			badNodeSig:          false,
 		},
-		//{
-		//	name:                "bad storage node signature",
-		//	transferFailUnknown: false,
-		//	badUplinkSig:        false,
-		//	hashesDontMatch:     false,
-		//	badNodeSig:          true,
-		//},
-		// TODO(nat) add test cases for badSNSignature, and no issues (successful transfer)
+		{
+			name:                "bad storage node signature",
+			transferFailUnknown: false,
+			badUplinkSig:        false,
+			hashesDontMatch:     false,
+			badNodeSig:          true,
+		},
+		{
+			name:                "successful transfer",
+			transferFailUnknown: false,
+			badUplinkSig:        false,
+			hashesDontMatch:     false,
+			badNodeSig:          false,
+		},
 	} {
 		firstIteration := true
 		testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
@@ -199,7 +205,7 @@ func TestFailure(t *testing.T) {
 				case *pb.SatelliteMessage_TransferPiece:
 					require.NotNil(t, m)
 					if tt.transferFailUnknown {
-						tt.failMessage = &pb.StorageNodeMessage{
+						tt.message = &pb.StorageNodeMessage{
 							Message: &pb.StorageNodeMessage_Failed{
 								Failed: &pb.TransferFailed{
 									Error:           pb.TransferFailed_UNKNOWN,
@@ -238,7 +244,7 @@ func TestFailure(t *testing.T) {
 						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
 						require.NoError(t, err)
 
-						tt.failMessage = &pb.StorageNodeMessage{
+						tt.message = &pb.StorageNodeMessage{
 							Message: &pb.StorageNodeMessage_Succeeded{
 								Succeeded: &pb.TransferSucceeded{
 									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
@@ -281,7 +287,7 @@ func TestFailure(t *testing.T) {
 						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
 						require.NoError(t, err)
 
-						tt.failMessage = &pb.StorageNodeMessage{
+						tt.message = &pb.StorageNodeMessage{
 							Message: &pb.StorageNodeMessage_Succeeded{
 								Succeeded: &pb.TransferSucceeded{
 									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
@@ -321,7 +327,47 @@ func TestFailure(t *testing.T) {
 						signedNewPieceHash, err := signing.SignPieceHash(ctx, wrongSigner, newPieceHash)
 						require.NoError(t, err)
 
-						tt.failMessage = &pb.StorageNodeMessage{
+						tt.message = &pb.StorageNodeMessage{
+							Message: &pb.StorageNodeMessage_Succeeded{
+								Succeeded: &pb.TransferSucceeded{
+									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+									OriginalPieceHash:    originalPieceHash,
+									OriginalOrderLimit:   &orderLimit,
+									ReplacementPieceHash: signedNewPieceHash,
+								},
+							},
+						}
+					} else {
+						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+						require.NoError(t, err)
+
+						header, err := pieceReader.GetPieceHeader()
+						require.NoError(t, err)
+
+						orderLimit := header.OrderLimit
+						originalPieceHash := &pb.PieceHash{
+							PieceId:   orderLimit.PieceId,
+							Hash:      header.GetHash(),
+							PieceSize: pieceReader.Size(),
+							Timestamp: header.GetCreationTime(),
+							Signature: header.GetSignature(),
+						}
+
+						newPieceHash := &pb.PieceHash{
+							PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+							Hash:      originalPieceHash.Hash,
+							PieceSize: originalPieceHash.PieceSize,
+							Timestamp: time.Now(),
+						}
+
+						receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+						require.NotNil(t, receivingNode)
+						signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+
+						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+						require.NoError(t, err)
+
+						tt.message = &pb.StorageNodeMessage{
 							Message: &pb.StorageNodeMessage_Succeeded{
 								Succeeded: &pb.TransferSucceeded{
 									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
@@ -332,8 +378,7 @@ func TestFailure(t *testing.T) {
 							},
 						}
 					}
-
-					err = processClient.Send(tt.failMessage)
+					err = processClient.Send(tt.message)
 					require.NoError(t, err)
 				case *pb.SatelliteMessage_ExitCompleted:
 					// TODO test completed signature stuff
@@ -383,9 +428,14 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			require.NoError(t, err)
 		}
 		// check that there are no exiting nodes.
-		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-		require.NoError(t, err)
-		require.Len(t, exitingNodeIDs, 0)
+		for {
+			exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			require.NoError(t, err)
+			if len(exitingNodeIDs) == 0 {
+				break
+			}
+			t.Log("warning: waiting for node to exit")
+		}
 
 		exitingNode, err := findNodeToExit(ctx, planet, objects)
 		require.NoError(t, err)
