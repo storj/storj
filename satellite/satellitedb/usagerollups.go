@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -189,7 +188,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (_ *console.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
+	search := "%" + cursor.Search + "%"
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50
