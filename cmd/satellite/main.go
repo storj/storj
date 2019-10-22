@@ -328,10 +328,10 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Invalid date format. Please use YYYY-MM-DD")
 	}
 
-	//Adding one day to properly account for the entire end day
+	// adding one day to properly account for the entire end day
 	end = end.AddDate(0, 0, 1)
 
-	// Ensure that start date is not after end date
+	// ensure that start date is not after end date
 	if start.After(end) {
 		return errs.New("Invalid time period (%v) - (%v)", start, end)
 	}
