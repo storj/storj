@@ -255,15 +255,19 @@ func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
 	object, err := bucket.OpenObject(ctx, path)
+	// file doesn't already exist
 	if err != nil {
-		return nil, err
-	}
-	if storj.ErrObjectNotFound.Has(err) {
-		if (flag&os.O_APPEND) == 0 || (flag&os.O_APPEND) == 0 {
-			return nil, os.ErrNotExist
+		if storj.ErrObjectNotFound.Has(err) {
+			if (flag&os.O_APPEND) != 0 || (flag&os.O_RDONLY) != 0 {
+				return nil, os.ErrNotExist
+			}
 		}
+		return &virtualFile{ctx: ctx, path: path, bucket: bucket, size: 0, flag: flag}, nil
 	}
-
+	// file already exists
+	if (flag & os.O_EXCL) != 0 {
+		return nil, os.ErrExist
+	}
 	return &virtualFile{ctx: ctx, path: path, bucket: bucket, size: object.Meta.Size, flag: flag}, nil
 }
 
@@ -305,14 +309,14 @@ func (driver *Driver) CanAllocate(cc server.ClientContext, size int) (ok bool, e
 
 // ChmodFile changes the attributes of the file
 func (driver *Driver) ChmodFile(cc server.ClientContext, path string, mode os.FileMode) (err error) {
-	ctx, _, _ := ParsePath(cc.Path())
+	ctx, _, _ := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // DeleteFile deletes a file or a directory
 func (driver *Driver) DeleteFile(cc server.ClientContext, path string) (err error) {
-	ctx, bucketName, path := ParsePath(cc.Path())
+	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
 
 	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)

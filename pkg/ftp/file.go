@@ -36,10 +36,14 @@ type virtualFile struct {
 
 	writeOffset int64 // Writer offset
 	readOffset  int64 // Reader offset
-	flag        int   // determines read/write/append
+	flag        int   // generally os.O_RDONLY, os.O_WRONLY, or os.O_RDWR
+	//flag can also be OR'ed with O_APPEND, O_CREATE, O_EXCL, O_SYNC, and O_TRUNC
 }
 
 func (f *virtualFile) Size() int64 {
+	if f.size != 0 {
+		return f.size
+	}
 	if f.writeOffset != 0 {
 		return f.writeOffset
 	}
