@@ -8,7 +8,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
+
+	"storj.io/storj/internal/version"
 )
 
 // CLibMath is the standard C math library (see `man math.h`).
@@ -23,12 +26,12 @@ type CompileCOptions struct {
 }
 
 // Compile compiles the specified package and returns the executable name.
-func (ctx *Context) Compile(pkg string) string {
+func (ctx *Context) Compile(pkg string, preArgs ...string) string {
 	ctx.test.Helper()
 
 	exe := ctx.File("build", path.Base(pkg)+".exe")
 
-	args := []string{"build"}
+	args := append([]string{"build"}, preArgs...)
 	if raceEnabled {
 		args = append(args, "-race")
 	}
@@ -47,6 +50,32 @@ func (ctx *Context) Compile(pkg string) string {
 	}
 
 	return exe
+}
+
+func (ctx *Context) CompileWithVersion(pkg string, info version.Info) string {
+	ctx.test.Helper()
+
+	ldFlagsX := map[string]string{
+		"storj.io/storj/internal/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
+		"storj.io/storj/internal/version.buildCommitHash": info.CommitHash,
+		"storj.io/storj/internal/version.buildVersion":    info.Version.String(),
+		"storj.io/storj/internal/version.buildRelease":    strconv.FormatBool(info.Release),
+	}
+
+	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
+}
+
+func (ctx *Context) CompileWithLDFlagsX(pkg string, ldFlagsX map[string]string) string {
+	ctx.test.Helper()
+
+	var ldFlags = "-s -w"
+	if ldFlagsX != nil {
+		for key, value := range ldFlagsX {
+			ldFlags += (" -X " + key + "=" + value)
+		}
+	}
+
+	return ctx.Compile(pkg, "-ldflags", ldFlags)
 }
 
 // CompileShared compiles pkg as c-shared.
