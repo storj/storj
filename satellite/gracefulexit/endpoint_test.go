@@ -125,6 +125,11 @@ func TestFailure(t *testing.T) {
 			case *pb.SatelliteMessage_ExitCompleted:
 				// TODO test completed signature stuff
 				break
+			case *pb.SatelliteMessage_ExitFailed:
+				status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+				require.NoError(t, err)
+				require.False(t, status.ExitSuccess)
+				break
 			default:
 				t.FailNow()
 			}

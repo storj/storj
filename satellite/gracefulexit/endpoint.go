@@ -244,9 +244,19 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				ExitSuccess:    true,
 				ExitFinishedAt: time.Now().UTC(),
 			}
+
 			// check node's exiting progress to see if it has failed passed max failure threshold
-			overallFailurePercentage := math.Round(float64(progress.PiecesFailed)/float64(progress.PiecesTransferred)) * 100
-			if int(overallFailurePercentage) > endpoint.config.OverallMaxFailuresPercentage {
+			if progress.PiecesTransferred > 0 {
+				overallFailurePercentage := math.Round(float64(progress.PiecesFailed)/float64(progress.PiecesTransferred)) * 100
+				if int(overallFailurePercentage) > endpoint.config.OverallMaxFailuresPercentage {
+					exitStatusRequest.ExitSuccess = false
+					transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
+						ExitFailed: &pb.ExitFailed{
+							Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+						},
+					}
+				}
+			} else if progress.PiecesFailed > 0 {
 				exitStatusRequest.ExitSuccess = false
 				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
 					ExitFailed: &pb.ExitFailed{
