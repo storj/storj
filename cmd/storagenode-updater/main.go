@@ -110,7 +110,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Fatal("empty node ID")
 	}
 
-
 	var ctx context.Context
 	ctx, cancel = context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)

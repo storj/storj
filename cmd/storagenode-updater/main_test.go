@@ -4,6 +4,7 @@
 package main_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,14 @@ func TestAutoUpdater(t *testing.T) {
 	err = identConfig.Save(ident)
 	require.NoError(t, err)
 
+	configData := fmt.Sprintf(
+		"identity.cert-path: %s\nidentity.key-path: %s",
+		identConfig.CertPath,
+		identConfig.KeyPath,
+	)
+	err = ioutil.WriteFile(ctx.File("config.yaml"), []byte(configData), 0644)
+	require.NoError(t, err)
+
 	testFiles := map[string]struct {
 		oldBin string
 		newZip string
@@ -61,7 +70,7 @@ func TestAutoUpdater(t *testing.T) {
 
 		newZipData, err := ioutil.ReadFile(file.newZip)
 		require.NoError(t, err)
-		mux.HandleFunc("/" + name, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/"+name, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, err := w.Write(newZipData)
 			require.NoError(t, err)
 		}))
@@ -123,6 +132,8 @@ func TestAutoUpdater(t *testing.T) {
 
 	args := make([]string, 0)
 	args = append(args, "run")
+	args = append(args, "--config-dir")
+	args = append(args, ctx.Dir())
 	args = append(args, "--server-address")
 	args = append(args, "http://"+peer.Addr())
 	args = append(args, "--binary-location")

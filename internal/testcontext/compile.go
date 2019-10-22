@@ -52,6 +52,8 @@ func (ctx *Context) Compile(pkg string, preArgs ...string) string {
 	return exe
 }
 
+// CompileWithVersion compiles the specified package with the version variables set
+// to the passed version info values and returns the executable name.
 func (ctx *Context) CompileWithVersion(pkg string, info version.Info) string {
 	ctx.test.Helper()
 
@@ -65,6 +67,8 @@ func (ctx *Context) CompileWithVersion(pkg string, info version.Info) string {
 	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
 
+// CompileWithLDFlagsX compiles the specified package with the -ldflags flag set to
+// "-s -w [-X <key>=<value>,...]" given the passed map and returns the executable name.
 func (ctx *Context) CompileWithLDFlagsX(pkg string, ldFlagsX map[string]string) string {
 	ctx.test.Helper()
 
