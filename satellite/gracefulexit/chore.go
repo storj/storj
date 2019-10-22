@@ -64,6 +64,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		for _, node := range exitingNodes {
 			if node.ExitLoopCompletedAt == nil {
 				exitingNodesLoopIncomplete = append(exitingNodesLoopIncomplete, node.NodeID)
+				continue
 			}
 
 			progress, err := chore.db.GetProgress(ctx, node.NodeID)
@@ -71,8 +72,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				chore.log.Error("error retrieving progress for node", zap.Stringer("Node ID", node.NodeID), zap.Error(err))
 				continue
 			}
+
+			var lastActivityTime *time.Time
+			if progress == nil {
+				lastActivityTime = node.ExitLoopCompletedAt
+			} else {
+				lastActivityTime = &progress.UpdatedAt
+			}
 			// check inactive timeframe
-			if progress != nil && progress.UpdatedAt.Before(time.Now().UTC().Add(-chore.config.MaxInactiveTimeFrame)) {
+			if lastActivityTime.Before(time.Now().UTC().Add(-chore.config.MaxInactiveTimeFrame)) {
 				exitStatusRequest := &overlay.ExitStatusRequest{
 					NodeID:         node.NodeID,
 					ExitSuccess:    false,

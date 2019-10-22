@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -227,16 +226,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
-			// TODO needs exit signature
-			transferMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_ExitCompleted{
-					ExitCompleted: &pb.ExitCompleted{},
-				},
-			}
-
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
-				ExitSuccess:    true,
 				ExitFinishedAt: time.Now().UTC(),
 			}
 
@@ -245,25 +236,28 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return Error.Wrap(err)
 			}
 
+			var transferMsg *pb.SatelliteMessage
+			processed := progress.PiecesFailed + progress.PiecesTransferred
 			// check node's exiting progress to see if it has failed passed max failure threshold
-			if progress.PiecesFailed > 0 {
+			if processed > 0 && progress.PiecesFailed > 0 &&
+				float64(progress.PiecesFailed)/float64(processed)*100 > float64(endpoint.config.OverallMaxFailuresPercentage) {
+
 				exitStatusRequest.ExitSuccess = false
-				transferMsg.Message = &pb.SatelliteMessage_ExitFailed{
-					ExitFailed: &pb.ExitFailed{
-						Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitFailed{
+						ExitFailed: &pb.ExitFailed{
+							Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+						},
 					},
 				}
-
-				if progress.PiecesTransferred > 0 {
-					overallFailurePercentage := math.Round(float64(progress.PiecesFailed)/float64(progress.PiecesTransferred)) * 100
-					if int(overallFailurePercentage) < endpoint.config.OverallMaxFailuresPercentage {
-						exitStatusRequest.ExitSuccess = true
-						transferMsg = &pb.SatelliteMessage{
-							Message: &pb.SatelliteMessage_ExitCompleted{
-								ExitCompleted: &pb.ExitCompleted{},
-							},
-						}
-					}
+			} else {
+				exitStatusRequest.ExitSuccess = true
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitCompleted{
+						ExitCompleted: &pb.ExitCompleted{},
+					},
 				}
 			}
 
@@ -445,7 +439,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	var failed int64
-	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > 0 {
+	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > endpoint.config.EndpointMaxFailures {
 		failed = -1
 	}
 
@@ -496,9 +490,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		return Error.Wrap(err)
 	}
 
-	// TODO: only increment failed if it has failed the same piece more than endpoint.config.EndpointMaxFailures
 	// only increment failed if it hasn't failed before
-	if failedCount == 1 {
+	if failedCount > endpoint.config.EndpointMaxFailures {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)
