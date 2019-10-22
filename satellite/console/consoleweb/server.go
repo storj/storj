@@ -222,7 +222,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		ctx = auth.WithAPIKey(ctx, []byte(token))
 		auth, err := server.service.Authorize(ctx)
 		if err != nil {
-			server.serveJSONError(w, http.StatusUnauthorized, err)
+			ctx = console.WithAuthFailure(ctx, err)
 		} else {
 			ctx = console.WithAuth(ctx, auth)
 		}

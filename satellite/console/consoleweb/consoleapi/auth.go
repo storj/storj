@@ -155,6 +155,11 @@ func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.DeleteAccount(ctx, request.Password)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -179,6 +184,11 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		a.serveJSONError(w, http.StatusNotFound, err)
 		return
 	}
