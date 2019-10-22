@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -79,7 +80,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		for _, satellite := range satellites {
 			satelliteID := satellite.SatelliteID
-			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.trust, chore.dialer, satelliteID)
+			addr, err := chore.trust.GetAddress(ctx, satelliteID)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
 				chore.log.Debug("skipping graceful exit for satellite. worker already exists.", zap.Stringer("satellite ID", satelliteID))

@@ -18,31 +18,30 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/uplink/ecclient"
 )
 
 // Worker is responsible for completing the graceful exit for a given satellite.
 type Worker struct {
-	log         *zap.Logger
-	store       *pieces.Store
-	satelliteDB satellites.DB
-	trust       *trust.Pool
-	dialer      rpc.Dialer
-	satelliteID storj.NodeID
-	ecclient    ecclient.Client
+	log           *zap.Logger
+	store         *pieces.Store
+	satelliteDB   satellites.DB
+	dialer        rpc.Dialer
+	satelliteID   storj.NodeID
+	satelliteAddr string
+	ecclient      ecclient.Client
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, trust *trust.Pool, dialer rpc.Dialer, satelliteID storj.NodeID) *Worker {
+func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteID storj.NodeID, satelliteAddr string) *Worker {
 	return &Worker{
-		log:         log,
-		store:       store,
-		satelliteDB: satelliteDB,
-		trust:       trust,
-		dialer:      dialer,
-		satelliteID: satelliteID,
-		ecclient:    ecclient.NewClient(log, dialer, 0),
+		log:           log,
+		store:         store,
+		satelliteDB:   satelliteDB,
+		dialer:        dialer,
+		satelliteID:   satelliteID,
+		satelliteAddr: satelliteAddr,
+		ecclient:      ecclient.NewClient(log, dialer, 0),
 	}
 }
 
@@ -55,12 +54,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 	worker.log.Debug("running worker")
 
-	addr, err := worker.trust.GetAddress(ctx, worker.satelliteID)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	conn, err := worker.dialer.DialAddressID(ctx, addr, worker.satelliteID)
+	conn, err := worker.dialer.DialAddressID(ctx, worker.satelliteAddr, worker.satelliteID)
 	if err != nil {
 		return errs.Wrap(err)
 	}
