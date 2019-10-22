@@ -157,6 +157,11 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		return nil, RolloutErr.Wrap(err)
 	}
 
+	peer.Versions.Processes.StoragenodeUpdater, err = configToProcess(config.Binary.StoragenodeUpdater)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
 	peer.Versions.Processes.Storagenode, err = configToProcess(config.Binary.Storagenode)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)
