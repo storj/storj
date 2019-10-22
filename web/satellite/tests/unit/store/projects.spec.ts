@@ -24,11 +24,11 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 const state = (store.state as any).projectsModule;
 
 const projects = [
-    new Project('11', 'name', 'descr', '23'),
-    new Project('1', 'name2', 'descr2', '24'),
+    new Project('11', 'name', 'descr', '23', 'testOwnerId'),
+    new Project('1', 'name2', 'descr2', '24', 'testOwnerId1'),
 ];
 
-const project = new Project('11', 'name', 'descr', '23');
+const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
 
 describe('mutations', () => {
     beforeEach(() => {
@@ -43,6 +43,7 @@ describe('mutations', () => {
         expect(state.projects[0].name).toBe(project.name);
         expect(state.projects[0].description).toBe(project.description);
         expect(state.projects[0].createdAt).toBe(project.createdAt);
+        expect(state.projects[0].ownerId).toBe(project.ownerId);
     });
 
     it('set projects', () => {
@@ -136,7 +137,7 @@ describe('actions', () => {
         }
     });
 
-    it('success delete apiKeys', async () => {
+    it('success delete project', async () => {
         jest.spyOn(projectsApi, 'delete').mockReturnValue(
             Promise.resolve(),
         );
@@ -219,7 +220,7 @@ describe('getters', () => {
         expect(selectedProject.id).toBe('1');
     });
 
-    it('apiKeys array', () => {
+    it('projects array', () => {
         store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, projects);
 
         const allProjects = store.getters.projects;
