@@ -76,14 +76,14 @@ func TestGetExitingNodes(t *testing.T) {
 
 		nodes, err = cache.GetExitingNodes(ctx)
 		require.NoError(t, err)
-		exitingNodesLoopInComplete := make(storj.NodeIDList, 0, len(nodes))
+		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, len(nodes))
 		for _, node := range nodes {
 			if node.ExitLoopCompletedAt == nil {
-				exitingNodesLoopInComplete = append(exitingNodesLoopInComplete, node.NodeID)
+				exitingNodesLoopIncomplete = append(exitingNodesLoopIncomplete, node.NodeID)
 			}
 		}
-		require.Len(t, exitingNodesLoopInComplete, exitingLoopIncompleteCount)
-		for _, id := range exitingNodesLoopInComplete {
+		require.Len(t, exitingNodesLoopIncomplete, exitingLoopIncompleteCount)
+		for _, id := range exitingNodesLoopIncomplete {
 			require.True(t, exitingLoopIncomplete[id])
 		}
 	})

@@ -26,6 +26,6 @@ type Config struct {
 
 	MaxFailuresPerPiece int `help:"maximum number of transfer failures per piece." default:"3"`
 	// TODO: what's the default number?
-	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"90"`
+	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"10"`
 	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"500h"`
 }

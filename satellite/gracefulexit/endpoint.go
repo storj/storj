@@ -240,7 +240,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			processed := progress.PiecesFailed + progress.PiecesTransferred
 			// check node's exiting progress to see if it has failed passed max failure threshold
 			if processed > 0 && progress.PiecesFailed > 0 &&
-				float64(progress.PiecesFailed)/float64(processed)*100 > float64(endpoint.config.OverallMaxFailuresPercentage) {
+				float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
 				exitStatusRequest.ExitSuccess = false
 				// TODO needs signature
@@ -267,6 +267,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			err = stream.Send(transferMsg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// remove remaining items from the queue after notifying nodes about their exit status
+			err := endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -439,7 +445,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	var failed int64
-	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > endpoint.config.MaxFailuresPerPiece {
+	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount >= endpoint.config.MaxFailuresPerPiece {
 		failed = -1
 	}
 
@@ -490,8 +496,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		return Error.Wrap(err)
 	}
 
-	// only increment failed if it hasn't failed before
-	if failedCount > endpoint.config.MaxFailuresPerPiece {
+	// only increment overall failed count if piece failures has reached the threshold
+	if failedCount == endpoint.config.MaxFailuresPerPiece {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)

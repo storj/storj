@@ -47,7 +47,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		chore.log.Info("running graceful exit chore.")
 
-		// check if node has been inactive for too long
 		exitingNodes, err := chore.overlay.GetExitingNodes(ctx)
 		if err != nil {
 			chore.log.Error("error retrieving nodes that have not finished exiting", zap.Error(err))
@@ -73,12 +72,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				continue
 			}
 
-			var lastActivityTime *time.Time
-			if progress == nil {
-				lastActivityTime = node.ExitLoopCompletedAt
-			} else {
-				lastActivityTime = &progress.UpdatedAt
+			lastActivityTime := *node.ExitLoopCompletedAt
+			if progress != nil {
+				lastActivityTime = progress.UpdatedAt
 			}
+
 			// check inactive timeframe
 			if lastActivityTime.Before(time.Now().UTC().Add(-chore.config.MaxInactiveTimeFrame)) {
 				exitStatusRequest := &overlay.ExitStatusRequest{
@@ -100,6 +98,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 		}
 
+		// Populate transfer queue for nodes that have not completed the exit loop yet
 		pathCollector := NewPathCollector(chore.db, exitingNodesLoopIncomplete, chore.log, chore.config.ChoreBatchSize)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
 		if err != nil {

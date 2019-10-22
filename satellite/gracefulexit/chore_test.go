@@ -24,7 +24,7 @@ import (
 )
 
 func TestChore(t *testing.T) {
-	var maximumInActiveTimeFrame = time.Second * 5
+	var maximumInActiveTimeFrame = time.Second * 1
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 8,

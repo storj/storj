@@ -365,8 +365,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 				EndpointBatchSize:            100,
 				MaxFailuresPerPiece:          5,
-				MaxInactiveTimeFrame:         time.Second * 10, // TODO: change to a realistic value
-				OverallMaxFailuresPercentage: 90,
+				MaxInactiveTimeFrame:         time.Second * 10,
+				OverallMaxFailuresPercentage: 10,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
