@@ -33,6 +33,8 @@ const (
 	APIKeysPageType = "apiKeysPage"
 	// APIKeysCursorInputType is a graphql type name for api keys
 	APIKeysCursorInputType = "apiKeysCursor"
+	// FieldOwnerID is a field name for "ownerId"
+	FieldOwnerID = "ownerId"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -90,6 +92,9 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.String,
 			},
 			FieldName: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldOwnerID: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldDescription: &graphql.Field{
