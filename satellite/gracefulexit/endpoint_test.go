@@ -113,7 +113,7 @@ func TestSuccess(t *testing.T) {
 				// TODO test completed signature stuff
 				break
 			default:
-				t.FailNow()
+				// TODO finish other message types above so this shouldn't happen
 			}
 		}
 

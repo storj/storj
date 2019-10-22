@@ -1,6 +1,7 @@
 GO_VERSION ?= 1.13.3
 GOOS ?= linux
 GOARCH ?= amd64
+GOPATH ?= $(shell go env GOPATH)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},master)
@@ -372,7 +373,7 @@ diagrams-graphml:
 update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
-		-v $(shell pwd):/storj \
+		-v ${CURDIR}:/storj \
 		-v $(shell go env GOCACHE):/go-cache \
 		-e "GOCACHE=/go-cache" \
 		-u root:root \

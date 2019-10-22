@@ -67,7 +67,9 @@ message TransferFailed {
   enum Error {
       NOT_FOUND                 = 0;
       STORAGE_NODE_UNAVAILABLE  = 1;
-      UNKNOWN                   = 2;
+      HASH_VERIFICATION         = 2;
+
+      UNKNOWN                   = 10;
   }
   Error error = 2;
 }
