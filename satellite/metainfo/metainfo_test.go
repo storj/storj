@@ -1588,8 +1588,63 @@ func TestBatch(t *testing.T) {
 			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "second-test-bucket")
 			require.NoError(t, err)
 
-			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			requests := make([]metainfo.BatchItem, 0)
+			requests = append(requests, &metainfo.BeginObjectParams{
 				Bucket:        []byte("second-test-bucket"),
+				EncryptedPath: []byte("encrypted-path"),
+			})
+			numOfSegments := 10
+			expectedData := make([][]byte, numOfSegments)
+			for i := 0; i < numOfSegments; i++ {
+				expectedData[i] = testrand.Bytes(memory.KiB)
+
+				requests = append(requests, &metainfo.MakeInlineSegmentParams{
+					Position: storj.SegmentPosition{
+						Index: int32(i),
+					},
+					EncryptedInlineData: expectedData[i],
+				})
+			}
+
+			requests = append(requests, &metainfo.CommitObjectParams{})
+			requests = append(requests, &metainfo.ListSegmentsParams{})
+
+			responses, err := metainfoClient.Batch(ctx, requests...)
+			require.NoError(t, err)
+			require.Equal(t, numOfSegments+3, len(responses))
+
+			listResponse, err := responses[numOfSegments+2].ListSegment()
+			require.NoError(t, err)
+			require.Equal(t, numOfSegments, len(listResponse.Items))
+
+			requests = make([]metainfo.BatchItem, 0)
+			requests = append(requests, &metainfo.GetObjectParams{
+				Bucket:        []byte("second-test-bucket"),
+				EncryptedPath: []byte("encrypted-path"),
+			})
+			for _, segment := range listResponse.Items {
+				requests = append(requests, &metainfo.DownloadSegmentParams{
+					Position: segment.Position,
+				})
+			}
+			responses, err = metainfoClient.Batch(ctx, requests...)
+			require.NoError(t, err)
+			require.Equal(t, len(listResponse.Items)+1, len(responses))
+
+			for i, response := range responses[1:] {
+				downloadResponse, err := response.DownloadSegment()
+				require.NoError(t, err)
+
+				require.Equal(t, expectedData[i], downloadResponse.Info.EncryptedInlineData)
+			}
+		}
+
+		{ // test case when StreamID is not set automatically
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket")
+			require.NoError(t, err)
+
+			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte("third-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
 			require.NoError(t, err)
@@ -1613,43 +1668,9 @@ func TestBatch(t *testing.T) {
 				StreamID: streamID,
 			})
 
-			requests = append(requests, &metainfo.ListSegmentsParams{
-				StreamID: streamID,
-			})
-
-			requests = append(requests, &metainfo.GetObjectParams{
-				Bucket:        []byte("second-test-bucket"),
-				EncryptedPath: []byte("encrypted-path"),
-			})
-
 			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
-			require.Equal(t, numOfSegments+3, len(responses))
-
-			listResponse, err := responses[numOfSegments+1].ListSegment()
-			require.NoError(t, err)
-			require.Equal(t, numOfSegments, len(listResponse.Items))
-
-			getResponse, err := responses[numOfSegments+2].GetObject()
-			require.NoError(t, err)
-
-			requests = make([]metainfo.BatchItem, 0)
-			for _, segment := range listResponse.Items {
-				requests = append(requests, &metainfo.DownloadSegmentParams{
-					StreamID: getResponse.Info.StreamID,
-					Position: segment.Position,
-				})
-			}
-			responses, err = metainfoClient.Batch(ctx, requests...)
-			require.NoError(t, err)
-			require.Equal(t, len(listResponse.Items), len(responses))
-
-			for i, response := range responses {
-				downloadResponse, err := response.DownloadSegment()
-				require.NoError(t, err)
-
-				require.Equal(t, expectedData[i], downloadResponse.Info.EncryptedInlineData)
-			}
+			require.Equal(t, numOfSegments+1, len(responses))
 		}
 	})
 }
