@@ -10,12 +10,17 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -23,43 +28,48 @@ func TestAutoUpdater(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testFiles := []struct {
-		src   string
-		dst   string
-		perms os.FileMode
+	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	require.NoError(t, err)
+
+	identConfig := identity.Config{
+		CertPath: ctx.File("identity.cert"),
+		KeyPath:  ctx.File("identity.Key"),
+	}
+	err = identConfig.Save(ident)
+	require.NoError(t, err)
+
+	testFiles := map[string]struct {
+		oldBin string
+		newZip string
+		perms  os.FileMode
 	}{
-		{
+		"storagenode": {
 			"testdata/fake-storagenode",
-			ctx.File("storagenode"),
+			"testdata/fake-storagenode.zip",
 			0755,
 		},
-		{
-			"testdata/fake-ident.cert",
-			ctx.File("identity.cert"),
-			0644,
+		"storagenode-updater": {
+			"testdata/fake-storagenode-updater",
+			"testdata/fake-storagenode-updater.zip",
+			0755,
 		},
-		{
-			"testdata/fake-ident.key",
-			ctx.File("identity.key"),
-			0600,
-		},
-	}
-
-	for _, file := range testFiles {
-		content, err := ioutil.ReadFile(file.src)
-		require.NoError(t, err)
-
-		err = ioutil.WriteFile(file.dst, content, file.perms)
-		require.NoError(t, err)
 	}
 
 	var mux http.ServeMux
-	content, err := ioutil.ReadFile("testdata/fake-storagenode.zip")
-	require.NoError(t, err)
-	mux.HandleFunc("/download", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write(content)
+	for name, file := range testFiles {
+		oldBinData, err := ioutil.ReadFile(file.oldBin)
 		require.NoError(t, err)
-	}))
+
+		err = ioutil.WriteFile(ctx.File(name), oldBinData, file.perms)
+		require.NoError(t, err)
+
+		newZipData, err := ioutil.ReadFile(file.newZip)
+		require.NoError(t, err)
+		mux.HandleFunc("/" + name, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write(newZipData)
+			require.NoError(t, err)
+		}))
+	}
 
 	ts := httptest.NewServer(&mux)
 	defer ts.Close()
@@ -77,7 +87,7 @@ func TestAutoUpdater(t *testing.T) {
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: "0.19.5",
-					URL:     ts.URL + "/download",
+					URL:     ts.URL + "/storagenode",
 				},
 				Rollout: versioncontrol.RolloutConfig{
 					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
@@ -87,7 +97,7 @@ func TestAutoUpdater(t *testing.T) {
 			StoragenodeUpdater: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: "0.19.5",
-					URL:     ts.URL + "/download",
+					URL:     ts.URL + "/storagenode-updater",
 				},
 				Rollout: versioncontrol.RolloutConfig{
 					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
@@ -103,29 +113,43 @@ func TestAutoUpdater(t *testing.T) {
 	})
 	defer ctx.Check(peer.Close)
 
+	// NB: same as old fake-storagenode version
+	ver, err := version.NewSemVer("v0.19.0")
+	require.NoError(t, err)
+
+	info := version.Info{
+		Timestamp:  time.Now(),
+		CommitHash: "",
+		Version:    ver,
+		Release:    false,
+	}
+	updaterBin := ctx.CompileWithVersion("", info)
+
 	args := make([]string, 0)
-	args = append(args, "run")
-	args = append(args, "main.go")
 	args = append(args, "run")
 	args = append(args, "--server-address")
 	args = append(args, "http://"+peer.Addr())
 	args = append(args, "--binary-location")
-	args = append(args, testFiles[0].dst)
+	args = append(args, ctx.File("storagenode"))
 	args = append(args, "--check-interval")
 	args = append(args, "0s")
 	args = append(args, "--identity.cert-path")
-	args = append(args, testFiles[1].dst)
+	args = append(args, identConfig.CertPath)
 	args = append(args, "--identity.key-path")
-	args = append(args, testFiles[2].dst)
+	args = append(args, identConfig.KeyPath)
 
-	out, err := exec.Command("go", args...).CombinedOutput()
+	out, err := exec.Command(updaterBin, args...).CombinedOutput()
 	result := string(out)
 	if !assert.NoError(t, err) {
 		t.Log(result)
 		t.Fatal(err)
 	}
 
-	if !assert.Contains(t, result, "restarted successfully") {
+	if !assert.Contains(t, result, "storagenode restarted successfully") {
+		t.Log(result)
+	}
+
+	if !assert.Contains(t, result, "storagenode-updater restarted successfully") {
 		t.Log(result)
 	}
 }
