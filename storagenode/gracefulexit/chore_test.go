@@ -60,6 +60,7 @@ func TestChore(t *testing.T) {
 			}
 		}
 		require.NotNil(t, newExitingNodeID)
+		require.NotEqual(t, exitingNode.ID(), newExitingNodeID)
 
 		var newExitingNode *storagenode.Peer
 		for _, node := range planet.StorageNodes {
