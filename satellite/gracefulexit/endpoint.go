@@ -272,7 +272,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			// remove remaining items from the queue after notifying nodes about their exit status
-			err := endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+			err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
