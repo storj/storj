@@ -34,8 +34,10 @@ func NewClearing(log *zap.Logger, service *Service, txInterval time.Duration) *C
 }
 
 // Run runs all clearing related cycles.
-func (clearing *Clearing) Run(ctx context.Context) error {
-	err := clearing.TransactionCycle.Run(ctx,
+func (clearing *Clearing) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = clearing.TransactionCycle.Run(ctx,
 		func(ctx context.Context) error {
 			clearing.log.Info("running transactions update cycle")
 
@@ -51,7 +53,9 @@ func (clearing *Clearing) Run(ctx context.Context) error {
 }
 
 // Close closes all underlying resources.
-func (clearing *Clearing) Close() error {
+func (clearing *Clearing) Close() (err error) {
+	defer mon.Task()(nil)(&err)
+
 	clearing.TransactionCycle.Close()
 	return nil
 }

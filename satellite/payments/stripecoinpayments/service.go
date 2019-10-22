@@ -10,7 +10,7 @@ import (
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -64,7 +64,9 @@ func (service *Service) Accounts() payments.Accounts {
 }
 
 // updateTransactionsLoop updates all pending transactions in a loop.
-func (service *Service) updateTransactionsLoop(ctx context.Context) error {
+func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	const (
 		limit = 25
 	)
@@ -101,7 +103,9 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) error {
 }
 
 // updateTransactions updates statuses and received amount for given transactions.
-func (service *Service) updateTransactions(ctx context.Context, ids coinpayments.TransactionIDList) error {
+func (service *Service) updateTransactions(ctx context.Context, ids coinpayments.TransactionIDList) (err error) {
+	defer mon.Task()(&ctx, ids)(&err)
+
 	if len(ids) == 0 {
 		service.log.Debug("no transactions found, skipping update")
 		return nil
