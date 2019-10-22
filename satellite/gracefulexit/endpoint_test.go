@@ -134,6 +134,7 @@ func TestFailure(t *testing.T) {
 		hashesDontMatch     bool
 		badUplinkSig        bool
 		badNodeSig          bool
+		success             bool
 		message             *pb.StorageNodeMessage
 	}{
 		{
@@ -142,6 +143,7 @@ func TestFailure(t *testing.T) {
 			transferFailUnknown: true,
 			badNodeSig:          false,
 			badUplinkSig:        false,
+			success:             false,
 		},
 		{
 			name:                "signatures valid, hashes don't match",
@@ -149,6 +151,7 @@ func TestFailure(t *testing.T) {
 			hashesDontMatch:     true,
 			badNodeSig:          false,
 			badUplinkSig:        false,
+			success:             false,
 		},
 		{
 			name:                "bad uplink signature",
@@ -156,6 +159,7 @@ func TestFailure(t *testing.T) {
 			hashesDontMatch:     false,
 			badUplinkSig:        true,
 			badNodeSig:          false,
+			success:             false,
 		},
 		{
 			name:                "bad storage node signature",
@@ -163,6 +167,7 @@ func TestFailure(t *testing.T) {
 			badUplinkSig:        false,
 			hashesDontMatch:     false,
 			badNodeSig:          true,
+			success:             false,
 		},
 		{
 			name:                "successful transfer",
@@ -170,8 +175,10 @@ func TestFailure(t *testing.T) {
 			badUplinkSig:        false,
 			hashesDontMatch:     false,
 			badNodeSig:          false,
+			success:             true,
 		},
 	} {
+		tt := tt
 		firstIteration := true
 		testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 			for {
@@ -213,8 +220,7 @@ func TestFailure(t *testing.T) {
 								},
 							},
 						}
-					}
-					if tt.hashesDontMatch {
+					} else if tt.hashesDontMatch {
 						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
 						require.NoError(t, err)
 
@@ -254,8 +260,7 @@ func TestFailure(t *testing.T) {
 								},
 							},
 						}
-					}
-					if tt.badUplinkSig {
+					} else if tt.badUplinkSig {
 						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
 						require.NoError(t, err)
 
@@ -297,8 +302,7 @@ func TestFailure(t *testing.T) {
 								},
 							},
 						}
-					}
-					if tt.badNodeSig {
+					} else if tt.badNodeSig {
 						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
 						require.NoError(t, err)
 
@@ -388,13 +392,18 @@ func TestFailure(t *testing.T) {
 				}
 			}
 
+			// TODO uncomment once progress reflects updated success and fail counts
 			// check that the exit has completed and we have the correct transferred/failed values
-			// TODO(nat) uncomment after updating failed/transferred counts in endpoint.go
-			// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-			// require.NoError(t, err)
-
-			// require.Equal(t, int64(0), progress.PiecesTransferred)
-			// require.Equal(t, int64(1), progress.PiecesFailed)
+			//progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+			//require.NoError(t, err)
+			//
+			//if tt.success {
+			//	require.Equal(t, int64(1), progress.PiecesTransferred, tt.name)
+			//	require.Equal(t, int64(0), progress.PiecesFailed, tt.name)
+			//} else {
+			//	require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
+			//	require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+			//}
 		})
 	}
 }
