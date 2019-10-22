@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -82,7 +81,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			satelliteID := satellite.SatelliteID
 			addr, err := chore.trust.GetAddress(ctx, satelliteID)
 			if err != nil {
-				return errs.Wrap(err)
+				chore.log.Error("failed to get satellite address.", zap.Error(err))
+				continue
 			}
 
 			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr)
@@ -98,7 +98,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.exitingMap.Delete(satelliteID)
 				})
 				if err != nil {
-					worker.log.Error("worker failed.", zap.Error(err))
+					chore.log.Error("worker failed.", zap.Error(err))
 				}
 			})
 		}
