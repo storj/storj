@@ -178,6 +178,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 0)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
 		return Error.Wrap(err)
@@ -259,6 +263,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
+				// TODO(nat) for some errors (like ErrorHashMismatch), make sure we update failed counts like in handleFailed
 				return Error.Wrap(err)
 			}
 
