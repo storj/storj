@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"testing"
@@ -14,8 +15,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/versioncontrol"
 )
+
+var testHexSeed = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 func TestClient_All(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -73,6 +77,42 @@ func TestClient_Process(t *testing.T) {
 
 		require.Equal(t, expectedVersionStr, process.Minimum.Version)
 		require.Equal(t, expectedVersionStr, process.Suggested.Version)
+
+		actualHexSeed := hex.EncodeToString(process.Rollout.Seed[:])
+		require.NoError(t, err)
+
+		require.Equal(t, testHexSeed, actualHexSeed)
+		// TODO: find a better way to test this
+		require.NotEmpty(t, process.Rollout.Cursor)
+	}
+}
+
+func TestClient_ShouldUpdate(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	peer := newTestPeer(t, ctx)
+	defer ctx.Check(peer.Close)
+
+	clientConfig := checker.ClientConfig{
+		ServerAddress:  "http://" + peer.Addr(),
+		RequestTimeout: 0,
+	}
+	client := checker.New(clientConfig)
+
+	processesType := reflect.TypeOf(version.Processes{})
+	fieldCount := processesType.NumField()
+
+	for i := 1; i < fieldCount; i++ {
+		field := processesType.Field(i - 1)
+
+		expectedVersionStr := fmt.Sprintf("v%d.%d.%d", i, i+1, i+2)
+
+		// NB: test cursor is 100%; rollout/nodeID should-update calculation is tested elsewhere.
+		shouldUpdate, ver, err := client.ShouldUpdate(ctx, field.Name, storj.NodeID{})
+		require.NoError(t, err)
+		require.True(t, shouldUpdate)
+		require.Equal(t, expectedVersionStr, ver.Version)
 	}
 }
 
@@ -82,7 +122,7 @@ func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 	testVersions := newTestVersions(t)
 	serverConfig := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
@@ -101,7 +141,7 @@ func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 	return peer
 }
 
-func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
+func newTestVersions(t *testing.T) (versions versioncontrol.ProcessesConfig) {
 	t.Helper()
 
 	versionsValue := reflect.ValueOf(&versions)
@@ -112,12 +152,16 @@ func newTestVersions(t *testing.T) (versions versioncontrol.Versions) {
 		field := versionsElem.Field(i)
 
 		versionString := fmt.Sprintf("v%d.%d.%d", i+1, i+2, i+3)
-		binary := versioncontrol.Binary{
-			Minimum: versioncontrol.Version{
+		binary := versioncontrol.ProcessConfig{
+			Minimum: versioncontrol.VersionConfig{
 				Version: versionString,
 			},
-			Suggested: versioncontrol.Version{
+			Suggested: versioncontrol.VersionConfig{
 				Version: versionString,
+			},
+			Rollout: versioncontrol.RolloutConfig{
+				Seed:   testHexSeed,
+				Cursor: 100,
 			},
 		}
 

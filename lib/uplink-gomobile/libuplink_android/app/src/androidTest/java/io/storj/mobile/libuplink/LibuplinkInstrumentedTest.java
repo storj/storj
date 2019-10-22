@@ -187,7 +187,7 @@ public class LibuplinkInstrumentedTest {
                         ByteArrayOutputStream writer = new ByteArrayOutputStream();
                         byte[] buf = new byte[256];
                         int read = 0;
-                        while ((read = reader.read(buf)) != -1) {
+                        while ((read = reader.read(buf, 0, buf.length)) != -1) {
                             writer.write(buf, 0, read);
                         }
                         assertArrayEquals(writer.toByteArray(), expectedData);
@@ -251,7 +251,7 @@ public class LibuplinkInstrumentedTest {
                         ByteArrayOutputStream writer = new ByteArrayOutputStream();
                         byte[] buf = new byte[4096];
                         int read = 0;
-                        while ((read = reader.read(buf)) != -1) {
+                        while ((read = reader.read(buf, 0, buf.length)) != -1) {
                             writer.write(buf, 0, read);
                         }
                         assertEquals(expectedData.length, writer.size());

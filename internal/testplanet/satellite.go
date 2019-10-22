@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
-	vc_checker "storj.io/storj/internal/version/checker"
+	versionchecker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -66,7 +66,7 @@ type SatelliteSystem struct {
 
 	Server *server.Server
 
-	Version *vc_checker.Service
+	Version *versionchecker.Service
 
 	Contact struct {
 		Service  *contact.Service

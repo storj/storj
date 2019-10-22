@@ -288,7 +288,7 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 // Write writes data.length bytes from data to the underlying data stream.
 func (w *Writer) Write(data []byte, offset, length int32) (int32, error) {
 	// in Java byte array size is max int32
-	n, err := w.writer.Write(data[offset:length])
+	n, err := w.writer.Write(data[offset : offset+length])
 	return int32(n), safeError(err)
 }
 
@@ -329,12 +329,12 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 }
 
 // Read reads data into byte array
-func (r *Reader) Read(data []byte) (n int32, err error) {
+func (r *Reader) Read(data []byte, offset, length int32) (n int32, err error) {
 	if r.readError != nil {
 		err = r.readError
 	} else {
 		var read int
-		read, err = r.reader.Read(data)
+		read, err = r.reader.Read(data[offset : offset+length])
 		n = int32(read)
 	}
 
