@@ -57,7 +57,6 @@ Patch dialog sequence:
 
             <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
             <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed and NOT UPGRADINGPRODUCTCODE</Publish>
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="DeleteFiles">(REMOVE="ALL") AND NOT (WIX_UPGRADE_DETECTED OR UPGRADINGPRODUCTCODE)</Publish>
 
             <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed OR NOT WIX_UPGRADE_DETECTED</Publish>
             <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
