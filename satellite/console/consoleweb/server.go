@@ -116,6 +116,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
+
 	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	paymentController := consoleapi.NewPayments(logger, service)
 
@@ -124,11 +125,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	authRouter := router.PathPrefix("/api/auth").Subrouter()
-	authRouter.Use()
 
 	authRouter.HandleFunc("/token", authController.Token).Methods("POST")
 	authRouter.HandleFunc("/register", authController.Register).Methods("POST")
 	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods("POST")
+	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods("DELETE")
 	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods("POST")
 	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods("POST")
 	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods("POST")
