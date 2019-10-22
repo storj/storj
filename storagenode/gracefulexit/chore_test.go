@@ -138,11 +138,12 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		require.NoError(t, err)
 	}
 }
+
+// getNodePieceCounts tallies all the pieces per node.
 func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[storj.NodeID]int, err error) {
 	nodePieceCounts := make(map[storj.NodeID]int)
 	for _, n := range planet.StorageNodes {
 		node := n
-		// make sure there are no more pieces on the node.
 		namespaces, err := node.DB.Pieces().ListNamespaces(ctx)
 		if err != nil {
 			return nil, err
