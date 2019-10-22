@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -41,17 +40,14 @@ func TestAutoUpdater(t *testing.T) {
 	testFiles := map[string]struct {
 		oldBin string
 		newZip string
-		perms  os.FileMode
 	}{
 		"storagenode": {
 			"testdata/fake-storagenode",
 			"testdata/fake-storagenode.zip",
-			0755,
 		},
 		"storagenode-updater": {
 			"testdata/fake-storagenode-updater",
 			"testdata/fake-storagenode-updater.zip",
-			0755,
 		},
 	}
 
@@ -60,7 +56,7 @@ func TestAutoUpdater(t *testing.T) {
 		oldBinData, err := ioutil.ReadFile(file.oldBin)
 		require.NoError(t, err)
 
-		err = ioutil.WriteFile(ctx.File(name), oldBinData, file.perms)
+		err = ioutil.WriteFile(ctx.File(name), oldBinData, 0755)
 		require.NoError(t, err)
 
 		newZipData, err := ioutil.ReadFile(file.newZip)
