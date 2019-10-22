@@ -361,14 +361,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup payments
+		config := config.Payments
+
 		service := stripecoinpayments.NewService(
 			peer.Log.Named("stripecoinpayments service"),
-			stripecoinpayments.Config{},
+			config.StripeCoinpayments,
 			peer.DB.Customers(),
 			peer.DB.CoinpaymentsTransactions())
 
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinpayments.TransactionUpdateInterval)
+
 		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = service
+		peer.Payments.Clearing = clearing
 	}
 
 	{ // setup console

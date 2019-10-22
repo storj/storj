@@ -10,7 +10,7 @@ import (
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/satellite/payments"
@@ -24,9 +24,10 @@ var Error = errs.Class("stripecoinpayments service error")
 
 // Config stores needed information for payment service initialization.
 type Config struct {
-	StripeSecretKey        string
-	CoinpaymentsPublicKey  string
-	CoinpaymentsPrivateKey string
+	StripeSecretKey           string        `help:"stripe API secret key" default:""`
+	CoinpaymentsPublicKey     string        `help:"coinpayments API public key" default:""`
+	CoinpaymentsPrivateKey    string        `help:"coinpayments API preivate key key" default:""`
+	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:":30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -56,39 +57,13 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 		transactionsDB:   transactionsDB,
 		stripeClient:     stripeClient,
 		coinpayments:     coinpaymentsClient,
-		transactionCycle: *sync2.NewCycle(time.Minute),
+		transactionCycle: *sync2.NewCycle(config.TransactionUpdateInterval),
 	}
 }
 
 // Accounts exposes all needed functionality to manage payment accounts.
 func (service *Service) Accounts() payments.Accounts {
 	return &accounts{service: service}
-}
-
-// Run runs payments clearing loop.
-func (service *Service) Run(ctx context.Context) error {
-	err := service.transactionCycle.Run(ctx,
-		func(ctx context.Context) error {
-			service.log.Info("running transactions update cycle")
-
-			if err := service.updateTransactionsLoop(ctx); err != nil {
-				service.log.Error("transaction update cycle failed", zap.Error(Error.Wrap(err)))
-			}
-
-			return nil
-		},
-	)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-// Close closes payments clearing loop.
-func (service *Service) Close() error {
-	service.transactionCycle.Stop()
-	return nil
 }
 
 // updateTransactionsLoop updates all pending transactions in a loop.

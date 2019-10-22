@@ -5,14 +5,13 @@ package satellite
 
 import (
 	"context"
-	"net"
-	"net/mail"
-	"net/smtp"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+	"net"
+	"net/mail"
+	"net/smtp"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -51,6 +50,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -131,8 +131,9 @@ type Config struct {
 	Rollup         rollup.Config
 	LiveAccounting live.Config
 
-	Mail    mailservice.Config
-	Console consoleweb.Config
+	Payments paymentsconfig.Config
+	Mail     mailservice.Config
+	Console  consoleweb.Config
 
 	Marketing marketingweb.Config
 
@@ -588,14 +589,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	}
 
 	{ // setup payments
+		config := config.Payments
+
 		service := stripecoinpayments.NewService(
 			peer.Log.Named("stripecoinpayments service"),
-			stripecoinpayments.Config{},
+			config.StripeCoinpayments,
 			peer.DB.Customers(),
 			peer.DB.CoinpaymentsTransactions())
 
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinpayments.TransactionUpdateInterval)
+
 		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = service
+		peer.Payments.Clearing = clearing
 	}
 
 	{ // setup console

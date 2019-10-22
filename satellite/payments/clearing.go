@@ -5,7 +5,8 @@ package payments
 
 import "context"
 
-// Clearing exposes control over payments clearing loop.
+// Clearing runs process of reconciling transactions deposits,
+// customer balance, invoices and usages.
 type Clearing interface {
 	// Run runs payments clearing loop.
 	Run(ctx context.Context) error
