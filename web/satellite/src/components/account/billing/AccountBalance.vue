@@ -158,7 +158,7 @@ export default class AccountBalance extends Vue {
     }
 
     /deep/ .info__message-box {
-        background-image: url('../../../../static/images/account/MessageBox.png');
+        background-image: url('../../../../static/images/account/billing/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;
         min-width: 195px;

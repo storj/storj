@@ -120,6 +120,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+	router.HandleFunc("/satelliteName", server.satelliteNameHandler).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -523,7 +524,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		isNeededFormatToGzip := formats[extension]
 
 		// because we have some static content outside of console frontend app.
-		// for example: 404 page, account activation, passsrowd reset, etc.
+		// for example: 404 page, account activation, password reset, etc.
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
@@ -548,6 +549,20 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
+}
+
+// satelliteNameHandler retrieve satellites name.
+func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
+	var response struct {
+		SatelliteName string `json:"satelliteName"`
+	}
+
+	response.SatelliteName = server.config.SatelliteName
+
+	if err := json.NewEncoder(w).Encode(&response); err != nil {
+		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		return
+	}
 }
 
 // initializeTemplates is used to initialize all templates

@@ -32,5 +32,13 @@ module.exports = {
                 args[0].template = './index.html';
                 return args
             });
+
+        const svgRule = config.module.rule('svg');
+
+        svgRule.uses.clear();
+
+        svgRule
+            .use('vue-svg-loader')
+            .loader('vue-svg-loader');
     }
 };

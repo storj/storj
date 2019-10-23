@@ -87,7 +87,7 @@ export default class VSearch extends Vue {
         font-family: 'font_regular';
         font-size: 16px;
         transition: all 0.4s ease-in-out;
-        background-image: url('../../../static/images/team/searchIcon.svg');
+        background-image: url('../../../static/images/common/search.png');
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px right 16px;
