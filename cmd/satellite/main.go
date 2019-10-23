@@ -20,18 +20,11 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -57,10 +50,10 @@ var (
 		Short: "Run the satellite API",
 		RunE:  cmdAPIRun,
 	}
-	runRepairServiceCmd = &cobra.Command{
+	runRepairerCmd = &cobra.Command{
 		Use:   "repair",
 		Short: "Run the repair service",
-		RunE:  cmdRepairServiceRun,
+		RunE:  cmdRepairerRun,
 	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
@@ -95,6 +88,8 @@ var (
 	runCfg   Satellite
 	setupCfg Satellite
 
+	repairerRunCfg Repairer
+
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
@@ -119,7 +114,7 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	runCmd.AddCommand(runAPICmd)
-	runCmd.AddCommand(runRepairServiceCmd)
+	runCmd.AddCommand(runRepairerCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
@@ -127,7 +122,7 @@ func init() {
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(runRepairServiceCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRepairerCmd, &repairerRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -260,79 +255,6 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
-}
-
-func cmdRepairServiceRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-	log := zap.L()
-
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
-
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
-	if err != nil {
-		return errs.New("Error starting master database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
-	if err != nil {
-		return errs.New("Error creating metainfo database: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
-	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, revocationDB.Close())
-	}()
-
-	tlsOptions, err := tlsopts.NewOptions(identity, runCfg.Server.Config, revocationDB)
-	if err != nil {
-		return err
-	}
-
-	dialer := rpc.NewDefaultDialer(tlsOptions)
-
-	metainfoService := metainfo.NewService(log, pointerDB, db.Buckets())
-	overlayService := overlay.NewService(log, db.OverlayCache(), runCfg.Overlay)
-	ordersService := orders.NewService(
-		log,
-		signing.SignerFromFullIdentity(identity),
-		overlayService,
-		db.Orders(),
-		runCfg.Orders.Expiration,
-		&pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   runCfg.Contact.ExternalAddress,
-		},
-		runCfg.Repairer.MaxExcessRateOptimalThreshold,
-	)
-
-	segmentRepairer := repairer.NewSegmentRepairer(
-		log,
-		metainfoService,
-		ordersService,
-		overlayService,
-		dialer,
-		runCfg.Repairer.Timeout,
-		runCfg.Repairer.MaxExcessRateOptimalThreshold,
-		runCfg.Checker.RepairOverride,
-		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
-	)
-	service := repairer.NewService(log, db.RepairQueue(), &runCfg.Repairer, segmentRepairer)
-	fmt.Println("cam repair running")
-	runError := service.Run(ctx)
-	closeError := service.Close()
 	return errs.Combine(runError, closeError)
 }
 
