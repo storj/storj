@@ -29,7 +29,7 @@
             </div>
             <div class="no-buckets-area__next-step-area__text-area">
                 <h2 class="no-buckets-area__next-step-area__text-area__title">Next Step</h2>
-                <p class="no-buckets-area__next-step-area__text-area__text">After you create a bucket using the CLI, you will be able to see your buckets and usage here. This happens within 10 minutes of creating your first bucket.</p>
+                <p class="no-buckets-area__next-step-area__text-area__text">After you create a bucket using the CLI, you will be able to see your buckets and usage here. This happens within 1 hour of creating your first bucket.</p>
             </div>
         </div>
     </div>

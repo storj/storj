@@ -41,19 +41,8 @@
                 </div>
             </div>
         </div>
-        <div class="profile-container__button-area">
-            <VButton
-                class="profile-container__button-area__delete-button"
-                label="Delete Account"
-                width="210px"
-                height="56px"
-                :on-press="toggleDeleteAccountPopup"
-                is-deletion="true"
-            />
-        </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
         <EditProfilePopup v-if="isEditProfilePopupShown"/>
-        <DeleteAccountPopup v-if="isDeleteAccountPopupShown"/>
     </div>
 </template>
 
@@ -214,19 +203,9 @@ export default class ProfileArea extends Vue {
             }
             
             &__img {
-                width: 60px;
-                height: 60px;
+                min-width: 60px;
+                min-height: 60px;
             }
-        }
-        
-        &__button-area {
-            margin-top: 40px;
-            width: 100%;
-            align-self: flex-start;
-            align-items: center;
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
         }
     }
     
@@ -262,6 +241,8 @@ export default class ProfileArea extends Vue {
         font-size: 18px;
         line-height: 27px;
         word-break: break-all;
+        max-height: 80px;
+        overflow-y: scroll;
     }
 
     .profile-regular-text {

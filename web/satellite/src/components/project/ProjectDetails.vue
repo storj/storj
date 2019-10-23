@@ -49,18 +49,7 @@
                     </div>
                 </div>
             </div>
-            <div class="project-details__button-area" id="deleteProjectPopupButton">
-                <VButton
-                    class="delete-project"
-                    label="Delete Project"
-                    width="180px"
-                    height="48px"
-                    :on-press="toggleDeleteDialog"
-                    is-deletion="true"
-                />
-            </div>
         </div>
-        <DeleteProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 
