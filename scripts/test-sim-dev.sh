@@ -3,7 +3,7 @@
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 CONTAINER_NAME=storj_sim_postgres
-docker run -d --rm -p 5433:5432 --name $CONTAINER_NAME postgres
+docker run -d --rm -p 5433:5432 --name $CONTAINER_NAME postgres:9.6
 
 cleanup(){
   docker rm -f $CONTAINER_NAME
