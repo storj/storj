@@ -909,3 +909,11 @@ model coinpayments_transaction (
 )
 
 create coinpayments_transaction ()
+update coinpayments_transaction ( where coinpayments_transaction.id = ? )
+
+read limitoffset (
+    select coinpayments_transaction
+    where coinpayments_transaction.created_at <= ?
+    where coinpayments_transaction.status = ?
+    orderby desc coinpayments_transaction.created_at
+)
