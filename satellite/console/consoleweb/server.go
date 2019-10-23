@@ -556,8 +556,7 @@ func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Reques
 
 	response.SatelliteName = server.config.SatelliteName
 
-	err := json.NewEncoder(w).Encode(&response)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(&response); err != nil {
 		server.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
