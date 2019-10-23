@@ -168,12 +168,12 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 
 	planet.VersionControl, err = planet.newVersionControlServer()
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return nil, err
 	}
 
 	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return nil, err
 	}
 
 	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
@@ -183,12 +183,12 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return nil, err
 	}
 
 	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return nil, err
 	}
 
 	return planet, nil
