@@ -30,6 +30,7 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 
 		uplinkConfig := testUplink.GetConfig(testSatellite)
 		scope, err := uplinkConfig.GetScope()
+		require.NoError(t, err)
 
 		upCfg := &uplink.Config{}
 		upCfg.Volatile.TLS.SkipPeerCAWhitelist = true
@@ -53,13 +54,13 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 			require.Equal(t, 1, len(list.Items))
 		}()
 
-		restrictedApiKey, restrictedEa, err := encryptionAccess.Restrict(scope.APIKey, uplink.EncryptionRestriction{
+		restrictedAPIKey, restrictedEa, err := encryptionAccess.Restrict(scope.APIKey, uplink.EncryptionRestriction{
 			Bucket:     "testbucket",
 			PathPrefix: "videos",
 		})
 		require.NoError(t, err)
 		func() {
-			proj, err := up.OpenProject(ctx, scope.SatelliteAddr, restrictedApiKey)
+			proj, err := up.OpenProject(ctx, scope.SatelliteAddr, restrictedAPIKey)
 			require.NoError(t, err)
 			defer ctx.Check(proj.Close)
 
