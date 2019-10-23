@@ -51,7 +51,6 @@ const (
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
-	repairService      = 5
 
 	// Endpoint
 	publicGRPC  = 0
@@ -294,28 +293,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satelliteAPI, i, privateGRPC)),
 				"--debug.addr", net.JoinHostPort(host, port(satelliteAPI, i, debugHTTP)),
-			},
-		})
-
-		process.WaitForStart(satellite)
-	}
-
-	// Create the repair service process for each satellite
-	var repairServices []*Process
-	for i, satellite := range satellites {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-repair/%d", i),
-			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(repairService, i, publicGRPC)),
-		})
-		repairServices = append(repairServices, process)
-
-		process.Arguments = withCommon(process.Directory, Arguments{
-			"run": {
-				"repair",
-				"--server.address", process.Address,
-				"--debug.addr", net.JoinHostPort(host, port(repairService, i, debugHTTP)),
 			},
 		})
 
