@@ -83,7 +83,7 @@ func (f *virtualFile) Read(buffer []byte) (byteCount int, err error) {
 
 	origOffset := f.readOffset
 	for f.readOffset-origOffset <= bytesToRead {
-		bytesRead, err := reader.Read(buffer[f.readOffset:])
+		bytesRead, err := reader.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
 				f.readOffset += int64(bytesRead)
@@ -92,13 +92,16 @@ func (f *virtualFile) Read(buffer []byte) (byteCount int, err error) {
 				return 0, err
 			}
 		}
+		if bytesRead == 0 {
+			return 0, io.ErrUnexpectedEOF
+		}
 		f.readOffset += int64(bytesRead)
 	}
 
 	if f.readOffset-origOffset != bytesToRead {
 		return int(f.readOffset - origOffset), io.ErrUnexpectedEOF
 	}
-	return int(bytesToRead), io.EOF
+	return int(bytesToRead), nil
 }
 
 func (f *virtualFile) Seek(n int64, w int) (_ int64, err error) {

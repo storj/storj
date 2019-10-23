@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
 
 	"github.com/wthorp/ftpserver-zap/server"
 	"github.com/zeebo/errs"
@@ -110,12 +112,31 @@ func (driver *Driver) ChangeDirectory(cc server.ClientContext, directory string)
 	return err
 }
 
+// ToBucketName builds a more-valid bucket name from random strings
+func ToBucketName(in string) string {
+	if len(in) > 0 && in[0] == '/' {
+		in = in[1:]
+	}
+	out := []rune(in)
+	for i, rune := range in {
+		if unicode.IsLetter(rune) {
+			out[i] = unicode.ToLower(rune)
+		} else if rune == '.' {
+			out[i] = '.'
+		} else {
+			out[i] = '-'
+		}
+	}
+	return string(out)
+}
+
 // MakeDirectory creates a directory
 func (driver *Driver) MakeDirectory(cc server.ClientContext, directory string) (err error) {
-	ctx, bucketName, _ := ParsePath(cc.Path())
+	ctx, bucketName, path := ParsePath(directory)
 	defer mon.Task()(&ctx)(&err)
 
 	if bucketName == "" {
+		directory = ToBucketName(directory)
 		zap.S().Debug("creating bucket: ", directory)
 		cfg := uplink.BucketConfig{
 			PathCipher:           driver.pathCipher,
@@ -124,17 +145,17 @@ func (driver *Driver) MakeDirectory(cc server.ClientContext, directory string) (
 		cfg.Volatile.RedundancyScheme = driver.redundancy
 		cfg.Volatile.SegmentsSize = driver.segmentSize
 
-		_, err = driver.project.CreateBucket(ctx, cc.Path(), &cfg)
+		_, err = driver.project.CreateBucket(ctx, directory, &cfg)
 		return err
 	}
 	zap.S().Debug("Mkdir: ", directory)
 
-	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
-	return bucket.UploadObject(ctx, directory+"/", bytes.NewReader([]byte{}), &uplink.UploadOptions{
+	return bucket.UploadObject(ctx, path+"/", bytes.NewReader([]byte{}), &uplink.UploadOptions{
 		ContentType: "application/directory",
 	})
 
@@ -156,6 +177,11 @@ func (driver *Driver) ListBuckets(ctx context.Context) (bucketItems []os.FileInf
 			return nil, err
 		}
 		for _, item := range list.Items {
+			// Windows creates a folder called "New Folder" whenever you try to make
+			// a new folder; this is a hack to accomodate that
+			if item.Name == "new-folder" {
+				item.Name = "New Folder"
+			}
 			bucketItems = append(bucketItems, virtualFileInfo{
 				name:    item.Name,
 				modTime: item.Created,
@@ -180,6 +206,7 @@ func ParsePath(path string) (context.Context, string, string) {
 		path = path[1:]
 	}
 	parts := strings.SplitN(path, "/", 2)
+	parts[0] = ToBucketName(parts[0])
 	if len(parts) == 1 {
 		return ctx, parts[0], ""
 	}
@@ -198,7 +225,7 @@ func (driver *Driver) ListFiles(cc server.ClientContext) (files []os.FileInfo, e
 
 	files = make([]os.FileInfo, 0)
 
-	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return files, err
 	}
@@ -248,7 +275,7 @@ func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (
 		}
 	}
 
-	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -271,27 +298,39 @@ func (driver *Driver) OpenFile(cc server.ClientContext, path string, flag int) (
 	return &virtualFile{ctx: ctx, path: path, bucket: bucket, size: object.Meta.Size, flag: flag}, nil
 }
 
+// openBucket wraps project.OpenBucket returning friendlier errors
+func (driver *Driver) openBucket(ctx context.Context, bucketName string) (b *uplink.Bucket, err error) {
+	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	if storj.ErrBucketNotFound.Has(err) {
+		return bucket, os.ErrNotExist
+	}
+	return bucket, err
+}
+
 // GetFileInfo gets some info around a file or a directory
 func (driver *Driver) GetFileInfo(cc server.ClientContext, path string) (fi os.FileInfo, err error) {
 	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
 
 	if bucketName == "" {
-		_, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
-		if err != nil {
-			return nil, os.ErrNotExist
-		}
 		return &virtualFileInfo{name: path, size: 0, isDir: true}, nil
 	}
 
-	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
+	if path == "" {
+		return virtualFileInfo{name: bucketName, modTime: bucket.Created, isDir: true}, nil
+	}
+
 	object, err := bucket.OpenObject(ctx, path)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, os.ErrNotExist
+		}
 		return nil, err
 	}
 	if storj.ErrObjectNotFound.Has(err) {
@@ -319,7 +358,11 @@ func (driver *Driver) DeleteFile(cc server.ClientContext, path string) (err erro
 	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, err := driver.project.OpenBucket(ctx, bucketName, driver.access)
+	if path == "" {
+		return driver.project.DeleteBucket(ctx, bucketName)
+	}
+
+	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return err
 	}
@@ -332,6 +375,13 @@ func (driver *Driver) DeleteFile(cc server.ClientContext, path string) (err erro
 func (driver *Driver) RenameFile(cc server.ClientContext, from, to string) (err error) {
 	ctx, _, _ := ParsePath(cc.Path())
 	defer mon.Task()(&ctx)(&err)
-	//todo
+	// Windows creates a folder called "New Folder" whenever you try to make
+	// a new folder; this is a hack to accomodate that
+	if ToBucketName(from) == "new-folder" {
+		return errs.Combine(
+			driver.MakeDirectory(cc, to),
+			driver.DeleteFile(cc, from),
+		)
+	}
 	return Error.New("can't rename")
 }
