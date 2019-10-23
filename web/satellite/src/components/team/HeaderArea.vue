@@ -128,24 +128,24 @@ export default class HeaderArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
         } catch (error) {
-            this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
+            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
 
             return;
         }
 
         this.$emit('onSuccessAction');
-        this.$notify.success('Members was successfully removed from project');
+        await this.$notify.success('Members was successfully removed from project');
         this.isDeleteClicked = false;
 
         this.$refs.headerComponent.clearSearch();
     }
 
     public async processSearchQuery(search: string): Promise<void> {
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
     }
 
