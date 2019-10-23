@@ -44,6 +44,8 @@ import { AppState } from '@/utils/constants/appStateEnum';
 
 const {
     SETUP_ACCOUNT,
+    GET_BALANCE,
+    GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -60,14 +62,16 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-            await this.$router.push(RouteConfig.Login.path);
             AuthToken.remove();
+            await this.$router.push(RouteConfig.Login.path);
 
             return;
         }
 
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
+            await this.$store.dispatch(GET_BALANCE);
+            await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
                 AuthToken.remove();

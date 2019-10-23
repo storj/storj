@@ -56,7 +56,6 @@ export default class CardComponent extends Vue {
     private readonly creditCard: CreditCard;
 
     public toggleSelection(): void {
-        console.log('card id', this.creditCard);
         this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
     }
 }

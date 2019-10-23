@@ -16,22 +16,19 @@ let clickOutsideEvent: EventListener;
 
 Vue.directive('click-outside', {
     bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
-        clickOutsideEvent = function (event: Event) {
-            console.log('entered', el, event);
+        clickOutsideEvent = function(event: Event): void {
             if (el === event.target) {
-                console.log('event target');
-
                 return;
             }
 
             if (vnode.context) {
-                console.log('context');
                 vnode.context[binding.expression](event);
             }
         };
+
         document.body.addEventListener('click', clickOutsideEvent);
     },
-    unbind: function () {
+    unbind: function(): void {
         document.body.removeEventListener('click', clickOutsideEvent);
     },
 });

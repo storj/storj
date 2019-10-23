@@ -11,8 +11,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import {NOTIFICATION_ACTIONS} from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     CLEAR_CARDS_SELECTION,
@@ -30,7 +31,11 @@ export default class CardDialog extends Vue {
     }
 
     public async onMakeDefaultClick(): Promise<void> {
-        await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+        try {
+            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
     }
 
     public async onRemoveClick(): Promise<void> {

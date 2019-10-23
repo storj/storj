@@ -138,8 +138,6 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	p.log.Error("CARD ID " + string(cardID))
-
 	err = p.service.Payments().MakeCreditCardDefault(ctx, string(cardID))
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {

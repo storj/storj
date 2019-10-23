@@ -23,14 +23,15 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/account/balance`;
         const response = await this.client.get(path);
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-            throw new Error('can not get balance');
+        if (response.ok) {
+            return await response.json();
         }
 
-        return await response.json();
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not get balance');
     }
 
     /**
@@ -42,12 +43,15 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.client.post(path, null);
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-            throw new Error('can not setup account');
+        if (response.ok) {
+            return;
         }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not setup account');
     }
 
     /**
@@ -60,11 +64,14 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.post(path, token);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-            throw new Error('can not add credit card');
+            return;
         }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not add credit card');
     }
 
     /**
@@ -76,12 +83,15 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/cards/${cardId}`;
         const response = await this.client.delete(path);
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-            throw new Error('can not remove credit card');
+        if (response.ok) {
+            return;
         }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not remove credit card');
     }
 
     /**
@@ -119,13 +129,14 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/cards`;
         const response = await this.client.patch(path, cardId);
 
-        console.log(response);
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-            throw new Error('can set credit card as default');
+        if (response.ok) {
+            return;
         }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not make credit card default');
     }
 }
