@@ -243,7 +243,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 			progress, err := endpoint.db.GetProgress(ctx, nodeID)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error)
 			}
 
 			var transferMsg *pb.SatelliteMessage
@@ -272,7 +272,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
 			err = stream.Send(transferMsg)
@@ -283,7 +283,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			// remove remaining items from the queue after notifying nodes about their exit status
 			err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
 		}
