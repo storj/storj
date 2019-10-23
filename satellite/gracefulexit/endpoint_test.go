@@ -12,11 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
@@ -93,6 +95,71 @@ func TestSuccess(t *testing.T) {
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.EqualValues(t, 0, progress.PiecesFailed)
+	})
+}
+
+func TestConcurrentConnections(t *testing.T) {
+	successThreshold := 8
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		// check that there are no exiting nodes.
+		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodeIDs, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 2)
+		require.NoError(t, err)
+
+		// connect to satellite so we initiate the exit.
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer func() {
+			err = errs.Combine(err, conn.Close())
+		}()
+
+		client := conn.SatelliteGracefulExitClient()
+
+		c1, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		c2, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		concurrentErrFound := false
+		_, err = c1.Recv()
+		if err != nil {
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+			concurrentErrFound = true
+		}
+		_, err = c2.Recv()
+		if concurrentErrFound {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		}
+
+		defer func() {
+			err = errs.Combine(err, c1.CloseSend(), c2.CloseSend())
+		}()
+
 	})
 }
 

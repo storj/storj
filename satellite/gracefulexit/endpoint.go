@@ -38,14 +38,16 @@ type processStream interface {
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
-	log       *zap.Logger
-	interval  time.Duration
-	db        DB
-	overlaydb overlay.DB
-	overlay   *overlay.Service
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	config    Config
+	log              *zap.Logger
+	interval         time.Duration
+	db               DB
+	overlaydb        overlay.DB
+	overlay          *overlay.Service
+	metainfo         *metainfo.Service
+	orders           *orders.Service
+	connectionsMapMu sync.Mutex
+	connectionsMap   map[storj.NodeID]struct{}
+	config           Config
 }
 
 type pendingTransfer struct {
@@ -109,19 +111,20 @@ func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 // NewEndpoint creates a new graceful exit endpoint.
 func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service, config Config) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		interval:  time.Millisecond * buildQueueMillis,
-		db:        db,
-		overlaydb: overlaydb,
-		overlay:   overlay,
-		metainfo:  metainfo,
-		orders:    orders,
-		config:    config,
+		log:            log,
+		interval:       time.Millisecond * buildQueueMillis,
+		db:             db,
+		overlaydb:      overlaydb,
+		overlay:        overlay,
+		metainfo:       metainfo,
+		orders:         orders,
+		connectionsMap: make(map[storj.NodeID]struct{}),
+		config:         config,
 	}
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) error {
+func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) (err error) {
 	return endpoint.doProcess(stream)
 }
 
@@ -142,6 +145,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	nodeID := peer.ID
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+
+	// ensure that only one connection can be opened for a single node at a time
+	endpoint.connectionsMapMu.Lock()
+	if _, ok := endpoint.connectionsMap[nodeID]; ok {
+		endpoint.connectionsMapMu.Unlock()
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
+	}
+	endpoint.connectionsMap[nodeID] = struct{}{}
+	endpoint.connectionsMapMu.Unlock()
+	defer func() {
+		endpoint.connectionsMapMu.Lock()
+		delete(endpoint.connectionsMap, nodeID)
+		endpoint.connectionsMapMu.Unlock()
+	}()
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
