@@ -125,7 +125,7 @@ contact.external-address: ""
 # graceful-exit.max-inactive-time-frame: 500h0m0s
 
 # maximum percentage of transfer failures per node.
-# graceful-exit.overall-max-failures-percentage: 90
+# graceful-exit.overall-max-failures-percentage: 10
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
