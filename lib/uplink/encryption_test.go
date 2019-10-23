@@ -28,16 +28,16 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 		err = testUplink.Upload(ctx, testSatellite, "testbucket", "videos/status.mp4", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		uplinkConfig := testUplink.GetConfig(testSatellite)
-		scope, err := uplinkConfig.GetScope()
-		require.NoError(t, err)
-
 		upCfg := &uplink.Config{}
 		upCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 		up, err := uplink.NewUplink(ctx, upCfg)
 		require.NoError(t, err)
 		defer ctx.Check(up.Close)
+
+		uplinkConfig := testUplink.GetConfig(testSatellite)
+		scope, err := uplinkConfig.GetScope()
+		require.NoError(t, err)
 
 		encryptionAccess := scope.EncryptionAccess
 		func() {
