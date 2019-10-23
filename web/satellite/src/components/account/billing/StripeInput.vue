@@ -82,7 +82,7 @@ export default class StripeInput extends Vue {
             return;
         }
 
-        await this.onStripeResponseCallback(result);
+        await this.onStripeResponseCallback(result.token.id);
         this.cardElement.clear();
     }
 

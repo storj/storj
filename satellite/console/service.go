@@ -135,7 +135,7 @@ func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
 func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -147,7 +147,7 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 
 // MakeCreditCardDefault makes a credit card default payment method.
 func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, creditCardID []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, creditCardID)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -167,6 +167,18 @@ func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []paymen
 	}
 
 	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+}
+
+// RemoveCreditCard is used to detach a credit card from payment account.
+func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID []byte) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Remove(ctx, cardID)
 }
 
 // CreateUser gets password hash value and creates new inactive User

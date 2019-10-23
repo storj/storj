@@ -17,6 +17,9 @@ type CreditCards interface {
 	// Add is used to save new credit card and attach it to payment account.
 	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
 
+	// Remove is used to detach a credit card from payment account.
+	Remove(ctx context.Context, cardID []byte) error
+
 	// MakeDefault makes a credit card default payment method.
 	// this credit card should be attached to account before make it default.
 	MakeDefault(ctx context.Context, userID uuid.UUID, cardID []byte) error

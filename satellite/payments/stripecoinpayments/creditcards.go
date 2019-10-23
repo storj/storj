@@ -75,12 +75,9 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
-	if err != nil {
-		// TODO: handle created but not attached card manually?
-		return Error.Wrap(err)
-	}
 
-	return nil
+	// TODO: handle created but not attached card manually?
+	return Error.Wrap(err)
 }
 
 // MakeDefault makes a credit card default payment method.
@@ -99,9 +96,15 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 	}
 
 	_, err = creditCards.service.stripeClient.Customers.Update(customerID, params)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
-	return nil
+	return Error.Wrap(err)
+}
+
+// Remove is used to remove credit card from payment account.
+func (creditCards *creditCards) Remove(ctx context.Context, cardID []byte) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	_, err = creditCards.service.stripeClient.PaymentMethods.Detach(string(cardID), nil)
+
+	return Error.Wrap(err)
 }

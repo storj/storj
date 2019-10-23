@@ -87,6 +87,14 @@ interface StripeForm {
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
 
+    public async mounted() {
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
     public $refs!: {
         stripeInput: StripeInput & StripeForm;
     };
@@ -103,14 +111,6 @@ export default class PaymentMethods extends Vue {
     }
     public get isAddingCardState(): boolean {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
-    }
-
-    public async mounted() {
-        const response = await this.$store.dispatch(GET_CREDIT_CARDS);
-
-        if (!response.ok) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
-        }
     }
 
     public onAddSTORJ(): void {

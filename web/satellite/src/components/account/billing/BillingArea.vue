@@ -35,10 +35,8 @@ import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSu
 import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
-    GET_BALANCE,
     CLEAR_PAYMENT_INFO,
 } = PAYMENTS_ACTIONS;
 
@@ -51,15 +49,9 @@ const {
     },
 })
 export default class BillingArea extends Vue {
-    private readonly CRITICAL_AMOUNT: number = 10;
-
-    public async mounted() {
-        const response = await this.$store.dispatch(GET_BALANCE);
-
-        if (!response.ok) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
-        }
-    }
+    // CRITICAL_AMOUNT hold minimum safe balance in cents.
+    // If balance is lower - yellow notification should appear.
+    private readonly CRITICAL_AMOUNT: number = 1000;
 
     public beforeDestroy() {
         this.$store.dispatch(CLEAR_PAYMENT_INFO);

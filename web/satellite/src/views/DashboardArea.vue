@@ -24,6 +24,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -65,12 +66,17 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        const response = await this.$store.dispatch(SETUP_ACCOUNT);
+        try {
+            await this.$store.dispatch(SETUP_ACCOUNT);
+        } catch (error) {
+            if (error instanceof ErrorUnauthorized) {
+                AuthToken.remove();
+                await this.$router.push(RouteConfig.Login.path);
 
-        if (!response.ok) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+                return;
+            }
 
-            return;
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
 
         let projects: Project[] = [];

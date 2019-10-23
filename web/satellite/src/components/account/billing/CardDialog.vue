@@ -3,8 +3,8 @@
 
 <template>
     <div class="dialog" v-click-outside="closeCardsDialog">
-        <p class="label dialog__make-default" @click="makeDefault">Make Default</p>
-        <p class="label dialog__delete">Delete</p>
+        <p class="label dialog__make-default" @click="onMakeDefaultClick">Make Default</p>
+        <p class="label dialog__delete" @click="onRemoveClick">Delete</p>
     </div>
 </template>
 
@@ -12,29 +12,13 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import {NOTIFICATION_ACTIONS} from '@/utils/constants/actionNames';
 
 const {
     CLEAR_CARDS_SELECTION,
     MAKE_CARD_DEFAULT,
+    REMOVE_CARD,
 } = PAYMENTS_ACTIONS;
-
-Vue.directive('click-outside', {
-    bind: function (el, binding, vnode) {
-        (el as any).clickOutsideEvent = function (event) {
-            if (el === event.target) {
-               return;
-            }
-
-            if (vnode.context) {
-                vnode.context[binding.expression](event);
-            }
-        };
-        document.body.addEventListener('click', (el as any).clickOutsideEvent);
-    },
-    unbind: function (el) {
-        document.body.removeEventListener('click', (el as any).clickOutsideEvent);
-    },
-});
 
 @Component
 export default class CardDialog extends Vue {
@@ -45,8 +29,16 @@ export default class CardDialog extends Vue {
         this.$store.dispatch(CLEAR_CARDS_SELECTION);
     }
 
-    public makeDefault() {
-        this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+    public async onMakeDefaultClick(): Promise<void> {
+        await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+    }
+
+    public async onRemoveClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(REMOVE_CARD, this.cardId);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
     }
 }
 </script>

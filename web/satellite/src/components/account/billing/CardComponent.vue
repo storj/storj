@@ -22,7 +22,7 @@
                 <p class="payment-methods-container__card-container__default-button__label">Default</p>
             </div>
             <div class="payment-methods-container__card-container__dots-container">
-                <div @click.stop="toggleSelection(creditCard.id)">
+                <div @click.stop="toggleSelection">
                     <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="4" height="4" rx="2" fill="#354049"/>
                         <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
@@ -55,8 +55,9 @@ export default class CardComponent extends Vue {
     @Prop({default: () => new CreditCard()})
     private readonly creditCard: CreditCard;
 
-    public toggleSelection(id: string): void {
-        this.$store.dispatch(TOGGLE_CARD_SELECTION, id);
+    public toggleSelection(): void {
+        console.log('card id', this.creditCard);
+        this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
     }
 }
 </script>

@@ -21,6 +21,7 @@ export const PAYMENTS_ACTIONS = {
     TOGGLE_CARD_SELECTION: 'toggleCardSelection',
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
     MAKE_CARD_DEFAULT: 'makeCardDefault',
+    REMOVE_CARD: 'removeCard',
 };
 
 const {
@@ -40,6 +41,7 @@ const {
     CLEAR_CARDS_SELECTION,
     CLEAR_PAYMENT_INFO,
     MAKE_CARD_DEFAULT,
+    REMOVE_CARD,
 } = PAYMENTS_ACTIONS;
 
 class PaymentsState {
@@ -47,7 +49,7 @@ class PaymentsState {
      * balance stores in cents
      */
     public balance: number = 0;
-    public creditCards: CreditCard[] = [new CreditCard('123124'), new CreditCard('5647567')];
+    public creditCards: CreditCard[] = [];
 }
 
 /**
@@ -62,7 +64,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [SET_BALANCE](state: PaymentsState, balance: number) {
                 state.balance = balance;
             },
-            [SET_BALANCE](state: PaymentsState, creditCards: CreditCard[]) {
+            [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]) {
                 state.creditCards = creditCards;
             },
             [UPDATE_CARDS_SELECTION](state: PaymentsState, id: string | null) {
@@ -125,6 +127,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 await api.makeCreditCardDefault(id);
 
                 commit(UPDATE_CARDS_DEFAULT, id);
+            },
+            [REMOVE_CARD]: async function({commit, state}: any, cardId: string): Promise<void> {
+                await api.removeCreditCard(cardId);
+
+                commit(SET_CREDIT_CARDS, state.creditCards.filter(card => card.id !== cardId));
             },
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);

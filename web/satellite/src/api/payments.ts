@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { CreditCard, PaymentsApi } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
@@ -13,42 +14,118 @@ export class PaymentsHttpApi implements PaymentsApi {
     private readonly ROOT_PATH: string = '/api/v0/payments';
 
     /**
-     * getBalance exposes http request to grt balance in cents
+     * Get account balance
+     *
+     * @returns balance in cents
+     * @throws Error
      */
     public async getBalance(): Promise<number> {
-        const path = `${this.ROOT_PATH}/accounts/balance`;
+        const path = `${this.ROOT_PATH}/account/balance`;
         const response = await this.client.get(path);
 
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not get balance');
+        }
+
         return await response.json();
     }
 
+    /**
+     * Try to set up a payment account
+     *
+     * @throws Error
+     */
     public async setupAccount(): Promise<void> {
-        const path = `${this.ROOT_PATH}/accounts`;
+        const path = `${this.ROOT_PATH}/account`;
         const response = await this.client.post(path, null);
 
-        return await response.json();
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not setup account');
+        }
     }
 
+    /**
+     * Add credit card
+     * @param token - stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
     public async addCreditCard(token: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards`;
-        const body = { 'token': token };
-        const response = await this.client.post(path, JSON.stringify(body));
+        const response = await this.client.post(path, token);
 
-        return await response.json();
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not add credit card');
+        }
     }
 
+    /**
+     * Detach credit card from payment account.
+     * @param cardId
+     * @throws Error
+     */
+    public async removeCreditCard(cardId: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/cards/${cardId}`;
+        const response = await this.client.delete(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not remove credit card');
+        }
+    }
+
+    /**
+     * Get list of user`s credit cards
+     *
+     * @returns list of credit cards
+     * @throws Error
+     */
     public async listCreditCards(): Promise<CreditCard[]> {
         const path = `${this.ROOT_PATH}/cards`;
         const response = await this.client.get(path);
 
-        return await response.json();
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not list credit cards');
+        }
+
+        const creditCards = await response.json();
+
+        if (creditCards) {
+            return creditCards.map(card => new CreditCard(card.id, card.expMonth, card.expYear, card.brand, card.last4, false));
+        }
+
+        return [];
     }
 
-    public async makeCreditCardDefault(id: string): Promise<void> {
+    /**
+     * Make credit card default
+     * @param cardId
+     * @throws Error
+     */
+    public async makeCreditCardDefault(cardId: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards`;
-        const body = { 'cardId': id };
-        const response = await this.client.patch(path, JSON.stringify(body));
+        const response = await this.client.patch(path, cardId);
 
-        return await response.json();
+        console.log(response);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can set credit card as default');
+        }
     }
 }

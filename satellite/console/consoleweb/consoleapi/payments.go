@@ -6,18 +6,23 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/zeebo/errs"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
 )
 
-var mon = monkit.Package()
+var (
+	Error = errs.Class("satellite console payments api error")
+	mon = monkit.Package()
+)
+
 
 // Payments is an api controller that exposes all payment related functionality
 type Payments struct {
@@ -82,20 +87,16 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var responseBody struct {
-		Balance int64 `json:"balance"`
-	}
-
-	responseBody.Balance = balance
-
-	err = json.NewEncoder(w).Encode(responseBody)
+	err = json.NewEncoder(w).Encode(balance)
 	if err != nil {
-		p.log.Error("failed to write json balance response", zap.Error(err))
+		p.log.Error("failed to write json balance response", zap.Error(Error.Wrap(err)))
 	}
 }
 
 // CreditCards selects what to do depends on http method type.
 func (p *Payments) CreditCards(w http.ResponseWriter, r *http.Request) {
+	p.log.Error("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+
 	switch r.Method {
 	case http.MethodPatch:
 		p.MakeCreditCardDefault(w, r)
@@ -116,18 +117,15 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	ctx = p.authorize(ctx, r)
 
-	var requestBody struct {
-		Token string `json:"token"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&requestBody)
+	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = p.service.Payments().AddCreditCard(ctx, requestBody.Token)
+	token := string(bodyBytes)
+
+	err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -158,15 +156,9 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var responseBody struct {
-		Cards []payments.CreditCard `json:"cards"`
-	}
-
-	responseBody.Cards = cards
-
-	err = json.NewEncoder(w).Encode(responseBody)
+	err = json.NewEncoder(w).Encode(cards)
 	if err != nil {
-		p.log.Error("failed to write json list cards response", zap.Error(err))
+		p.log.Error("failed to write json list cards response", zap.Error(Error.Wrap(err)))
 	}
 }
 
@@ -178,18 +170,42 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 
 	ctx = p.authorize(ctx, r)
 
-	var requestBody struct {
-		CardID string `json:"cardId"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	err = decoder.Decode(&requestBody)
+	cardID, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = p.service.Payments().MakeCreditCardDefault(ctx, []byte(requestBody.CardID))
+	err = p.service.Payments().MakeCreditCardDefault(ctx, cardID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+// RemoveCreditCard is used to detach a credit card from payment account.
+func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	ctx = p.authorize(ctx, r)
+
+	p.log.Error(r.URL.Path[len("/api/v0/payments/cards/"):])
+
+	cardID := r.URL.Path[len("/api/v0/payments/cards/"):]
+
+	err = p.service.Payments().RemoveCreditCard(ctx, []byte(cardID))
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -213,7 +229,7 @@ func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) 
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		p.log.Error("failed to write json error response", zap.Error(err))
+		p.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 	}
 }
 

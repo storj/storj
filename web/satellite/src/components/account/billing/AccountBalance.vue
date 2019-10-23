@@ -41,6 +41,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    GET_BALANCE,
+} = PAYMENTS_ACTIONS;
+
 @Component({
     components: {
         VInfo,
@@ -48,6 +55,14 @@ import VInfo from '@/components/common/VInfo.vue';
     },
 })
 export default class AccountBalance extends Vue {
+    public async mounted() {
+        try {
+            await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
     public get balance(): string {
         return `$${this.$store.state.paymentsModule.balance / 100}`;
     }

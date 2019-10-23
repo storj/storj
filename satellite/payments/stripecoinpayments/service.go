@@ -34,6 +34,7 @@ type Service struct {
 
 // NewService creates a Service instance.
 func NewService(config Config, customers CustomersDB, transactionsDB TransactionsDB) *Service {
+	config.StripeSecretKey = "sk_test_UptYQcuFOmK4SRNrJFdAAhML00NszT3xZz"
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinpaymentsClient := coinpayments.NewClient(
