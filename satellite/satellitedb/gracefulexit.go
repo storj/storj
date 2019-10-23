@@ -47,7 +47,10 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, gracefulexit.ErrNodeNotFound.Wrap(err)
+
+	} else if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)

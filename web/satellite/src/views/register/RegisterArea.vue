@@ -10,6 +10,10 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import InfoIcon from '@/../static/images/info.svg';
+import LogoIcon from '@/../static/images/Logo.svg';
+
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
@@ -23,6 +27,9 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         HeaderlessInput,
         RegistrationSuccessPopup,
         VInfo,
+        AuthIcon,
+        LogoIcon,
+        InfoIcon,
     },
 })
 export default class RegisterArea extends Vue {
