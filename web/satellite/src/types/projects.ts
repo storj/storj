@@ -44,15 +44,17 @@ export class Project {
     public name: string;
     public description: string;
     public createdAt: string;
+    public ownerId: string;
 
     public isSelected: boolean;
 
-    public constructor(id: string = '', name: string = '', description: string = '', createdAt: string = '', isSelected: boolean = false) {
+    public constructor(id: string = '', name: string = '', description: string = '', createdAt: string = '', ownerId: string = '', isSelected: boolean = false) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.createdAt = createdAt;
         this.isSelected = isSelected;
+        this.ownerId = ownerId;
     }
 }
 
