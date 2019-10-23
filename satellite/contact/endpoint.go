@@ -18,6 +18,13 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+var (
+	errPingBackDial    = errs.Class("pingback dialing error")
+	errPingBackRequest = errs.Class("pingback request error")
+	errCheckInIdentity = errs.Class("check-in identity error")
+	errCheckInNetwork  = errs.Class("check-in network error")
+)
+
 // Endpoint implements the contact service Endpoints.
 type Endpoint struct {
 	log     *zap.Logger
@@ -42,23 +49,23 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 
 	lastIP, err := overlay.GetNetwork(ctx, req.Address)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.NotFound, errCheckInNetwork.New("failed to get IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.NotFound, errCheckInNetwork.New("failed to ping back address:%s, err: %v", req.Address, err).Error())
 	}
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
@@ -84,16 +91,19 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (bool, string, error) {
+func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (_ bool, _ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
 	if err != nil {
+		endpoint.log.Info("pingBack dialing error", zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
+
 		// if this is a network error, then return the error otherwise just report internal error
 		_, ok := err.(net.Error)
 		if ok {
-			return false, "", Error.New("failed to connect to %s: %v", req.Address, err)
+			return false, "", errPingBackDial.New("failed to connect to %s: %v", req.Address, err)
 		}
-		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
-		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
+		return false, "", errPingBackDial.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
@@ -102,6 +112,7 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
+		endpoint.log.Info("pingBack pinging error", zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
 		pingNodeSuccess = false
 		pingErrorMessage = "erroring while trying to pingNode due to internal error"
 		_, ok := err.(net.Error)
