@@ -61,7 +61,7 @@ export default class StripeInput extends Vue {
         }
 
         this.cardElement.mount('#card-element');
-        this.cardElement.addEventListener('change', function (event) {
+        this.cardElement.addEventListener('change', function (event): void {
             const displayError: HTMLElement = document.getElementById('card-errors') as HTMLElement;
             if (event.error) {
                 displayError.textContent = event.error.message;

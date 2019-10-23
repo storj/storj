@@ -28,7 +28,10 @@
                         <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
                     </svg>
                 </div>
-                <CardDialog v-if="creditCard.isSelected" :card-id="creditCard.id"/>
+                <CardDialog
+                    v-if="creditCard.isSelected"
+                    :card-id="creditCard.id"
+                />
             </div>
         </div>
     </div>

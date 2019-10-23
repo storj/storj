@@ -11,7 +11,6 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 

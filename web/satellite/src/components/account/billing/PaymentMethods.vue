@@ -12,13 +12,15 @@
                         label="Add STORJ"
                         width="123px"
                         height="48px"
-                        :on-press="onAddSTORJ"/>
+                        :on-press="onAddSTORJ"
+                    />
                     <VButton
                         class="button"
                         label="Add Card"
                         width="123px"
                         height="48px"
-                        :on-press="onAddCard"/>
+                        :on-press="onAddCard"
+                    />
                 </div>
                 <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
                     <p class="payment-methods-area__button-area__cancel__text">Cancel</p>
@@ -34,22 +36,29 @@
                 label="Continue to Coin Payments"
                 width="251px"
                 height="48px"
-                :on-press="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddSTORJ"
+            />
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
             <StripeInput
                 class="payment-methods-area__adding-container__stripe"
                 ref="stripeInput"
-                :on-stripe-response-callback="addCard" />
+                :on-stripe-response-callback="addCard"
+            />
             <VButton
                 label="Add card"
                 width="123px"
                 height="48px"
-                :on-press="onConfirmAddStripe"/>
+                :on-press="onConfirmAddStripe"
+            />
         </div>
         <div class="payment-methods-area__existing-cards-container">
-            <CardComponent v-for="card in creditCards" :key="card.id" :credit-card="card"/>
+            <CardComponent
+                v-for="card in creditCards"
+                :key="card.id"
+                :credit-card="card"
+            />
         </div>
     </div>
 </template>
@@ -138,10 +147,10 @@ export default class PaymentMethods extends Vue {
     }
 
     public async addCard(token: string) {
-        const response = await this.$store.dispatch(ADD_CREDIT_CARD, token);
-
-        if (!response.ok) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+        try {
+            await this.$store.dispatch(ADD_CREDIT_CARD, token);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
             return;
         }
