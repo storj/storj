@@ -251,7 +251,6 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
-	libuplinkCfg.Volatile.RequestTimeout = flags.Client.RequestTimeout
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

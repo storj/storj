@@ -302,7 +302,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
-		dialer.RequestTimeout = config.Storage2.Orders.SenderRequestTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
@@ -397,6 +396,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
 			config.GracefulExit,
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
 			peer.DB.Satellites(),
 		)
 	}

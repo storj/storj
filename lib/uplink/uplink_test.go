@@ -24,11 +24,9 @@ func TestUplinkConfigDefaultTimeouts(t *testing.T) {
 
 	// Assert the lib uplink configuration gets the correct defaults applied.
 	assert.Equal(t, 20*time.Second, client.cfg.Volatile.DialTimeout)
-	assert.Equal(t, 20*time.Second, client.cfg.Volatile.RequestTimeout)
 
 	// Assert the values propagate correctly all the way down to the transport layer.
 	assert.Equal(t, 20*time.Second, client.dialer.DialTimeout)
-	assert.Equal(t, 20*time.Second, client.dialer.RequestTimeout)
 }
 
 // TestUplinkConfigSetTimeouts tests that the uplink configuration settings properly override
@@ -38,7 +36,6 @@ func TestUplinkConfigSetTimeouts(t *testing.T) {
 
 	cfg := &Config{}
 	cfg.Volatile.DialTimeout = 120 * time.Second
-	cfg.Volatile.RequestTimeout = 120 * time.Second
 	cfg.Volatile.TLS = struct {
 		SkipPeerCAWhitelist bool
 		PeerCAWhitelistPath string
@@ -54,9 +51,7 @@ func TestUplinkConfigSetTimeouts(t *testing.T) {
 
 	// Assert the lib uplink configuration gets the correct values applied.
 	assert.Equal(t, 120*time.Second, client.cfg.Volatile.DialTimeout)
-	assert.Equal(t, 120*time.Second, client.cfg.Volatile.RequestTimeout)
 
 	// Assert the values propagate correctly all the way down to the transport layer.
 	assert.Equal(t, 120*time.Second, client.dialer.DialTimeout)
-	assert.Equal(t, 120*time.Second, client.dialer.RequestTimeout)
 }
