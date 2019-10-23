@@ -77,7 +77,11 @@ type DB interface {
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
 	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
-
+	// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
+	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error)
+	// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
+	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
+	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 }
 
@@ -161,6 +165,7 @@ type NodeDossier struct {
 	Disqualified *time.Time
 	PieceCount   int64
 	ExitStatus   ExitStatus
+	CreatedAt    time.Time
 }
 
 // NodeStats contains statistics about a node.
