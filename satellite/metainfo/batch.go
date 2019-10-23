@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // Batch handle requests sent in batch
@@ -19,8 +20,8 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
 
-	// TODO find a way to pass some parameters between request -> response > request
-	// TODO maybe use reflection to shrink code
+	var lastStreamID storj.StreamID
+	var lastSegmentID storj.SegmentID
 	for _, request := range req.Requests {
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
@@ -91,8 +92,14 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBegin: response,
 				},
 			})
+			lastStreamID = response.StreamId
 		case *pb.BatchRequestItem_ObjectCommit:
 			singleRequest.ObjectCommit.Header = req.Header
+
+			if singleRequest.ObjectCommit.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.ObjectCommit.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
 			if err != nil {
 				return resp, err
@@ -113,6 +120,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectGet: response,
 				},
 			})
+			lastStreamID = response.Object.StreamId
 		case *pb.BatchRequestItem_ObjectList:
 			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
@@ -135,8 +143,14 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBeginDelete: response,
 				},
 			})
+			lastStreamID = response.StreamId
 		case *pb.BatchRequestItem_ObjectFinishDelete:
 			singleRequest.ObjectFinishDelete.Header = req.Header
+
+			if singleRequest.ObjectFinishDelete.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.ObjectFinishDelete.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.FinishDeleteObject(ctx, singleRequest.ObjectFinishDelete)
 			if err != nil {
 				return resp, err
@@ -149,6 +163,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		// SEGMENT
 		case *pb.BatchRequestItem_SegmentBegin:
 			singleRequest.SegmentBegin.Header = req.Header
+
+			if singleRequest.SegmentBegin.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.SegmentBegin.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.BeginSegment(ctx, singleRequest.SegmentBegin)
 			if err != nil {
 				return resp, err
@@ -158,8 +177,14 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBegin: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentCommit:
 			singleRequest.SegmentCommit.Header = req.Header
+
+			if singleRequest.SegmentCommit.SegmentId.IsZero() && !lastSegmentID.IsZero() {
+				singleRequest.SegmentCommit.SegmentId = lastSegmentID
+			}
+
 			response, err := endpoint.CommitSegment(ctx, singleRequest.SegmentCommit)
 			if err != nil {
 				return resp, err
@@ -171,6 +196,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		case *pb.BatchRequestItem_SegmentList:
 			singleRequest.SegmentList.Header = req.Header
+
+			if singleRequest.SegmentList.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.SegmentList.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.ListSegments(ctx, singleRequest.SegmentList)
 			if err != nil {
 				return resp, err
@@ -182,6 +212,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		case *pb.BatchRequestItem_SegmentMakeInline:
 			singleRequest.SegmentMakeInline.Header = req.Header
+
+			if singleRequest.SegmentMakeInline.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.SegmentMakeInline.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.MakeInlineSegment(ctx, singleRequest.SegmentMakeInline)
 			if err != nil {
 				return resp, err
@@ -193,6 +228,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		case *pb.BatchRequestItem_SegmentDownload:
 			singleRequest.SegmentDownload.Header = req.Header
+
+			if singleRequest.SegmentDownload.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.SegmentDownload.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.DownloadSegment(ctx, singleRequest.SegmentDownload)
 			if err != nil {
 				return resp, err
@@ -202,8 +242,14 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentDownload: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentBeginDelete:
 			singleRequest.SegmentBeginDelete.Header = req.Header
+
+			if singleRequest.SegmentBeginDelete.StreamId.IsZero() && !lastStreamID.IsZero() {
+				singleRequest.SegmentBeginDelete.StreamId = lastStreamID
+			}
+
 			response, err := endpoint.BeginDeleteSegment(ctx, singleRequest.SegmentBeginDelete)
 			if err != nil {
 				return resp, err
@@ -213,8 +259,14 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBeginDelete: response,
 				},
 			})
+			lastSegmentID = response.SegmentId
 		case *pb.BatchRequestItem_SegmentFinishDelete:
 			singleRequest.SegmentFinishDelete.Header = req.Header
+
+			if singleRequest.SegmentFinishDelete.SegmentId.IsZero() && !lastSegmentID.IsZero() {
+				singleRequest.SegmentFinishDelete.SegmentId = lastSegmentID
+			}
+
 			response, err := endpoint.FinishDeleteSegment(ctx, singleRequest.SegmentFinishDelete)
 			if err != nil {
 				return resp, err

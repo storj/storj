@@ -15,10 +15,7 @@
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="10" fill="#2683FF"/>
-                        <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
-                    </svg>
+                    <NotificationIcon/>
                     <p class="buckets-notification__text">Usage will appear within an hour of activity.</p>
                 </div>
             </div>
@@ -82,6 +79,8 @@ import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
+import NotificationIcon from '@/../static/images/buckets/notification.svg';
+
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
@@ -100,6 +99,7 @@ const {
         VHeader,
         VPagination,
         VList,
+        NotificationIcon,
     },
 })
 export default class BucketArea extends Vue {

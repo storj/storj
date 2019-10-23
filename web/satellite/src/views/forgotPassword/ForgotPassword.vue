@@ -8,6 +8,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import LogoIcon from '@/../static/images/Logo.svg';
+
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
@@ -16,6 +19,8 @@ import { validateEmail } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
+        AuthIcon,
+        LogoIcon,
     },
 })
 export default class ForgotPassword extends Vue {

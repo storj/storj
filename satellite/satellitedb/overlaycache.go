@@ -884,6 +884,8 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	}
 	return exitingNodes, nil
 }
+
+// GetExitStatus returns a node's graceful exit status.
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -900,6 +902,67 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	}
 
 	return exitStatus, Error.Wrap(err)
+}
+
+// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
+func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE exit_initiated_at IS NOT NULL
+		AND exit_finished_at IS NOT NULL
+		AND exit_finished_at >= ?
+		AND exit_finished_at < ?
+		`), begin, end,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		exitedNodes = append(exitedNodes, id)
+	}
+	return exitedNodes, rows.Err()
+}
+
+// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
+func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE exit_initiated_at IS NOT NULL
+		AND exit_finished_at IS NULL
+		AND exit_initiated_at >= ?
+		AND exit_initiated_at < ?
+		`), begin, end,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	// TODO return more than just ID
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		exitingNodes = append(exitingNodes, id)
+	}
+	return exitingNodes, rows.Err()
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.
@@ -993,6 +1056,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Disqualified: info.Disqualified,
 		PieceCount:   info.PieceCount,
 		ExitStatus:   exitStatus,
+		CreatedAt:    info.CreatedAt,
 	}
 
 	return node, nil

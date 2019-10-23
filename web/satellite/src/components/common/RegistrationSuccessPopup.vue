@@ -8,6 +8,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess.svg';
+
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
@@ -16,6 +19,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component({
     components: {
         VButton,
+        RegistrationSuccessIcon,
+        CloseCrossIcon,
     },
 })
 export default class RegistrationSuccessPopup extends Vue {
