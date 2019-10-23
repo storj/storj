@@ -38,7 +38,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	tx, err := tokens.service.coinpayments.Transactions().Create(ctx,
+	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		coinpayments.CreateTX{
 			Amount:      amount,
 			CurrencyIn:  coinpayments.CurrencyLTCT,
