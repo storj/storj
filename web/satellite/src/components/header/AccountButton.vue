@@ -4,16 +4,18 @@
 <template>
     <div class="account-button-container" id="accountDropdownButton">
         <div class="account-button-toggle-container" @click="toggleSelection">
-            <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
-                <!-- First digit of firstName after Registration -->
-                <!-- img if avatar was set -->
                 <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
-            <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="@/../static/images/register/BlueExpand.svg"  alt="Arrow down (expand)"/>
-                <img v-if="isDropdownShown" src="@/../static/images/register/BlueHide.svg"  alt="Arrow up (hide)"/>
+                <ExpandIcon
+                    v-if="!isDropdownShown"
+                    alt="Arrow down (expand)"
+                />
+                <HideIcon
+                    v-if="isDropdownShown"
+                    alt="Arrow up (hide)"
+                />
             </div>
         </div>
         <AccountDropdown v-if="isDropdownShown"/>
@@ -23,6 +25,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
+import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
+
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import AccountDropdown from './AccountDropdown.vue';
@@ -30,6 +35,8 @@ import AccountDropdown from './AccountDropdown.vue';
 @Component({
     components: {
         AccountDropdown,
+        ExpandIcon,
+        HideIcon,
     },
 })
 export default class AccountButton extends Vue {
@@ -39,10 +46,6 @@ export default class AccountButton extends Vue {
 
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
-
-    public get userName(): string {
-        return this.$store.getters.userName;
     }
 
     public get isDropdownShown(): boolean {
@@ -100,12 +103,10 @@ export default class AccountButton extends Vue {
         }
 
         &__expander-area {
-            margin-left: 12px;
+            margin-left: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            height: 28px;
         }
     }
 

@@ -4,7 +4,7 @@
 <template>
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
-            <img v-if="error" src="../../../static/images/register/ErrorInfo.svg" alt="Red error icon with explanation mark"/>
+            <ErrorIcon v-if="error"/>
             <h3 v-if="!error" class="label-container__label">{{label}}</h3>
             <h3 v-if="!error" class="label-container__label add-label">{{additionalLabel}}</h3>
             <h3 class="label-container__error" v-if="error">{{error}}</h3>
@@ -43,10 +43,16 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+
 import HeaderlessInput from './HeaderlessInput.vue';
 
 // Custom input component with labeled header
-@Component
+@Component({
+    components: {
+        ErrorIcon,
+    },
+})
 export default class HeaderedInput extends HeaderlessInput {
     @Prop({default: ''})
     private readonly initValue: string;

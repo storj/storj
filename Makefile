@@ -1,6 +1,7 @@
-GO_VERSION ?= 1.13.1
+GO_VERSION ?= 1.13.3
 GOOS ?= linux
 GOARCH ?= amd64
+GOPATH ?= $(shell go env GOPATH)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},master)
@@ -46,7 +47,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
 	go get github.com/go-bindata/go-bindata/go-bindata
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.19.1
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -109,6 +110,10 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
+
+.PHONY: test-libuplink-gomobile
+test-libuplink-gomobile: ## Run gomobile tests
+	@./lib/uplink-gomobile/test-sim.sh
 
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
@@ -368,7 +373,7 @@ diagrams-graphml:
 update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
-		-v $(shell pwd):/storj \
+		-v ${CURDIR}:/storj \
 		-v $(shell go env GOCACHE):/go-cache \
 		-e "GOCACHE=/go-cache" \
 		-u root:root \

@@ -26,8 +26,7 @@ var Error = errs.Class("rpccompat")
 // ignored.
 type timedConn struct {
 	net.Conn
-	timeout time.Duration
-	rate    memory.Size
+	rate memory.Size
 }
 
 // now returns time.Now if there's a nonzero rate.
@@ -49,28 +48,16 @@ func (t *timedConn) delay(start time.Time, n int) {
 	}
 }
 
-// Read wraps the connection read setting the timeout and sleeping to ensure the rate.
+// Read wraps the connection read and adds sleeping to ensure the rate.
 func (t *timedConn) Read(p []byte) (int, error) {
-	if t.timeout > 0 {
-		if err := t.SetReadDeadline(time.Now().Add(t.timeout)); err != nil {
-			return 0, err
-		}
-	}
-
 	start := t.now()
 	n, err := t.Conn.Read(p)
 	t.delay(start, n)
 	return n, err
 }
 
-// Write wraps the connection write setting the timeout and sleeping to ensure the rate.
+// Write wraps the connection write and adds sleeping to ensure the rate.
 func (t *timedConn) Write(p []byte) (int, error) {
-	if t.timeout > 0 {
-		if err := t.SetWriteDeadline(time.Now().Add(t.timeout)); err != nil {
-			return 0, err
-		}
-	}
-
 	start := t.now()
 	n, err := t.Conn.Write(p)
 	t.delay(start, n)

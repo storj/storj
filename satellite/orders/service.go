@@ -743,7 +743,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		UplinkPublicKey:  piecePublicKey,
 		StorageNodeId:    nodeID,
 		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
-		Action:           pb.PieceAction_PUT_GRACEFUL_EXIT,
+		Action:           pb.PieceAction_PUT,
 		Limit:            int64(shareSize),
 		OrderCreation:    time.Now().UTC(),
 		OrderExpiration:  orderExpiration,

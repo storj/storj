@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -45,9 +46,12 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -101,6 +105,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCustomers returns table for storing stripe customers
 	Customers() stripecoinpayments.CustomersDB
+	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
 }
 
 // Config is the global config satellite
@@ -131,9 +137,11 @@ type Config struct {
 
 	Marketing marketingweb.Config
 
-	Version version.Config
+	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
+
+	Metrics metrics.Config
 }
 
 // Peer is the satellite
@@ -149,7 +157,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *version_checker.Service
 
 	// services and endpoints
 	Contact struct {
@@ -207,7 +215,7 @@ type Peer struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -216,6 +224,11 @@ type Peer struct {
 
 	Vouchers struct {
 		Endpoint *vouchers.Endpoint
+	}
+
+	Payments struct {
+		Accounts payments.Accounts
+		Clearing payments.Clearing
 	}
 
 	Console struct {
@@ -237,10 +250,14 @@ type Peer struct {
 		Endpoint *gracefulexit.Endpoint
 		Chore    *gracefulexit.Chore
 	}
+
+	Metrics struct {
+		Chore *metrics.Chore
+	}
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, versionInfo version.Info, config *Config) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -250,12 +267,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	var err error
 
 	{ // setup version control
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
@@ -326,19 +342,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}
@@ -493,7 +504,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Loop, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -577,6 +588,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 	}
 
+	{ // setup payments
+		config := paymentsconfig.Config{}
+
+		service := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			config.StripeCoinPayments,
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
+
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinPayments.TransactionUpdateInterval)
+
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = clearing
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -595,6 +624,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 
@@ -653,6 +683,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}
 
+	{ // setup metrics service
+		peer.Metrics.Chore = metrics.NewChore(
+			peer.Log.Named("metrics"),
+			config.Metrics,
+			peer.Metainfo.Loop,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -709,6 +747,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -722,6 +763,10 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.Metrics.Chore != nil {
+		errlist.Add(peer.Metrics.Chore.Close())
 	}
 
 	if peer.GracefulExit.Chore != nil {
