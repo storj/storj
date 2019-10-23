@@ -131,7 +131,7 @@ export default class ProjectMemberListItem extends Vue {
     }
 
     .checkbox {
-        background-image: url("../../../static/images/team/checkboxEmpty.svg");
+        background-image: url("../../../static/images/team/checkboxEmpty.png");
         min-width: 23px;
         height: 23px;
     }
@@ -142,7 +142,7 @@ export default class ProjectMemberListItem extends Vue {
         .checkbox {
             min-width: 23px;
             height: 23px;
-            background-image: url("../../../static/images/team/checkboxChecked.svg");
+            background-image: url("../../../static/images/team/checkboxChecked.png");
         }
 
         .user-container__base-info__name-area__user-name,

@@ -6,7 +6,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-@Component
+import MainIcon from '@/../static/images/errors/404.svg';
+import LogoIcon from '@/../static/images/errors/logo.svg';
+import TextIcon from '@/../static/images/errors/text.svg';
+
+@Component({
+    components: {
+        LogoIcon,
+        TextIcon,
+        MainIcon,
+    },
+})
 // 404 component on page not found error
 export default class Page404 extends Vue {}
 </script>
