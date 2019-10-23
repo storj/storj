@@ -41,8 +41,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 @Component({
     components: {
         HeaderlessInput,
@@ -61,8 +61,8 @@ export default class ApiKeysCopyPopup extends Vue {
         this.$emit('closePopup');
     }
 
-    public onCopyClick(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
+    public async onCopyClick(): Promise<void> {
+        await this.$notify.success('Key saved to clipboard');
         this.isCopiedButtonShown = true;
     }
 }

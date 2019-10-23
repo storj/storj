@@ -63,7 +63,6 @@ import VDatepicker from '@/components/common/VDatePicker.vue';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { toUnixTimestamp } from '@/utils/time';
 
 @Component({
@@ -115,7 +114,7 @@ export default class UsageReport extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
     }
 
@@ -123,7 +122,7 @@ export default class UsageReport extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
 
         const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
@@ -145,7 +144,7 @@ export default class UsageReport extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
     }
 
@@ -155,7 +154,7 @@ export default class UsageReport extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
     }
 
@@ -201,7 +200,7 @@ export default class UsageReport extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
     }
 

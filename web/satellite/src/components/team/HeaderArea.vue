@@ -73,7 +73,7 @@ import VHeader from '@/components/common/VHeader.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -128,13 +128,13 @@ export default class HeaderArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${error.message}`);
+            this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
 
             return;
         }
 
         this.$emit('onSuccessAction');
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
+        this.$notify.success('Members was successfully removed from project');
         this.isDeleteClicked = false;
 
         this.$refs.headerComponent.clearSearch();
@@ -145,7 +145,7 @@ export default class HeaderArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
     }
 

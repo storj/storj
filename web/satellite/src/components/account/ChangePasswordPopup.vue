@@ -69,7 +69,7 @@
 </template>
 
 <script lang="ts">
-import Component, { mixins } from 'vue-class-component';
+import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -78,16 +78,13 @@ import { AuthApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { validatePassword } from '@/utils/validation';
 
-import NotificationMixin from '../../utils/notificationMixin';
-
 @Component({
     components: {
         HeaderlessInput,
         VButton,
-        NotificationMixin,
     },
 })
-export default class ChangePasswordPopup extends mixins(NotificationMixin) {
+export default class ChangePasswordPopup extends Vue {
     private oldPassword: string = '';
     private newPassword: string = '';
     private confirmationPassword: string = '';
@@ -141,12 +138,12 @@ export default class ChangePasswordPopup extends mixins(NotificationMixin) {
         try {
             await this.auth.changePassword(this.oldPassword, this.newPassword);
         } catch (error) {
-            await this.notificationError(error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
 
-        await this.notificationSuccess('Password successfully changed!');
+        await this.$notify.success('Password successfully changed!');
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
     }
 

@@ -82,7 +82,7 @@ import VButton from '@/components/common/VButton.vue';
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { validatePassword } from '@/utils/validation';
 
 @Component({
@@ -119,7 +119,7 @@ export default class DeleteAccountPopup extends Vue {
 
         try {
             await this.auth.delete(this.password);
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
+            await this.$notify.success('Account was successfully deleted');
 
             AuthToken.remove();
 
@@ -127,7 +127,7 @@ export default class DeleteAccountPopup extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
             await this.$router.push(RouteConfig.Login.path);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.isLoading = false;
         }
     }

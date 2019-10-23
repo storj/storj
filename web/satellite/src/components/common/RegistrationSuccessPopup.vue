@@ -11,7 +11,7 @@ import VButton from '@/components/common/VButton.vue';
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -42,7 +42,7 @@ export default class RegistrationSuccessPopup extends Vue {
         try {
             await this.auth.resendEmail(userId);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
+            await this.$notify.error('Could not send email ');
         }
 
         this.startResendEmailCountdown();

@@ -34,7 +34,7 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { ApiKey } from '@/types/apiKeys';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 const CREATE = API_KEYS_ACTIONS.CREATE;
 
@@ -83,21 +83,21 @@ export default class ApiKeysCreationPopup extends Vue {
         try {
             createdApiKey = await this.$store.dispatch(CREATE, this.name);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.isLoading = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
+        await this.$notify.success('Successfully created new api key');
         this.key = createdApiKey.secret;
         this.isLoading = false;
         this.name = '';
 
         try {
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
 
         this.$emit('closePopup');

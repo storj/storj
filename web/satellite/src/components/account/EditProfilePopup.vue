@@ -63,7 +63,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -96,12 +96,12 @@ export default class EditProfilePopup extends Vue {
         try {
             await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
+        await this.$notify.success('Account info successfully updated!');
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }

@@ -34,9 +34,7 @@ import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
@@ -53,7 +51,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             await this.$router.push(RouteConfig.Login.path);
             AuthToken.remove();
 
@@ -65,7 +63,7 @@ export default class DashboardArea extends Vue {
         try {
             projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
@@ -90,25 +88,25 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);

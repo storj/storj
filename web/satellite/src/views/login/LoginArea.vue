@@ -11,7 +11,7 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
@@ -71,7 +71,7 @@ export default class Login extends Vue {
         try {
             this.authToken = await this.auth.token(this.email, this.password);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.isLoading = false;
 
             return;
