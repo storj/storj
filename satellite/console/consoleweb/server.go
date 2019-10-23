@@ -23,7 +23,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -557,7 +557,7 @@ func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Reques
 	response.SatelliteName = server.config.SatelliteName
 
 	if err := json.NewEncoder(w).Encode(&response); err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
+		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 		return
 	}
 }
