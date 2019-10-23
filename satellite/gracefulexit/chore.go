@@ -80,7 +80,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 
 			// check inactive timeframe
-			if lastActivityTime.Add(chore.config.MaxInactiveTimeFrame).After(time.Now().UTC()) {
+			if lastActivityTime.Add(chore.config.MaxInactiveTimeFrame).Before(time.Now().UTC()) {
 				exitStatusRequest := &overlay.ExitStatusRequest{
 					NodeID:         node.NodeID,
 					ExitSuccess:    false,
