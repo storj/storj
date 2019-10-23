@@ -2,7 +2,7 @@
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-docker run --rm -p 5432:5432 --name storj_sim_postgres postgres &
+docker run --rm -p 5433:5432 --name storj_sim_postgres postgres &
 
 cleanup(){
   docker rm -f storj_sim_postgres
@@ -18,8 +18,8 @@ until psql -h localhost -U postgres -d postgres -c "select 1" > /dev/null 2>&1 |
   sleep 1
 done
 
-psql -h localhost -U postgres -c "create database $STORJ_SIM_DATABASE;"
+psql -h localhost -p 5433 -U postgres -c "create database $STORJ_SIM_DATABASE;"
 
-export STORJ_SIM_POSTGRES="postgres://postgres@localhost/$STORJ_SIM_DATABASE?sslmode=disable"
+export STORJ_SIM_POSTGRES="postgres://postgres@localhost:5433/$STORJ_SIM_DATABASE?sslmode=disable"
 
 $SCRIPTDIR/test-sim.sh
