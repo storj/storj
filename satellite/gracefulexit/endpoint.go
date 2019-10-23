@@ -243,7 +243,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 			progress, err := endpoint.db.GetProgress(ctx, nodeID)
 			if err != nil {
-				return rpcstatus.Error(rpcstatus.Internal, err.Error)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
 			var transferMsg *pb.SatelliteMessage
