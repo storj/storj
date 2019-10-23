@@ -152,7 +152,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 	// TODO should we error if the node is DQ'd?
 
@@ -164,39 +164,39 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
 			return nil
 		}
-		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+		return rpcstatus.Error(rpcstatus.Unknown, Error.Wrap(err).Error())
 	}
 
 	exitStatus, err := endpoint.overlaydb.GetExitStatus(ctx, nodeID)
 	if err != nil {
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	if exitStatus.ExitFinishedAt != nil {
 		// TODO revisit this. Should check if signature was sent
 		completed := &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{ExitCompleted: &pb.ExitCompleted{}}}
 		err = stream.Send(completed)
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	if exitStatus.ExitInitiatedAt == nil {
 		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
 		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {
-			return Error.Wrap(err)
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 0)
 		if err != nil {
-			return Error.Wrap(err)
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
 
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	if exitStatus.ExitLoopCompletedAt == nil {
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	pending := newPendingMap()
@@ -206,7 +206,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	handleError := func(err error) error {
 		errChan <- err
 		close(errChan)
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	var group errgroup.Group
@@ -264,7 +264,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			err = stream.Send(transferMsg)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 			break
 		}
@@ -282,6 +282,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
+				// Don't wrap this error since handleSucceeded returns rpc status errors.
 				return err
 			}
 			deleteMsg := &pb.SatelliteMessage{
@@ -293,20 +294,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			err = stream.Send(deleteMsg)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		default:
-			return Error.New("unknown storage node message: %v", m)
+			return rpcstatus.Error(rpcstatus.Unknown, Error.New("unknown storage node message: %v", m).Error())
 		}
 	}
 
 	if err := group.Wait(); err != nil {
-		return err
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	return nil
