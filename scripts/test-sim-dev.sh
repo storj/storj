@@ -5,7 +5,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 docker run --rm -p 5432:5432 --name storj_sim_postgres postgres &
 
 cleanup(){
-	docker stop storj_sim_postgres
+  docker rm -f storj_sim_postgres
 }
 trap cleanup EXIT
 
