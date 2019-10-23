@@ -3,7 +3,7 @@
 Customized to collect user input for storage node config.
 
 First-time install dialog sequence:
- - WixUI_WelcomeDlg
+ - StorjWelcomeDlg
  - WixUI_LicenseAgreementDlg
  - InstallDirConfigDlg
  - IdentityDirDlg

@@ -40,10 +40,9 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	MaxInlineSize  memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
-	SegmentSize    memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
-	RequestTimeout time.Duration `help:"timeout for request" default:"0h2m00s"`
-	DialTimeout    time.Duration `help:"timeout for dials" default:"0h2m00s"`
+	MaxInlineSize memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize   memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
+	DialTimeout   time.Duration `help:"timeout for dials" default:"0h2m00s"`
 }
 
 // Config uplink configuration

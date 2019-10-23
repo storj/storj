@@ -82,3 +82,107 @@ func TestGetExitingNodes(t *testing.T) {
 		}
 	})
 }
+
+func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		cache := db.OverlayCache()
+		exitingToday := make(map[storj.NodeID]bool)
+		exitingLastWeek := make(map[storj.NodeID]bool)
+		exitedToday := make(map[storj.NodeID]bool)
+		exitedLastWeek := make(map[storj.NodeID]bool)
+
+		now := time.Now()
+		lastWeek := time.Now().AddDate(0, 0, -7)
+
+		testData := []struct {
+			nodeID      storj.NodeID
+			initiatedAt time.Time
+			completedAt time.Time
+			finishedAt  time.Time
+		}{
+			// exited today
+			{testrand.NodeID(), now, now, now},
+			// exited last week
+			{testrand.NodeID(), lastWeek, lastWeek, lastWeek},
+			// exiting today
+			{testrand.NodeID(), now, now, time.Time{}},
+			// exiting last week
+			{testrand.NodeID(), lastWeek, lastWeek, time.Time{}},
+			// not exiting
+			{testrand.NodeID(), time.Time{}, time.Time{}, time.Time{}},
+		}
+
+		for _, data := range testData {
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: data.nodeID}, overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
+			req := &overlay.ExitStatusRequest{
+				NodeID:              data.nodeID,
+				ExitInitiatedAt:     data.initiatedAt,
+				ExitLoopCompletedAt: data.completedAt,
+				ExitFinishedAt:      data.finishedAt,
+			}
+			_, err = cache.UpdateExitStatus(ctx, req)
+			require.NoError(t, err)
+
+			if !data.finishedAt.IsZero() {
+				if data.finishedAt == now {
+					exitedToday[data.nodeID] = true
+				} else {
+					exitedLastWeek[data.nodeID] = true
+				}
+			} else if !data.initiatedAt.IsZero() {
+				if data.initiatedAt == now {
+					exitingToday[data.nodeID] = true
+				} else {
+					exitingLastWeek[data.nodeID] = true
+				}
+			}
+
+		}
+
+		// test GetGracefulExitIncompleteByTimeFrame
+		ids, err := cache.GetGracefulExitIncompleteByTimeFrame(ctx, lastWeek.Add(-24*time.Hour), lastWeek.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 1)
+		for _, id := range ids {
+			require.True(t, exitingLastWeek[id])
+		}
+		ids, err = cache.GetGracefulExitIncompleteByTimeFrame(ctx, now.Add(-24*time.Hour), now.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 1)
+		for _, id := range ids {
+			require.True(t, exitingToday[id])
+		}
+		ids, err = cache.GetGracefulExitIncompleteByTimeFrame(ctx, lastWeek.Add(-24*time.Hour), now.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 2)
+		for _, id := range ids {
+			require.True(t, exitingLastWeek[id] || exitingToday[id])
+		}
+
+		// test GetGracefulExitCompletedByTimeFrame
+		ids, err = cache.GetGracefulExitCompletedByTimeFrame(ctx, lastWeek.Add(-24*time.Hour), lastWeek.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 1)
+		for _, id := range ids {
+			require.True(t, exitedLastWeek[id])
+		}
+		ids, err = cache.GetGracefulExitCompletedByTimeFrame(ctx, now.Add(-24*time.Hour), now.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 1)
+		for _, id := range ids {
+			require.True(t, exitedToday[id])
+		}
+		ids, err = cache.GetGracefulExitCompletedByTimeFrame(ctx, lastWeek.Add(-24*time.Hour), now.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.Len(t, ids, 2)
+		for _, id := range ids {
+			require.True(t, exitedLastWeek[id] || exitedToday[id])
+		}
+
+	})
+}

@@ -6,22 +6,16 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
-)
-
-const (
-	// DefaultSqliteConn is a connstring that is inmemory
-	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
 )
 
 // SatelliteDatabases maybe name can be better
@@ -41,48 +35,68 @@ type Database struct {
 func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
 		{
-			MasterDB:  Database{"Sqlite", DefaultSqliteConn, ""},
-			PointerDB: Database{"Bolt", "", "should use preconfigured URL"},
-		},
-		{
-			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
+			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
 			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
 		},
 	}
 }
 
+// SchemaSuffix returns a suffix for schemas.
+func SchemaSuffix() string {
+	return pgutil.CreateRandomTestingSchemaName(6)
+}
+
+// SchemaName returns a properly formatted schema string.
+func SchemaName(testname, category string, index int, schemaSuffix string) string {
+	// postgres has a maximum schema length of 64
+	// we need additional 6 bytes for the random suffix
+	//    and 4 bytes for the satellite index "/S0/""
+
+	indexStr := strconv.Itoa(index)
+
+	var maxTestNameLen = 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
+	if len(testname) > maxTestNameLen {
+		testname = testname[:maxTestNameLen]
+	}
+
+	if schemaSuffix == "" {
+		return strings.ToLower(testname + "/" + category + indexStr)
+	}
+
+	return strings.ToLower(testname + "/" + schemaSuffix + "/" + category + indexStr)
+}
+
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
-	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
-	t.Log("schema-suffix ", schemaSuffix)
-
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
 			t.Parallel()
 
 			if dbInfo.MasterDB.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
+				t.Fatalf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
+
+			schemaSuffix := SchemaSuffix()
+			t.Log("schema-suffix ", schemaSuffix)
 
 			log := zaptest.NewLogger(t)
+			schema := SchemaName(t.Name(), "T", 0, schemaSuffix)
 
-			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
-			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
-			db, err := satellitedb.New(log, connstr)
+			pgdb, err := satellitedb.New(log, pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema))
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = db.CreateSchema(schema)
-			if err != nil {
-				t.Fatal(err)
+			db := &SchemaDB{
+				DB:       pgdb,
+				Schema:   schema,
+				AutoDrop: true,
 			}
 
 			defer func() {
-				dropErr := db.DropSchema(schema)
-				err := errs.Combine(dropErr, db.Close())
+				err := db.Close()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -101,9 +115,6 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 // Bench method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
-	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
-	b.Log("schema-suffix ", schemaSuffix)
-
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		b.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(b *testing.B) {
@@ -111,23 +122,25 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			log := zap.NewNop()
+			schemaSuffix := SchemaSuffix()
+			b.Log("schema-suffix ", schemaSuffix)
 
-			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
-			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
-			db, err := satellitedb.New(log, connstr)
+			log := zaptest.NewLogger(b)
+			schema := SchemaName(b.Name(), "X", 0, schemaSuffix)
+
+			pgdb, err := satellitedb.New(log, pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema))
 			if err != nil {
 				b.Fatal(err)
 			}
 
-			err = db.CreateSchema(schema)
-			if err != nil {
-				b.Fatal(err)
+			db := &SchemaDB{
+				DB:       pgdb,
+				Schema:   schema,
+				AutoDrop: true,
 			}
 
 			defer func() {
-				dropErr := db.DropSchema(schema)
-				err := errs.Combine(dropErr, db.Close())
+				err := db.Close()
 				if err != nil {
 					b.Fatal(err)
 				}

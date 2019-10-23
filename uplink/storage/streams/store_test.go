@@ -142,7 +142,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segmentItems, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+		segmentItems, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 			CursorPosition: storj.SegmentPosition{
 				Index: 0,

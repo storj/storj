@@ -13,26 +13,8 @@ export class Dashboard {
         public bandwidth: BandwidthInfo,
         public lastPinged: Date,
         public startedAt: Date,
-        public version: Version,
+        public version: string,
         public isUpToDate: boolean) {}
-}
-
-/**
- * Version represents a semantic version
- */
-export class Version {
-    public constructor(
-        public major: number,
-        public minor: number,
-        public patch: number) {}
-
-    /**
-     * Converts version numbers to string type
-     * @returns version - string of version value
-     */
-    public toString(): string {
-        return `v${this.major}.${this.minor}.${this.patch}`;
-    }
 }
 
 /**
