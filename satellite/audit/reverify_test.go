@@ -435,7 +435,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
-		dialer.RequestTimeout = 0
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
 		dialer.TransferRate = 1 * memory.KB

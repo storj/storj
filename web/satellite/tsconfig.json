@@ -33,6 +33,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "src/types/svg.d.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx"
   ],

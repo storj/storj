@@ -251,7 +251,10 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 		return Error.Wrap(err)
 	}
 
-	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
+	return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
+		Bucket:    bucketName,
+		PartnerID: *partnerID,
+	})
 }
 
 // updateBucket updates an existing bucket's attribution info.
