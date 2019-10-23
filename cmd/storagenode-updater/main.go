@@ -57,6 +57,12 @@ var (
 		Args:  cobra.OnlyValidArgs,
 		RunE:  cmdRun,
 	}
+	recoverCmd = &cobra.Command{
+		Use:   "recover",
+		Short: "Recover the storagenode-updater binary from a bad update using a backup",
+		Args:  cobra.OnlyValidArgs,
+		RunE:  cmdRecover,
+	}
 
 	runCfg struct {
 		// TODO: check interval default has changed from 6 hours to 15 min.
@@ -65,6 +71,7 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		// NB: can't use `log.output` because windows service command args containing "." are bugged.
 		Log            string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
@@ -83,6 +90,7 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(recoverCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
@@ -149,6 +157,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil && errs2.IsCanceled(err) {
 		log.Fatal(err)
 	}
+	return nil
+}
+
+func cmdRecover(cmd *cobra.Command, args []string) error {
+	log := zap.S()
+
+	log.Error("storagenode updater recovering!")
+
 	return nil
 }
 
