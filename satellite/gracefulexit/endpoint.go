@@ -29,7 +29,9 @@ import (
 const buildQueueMillis = 100
 
 var (
-	ErrHashMismatch = Error.New("Piece hashes for transferred piece don't match")
+	ErrHashMismatch              = Error.New("Piece hashes for transferred piece don't match")
+	ErrInvalidReplacementPieceID = Error.New("Invalid replacement piece ID")
+	ErrInvalidOriginalPieceID    = Error.New("Invalid original piece ID")
 )
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -59,6 +61,8 @@ type pendingTransfer struct {
 	path             []byte
 	pieceSize        int64
 	satelliteMessage *pb.SatelliteMessage
+	rootPieceID      storj.PieceID
+	pieceNum         int32
 }
 
 // pendingMap for managing concurrent access to the pending transfer map.
@@ -406,6 +410,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
 		satelliteMessage: transferMsg,
+		rootPieceID:      remote.RootPieceId,
+		pieceNum:         incomplete.PieceNum,
 	})
 
 	return nil
@@ -414,11 +420,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pieceID := message.Succeeded.OriginalPieceId
+	originalPieceID := message.Succeeded.OriginalPieceId
 
-	transfer, ok := pending.get(pieceID)
+	transfer, ok := pending.get(originalPieceID)
 	if !ok {
-		endpoint.log.Error("could not find transfer message in pending queue", zap.Stringer("piece ID", pieceID))
+		endpoint.log.Error("could not find transfer message in pending queue", zap.Stringer("piece ID", originalPieceID))
 		return Error.New("could not find transfer message in pending queue")
 	}
 
@@ -441,15 +447,15 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.New("Replacement piece hash cannot be nil.")
 	}
 
-	// verify that the satellite signed the original order limit
-	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetOriginalOrderLimit())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
 		return ErrHashMismatch
+	}
+
+	// verify that the satellite signed the original order limit
+	err = endpoint.orders.VerifyOrderLimitSignature(ctx, originalOrderLimit)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
@@ -458,8 +464,17 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
+	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
+		return ErrInvalidOriginalPieceID
+	}
+
 	// TODO add nil checks/figure out a better way to get the receiving node ID
 	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+
+	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
+	if calculatedNewPieceID != replacementPieceHash.PieceId {
+		return ErrInvalidReplacementPieceID
+	}
 
 	// get peerID and signee for new storage node
 	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
@@ -489,7 +504,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
-	pending.delete(pieceID)
+	pending.delete(originalPieceID)
 
 	return nil
 }
