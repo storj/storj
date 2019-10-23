@@ -13,11 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -129,65 +131,59 @@ func TestSuccess(t *testing.T) {
 
 func TestInvalidStorageNodeSignature(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		for {
-			response, err := processClient.Recv()
-			if errs.Is(err, io.EOF) {
-				// Done
-				break
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			require.NoError(t, err)
+
+			header, err := pieceReader.GetPieceHeader()
+			require.NoError(t, err)
+
+			orderLimit := header.OrderLimit
+
+			originalPieceHash := &pb.PieceHash{
+				PieceId:   orderLimit.PieceId,
+				Hash:      header.GetHash(),
+				PieceSize: pieceReader.Size(),
+				Timestamp: header.GetCreationTime(),
+				Signature: header.GetSignature(),
 			}
-			// TODO nat check the error
-			require.Error(t, err)
 
-			switch m := response.GetMessage().(type) {
-			case *pb.SatelliteMessage_TransferPiece:
-				require.NotNil(t, m)
-				pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-				require.NoError(t, err)
+			newPieceHash := &pb.PieceHash{
+				PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+				Hash:      originalPieceHash.Hash,
+				PieceSize: originalPieceHash.PieceSize,
+				Timestamp: time.Now(),
+			}
 
-				header, err := pieceReader.GetPieceHeader()
-				require.NoError(t, err)
+			wrongSigner := signing.SignerFromFullIdentity(exitingNode.Identity)
 
-				orderLimit := header.OrderLimit
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, wrongSigner, newPieceHash)
+			require.NoError(t, err)
 
-				originalPieceHash := &pb.PieceHash{
-					PieceId:   orderLimit.PieceId,
-					Hash:      header.GetHash(),
-					PieceSize: pieceReader.Size(),
-					Timestamp: header.GetCreationTime(),
-					Signature: header.GetSignature(),
-				}
-
-				newPieceHash := &pb.PieceHash{
-					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-					Hash:      originalPieceHash.Hash,
-					PieceSize: originalPieceHash.PieceSize,
-					Timestamp: time.Now(),
-				}
-
-				wrongSigner := signing.SignerFromFullIdentity(exitingNode.Identity)
-
-				signedNewPieceHash, err := signing.SignPieceHash(ctx, wrongSigner, newPieceHash)
-				require.NoError(t, err)
-
-				message := &pb.StorageNodeMessage{
-					Message: &pb.StorageNodeMessage_Succeeded{
-						Succeeded: &pb.TransferSucceeded{
-							OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-							OriginalPieceHash:    originalPieceHash,
-							OriginalOrderLimit:   &orderLimit,
-							ReplacementPieceHash: signedNewPieceHash,
-						},
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
 					},
-				}
-				err = processClient.Send(message)
-				require.NoError(t, err)
-			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
-			default:
-				t.FailNow()
+				},
 			}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case")
 		}
+
+		_, err = processClient.Recv()
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -201,66 +197,60 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 
 func TestFailureHashMismatch(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		for {
-			response, err := processClient.Recv()
-			if errs.Is(err, io.EOF) {
-				// Done
-				break
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			require.NoError(t, err)
+
+			header, err := pieceReader.GetPieceHeader()
+			require.NoError(t, err)
+
+			orderLimit := header.OrderLimit
+			originalPieceHash := &pb.PieceHash{
+				PieceId:   orderLimit.PieceId,
+				Hash:      header.GetHash(),
+				PieceSize: pieceReader.Size(),
+				Timestamp: header.GetCreationTime(),
+				Signature: header.GetSignature(),
 			}
-			// TODO check rpc error code and message
-			require.Error(t, err)
 
-			switch m := response.GetMessage().(type) {
-			case *pb.SatelliteMessage_TransferPiece:
-				require.NotNil(t, m)
-				pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-				require.NoError(t, err)
+			newPieceHash := &pb.PieceHash{
+				PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+				Hash:      originalPieceHash.Hash[:1],
+				PieceSize: originalPieceHash.PieceSize,
+				Timestamp: time.Now(),
+			}
 
-				header, err := pieceReader.GetPieceHeader()
-				require.NoError(t, err)
+			receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNode)
+			signer := signing.SignerFromFullIdentity(receivingNode.Identity)
 
-				orderLimit := header.OrderLimit
-				originalPieceHash := &pb.PieceHash{
-					PieceId:   orderLimit.PieceId,
-					Hash:      header.GetHash(),
-					PieceSize: pieceReader.Size(),
-					Timestamp: header.GetCreationTime(),
-					Signature: header.GetSignature(),
-				}
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+			require.NoError(t, err)
 
-				newPieceHash := &pb.PieceHash{
-					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-					Hash:      originalPieceHash.Hash[:1],
-					PieceSize: originalPieceHash.PieceSize,
-					Timestamp: time.Now(),
-				}
-
-				receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-				require.NotNil(t, receivingNode)
-				signer := signing.SignerFromFullIdentity(receivingNode.Identity)
-
-				signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-				require.NoError(t, err)
-
-				message := &pb.StorageNodeMessage{
-					Message: &pb.StorageNodeMessage_Succeeded{
-						Succeeded: &pb.TransferSucceeded{
-							OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-							OriginalPieceHash:    originalPieceHash,
-							OriginalOrderLimit:   &orderLimit,
-							ReplacementPieceHash: signedNewPieceHash,
-						},
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
 					},
-				}
-				err = processClient.Send(message)
-				require.NoError(t, err)
-			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
-			default:
-				t.FailNow()
+				},
 			}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case")
 		}
+
+		_, err = processClient.Recv()
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -274,109 +264,97 @@ func TestFailureHashMismatch(t *testing.T) {
 
 func TestFailureUnknownError(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		for {
-			response, err := processClient.Recv()
-			if errs.Is(err, io.EOF) {
-				// Done
-				break
-			}
-			require.NoError(t, err)
+		response, err := processClient.Recv()
+		require.NoError(t, err)
 
-			switch m := response.GetMessage().(type) {
-			case *pb.SatelliteMessage_TransferPiece:
-				require.NotNil(t, m)
-				message := &pb.StorageNodeMessage{
-					Message: &pb.StorageNodeMessage_Failed{
-						Failed: &pb.TransferFailed{
-							Error:           pb.TransferFailed_UNKNOWN,
-							OriginalPieceId: m.TransferPiece.OriginalPieceId,
-						},
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Failed{
+					Failed: &pb.TransferFailed{
+						Error:           pb.TransferFailed_UNKNOWN,
+						OriginalPieceId: m.TransferPiece.OriginalPieceId,
 					},
-				}
-				err = processClient.Send(message)
-				require.NoError(t, err)
-			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
-			default:
-				t.FailNow()
+				},
 			}
-
-			// TODO uncomment once progress reflects updated success and fail counts
-			// check that the exit has completed and we have the correct transferred/failed values
-			// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-			// require.NoError(t, err)
-			//
-			// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-			// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case")
 		}
+
+		_, err = processClient.Recv()
+		require.NoError(t, err)
+
+		// TODO uncomment once progress reflects updated success and fail counts
+		// check that the exit has completed and we have the correct transferred/failed values
+		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		// require.NoError(t, err)
+		//
+		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
+		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
 	})
 }
 
 func TestFailureUplinkSignature(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		for {
-			response, err := processClient.Recv()
-			if errs.Is(err, io.EOF) {
-				// Done
-				break
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			require.NoError(t, err)
+
+			header, err := pieceReader.GetPieceHeader()
+			require.NoError(t, err)
+
+			orderLimit := header.OrderLimit
+			orderLimit.UplinkPublicKey = storj.PiecePublicKey{}
+
+			originalPieceHash := &pb.PieceHash{
+				PieceId:   orderLimit.PieceId,
+				Hash:      header.GetHash(),
+				PieceSize: pieceReader.Size(),
+				Timestamp: header.GetCreationTime(),
+				Signature: header.GetSignature(),
 			}
-			// TODO nat check the error
-			require.Error(t, err)
 
-			switch m := response.GetMessage().(type) {
-			case *pb.SatelliteMessage_TransferPiece:
-				require.NotNil(t, m)
-				pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-				require.NoError(t, err)
+			newPieceHash := &pb.PieceHash{
+				PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+				Hash:      originalPieceHash.Hash,
+				PieceSize: originalPieceHash.PieceSize,
+				Timestamp: time.Now(),
+			}
 
-				header, err := pieceReader.GetPieceHeader()
-				require.NoError(t, err)
+			receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNode)
+			signer := signing.SignerFromFullIdentity(receivingNode.Identity)
 
-				orderLimit := header.OrderLimit
-				orderLimit.UplinkPublicKey = storj.PiecePublicKey{}
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+			require.NoError(t, err)
 
-				originalPieceHash := &pb.PieceHash{
-					PieceId:   orderLimit.PieceId,
-					Hash:      header.GetHash(),
-					PieceSize: pieceReader.Size(),
-					Timestamp: header.GetCreationTime(),
-					Signature: header.GetSignature(),
-				}
-
-				newPieceHash := &pb.PieceHash{
-					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-					Hash:      originalPieceHash.Hash,
-					PieceSize: originalPieceHash.PieceSize,
-					Timestamp: time.Now(),
-				}
-
-				receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-				require.NotNil(t, receivingNode)
-				signer := signing.SignerFromFullIdentity(receivingNode.Identity)
-
-				signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-				require.NoError(t, err)
-
-				message := &pb.StorageNodeMessage{
-					Message: &pb.StorageNodeMessage_Succeeded{
-						Succeeded: &pb.TransferSucceeded{
-							OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-							OriginalPieceHash:    originalPieceHash,
-							OriginalOrderLimit:   &orderLimit,
-							ReplacementPieceHash: signedNewPieceHash,
-						},
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
 					},
-				}
-				err = processClient.Send(message)
-				require.NoError(t, err)
-			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
-			default:
-				t.FailNow()
+				},
 			}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case")
 		}
+
+		_, err = processClient.Recv()
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values

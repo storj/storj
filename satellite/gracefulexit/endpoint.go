@@ -29,9 +29,12 @@ import (
 const buildQueueMillis = 100
 
 var (
-	ErrHashMismatch              = Error.New("Piece hashes for transferred piece don't match")
+	// ErrHashMismatch is an error for when original piece hash doesn't match replacement piece hash.
+	ErrHashMismatch = Error.New("Piece hashes for transferred piece don't match")
+	// ErrInvalidReplacementPieceID is an error for when new piece ID doesn't match derived new piece ID.
 	ErrInvalidReplacementPieceID = Error.New("Invalid replacement piece ID")
-	ErrInvalidOriginalPieceID    = Error.New("Invalid original piece ID")
+	// ErrInvalidOriginalPieceID is an error for when original piece ID doesn't match derived original piece ID.
+	ErrInvalidOriginalPieceID = Error.New("Invalid original piece ID")
 )
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -279,7 +282,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
-				return Error.Wrap(err)
+				return err
 			}
 			deleteMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_DeletePiece{
@@ -449,19 +452,19 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		return ErrHashMismatch
+		return rpcstatus.Error(rpcstatus.InvalidArgument, ErrHashMismatch.Error())
 	}
 
 	// verify that the satellite signed the original order limit
 	err = endpoint.orders.VerifyOrderLimitSignature(ctx, originalOrderLimit)
 	if err != nil {
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
 	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
@@ -486,7 +489,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
 	if err != nil {
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	var failed int64
