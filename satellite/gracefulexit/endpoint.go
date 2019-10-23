@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -30,7 +29,7 @@ import (
 const buildQueueMillis = 100
 
 var (
-	ErrorHashMismatch = Error.New("Piece hashes for transferred piece don't match")
+	ErrHashMismatch = Error.New("Piece hashes for transferred piece don't match")
 )
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -429,54 +428,34 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
-	failedCount := 0
-
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, Error.New("Original order limit cannot be nil.")))
+		return Error.New("Original order limit cannot be nil.")
 	}
 	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
 	if originalPieceHash == nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, Error.New("Original piece hash cannot be nil.")))
+		return Error.New("Original piece hash cannot be nil.")
 	}
 	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
 	if replacementPieceHash == nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, Error.New("Replacement piece hash cannot be nil.")))
+		return Error.New("Replacement piece hash cannot be nil.")
 	}
 
 	// verify that the satellite signed the original order limit
 	err = endpoint.orders.VerifyOrderLimitSignature(ctx, message.Succeeded.GetOriginalOrderLimit())
 	if err != nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, err))
+		return Error.Wrap(err)
 	}
 
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, ErrorHashMismatch))
+		return ErrHashMismatch
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
 	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, err))
+		return Error.Wrap(err)
 	}
 
 	// TODO add nil checks/figure out a better way to get the receiving node ID
@@ -492,10 +471,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
 	if err != nil {
-		failedCount++
-		transferQueueItem.FailedCount = &failedCount
-		updateErr := endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
-		return Error.Wrap(errs.Combine(updateErr, err))
+		return Error.Wrap(err)
 	}
 
 	var failed int64
