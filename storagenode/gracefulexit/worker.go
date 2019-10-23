@@ -99,7 +99,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			addrLimit := msg.TransferPiece.GetAddressedOrderLimit()
 			pk := msg.TransferPiece.PrivateKey
 
-			originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, addrLimit.GetLimit())
+			originalHash, originalOrderLimit, err := worker.store.GetHashAndLimit(ctx, worker.satelliteID, pieceID, reader)
 			if err != nil {
 				worker.log.Error("failed to get piece hash and order limit.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
@@ -189,36 +189,4 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 func (worker *Worker) Close() error {
 	// TODO not sure this is needed yet.
 	return nil
-}
-
-// TODO This comes from piecestore.Endpoint. It should probably be an exported method so I don't have to duplicate it here.
-func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash *pb.PieceHash, orderLimit *pb.OrderLimit, err error) {
-
-	if pieceReader.StorageFormatVersion() == 0 {
-		// v0 stores this information in SQL
-		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-		if err != nil {
-			worker.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-			return nil, nil, err
-		}
-		orderLimit = info.OrderLimit
-		pieceHash = info.UplinkPieceHash
-	} else {
-		//v1+ stores this information in the file
-		header, err := pieceReader.GetPieceHeader()
-		if err != nil {
-			worker.log.Error("error getting header from piecereader", zap.Error(err))
-			return nil, nil, err
-		}
-		orderLimit = &header.OrderLimit
-		pieceHash = &pb.PieceHash{
-			PieceId:   orderLimit.PieceId,
-			Hash:      header.GetHash(),
-			PieceSize: pieceReader.Size(),
-			Timestamp: header.GetCreationTime(),
-			Signature: header.GetSignature(),
-		}
-	}
-
-	return
 }
