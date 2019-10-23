@@ -251,8 +251,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			var transferMsg *pb.SatelliteMessage
 			processed := progress.PiecesFailed + progress.PiecesTransferred
 			// check node's exiting progress to see if it has failed passed max failure threshold
-			if processed > 0 && progress.PiecesFailed > 0 &&
-				float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
+			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
 				exitStatusRequest.ExitSuccess = false
 				// TODO needs signature
