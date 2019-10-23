@@ -5,8 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
@@ -54,8 +52,6 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-
-	fmt.Errorf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA   " + customerID)
 
 	c, err := accounts.service.stripeClient.Customers.Get(customerID, nil)
 	if err != nil {

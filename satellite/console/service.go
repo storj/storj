@@ -146,15 +146,15 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
-func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, creditCardID []byte) (err error) {
-	defer mon.Task()(&ctx, creditCardID)(&err)
+func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, creditCardID)
+	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
@@ -170,15 +170,15 @@ func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []paymen
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
-func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID []byte) (err error) {
+func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
-	_, err = GetAuth(ctx)
+	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().Remove(ctx, cardID)
+	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
 // CreateUser gets password hash value and creates new inactive User

@@ -106,7 +106,7 @@ export default class SNOContentTitle extends Vue {
     public get version(): string {
         const version = this.$store.state.node.info.version;
 
-        return `v${version.major}.${version.minor}.${version.patch}`;
+        return `v${version}`;
     }
 
     public get online(): boolean {

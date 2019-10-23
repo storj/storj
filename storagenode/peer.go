@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -91,7 +92,7 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version version.Config
+	Version checker.Config
 
 	Bandwidth bandwidth.Config
 
@@ -116,7 +117,7 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *checker.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -174,12 +175,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
@@ -302,7 +302,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
-		dialer.RequestTimeout = config.Storage2.Orders.SenderRequestTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
@@ -397,6 +396,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
 			config.GracefulExit,
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
 			peer.DB.Satellites(),
 		)
 	}

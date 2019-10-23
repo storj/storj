@@ -18,18 +18,18 @@ type CreditCards interface {
 	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
 
 	// Remove is used to detach a credit card from payment account.
-	Remove(ctx context.Context, cardID []byte) error
+	Remove(ctx context.Context, userID uuid.UUID, cardID string) error
 
 	// MakeDefault makes a credit card default payment method.
 	// this credit card should be attached to account before make it default.
-	MakeDefault(ctx context.Context, userID uuid.UUID, cardID []byte) error
+	MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) error
 }
 
 // CreditCard holds all public information about credit card.
 type CreditCard struct {
-	ID        []byte `json:"id"`
-	ExpMonth  int    `json:"exp_month"`
-	ExpYear   int    `json:"exp_year"`
+	ID        string `json:"id"`
+	ExpMonth  int    `json:"expMonth"`
+	ExpYear   int    `json:"expYear"`
 	Brand     string `json:"brand"`
 	Last4     string `json:"last4"`
 	IsDefault bool   `json:"isDefault"`

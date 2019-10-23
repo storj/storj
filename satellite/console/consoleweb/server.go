@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -24,7 +25,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/post"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -114,28 +114,40 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	router := http.NewServeMux()
+	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	paymentController := consoleapi.NewPayments(logger, service)
-	router.Handle("/api/v0/payments/cards", http.HandlerFunc(paymentController.CreditCards))
-	router.Handle("/api/v0/payments/cards/", http.HandlerFunc(paymentController.RemoveCreditCard))
-	router.Handle("/api/v0/payments/account/balance", http.HandlerFunc(paymentController.AccountBalance))
-	router.Handle("/api/v0/payments/account", http.HandlerFunc(paymentController.SetupAccount))
+	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
+	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	router.Handle("/api/v0/graphql", http.HandlerFunc(server.grapqlHandler))
-	router.Handle("/api/v0/token", http.HandlerFunc(server.tokenHandler))
-	router.Handle("/api/v0/register", http.HandlerFunc(server.registerHandler))
-	router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-	router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
+	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
+	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
+	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
+	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods(http.MethodDelete)
+	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods(http.MethodPost)
+
+	paymentController := consoleapi.NewPayments(logger, service)
+	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
+	paymentsRouter.Use(server.withAuth)
+	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
-		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		router.Handle("/", http.HandlerFunc(server.appHandler))
+		router.HandleFunc("/activation/", server.accountActivationHandler)
+		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
+		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
+		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
+		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
@@ -202,92 +214,24 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// tokenRequestHandler authenticates User by credentials and returns auth token.
-func (server *Server) tokenHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
+// authMiddlewareHandler performs initial authorization before every request.
+func (server *Server) withAuth(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var err error
+		defer mon.Task()(&ctx)(&err)
+		token := getToken(r)
 
-	var tokenRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+		ctx = auth.WithAPIKey(ctx, []byte(token))
+		auth, err := server.service.Authorize(ctx)
+		if err != nil {
+			ctx = console.WithAuthFailure(ctx, err)
+		} else {
+			ctx = console.WithAuth(ctx, auth)
+		}
 
-	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
-	if err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	var tokenResponse struct {
-		Token string `json:"token"`
-	}
-
-	tokenResponse.Token, err = server.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
-	if err != nil {
-		server.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(tokenResponse)
-	if err != nil {
-		server.log.Error("token handler could not encode token response", zap.Error(err))
-		return
-	}
-}
-
-// registerHandler registers new User.
-func (server *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var request struct {
-		UserInfo       console.CreateUser `json:"userInfo"`
-		SecretInput    string             `json:"secret"`
-		ReferrerUserID string             `json:"referrerUserID"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
-	if err != nil {
-		server.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	user, err := server.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
-	if err != nil {
-		server.serveJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
-	if err != nil {
-		server.serveJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	link := server.config.ExternalAddress + consoleql.ActivationPath + token
-
-	server.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: user.Email, Name: user.FullName}},
-		&consoleql.AccountActivationEmail{
-			ActivationLink: link,
-			Origin:         server.config.ExternalAddress,
-		},
-	)
-
-	err = json.NewEncoder(w).Encode(&user.ID)
-	if err != nil {
-		server.log.Error("registration handler could not encode error", zap.Error(err))
-		return
-	}
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project

@@ -4,25 +4,23 @@
 package consoleapi
 
 import (
-	"context"
 	"encoding/json"
-	"github.com/zeebo/errs"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
+	"github.com/gorilla/mux"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 )
 
 var (
-	Error = errs.Class("satellite console payments api error")
-	mon = monkit.Package()
+	// ErrPaymentsAPI - console payments api error type.
+	ErrPaymentsAPI = errs.Class("console payments api error")
+	mon            = monkit.Package()
 )
-
 
 // Payments is an api controller that exposes all payment related functionality
 type Payments struct {
@@ -44,13 +42,6 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	ctx = p.authorize(ctx, r)
-
 	err = p.service.Payments().SetupAccount(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -69,13 +60,6 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	ctx = p.authorize(ctx, r)
-
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -89,23 +73,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(balance)
 	if err != nil {
-		p.log.Error("failed to write json balance response", zap.Error(Error.Wrap(err)))
-	}
-}
-
-// CreditCards selects what to do depends on http method type.
-func (p *Payments) CreditCards(w http.ResponseWriter, r *http.Request) {
-	p.log.Error("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-
-	switch r.Method {
-	case http.MethodPatch:
-		p.MakeCreditCardDefault(w, r)
-	case http.MethodGet:
-		p.ListCreditCards(w, r)
-	case http.MethodPost:
-		p.AddCreditCard(w, r)
-	default:
-		w.WriteHeader(http.StatusNotFound)
+		p.log.Error("failed to write json balance response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 
@@ -114,8 +82,6 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-
-	ctx = p.authorize(ctx, r)
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -143,8 +109,6 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ctx = p.authorize(ctx, r)
-
 	cards, err := p.service.Payments().ListCreditCards(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -158,7 +122,7 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(cards)
 	if err != nil {
-		p.log.Error("failed to write json list cards response", zap.Error(Error.Wrap(err)))
+		p.log.Error("failed to write json list cards response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 
@@ -168,15 +132,15 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ctx = p.authorize(ctx, r)
-
 	cardID, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = p.service.Payments().MakeCreditCardDefault(ctx, cardID)
+	p.log.Error("CARD ID " + string(cardID))
+
+	err = p.service.Payments().MakeCreditCardDefault(ctx, string(cardID))
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -194,18 +158,15 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusNotFound)
+	vars := mux.Vars(r)
+	cardID := vars["cardId"]
+
+	if cardID == "" {
+		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	ctx = p.authorize(ctx, r)
-
-	p.log.Error(r.URL.Path[len("/api/v0/payments/cards/"):])
-
-	cardID := r.URL.Path[len("/api/v0/payments/cards/"):]
-
-	err = p.service.Payments().RemoveCreditCard(ctx, []byte(cardID))
+	err = p.service.Payments().RemoveCreditCard(ctx, cardID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -229,19 +190,6 @@ func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) 
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		p.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		p.log.Error("failed to write json error response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
-}
-
-// authorize checks request for authorization token, validates it and updates context with auth data.
-func (p *Payments) authorize(ctx context.Context, r *http.Request) context.Context {
-	authHeaderValue := r.Header.Get("Authorization")
-	token := strings.TrimPrefix(authHeaderValue, "Bearer ")
-
-	auth, err := p.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-	if err != nil {
-		return console.WithAuthFailure(ctx, err)
-	}
-
-	return console.WithAuth(ctx, auth)
 }

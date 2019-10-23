@@ -104,7 +104,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const creditCards = await response.json();
 
         if (creditCards) {
-            return creditCards.map(card => new CreditCard(card.id, card.expMonth, card.expYear, card.brand, card.last4, false));
+            return creditCards.map(card => new CreditCard(card.id, card.expMonth, card.expYear, card.brand, card.last4, card.isDefault));
         }
 
         return [];
