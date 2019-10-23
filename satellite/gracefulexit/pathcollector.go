@@ -5,6 +5,7 @@ package gracefulexit
 
 import (
 	"context"
+	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,11 +21,12 @@ var _ metainfo.Observer = (*PathCollector)(nil)
 //
 // architecture: Observer
 type PathCollector struct {
-	db        DB
-	nodeIDs   map[storj.NodeID]struct{}
-	buffer    []TransferQueueItem
-	log       *zap.Logger
-	batchSize int
+	db          DB
+	nodeIDMutex sync.Mutex
+	nodeIDs     map[storj.NodeID]int
+	buffer      []TransferQueueItem
+	log         *zap.Logger
+	batchSize   int
 }
 
 // NewPathCollector instantiates a path collector.
@@ -38,9 +40,9 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 	}
 
 	if len(nodeIDs) > 0 {
-		collector.nodeIDs = make(map[storj.NodeID]struct{}, len(nodeIDs))
+		collector.nodeIDs = make(map[storj.NodeID]int, len(nodeIDs))
 		for _, nodeID := range nodeIDs {
-			collector.nodeIDs[nodeID] = struct{}{}
+			collector.nodeIDs[nodeID] = 0
 		}
 	}
 
@@ -58,11 +60,15 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 		return nil
 	}
 
+	collector.nodeIDMutex.Lock()
+	defer collector.nodeIDMutex.Unlock()
+
 	numPieces := int32(len(pointer.GetRemote().GetRemotePieces()))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := collector.nodeIDs[piece.NodeId]; !ok {
 			continue
 		}
+		collector.nodeIDs[piece.NodeId]++
 
 		item := TransferQueueItem{
 			NodeID:          piece.NodeId,
