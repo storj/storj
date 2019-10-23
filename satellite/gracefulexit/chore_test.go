@@ -24,14 +24,14 @@ import (
 )
 
 func TestChore(t *testing.T) {
-	var maximumInActiveTimeFrame = time.Second * 1
+	var maximumInactiveTimeFrame = time.Second * 1
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 8,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GracefulExit.MaxInactiveTimeFrame = maximumInActiveTimeFrame
+				config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -106,7 +106,7 @@ func TestChore(t *testing.T) {
 		require.NoError(t, err)
 
 		// node should fail graceful exit if it has been inactive for maximum inactive time frame since last activity
-		time.Sleep(maximumInActiveTimeFrame)
+		time.Sleep(maximumInactiveTimeFrame + time.Second*1)
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
