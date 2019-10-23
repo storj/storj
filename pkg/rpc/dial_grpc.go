@@ -41,8 +41,8 @@ func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config)
 	}, nil
 }
 
-// dialInsecure performs dialing to the grpc endpoint with no tls.
-func (d Dialer) dialInsecure(ctx context.Context, address string) (_ *Conn, err error) {
+// dialUnencrypted performs dialing to the grpc endpoint with no tls.
+func (d Dialer) dialUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := grpc.DialContext(ctx, address,
