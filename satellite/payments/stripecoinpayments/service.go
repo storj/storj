@@ -125,8 +125,6 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 				Received:      info.Received,
 			},
 		)
-
-		// TODO: update stripe customer balance
 	}
 
 	return service.transactionsDB.Update(ctx, updates)
