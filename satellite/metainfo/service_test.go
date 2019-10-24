@@ -13,7 +13,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -54,4 +56,75 @@ func TestIterate(t *testing.T) {
 		// There should only be 1 item in pointerDB, the one object
 		require.Equal(t, 1, itemCount)
 	})
+}
+
+func TestUpdatePiecesDuplicateNodeID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		saPeer := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		// create test buckets
+		err := uplinkPeer.CreateBucket(ctx, saPeer, "test1")
+		require.NoError(t, err)
+
+		// upload an object
+		expectedData := testrand.Bytes(50 * memory.KiB)
+		err = uplinkPeer.Upload(ctx, saPeer, "test1", "test/path", expectedData)
+		require.NoError(t, err)
+
+		pointer, path := getRemoteSegment(t, ctx, saPeer)
+
+		duplicatedNodeID := storj.NodeID{}
+		pieceToRemove := make([]*pb.RemotePiece, 1)
+		pieceToAdd := make([]*pb.RemotePiece, 1)
+		pieces := pointer.GetRemote().GetRemotePieces()
+		for _, piece := range pieces {
+			if pieceToRemove[0] == nil {
+				pieceToRemove[0] = piece
+				continue
+			}
+
+			if pieceToRemove[0].NodeId != piece.NodeId {
+				duplicatedNodeID = piece.NodeId
+				break
+			}
+		}
+
+		// create a piece with deleted piece number and duplicated node ID from the pointer
+		pieceToAdd[0] = &pb.RemotePiece{
+			PieceNum: pieceToRemove[0].PieceNum,
+			NodeId:   duplicatedNodeID,
+		}
+
+		updated, err := saPeer.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
+		require.Error(t, err)
+		require.True(t, metainfo.ErrDuplicatedNodeID.Has(err))
+		require.Nil(t, updated)
+	})
+}
+
+// getRemoteSegment returns a remote pointer its path from satellite.
+func getRemoteSegment(
+	t *testing.T, ctx context.Context, satellite *testplanet.SatelliteSystem,
+) (_ *pb.Pointer, path string) {
+	t.Helper()
+
+	// get a remote segment from metainfo
+	metainfo := satellite.Metainfo.Service
+	listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+	require.NoError(t, err)
+
+	for _, v := range listResponse {
+		path := v.GetPath()
+		pointer, err := metainfo.Get(ctx, path)
+		require.NoError(t, err)
+		if pointer.GetType() == pb.Pointer_REMOTE {
+			return pointer, path
+		}
+	}
+
+	t.Fatal("satellite doesn't have any remote segment")
+	return nil, ""
 }

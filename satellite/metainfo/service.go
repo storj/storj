@@ -9,6 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/macaroon"
@@ -17,6 +18,9 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/storage/meta"
 )
+
+// ErrDuplicatedNodeID  is an error class for having duplicated node IDs in a pointer.
+var ErrDuplicatedNodeID = errs.Class("node id already exits in the piece to add")
 
 // Service structure
 //
@@ -110,7 +114,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 			}
 			_, exists = uniqueNodeMap[piece.NodeId]
 			if exists {
-				return nil, Error.New("node already exits for the piece to add (piece no: %d, node id: %s)", piece.PieceNum, piece.NodeId.String())
+				return nil, ErrDuplicatedNodeID.New("piece num: %d, node id: %s", piece.PieceNum, piece.NodeId.String())
 			}
 			pieceMap[piece.PieceNum] = piece
 		}
