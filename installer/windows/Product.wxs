@@ -72,8 +72,6 @@
         <RemoveFolder Id="RemoveStorageNodeMenuFolder" Directory="StorageNodeStartMenuFolder" On="uninstall" />
         <RemoveFolder Id="RemoveStorjMenuFolder" Directory="StorjStartMenuFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="installed" Type="integer" Value="1" KeyPath="yes" />
-        <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="config" Type="string" Value="[INSTALLFOLDER]" />
-          
       </Component>
     </ComponentGroup>
     
@@ -83,9 +81,6 @@
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
 
-      <Property Id="CONFIGDIR">
-          <RegistrySearch Id="configdirSearch" Root="HKLM" Key="Software\Storj\Storage Node" Name="config" Type="raw" />
-      </Property>
     <Property Id="STORJ_DEFAULTIDENTITYDIR">
         <DirectorySearch Id='search1' Path='[PersonalFolder]' />
         <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
