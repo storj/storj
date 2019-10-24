@@ -97,7 +97,7 @@ export default class AccountBalance extends Vue {
     .button {
 
         &:hover {
-            background-color: #0059D0;
+            background-color: #0059d0;
             box-shadow: none;
         }
     }
@@ -108,16 +108,16 @@ export default class AccountBalance extends Vue {
         justify-content: space-between;
         padding: 40px;
         margin-bottom: 32px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__title-area {
             display: flex;
             align-items: center;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
@@ -131,11 +131,11 @@ export default class AccountBalance extends Vue {
                 &:hover {
 
                     .account-balance-svg-path {
-                        fill: #FFFFFF;
+                        fill: #fff;
                     }
 
                     .account-balance-svg-rect {
-                        fill: #2683FF;
+                        fill: #2683ff;
                     }
                 }
             }
@@ -173,7 +173,7 @@ export default class AccountBalance extends Vue {
             margin-top: 20px;
 
             &__bold-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 color: #354049;
             }
         }

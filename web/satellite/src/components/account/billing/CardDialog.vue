@@ -57,23 +57,23 @@ export default class CardDialog extends Vue {
         align-items: center;
         justify-content: flex-end;
         z-index: 100;
-        background-image: url("../../../../static/images/payments/Dialog.svg");
+        background-image: url('../../../../static/images/payments/Dialog.svg');
         background-size: contain;
         width: 167px;
         height: 122px;
         cursor: initial;
 
         &__make-default {
-            color: #61666B;
+            color: #61666b;
         }
 
         &__delete {
-            color: #EB5757;
+            color: #eb5757;
         }
     }
 
     .label {
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         margin: 0;
         height: 35%;

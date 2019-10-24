@@ -176,12 +176,12 @@ export default class BucketArea extends Vue {
         align-items: flex-start;
         justify-content: space-between;
         padding: 40px 60px 20px 60px;
-        
+
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
-            color: #384B65;
+            color: #384b65;
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
@@ -191,7 +191,7 @@ export default class BucketArea extends Vue {
     .header-container.buckets-header-component {
         height: 55px !important;
     }
-    
+
     .buckets-container,
     .buckets-notification-container {
         padding: 0 60px 0 60px;
@@ -204,11 +204,11 @@ export default class BucketArea extends Vue {
         padding: 16px 32px;
         align-items: center;
         border-radius: 12px;
-        background-color: #D0E3FE;
+        background-color: #d0e3fe;
         margin-bottom: 25px;
 
         &__text {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             margin-left: 26px;
         }
@@ -221,7 +221,7 @@ export default class BucketArea extends Vue {
         flex-direction: column;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
             margin-top: 104px;
@@ -233,6 +233,7 @@ export default class BucketArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .buckets-header {
             padding: 40px 40px 20px 40px;
         }
@@ -244,6 +245,7 @@ export default class BucketArea extends Vue {
     }
 
     @media screen and (max-height: 880px) {
+
         .buckets-overflow {
             overflow-y: scroll;
             height: 750px;
@@ -251,24 +253,28 @@ export default class BucketArea extends Vue {
     }
 
     @media screen and (max-height: 853px) {
+
         .buckets-overflow {
             height: 700px;
         }
     }
 
     @media screen and (max-height: 805px) {
+
         .buckets-overflow {
             height: 630px;
         }
     }
 
     @media screen and (max-height: 740px) {
+
         .buckets-overflow {
             height: 600px;
         }
     }
-    
+
     @media screen and (max-height: 700px) {
+
         .buckets-overflow {
             height: 570px;
         }

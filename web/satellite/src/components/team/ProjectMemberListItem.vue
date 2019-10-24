@@ -72,7 +72,7 @@ export default class ProjectMemberListItem extends Vue {
         background-color: #fff;
         cursor: pointer;
         width: calc(100% - 28px);
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__base-info {
             width: 50%;
@@ -90,12 +90,12 @@ export default class ProjectMemberListItem extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #FF8658;
+                background-color: #ff8658;
 
                 &__letter {
                     margin: 0;
                     font-size: 16px;
-                    color: #F5F6FA;
+                    color: #f5f6fa;
                 }
             }
 
@@ -104,15 +104,15 @@ export default class ProjectMemberListItem extends Vue {
                 &__user-name {
                     margin: 0 0 0 20px;
                     font-size: 16px;
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     color: #354049;
                 }
 
                 &__owner-status {
                     margin: 0 0 0 20px;
                     font-size: 13px;
-                    color: #AFB7C1;
-                    font-family: 'font_medium';
+                    color: #afb7c1;
+                    font-family: 'font_medium', sans-serif;
                 }
             }
         }
@@ -131,25 +131,25 @@ export default class ProjectMemberListItem extends Vue {
     }
 
     .checkbox {
-        background-image: url("../../../static/images/team/checkboxEmpty.png");
+        background-image: url('../../../static/images/team/checkboxEmpty.png');
         min-width: 23px;
         height: 23px;
     }
 
     .user-container.selected {
-        background-color: #2683FF;
+        background-color: #2683ff;
 
         .checkbox {
             min-width: 23px;
             height: 23px;
-            background-image: url("../../../static/images/team/checkboxChecked.png");
+            background-image: url('../../../static/images/team/checkboxChecked.png');
         }
 
         .user-container__base-info__name-area__user-name,
         .user-container__base-info__name-area__owner-status,
         .user-container__date,
         .user-container__user-email {
-            color: #FFFFFF;
+            color: #fff;
         }
     }
 </style>

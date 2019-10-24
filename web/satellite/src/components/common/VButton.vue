@@ -53,17 +53,43 @@ export default class VButton extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2683FF;
+        background-color: #2683ff;
         border-radius: 6px;
         cursor: pointer;
 
+        .label {
+            font-family: 'font_medium', sans-serif;
+            font-size: 16px;
+            line-height: 23px;
+            color: #fff;
+        }
+
+        .white,
+        .red {
+            background-color: transparent;
+            border: 1px solid #afb7c1;
+
+            .label {
+                color: #354049;
+            }
+        }
+
+        .disabled {
+            background-color: #dadde5;
+            border-color: #dadde5;
+
+            .label {
+                color: #acb0bc;
+            }
+        }
+
         &:hover {
-            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
             &.white {
                 box-shadow: none;
-                background-color: #2683FF;
-                border: 1px solid #2683FF;
+                background-color: #2683ff;
+                border: 1px solid #2683ff;
 
                 .label {
                     color: white;
@@ -75,44 +101,18 @@ export default class VButton extends Vue {
                 background-color: transparent;
 
                 .label {
-                    color: #EB5757;
+                    color: #eb5757;
                 }
             }
 
             &.disabled {
                 box-shadow: none;
-                background-color: #DADDE5 !important;
+                background-color: #dadde5 !important;
 
                 .label {
-                    color: #ACB0BC !important;
+                    color: #acb0bc !important;
                 }
             }
-        }
-
-        .label {
-            font-family: 'font_medium';
-			font-size: 16px;
-			line-height: 23px;
-            color: #fff;
-        }
-    }
-
-    .container.white,
-    .container.red {
-        background-color: transparent;
-        border: 1px solid #AFB7C1;
-
-        .label {
-            color: #354049;
-        }
-    }
-
-    .container.disabled {
-        background-color: #DADDE5;
-        border-color: #DADDE5;
-
-        .label {
-            color: #ACB0BC;
         }
     }
 </style>
