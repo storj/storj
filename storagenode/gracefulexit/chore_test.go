@@ -106,7 +106,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
 	require.NoError(t, err)
 	require.Len(t, exitingNodes, 1)
-	require.Equal(t, exitingNode.ID(), exitingNodes[0])
+	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
 	queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
 	require.NoError(t, err)
