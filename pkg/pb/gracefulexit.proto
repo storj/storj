@@ -68,6 +68,7 @@ message TransferFailed {
       NOT_FOUND                 = 0;
       STORAGE_NODE_UNAVAILABLE  = 1;
       HASH_VERIFICATION         = 2;
+      SATELLITE_VALIDATION      = 3;
 
       UNKNOWN                   = 10;
   }

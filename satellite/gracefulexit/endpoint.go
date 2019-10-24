@@ -497,6 +497,16 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.New("Transfer path cannot be nil")
 	}
 
+	defer func() {
+		// increment piece failure if error is the fault of the storagenode
+		if ErrInvalidArgument.Has(err) {
+			incErr := endpoint.incrementPieceFailCount(ctx, exitingNodeID, transfer.path, pb.TransferFailed_SATELLITE_VALIDATION)
+			if incErr != nil {
+				endpoint.log.Error("Could not increment piece fail count", zap.Error(incErr))
+			}
+		}
+	}()
+
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -583,10 +593,23 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	transfer, ok := pending.get(pieceID)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("piece ID", pieceID))
-
-		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
+		return Error.New("Could not find transfer item in pending queue")
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
+
+	err = endpoint.incrementPieceFailCount(ctx, nodeID, transfer.path, message.Failed.Error)
+	if err != nil {
+		return err
+	}
+
+	pending.delete(pieceID)
+
+	return nil
+}
+
+// incrementPieceFailCount increases a transfer queue item's failure count by one, and if it has hit the max failures for piece,
+// increases the exiting node's total failure count by one.
+func (endpoint *Endpoint) incrementPieceFailCount(ctx context.Context, nodeID storj.NodeID, path []byte, errType pb.TransferFailed_Error) error {
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -596,7 +619,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		failedCount = *transferQueueItem.FailedCount + 1
 	}
 
-	errorCode := int(pb.TransferFailed_Error_value[message.Failed.Error.String()])
+	errorCode := int(pb.TransferFailed_Error_value[errType.String()])
 
 	// TODO if error code is NOT_FOUND, the node no longer has the piece. remove the queue item and the pointer
 
@@ -615,8 +638,6 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 			return Error.Wrap(err)
 		}
 	}
-
-	pending.delete(pieceID)
 
 	return nil
 }
