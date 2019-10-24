@@ -36,7 +36,7 @@ var (
 	ErrInvalidReplacementPieceID = Error.New("Invalid replacement piece ID")
 	// ErrInvalidOriginalPieceID is an error for when original piece ID doesn't match derived original piece ID.
 	ErrInvalidOriginalPieceID = Error.New("Invalid original piece ID")
-	// ErrInvalidArgument is an error class for internal errors used to check which rpc code to use.
+	// ErrInvalidArgument is an error class for invalid argument errors used to check which rpc code to use.
 	ErrInvalidArgument = errs.Class("graceful exit")
 )
 
