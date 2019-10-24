@@ -24,8 +24,10 @@ import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
@@ -37,6 +39,12 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+
+const {
+    SETUP_ACCOUNT,
+    GET_BALANCE,
+    GET_CREDIT_CARDS,
+} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
@@ -52,10 +60,25 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
             await this.$notify.error(error.message);
-            await this.$router.push(RouteConfig.Login.path);
             AuthToken.remove();
+            await this.$router.push(RouteConfig.Login.path);
 
             return;
+        }
+
+        try {
+            await this.$store.dispatch(SETUP_ACCOUNT);
+            await this.$store.dispatch(GET_BALANCE);
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            if (error instanceof ErrorUnauthorized) {
+                AuthToken.remove();
+                await this.$router.push(RouteConfig.Login.path);
+
+                return;
+            }
+
+            await this.$notify.error(error.message);
         }
 
         let projects: Project[] = [];

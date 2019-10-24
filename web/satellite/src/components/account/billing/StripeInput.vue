@@ -27,10 +27,6 @@ export default class StripeInput extends Vue {
     // Stripe library
     private stripe: any;
 
-    public created(): void {
-        this.$parent.$on('onSubmitStripeInputEvent', this.onSubmit);
-    }
-
     public async mounted(): Promise<void> {
         if (!window['Stripe']) {
             await this.$notify.error('Stripe library not loaded');
@@ -63,7 +59,7 @@ export default class StripeInput extends Vue {
         }
 
         this.cardElement.mount('#card-element');
-        this.cardElement.addEventListener('change', function (event) {
+        this.cardElement.addEventListener('change', function (event): void {
             const displayError: HTMLElement = document.getElementById('card-errors') as HTMLElement;
             if (event.error) {
                 displayError.textContent = event.error.message;
@@ -73,12 +69,18 @@ export default class StripeInput extends Vue {
         });
     }
 
-    public async onStripeResponse(result: any) {
-        if (result.token.card.funding === 'prepaid') {
-            await this.$notify.error('Prepaid cards are not supported');
+    public async onStripeResponse(result: any): Promise<void> {
+        if (result.error) {
+            return;
         }
 
-        await this.onStripeResponseCallback(result);
+        if (result.token.card.funding === 'prepaid') {
+            await this.$notify.error('Prepaid cards are not supported');
+
+            return;
+        }
+
+        await this.onStripeResponseCallback(result.token.id);
         this.cardElement.clear();
     }
 
@@ -86,8 +88,8 @@ export default class StripeInput extends Vue {
         this.cardElement.removeEventListener('change');
     }
 
-    private onSubmit(): void {
-        this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
+    public async onSubmit(): Promise<void> {
+        await this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
     }
 }
 </script>

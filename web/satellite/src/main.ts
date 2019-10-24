@@ -1,7 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue from 'vue';
+import Vue, { VNode } from 'vue';
+import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
@@ -16,6 +17,27 @@ Vue.config.productionTip = false;
 const notificator = new NotificatorPlugin();
 
 Vue.use(notificator);
+
+let clickOutsideEvent: EventListener;
+
+Vue.directive('click-outside', {
+    bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
+        clickOutsideEvent = function(event: Event): void {
+            if (el === event.target) {
+                return;
+            }
+
+            if (vnode.context) {
+                vnode.context[binding.expression](event);
+            }
+        };
+
+        document.body.addEventListener('click', clickOutsideEvent);
+    },
+    unbind: function(): void {
+        document.body.removeEventListener('click', clickOutsideEvent);
+    },
+});
 
 new Vue({
     router,
