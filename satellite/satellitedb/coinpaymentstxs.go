@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -49,6 +50,71 @@ func (db *coinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 	}
 
 	return fromDBXCoinpaymentsTransaction(dbxCPTX)
+}
+
+// Update updates status and received for set of transactions.
+func (db *coinpaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for _, update := range updates {
+			received, err := update.Received.GobEncode()
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			_, err = tx.Update_CoinpaymentsTransaction_By_Id(ctx,
+				dbx.CoinpaymentsTransaction_Id(update.TransactionID.String()),
+				dbx.CoinpaymentsTransaction_Update_Fields{
+					Received: dbx.CoinpaymentsTransaction_Received(received),
+					Status:   dbx.CoinpaymentsTransaction_Status(update.Status.Int()),
+				},
+			)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+// ListPending returns paginated list of pending transactions.
+func (db *coinpaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
+	var page stripecoinpayments.TransactionsPage
+
+	dbxTXs, err := db.db.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(
+		ctx,
+		dbx.CoinpaymentsTransaction_CreatedAt(before.UTC()),
+		dbx.CoinpaymentsTransaction_Status(coinpayments.StatusPending.Int()),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return stripecoinpayments.TransactionsPage{}, err
+	}
+
+	if len(dbxTXs) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit) + 1
+
+		dbxTXs = dbxTXs[:len(dbxTXs)-1]
+	}
+
+	var txs []stripecoinpayments.Transaction
+	for _, dbxTX := range dbxTXs {
+		tx, err := fromDBXCoinpaymentsTransaction(dbxTX)
+		if err != nil {
+			return stripecoinpayments.TransactionsPage{}, err
+		}
+
+		txs = append(txs, *tx)
+	}
+
+	page.Transactions = txs
+	return page, nil
 }
 
 // fromDBXCoinpaymentsTransaction converts *dbx.CoinpaymentsTransaction to *stripecoinpayments.Transaction.

@@ -8,6 +8,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import LogoIcon from '@/../static/images/Logo.svg';
+import LoadingLogoIcon from '@/../static/images/LogoWhite.svg';
+
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
@@ -19,6 +23,9 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
+        AuthIcon,
+        LogoIcon,
+        LoadingLogoIcon,
     },
 })
 export default class Login extends Vue {

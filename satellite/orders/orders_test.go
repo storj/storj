@@ -290,7 +290,7 @@ func BenchmarkOrders(b *testing.B) {
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
 
-	counts := []int{50, 100, 250, 500, 999} //sqlite limit of 999
+	counts := []int{50, 100, 250, 500, 1000}
 	for _, c := range counts {
 		c := c
 		satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {

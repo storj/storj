@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -40,6 +41,8 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/vouchers"
@@ -55,7 +58,7 @@ type API struct {
 
 	Dialer  rpc.Dialer
 	Server  *server.Server
-	Version *version.Service
+	Version *checker.Service
 
 	Contact struct {
 		Service  *contact.Service
@@ -103,6 +106,11 @@ type API struct {
 		Service *mailservice.Service
 	}
 
+	Payments struct {
+		Accounts payments.Accounts
+		Clearing payments.Clearing
+	}
+
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -134,12 +142,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
@@ -354,6 +361,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		}
 	}
 
+	{ // setup payments
+		config := paymentsconfig.Config{}
+
+		service := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			config.StripeCoinPayments,
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
+
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinPayments.TransactionUpdateInterval)
+
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = clearing
+	}
+
 	{ // setup console
 		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
@@ -365,14 +390,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			return nil, errs.New("Auth token secret required")
 		}
 
-		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			payments.Accounts(),
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 		if err != nil {
