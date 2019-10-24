@@ -59,7 +59,7 @@ export default class SatelliteSelectionDropdown extends Vue {
         border-radius: 8px;
         padding: 7px 0 7px 0;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
-        background-color: #FFFFFF;
+        background-color: #fff;
         z-index: 1120;
     }
 
@@ -90,7 +90,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             }
 
             &:hover {
-                background-color: #EBECF0;
+                background-color: #ebecf0;
                 cursor: pointer;
             }
         }
@@ -101,18 +101,21 @@ export default class SatelliteSelectionDropdown extends Vue {
     }
 
     /* width */
+
     ::-webkit-scrollbar {
         width: 4px;
     }
 
     /* Track */
+
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
     /* Handle */
+
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }

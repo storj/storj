@@ -44,7 +44,7 @@ export default class Dashboard extends Vue {
 
 <style scoped lang="scss">
     .page {
-        background-color: #F4F6F9;
+        background-color: #f4f6f9;
         display: flex;
         flex-direction: column;
         align-items: center;

@@ -26,7 +26,7 @@ export default class SNOFooter extends Vue {}
         height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #F8F9FB;
+        background-color: #f8f9fb;
         align-items: center;
 
         &__content-holder {
@@ -39,7 +39,7 @@ export default class SNOFooter extends Vue {}
             &__support-link {
                 font-size: 14px;
                 text-decoration: none;
-                color: #224CA5;
+                color: #224ca5;
             }
 
             &__community-link {

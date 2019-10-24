@@ -153,17 +153,17 @@ export default class BandwidthChart extends Vue {
             font-size: 13px;
             color: #586c86;
             margin: 0 0 5px 30px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
         }
     }
 
     #bandwidth-tooltip {
-        background-color: #FFFFFF;
+        background-color: #fff;
         width: auto;
         font-size: 12px;
         border-radius: 8px;
-        box-shadow: 0 2px 10px #D2D6DE;
-        color: #535F77;
+        box-shadow: 0 2px 10px #d2d6de;
+        color: #535f77;
         padding: 6px;
         pointer-events: none;
     }
@@ -182,7 +182,7 @@ export default class BandwidthChart extends Vue {
 
         &__info {
             display: flex;
-            background-color: #EBECF0;
+            background-color: #ebecf0;
             border-radius: 12px;
             padding: 14px 17px 14px 14px;
             align-items: center;

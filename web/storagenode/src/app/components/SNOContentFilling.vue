@@ -176,7 +176,7 @@ export default class SNOContentFilling extends Vue {
             align-items: center;
             justify-content: space-between;
             padding: 20px 27px 20px 25px;
-            background-color: #FCF8E3;
+            background-color: #fcf8e3;
             border-radius: 12px;
             width: calc(100% - 52px);
             margin-top: 17px;
@@ -196,7 +196,7 @@ export default class SNOContentFilling extends Vue {
         &__title {
             font-size: 18px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
         }
 
         &__chart-area,
@@ -210,8 +210,8 @@ export default class SNOContentFilling extends Vue {
     .chart-container {
         width: 339px;
         height: 336px;
-        background-color: #FFFFFF;
-        border: 1px solid #E9EFF4;
+        background-color: #fff;
+        border: 1px solid #e9eff4;
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -219,13 +219,13 @@ export default class SNOContentFilling extends Vue {
 
         &__title {
             font-size: 14px;
-            color: #586C86;
+            color: #586c86;
         }
 
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
         }
 
         &__chart {

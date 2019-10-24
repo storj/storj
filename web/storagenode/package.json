@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint",
+    "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
     "build": "vue-cli-service build",
     "debug": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "chart.js": "2.8.0",
+    "stylelint": "11.1.1",
+    "stylelint-config-standard": "19.0.0",
+    "stylelint-scss": "3.12.0",
+    "stylelint-webpack-plugin": "1.0.2",
     "vue": "2.6.10",
     "vue-chartjs": "3.4.2",
     "vue-class-component": "6.0.0",
@@ -46,5 +50,40 @@
     "> 1%",
     "last 2 versions",
     "not ie <= 8"
-  ]
+  ],
+  "stylelint": {
+    "plugins": [
+      "stylelint-scss"
+    ],
+    "extends": "stylelint-config-standard",
+    "rules": {
+      "indentation": 4,
+      "string-quotes": "single",
+      "no-duplicate-selectors": true,
+      "selector-max-attribute": 1,
+      "selector-combinator-space-after": "always",
+      "selector-attribute-operator-space-before": "never",
+      "selector-attribute-operator-space-after": "never",
+      "selector-attribute-brackets-space-inside": "never",
+      "declaration-block-trailing-semicolon": "always",
+      "declaration-colon-space-before": "never",
+      "declaration-colon-space-after": "always",
+      "number-leading-zero": "always",
+      "function-url-quotes": "always",
+      "font-family-name-quotes": "always-unless-keyword",
+      "comment-whitespace-inside": "always",
+      "comment-empty-line-before": "always",
+      "rule-empty-line-before": "always-multi-line",
+      "selector-pseudo-element-colon-notation": "single",
+      "selector-pseudo-class-parentheses-space-inside": "never",
+      "selector-max-type": 1,
+      "font-family-no-missing-generic-family-keyword": true,
+      "at-rule-no-unknown": true,
+      "media-feature-range-operator-space-before": "always",
+      "media-feature-range-operator-space-after": "always",
+      "media-feature-parentheses-space-inside": "never",
+      "media-feature-colon-space-before": "never",
+      "media-feature-colon-space-after": "always"
+    }
+  }
 }

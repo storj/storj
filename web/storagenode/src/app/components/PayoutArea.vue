@@ -31,12 +31,12 @@ export default class PayoutArea extends Vue {
 
 <style scoped lang="scss">
     .payout-container {
-        background-color: #FFFFFF;
+        background-color: #fff;
         padding: 40px;
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        border: 1px solid #EAEAEA;
+        border: 1px solid #eaeaea;
         border-radius: 12px;
         position: relative;
 
@@ -52,12 +52,12 @@ export default class PayoutArea extends Vue {
 
             &__label {
                 font-size: 14px;
-                color: #586C86;
+                color: #586c86;
             }
 
             &__bold-text {
                 font-size: 18px;
-                color: #535F77;
+                color: #535f77;
             }
         }
 
@@ -68,20 +68,20 @@ export default class PayoutArea extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #F4F6F9;
-            border: 1px solid #E8E8E8;
+            background-color: #f4f6f9;
+            border: 1px solid #e8e8e8;
             border-radius: 12px;
             position: absolute;
             top: 42px;
             right: 40px;
-            color: #535F77;
+            color: #535f77;
 
             &:hover {
-                background-color: #4D72B7;
+                background-color: #4d72b7;
                 cursor: pointer;
 
                 .payout-container-button-label {
-                    color: #FFFFFF;
+                    color: #fff;
                 }
             }
         }
