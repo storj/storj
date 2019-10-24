@@ -7,10 +7,12 @@ import (
 	"context"
 	"io"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -136,30 +138,31 @@ func TestConcurrentConnections(t *testing.T) {
 
 		client := conn.SatelliteGracefulExitClient()
 
-		c1, err := client.Process(ctx)
-		require.NoError(t, err)
+		var group errgroup.Group
+		var mu sync.Mutex
+		recvErrList := []error{}
+		concurrentCalls := 4
+		for i := 0; i < concurrentCalls; i++ {
+			group.Go(func() error {
+				c, err := client.Process(ctx)
+				require.NoError(t, err)
 
-		c2, err := client.Process(ctx)
-		require.NoError(t, err)
-
-		concurrentErrFound := false
-		_, err = c1.Recv()
-		if err != nil {
-			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-			concurrentErrFound = true
+				_, err = c.Recv()
+				if err != nil {
+					mu.Lock()
+					recvErrList = append(recvErrList, err)
+					mu.Unlock()
+				}
+				return nil
+			})
 		}
-		_, err = c2.Recv()
-		if concurrentErrFound {
-			require.NoError(t, err)
-		} else {
-			require.Error(t, err)
+
+		err = group.Wait()
+		require.NoError(t, err)
+		require.Len(t, recvErrList, concurrentCalls-1)
+		for _, err := range recvErrList {
 			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		}
-
-		defer func() {
-			err = errs.Combine(err, c1.CloseSend(), c2.CloseSend())
-		}()
-
 	})
 }
 
