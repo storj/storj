@@ -179,7 +179,7 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 			err = processClient.Send(message)
 			require.NoError(t, err)
 		default:
-			require.FailNow(t, "should not reach this case")
+			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
 		_, err = processClient.Recv()
@@ -245,14 +245,6 @@ func TestFailureHashMismatch(t *testing.T) {
 			}
 			err = processClient.Send(message)
 			require.NoError(t, err)
-		case *pb.SatelliteMessage_ExitFailed:
-			status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
-			require.NoError(t, err)
-			require.False(t, status.ExitSuccess)
-			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
-			break
-		//case *pb.SatelliteMessage_ExitCompleted:
-		//	fmt.Println("exit completed??")
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
@@ -290,7 +282,7 @@ func TestFailureUnknownError(t *testing.T) {
 			err = processClient.Send(message)
 			require.NoError(t, err)
 		default:
-			require.FailNow(t, "should not reach this case")
+			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
 		_, err = processClient.Recv()
@@ -358,7 +350,7 @@ func TestFailureUplinkSignature(t *testing.T) {
 			err = processClient.Send(message)
 			require.NoError(t, err)
 		default:
-			require.FailNow(t, "should not reach this case")
+			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
 		_, err = processClient.Recv()
