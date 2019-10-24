@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/uplink/eestream"
 )
 
 var _ metainfo.Observer = (*PathCollector)(nil)
@@ -21,12 +22,12 @@ var _ metainfo.Observer = (*PathCollector)(nil)
 //
 // architecture: Observer
 type PathCollector struct {
-	db          DB
-	nodeIDMutex sync.Mutex
-	nodeIDs     map[storj.NodeID]int
-	buffer      []TransferQueueItem
-	log         *zap.Logger
-	batchSize   int
+	db            DB
+	nodeIDMutex   sync.Mutex
+	nodeIDStorage map[storj.NodeID]int64
+	buffer        []TransferQueueItem
+	log           *zap.Logger
+	batchSize     int
 }
 
 // NewPathCollector instantiates a path collector.
@@ -40,9 +41,9 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 	}
 
 	if len(nodeIDs) > 0 {
-		collector.nodeIDs = make(map[storj.NodeID]int, len(nodeIDs))
+		collector.nodeIDStorage = make(map[storj.NodeID]int64, len(nodeIDs))
 		for _, nodeID := range nodeIDs {
-			collector.nodeIDs[nodeID] = 0
+			collector.nodeIDStorage[nodeID] = 0
 		}
 	}
 
@@ -56,7 +57,7 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already
 func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	if len(collector.nodeIDs) == 0 {
+	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
 
@@ -65,10 +66,15 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 
 	numPieces := int32(len(pointer.GetRemote().GetRemotePieces()))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if _, ok := collector.nodeIDs[piece.NodeId]; !ok {
+		if _, ok := collector.nodeIDStorage[piece.NodeId]; !ok {
 			continue
 		}
-		collector.nodeIDs[piece.NodeId]++
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+		if err != nil {
+			return err
+		}
+		pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+		collector.nodeIDStorage[piece.NodeId] += pieceSize
 
 		item := TransferQueueItem{
 			NodeID:          piece.NodeId,

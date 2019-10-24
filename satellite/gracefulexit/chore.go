@@ -82,8 +82,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				chore.log.Error("error updating exit status.", zap.Error(err))
 			}
 
-			txQueueCount := pathCollector.nodeIDs[nodeID]
-			mon.IntVal("graceful_exit_initial_transfer_count").Observe(txQueueCount)
+			bytesToTransfer := pathCollector.nodeIDStorage[nodeID]
+			mon.IntVal("graceful_exit_initial_bytes_stored").Observe(bytesToTransfer)
 		}
 		return nil
 	})
