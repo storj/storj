@@ -224,7 +224,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is not NULL
-			AND failed_count <= ?
+			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
 	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
