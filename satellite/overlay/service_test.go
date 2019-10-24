@@ -404,6 +404,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
+		expectedNode.CreatedAt = actualNode.CreatedAt
 		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
