@@ -210,66 +210,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return errs.Combine(runError, closeError)
 }
 
-func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-	log := zap.L()
-
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
-
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
-	if err != nil {
-		return errs.New("Error starting master database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
-	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
-	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, revocationDB.Close())
-	}()
-
-	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
-	if err != nil {
-		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, accountingCache.Close())
-	}()
-
-	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, accountingCache, &runCfg.Config, version.Build)
-	if err != nil {
-		return err
-	}
-
-	err = peer.Version.CheckVersion(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
-	}
-
-	runError := peer.Run(ctx)
-	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
-}
-
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
