@@ -30,12 +30,6 @@ import (
 const buildQueueMillis = 100
 
 var (
-	// ErrHashMismatch is an error for when original piece hash doesn't match replacement piece hash.
-	ErrHashMismatch = Error.New("Piece hashes for transferred piece don't match")
-	// ErrInvalidReplacementPieceID is an error for when new piece ID doesn't match derived new piece ID.
-	ErrInvalidReplacementPieceID = Error.New("Invalid replacement piece ID")
-	// ErrInvalidOriginalPieceID is an error for when original piece ID doesn't match derived original piece ID.
-	ErrInvalidOriginalPieceID = Error.New("Invalid original piece ID")
 	// ErrInvalidArgument is an error class for invalid argument errors used to check which rpc code to use.
 	ErrInvalidArgument = errs.Class("graceful exit")
 )
@@ -502,7 +496,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		return ErrInvalidArgument.Wrap(ErrHashMismatch)
+		return ErrInvalidArgument.New("Piece hashes for transferred piece don't match")
 	}
 
 	// verify that the satellite signed the original order limit
@@ -518,7 +512,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
-		return ErrInvalidArgument.Wrap(ErrInvalidOriginalPieceID)
+		return ErrInvalidArgument.New("Invalid original piece ID")
 	}
 
 	// TODO add nil checks/figure out a better way to get the receiving node ID
@@ -526,7 +520,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
-		return ErrInvalidArgument.Wrap(ErrInvalidReplacementPieceID)
+		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}
 
 	// get peerID and signee for new storage node
