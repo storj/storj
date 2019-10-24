@@ -182,6 +182,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
+		return nil
 	}
 
 	if exitStatus.ExitInitiatedAt == nil {
@@ -194,11 +195,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
-
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
+		return nil
 	}
 
 	if exitStatus.ExitLoopCompletedAt == nil {
@@ -206,6 +207,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
+		return nil
 	}
 
 	pending := newPendingMap()
