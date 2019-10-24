@@ -126,7 +126,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 
 			bytesToTransfer := pathCollector.nodeIDStorage[nodeID]
-			mon.IntVal("graceful_exit_initial_bytes_stored").Observe(bytesToTransfer)
+			mon.IntVal("graceful_exit_init_bytes_stored").Observe(bytesToTransfer)
 		}
 		return nil
 	})
