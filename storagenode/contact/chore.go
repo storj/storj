@@ -66,6 +66,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatelliteWithBackOff(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	//TODO I'm not sure if restart will run the chore again immediately (which we don't want) If so, is there a workaround?
+	//chore.Loop.Pause()
+	//defer chore.Loop.Restart()
 	for {
 		err = chore.pingSatellite(ctx)
 		if err != nil {
