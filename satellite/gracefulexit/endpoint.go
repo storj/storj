@@ -481,6 +481,22 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.New("Could not find transfer item in pending queue")
 	}
 
+	if transfer.satelliteMessage == nil {
+		return Error.New("Satellite message cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece() == nil {
+		return Error.New("Satellite message transfer piece cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit() == nil {
+		return Error.New("Addressed order limit on transfer piece cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
+		return Error.New("Addressed order limit on transfer piece cannot be nil")
+	}
+	if transfer.path == nil {
+		return Error.New("Transfer path cannot be nil")
+	}
+
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -515,7 +531,6 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return ErrInvalidArgument.New("Invalid original piece ID")
 	}
 
-	// TODO add nil checks/figure out a better way to get the receiving node ID
 	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
 
 	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
@@ -536,7 +551,6 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return ErrInvalidArgument.Wrap(err)
 	}
 
-	// TODO add nil check for getting path
 	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
