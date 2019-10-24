@@ -192,6 +192,9 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
 	})
+
+	system.Peer.Repair.Repairer.Loop.Stop()
+
 	return group.Wait()
 }
 
