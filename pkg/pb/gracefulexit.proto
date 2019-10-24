@@ -59,7 +59,7 @@ message TransferSucceeded {
   orders.OrderLimit            original_order_limit    = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
-  bytes original_piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+  bytes                        original_piece_id       = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message TransferFailed {
