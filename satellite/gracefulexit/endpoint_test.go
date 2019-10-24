@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
@@ -35,7 +36,7 @@ type exitProcessClient interface {
 }
 
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
 		for {
@@ -79,9 +80,9 @@ func TestSuccess(t *testing.T) {
 						Timestamp: time.Now(),
 					}
 
-					receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-					require.NotNil(t, receivingNode)
-					signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+					require.NotNil(t, receivingNodeID)
+					signer := signing.SignerFromFullIdentity(receivingNodeID)
 
 					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
 					require.NoError(t, err)
@@ -130,7 +131,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestInvalidStorageNodeSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -196,7 +197,7 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 }
 
 func TestFailureHashMismatch(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -225,9 +226,9 @@ func TestFailureHashMismatch(t *testing.T) {
 				Timestamp: time.Now(),
 			}
 
-			receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingNode)
-			signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+			receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNodeID)
+			signer := signing.SignerFromFullIdentity(receivingNodeID)
 
 			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
 			require.NoError(t, err)
@@ -263,7 +264,7 @@ func TestFailureHashMismatch(t *testing.T) {
 }
 
 func TestFailureUnknownError(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -298,7 +299,7 @@ func TestFailureUnknownError(t *testing.T) {
 }
 
 func TestFailureUplinkSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -329,9 +330,9 @@ func TestFailureUplinkSignature(t *testing.T) {
 				Timestamp: time.Now(),
 			}
 
-			receivingNode := storageNodes[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingNode)
-			signer := signing.SignerFromFullIdentity(receivingNode.Identity)
+			receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNodeID)
+			signer := signing.SignerFromFullIdentity(receivingNodeID)
 
 			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
 			require.NoError(t, err)
@@ -366,7 +367,7 @@ func TestFailureUplinkSignature(t *testing.T) {
 	})
 }
 
-func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, storageNodes map[storj.NodeID]*storagenode.Peer, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
+func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 8
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -378,9 +379,9 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		storageNodes := make(map[storj.NodeID]*storagenode.Peer)
+		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
-			storageNodes[node.ID()] = node
+			nodeFullIDs[node.ID()] = node.Identity
 		}
 
 		rs := &uplink.RSConfig{
@@ -451,7 +452,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			err = errs.Combine(err, c.CloseSend())
 		}()
 
-		verifier(ctx, storageNodes, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
 	})
 }
 
