@@ -4,6 +4,7 @@
 package gracefulexit
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -120,6 +122,41 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 					// TODO look at error type to decide on the transfer error
 					worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
 				}
+				continue
+			}
+
+			if !bytes.Equal(originalHash.Hash, pieceHash.Hash) {
+				worker.log.Error("piece hash from new storagenode does not match", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID))
+				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+				continue
+			}
+			if !bytes.Equal(pieceHash.PieceId.Bytes(), addrLimit.Limit.PieceId.Bytes()) {
+				worker.log.Error("piece id from new storagenode does not match order limit", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID))
+				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+				continue
+			}
+
+			// ecclient.PutPiece already dials the node, but we need to access the connection directly to check the signature
+			nodeConn, err := worker.dialer.DialNode(ctx, &pb.Node{
+				Id:      addrLimit.GetLimit().StorageNodeId,
+				Address: addrLimit.GetStorageNodeAddress(),
+			})
+			if err != nil {
+				worker.log.Error("failed to connect to storagenode", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
+				continue
+			}
+			peerID, err := nodeConn.PeerIdentity()
+			if err != nil {
+				worker.log.Error("failed to get peer ID from storagenode", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
+				continue
+			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
+			err = signing.VerifyPieceHashSignature(ctx, signee, pieceHash)
+			if err != nil {
+				worker.log.Error("invalid piece hash signature from new storagenode", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
 				continue
 			}
 
