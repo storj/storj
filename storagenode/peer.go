@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -124,7 +125,7 @@ type Peer struct {
 
 	Contact struct {
 		Service   *contact.Service
-		Chore     *contact.Chore
+		Chores    []*contact.Chore
 		Endpoint  *contact.Endpoint
 		PingStats *contact.PingStats
 	}
@@ -232,7 +233,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+
+		for i, satelliteURL := range config.Storage.WhitelistedSatellites {
+			chore := contact.NewChore(peer.Log.Named("contact:chore - "+strconv.Itoa(i)+" - "+satelliteURL.ID.String()), satelliteURL, config.Contact.Interval, peer.Dialer, peer.Contact.Service)
+			peer.Contact.Chores = append(peer.Contact.Chores, chore)
+		}
+
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
@@ -422,9 +428,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
-	})
+	for i := 0; i < len(peer.Contact.Chores); i++ {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.Contact.Chores[i].Run(ctx))
+		})
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
@@ -479,8 +487,10 @@ func (peer *Peer) Close() error {
 	if peer.GracefulExit.Chore != nil {
 		errlist.Add(peer.GracefulExit.Chore.Close())
 	}
-	if peer.Contact.Chore != nil {
-		errlist.Add(peer.Contact.Chore.Close())
+	for i := 0; i < len(peer.Contact.Chores); i++ {
+		if peer.Contact.Chores[i] != nil {
+			errlist.Add(peer.Contact.Chores[i].Close())
+		}
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
