@@ -610,28 +610,6 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	return nil, nil
 }
 
-// getNodeCounts piece counts for all nodes.
-func getAllNodePieceCounts(ctx context.Context, satellite *testplanet.SatelliteSystem, objects int) (_ map[storj.NodeID]int, err error) {
-	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
-	if err != nil {
-		return nil, err
-	}
-	nodePieceCounts := make(map[storj.NodeID]int)
-	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
-		if err != nil {
-			return nil, err
-		}
-		pieces := pointer.GetRemote().GetRemotePieces()
-		for _, piece := range pieces {
-			value, _ := nodePieceCounts[piece.NodeId]
-			nodePieceCounts[piece.NodeId] = value + 1
-		}
-	}
-
-	return nodePieceCounts, nil
-}
-
 func getNodePieceCount(ctx context.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID, objects int) (count int, err error) {
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
 	if err != nil {
