@@ -50,6 +50,8 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -222,6 +224,11 @@ type Peer struct {
 
 	Vouchers struct {
 		Endpoint *vouchers.Endpoint
+	}
+
+	Payments struct {
+		Accounts payments.Accounts
+		Clearing payments.Clearing
 	}
 
 	Console struct {
@@ -581,6 +588,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 	}
 
+	{ // setup payments
+		config := paymentsconfig.Config{}
+
+		service := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			config.StripeCoinPayments,
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
+
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinPayments.TransactionUpdateInterval)
+
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = clearing
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -594,14 +619,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			return nil, errs.New("Auth token secret required")
 		}
 
-		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			payments.Accounts(),
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 

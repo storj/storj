@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
-// Error - console auth api error type.
-var Error = errs.Class("console auth api error")
+// ErrAuthAPI - console auth api error type.
+var ErrAuthAPI = errs.Class("console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
@@ -74,7 +74,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(tokenResponse)
 	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(Error.Wrap(err)))
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -132,7 +132,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(&user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(Error.Wrap(err)))
+		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -310,6 +310,6 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
 }
