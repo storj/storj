@@ -111,7 +111,7 @@
 
       <InstallExecuteSequence>
           <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
-        <Custom Action='DeleteConfigFile' Before='RemoveFiles'>(REMOVE="ALL") AND NOT UPGRADINGPRODUCTCODE</Custom>
+          <Custom Action='DeleteConfigFile' Before='RemoveFiles'>(REMOVE="ALL") AND NOT UPGRADINGPRODUCTCODE</Custom>
     </InstallExecuteSequence>
   </Product>
 </Wix>
