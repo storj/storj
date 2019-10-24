@@ -20,7 +20,6 @@ import (
 
 var (
 	errPingBackDial    = errs.Class("pingback dialing error")
-	errPingBackRequest = errs.Class("pingback request error")
 	errCheckInIdentity = errs.Class("check-in identity error")
 	errCheckInNetwork  = errs.Class("check-in network error")
 )
@@ -49,23 +48,32 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.String("error", err.Error()))
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.String("node ID", nodeID.String()), zap.String("error", err.Error()))
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
 	lastIP, err := overlay.GetNetwork(ctx, req.Address)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, errCheckInNetwork.New("failed to get IP from address: %s, err: %v", req.Address, err).Error())
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.String("node ID", nodeID.String()), zap.String("error", err.Error()))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, errCheckInNetwork.New("failed to ping back address:%s, err: %v", req.Address, err).Error())
+		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.String("node ID", nodeID.String()), zap.String("error", err.Error()))
+		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
+
+		if errPingBackDial.Has(err) {
+			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
+		}
+		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	}
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
@@ -81,10 +89,11 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 	if err != nil {
+		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.String("node ID", nodeID.String()), zap.String("error", err.Error()))
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess))
+	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:  pingNodeSuccess,
 		PingErrorMessage: pingErrorMessage,
@@ -96,14 +105,14 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 
 	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
 	if err != nil {
-		endpoint.log.Info("pingBack dialing error", zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
+		err = errPingBackDial.New("failed to dial address %s: %v", req.Address, err)
 
-		// if this is a network error, then return the error otherwise just report internal error
-		_, ok := err.(net.Error)
-		if ok {
-			return false, "", errPingBackDial.New("failed to connect to %s: %v", req.Address, err)
+		if _, ok := err.(net.Error); ok {
+			err = errPingBackDial.New("network error, failed to dial address %s: %v", req.Address, err)
 		}
-		return false, "", errPingBackDial.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
+
+		endpoint.log.Info("pingBack dialing error", zap.String("node addr", req.Address), zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
+		return false, "", err
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
@@ -112,14 +121,23 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
-		endpoint.log.Info("pingBack pinging error", zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
+		// If there is an error from trying to ping the node, return that error as
+		// pingErrorMessage and not as the err. We want to use this info to update
+		// node contact info and do not want to terminate execution by returning an err
 		pingNodeSuccess = false
-		pingErrorMessage = "erroring while trying to pingNode due to internal error"
-		_, ok := err.(net.Error)
-		if ok {
-			pingErrorMessage = fmt.Sprintf("network erroring while trying to pingNode: %v\n", err)
+		pingErrorMessage = fmt.Sprintf("failed to ping node at address %s: %v", req.Address, err)
+
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			pingErrorMessage = fmt.Sprintf("unauthenticated, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
 		}
+		if rpcstatus.Code(err) == rpcstatus.Internal {
+			pingErrorMessage = fmt.Sprintf("internal error, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
+		}
+		if _, ok := err.(net.Error); ok {
+			pingErrorMessage = fmt.Sprintf("network error, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
+		}
+		endpoint.log.Info("pingBack pingNode error", zap.String("nodeID", peerID.String()), zap.String("pingErrorMessage", pingErrorMessage), zap.String("error", err.Error()))
 	}
 
-	return pingNodeSuccess, pingErrorMessage, err
+	return pingNodeSuccess, pingErrorMessage, nil
 }
