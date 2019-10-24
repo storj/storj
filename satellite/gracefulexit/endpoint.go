@@ -48,6 +48,7 @@ type processStream interface {
 type Endpoint struct {
 	log            *zap.Logger
 	interval       time.Duration
+	signer         signing.Signer
 	db             DB
 	overlaydb      overlay.DB
 	overlay        *overlay.Service
@@ -118,11 +119,12 @@ func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
 		log:            log,
 		interval:       time.Millisecond * buildQueueMillis,
+		signer:         signer,
 		db:             db,
 		overlaydb:      overlaydb,
 		overlay:        overlay,
@@ -173,9 +175,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	if exitStatus.ExitFinishedAt != nil {
-		// TODO revisit this. Should check if signature was sent
-		completed := &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{ExitCompleted: &pb.ExitCompleted{}}}
-		err = stream.Send(completed)
+		finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		err = stream.Send(finishedMsg)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
@@ -211,6 +216,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var morePiecesFlag int32 = 1
 	errChan := make(chan error, 1)
+	processChan := make(chan bool, 1)
+
 	handleError := func(err error) error {
 		errChan <- err
 		close(errChan)
@@ -221,6 +228,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	group.Go(func() error {
 		ticker := time.NewTicker(endpoint.interval)
 		defer ticker.Stop()
+		defer func() {
+			processChan <- true
+
+		}()
 
 		for range ticker.C {
 			if pending.length() == 0 {
@@ -248,6 +259,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
+				processChan <- true
 			}
 		}
 		return nil
@@ -261,6 +273,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 
 		pendingCount := pending.length()
+
+		// wait if there are none pending
+		if pendingCount == 0 {
+			select {
+			case <-processChan:
+			}
+		}
 
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
@@ -281,20 +300,17 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				exitStatusRequest.ExitSuccess = false
 				// TODO needs signature
-				transferMsg = &pb.SatelliteMessage{
-					Message: &pb.SatelliteMessage_ExitFailed{
-						ExitFailed: &pb.ExitFailed{
-							Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
-						},
-					},
+				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess)
+				if err != nil {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
+				transferMsg.GetExitFailed().Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			} else {
 				exitStatusRequest.ExitSuccess = true
 				// TODO needs signature
-				transferMsg = &pb.SatelliteMessage{
-					Message: &pb.SatelliteMessage_ExitCompleted{
-						ExitCompleted: &pb.ExitCompleted{},
-					},
+				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess)
+				if err != nil {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
 			}
 
@@ -315,10 +331,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			break
 		}
-		// skip if there are none pending
-		if pendingCount == 0 {
-			continue
-		}
 
 		request, err := stream.Recv()
 		if err != nil {
@@ -327,23 +339,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		switch m := request.GetMessage().(type) {
 		case *pb.StorageNodeMessage_Succeeded:
-			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
+			err = endpoint.handleSucceeded(ctx, stream, pending, nodeID, m)
 			if err != nil {
 				if ErrInvalidArgument.Has(err) {
 					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 				}
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			deleteMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_DeletePiece{
-					DeletePiece: &pb.DeletePiece{
-						OriginalPieceId: m.Succeeded.OriginalPieceId,
-					},
-				},
-			}
-			err = stream.Send(deleteMsg)
-			if err != nil {
-				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
@@ -470,7 +471,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	return nil
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStream, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	originalPieceID := message.Succeeded.OriginalPieceId
@@ -573,6 +574,18 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	pending.delete(originalPieceID)
 
+	deleteMsg := &pb.SatelliteMessage{
+		Message: &pb.SatelliteMessage_DeletePiece{
+			DeletePiece: &pb.DeletePiece{
+				OriginalPieceId: originalPieceID,
+			},
+		},
+	}
+	err = stream.Send(deleteMsg)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -619,4 +632,36 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	pending.delete(pieceID)
 
 	return nil
+}
+
+func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing.Signer, nodeID storj.NodeID, finishedAt time.Time, success bool) (message *pb.SatelliteMessage, err error) {
+	if success {
+		unsigned := &pb.ExitCompleted{
+			SatelliteId: endpoint.signer.ID(),
+			NodeId:      nodeID,
+			Completed:   finishedAt,
+		}
+		signed, err := signing.SignExitCompleted(ctx, endpoint.signer, unsigned)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{
+			ExitCompleted: signed,
+		}}
+	} else {
+		unsigned := &pb.ExitFailed{
+			SatelliteId: endpoint.signer.ID(),
+			NodeId:      nodeID,
+			Failed:      finishedAt,
+		}
+		signed, err := signing.SignExitFailed(ctx, endpoint.signer, unsigned)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
+			ExitFailed: signed,
+		}}
+	}
+
+	return message, nil
 }
