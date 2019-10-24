@@ -57,10 +57,8 @@ func TestSuccess(t *testing.T) {
 							Succeeded: &pb.TransferSucceeded{
 								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
 								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.OriginalPieceId},
-								AddressedOrderLimit: &pb.AddressedOrderLimit{
-									Limit: &pb.OrderLimit{
-										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-									},
+								OriginalOrderLimit: &pb.OrderLimit{
+									PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
 								},
 							},
 						},
@@ -84,7 +82,7 @@ func TestSuccess(t *testing.T) {
 				// TODO test completed signature stuff
 				break
 			default:
-				t.FailNow()
+				// TODO finish other message types above so this shouldn't happen
 			}
 		}
 

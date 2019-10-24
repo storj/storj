@@ -15,7 +15,15 @@
             </VInfo>
         </div>
         <div class="account-balance-area__balance-area">
-            <span class="account-balance-area__balance-area__balance">Balance <b class="account-balance-area__balance-area__balance__bold-text">$25.00</b></span>
+            <span class="account-balance-area__balance-area__balance">
+                Balance
+                <b
+                    class="account-balance-area__balance-area__balance__bold-text"
+                    :style="balanceStyle"
+                >
+                    {{balance}}
+                </b>
+            </span>
             <VButton
                 class="button"
                 label="Earn Credits"
@@ -33,6 +41,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    GET_BALANCE,
+} = PAYMENTS_ACTIONS;
+
 @Component({
     components: {
         VInfo,
@@ -40,6 +55,32 @@ import VInfo from '@/components/common/VInfo.vue';
     },
 })
 export default class AccountBalance extends Vue {
+    public async mounted() {
+        try {
+            await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
+    public get balance(): string {
+        return `$${this.$store.state.paymentsModule.balance / 100}`;
+    }
+
+    public get balanceStyle() {
+        let color: string = '#DBF1D3';
+
+        if (this.$store.state.paymentsModule.balance < 0) {
+            color = '#FF0000';
+        }
+
+        if (this.$store.state.paymentsModule.balance === 0) {
+            color = '#000';
+        }
+
+        return { color };
+    }
+
     public onEarnCredits(): void {
         return;
     }
@@ -117,7 +158,7 @@ export default class AccountBalance extends Vue {
     }
 
     /deep/ .info__message-box {
-        background-image: url('../../../../static/images/account/MessageBox.png');
+        background-image: url('../../../../static/images/account/billing/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;
         min-width: 195px;

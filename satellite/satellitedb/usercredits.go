@@ -8,8 +8,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -91,28 +89,23 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 		result    sql.Result
 		statement string
 	)
-	switch t := c.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement = `
-			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
-				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, ?, time('now'))) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0) , ?);
-		`
-		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferInfo.RedeemableCap, shouldCreate)
-	case *pq.Driver:
-		statement = `
+	statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), ?::text, now())) AS v
 					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0), ?);
 		`
-		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferInfo.RedeemableCap, shouldCreate)
-	default:
-		return errs.New("unsupported database: %t", t)
-	}
+	result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement),
+		userCredit.UserID[:],
+		userCredit.OfferID,
+		userCredit.CreditsEarned.Cents(),
+		userCredit.ExpiresAt, referrerID, new([]byte),
+		userCredit.Type,
+		userCredit.OfferID,
+		userCredit.OfferInfo.RedeemableCap, shouldCreate)
 
 	if err != nil {
 		// check to see if there's a constraint error
-		if pgutil.IsConstraintError(err) || err == sqlite3.ErrConstraint {
+		if pgutil.IsConstraintError(err) {
 			_, err := dbExec.ExecContext(ctx, c.db.Rebind(`UPDATE offers SET status = ? AND expires_at = ? WHERE id = ?`), rewards.Done, time.Now().UTC(), userCredit.OfferID)
 			if err != nil {
 				return errs.Wrap(err)
@@ -138,24 +131,11 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 
 // UpdateEarnedCredits updates user credits after user activated their account
 func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
-	var statement string
-
-	switch t := c.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement = `
-			UPDATE user_credits
-			SET credits_earned_in_cents =
-				(SELECT invitee_credit_in_cents FROM offers WHERE id = offer_id)
-				WHERE user_id = ? AND credits_earned_in_cents = 0`
-	case *pq.Driver:
-		statement = `
-			UPDATE user_credits SET credits_earned_in_cents = offers.invitee_credit_in_cents
-				FROM offers
-				WHERE user_id = ? AND credits_earned_in_cents = 0 AND offer_id = offers.id
-		`
-	default:
-		return errs.New("Unsupported database %t", t)
-	}
+	statement := `
+		UPDATE user_credits SET credits_earned_in_cents = offers.invitee_credit_in_cents
+			FROM offers
+			WHERE user_id = ? AND credits_earned_in_cents = 0 AND offer_id = offers.id
+	`
 
 	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userID[:])
 	if err != nil {
@@ -215,18 +195,9 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharg
 
 	values = append(values, rowIds...)
 
-	var statement string
-	switch t := c.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement = generateQuery(len(availableCredits), false)
-	case *pq.Driver:
-		statement = generateQuery(len(availableCredits), true)
-	default:
-		return creditsToCharge, errs.New("Unsupported database %t", t)
-	}
+	statement := generateQuery(len(availableCredits), true)
 
-	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET
-			credits_used_in_cents = CASE `+statement), values...)
+	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET credits_used_in_cents = CASE `+statement), values...)
 	if err != nil {
 		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}

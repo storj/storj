@@ -6,7 +6,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-@Component
+import MainIcon from '@/../static/images/errors/50X.svg';
+import LogoIcon from '@/../static/images/errors/logo.svg';
+import TextIcon from '@/../static/images/errors/text.svg';
+
+@Component({
+    components: {
+        LogoIcon,
+        TextIcon,
+        MainIcon,
+    },
+})
 // Page for server errors
 export default class Page50X extends Vue {}
 </script>
