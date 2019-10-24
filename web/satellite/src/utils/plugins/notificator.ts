@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import store from '@/store';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
