@@ -81,9 +81,15 @@ describe('mutations', () => {
     });
 
     it('toggle selection', function () {
-        store.commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, apiKey.id);
+        store.commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, apiKey);
 
         expect(state.page.apiKeys[0].isSelected).toBe(true);
+        expect(state.selectedApiKeysIds.length).toBe(1);
+
+        store.commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, apiKey);
+
+        expect(state.page.apiKeys[0].isSelected).toBe(false);
+        expect(state.selectedApiKeysIds.length).toBe(0);
     });
 
     it('clear selection', function () {
@@ -92,6 +98,8 @@ describe('mutations', () => {
         state.page.apiKeys.forEach((key: ApiKey) => {
             expect(key.isSelected).toBe(false);
         });
+
+        expect(state.selectedApiKeysIds.length).toBe(0);
     });
 
     it('clear store', function () {
@@ -102,6 +110,7 @@ describe('mutations', () => {
         expect(state.cursor.order).toBe(ApiKeyOrderBy.NAME);
         expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
         expect(state.page.apiKeys.length).toBe(0);
+        expect(state.selectedApiKeysIds.length).toBe(0);
     });
 });
 
@@ -234,9 +243,25 @@ describe('actions', () => {
 
         await store.dispatch(API_KEYS_ACTIONS.FETCH, FIRST_PAGE);
 
-        await store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, apiKey.id);
+        await store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, apiKey);
 
         expect(state.page.apiKeys[0].isSelected).toBe(true);
+        expect(state.selectedApiKeysIds.length).toBe(1);
+
+        await store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, apiKey2);
+
+        expect(state.page.apiKeys[1].isSelected).toBe(true);
+        expect(state.selectedApiKeysIds.length).toBe(2);
+
+        await store.dispatch(API_KEYS_ACTIONS.FETCH, FIRST_PAGE);
+
+        expect(state.page.apiKeys[1].isSelected).toBe(true);
+        expect(state.selectedApiKeysIds.length).toBe(2);
+
+        await store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, apiKey2);
+
+        expect(state.page.apiKeys[1].isSelected).toBe(false);
+        expect(state.selectedApiKeysIds.length).toBe(1);
     });
 
     it('success clearSelection apiKeys', async () => {
@@ -264,12 +289,15 @@ describe('actions', () => {
         expect(state.page.pageCount).toBe(0);
         expect(state.page.currentPage).toBe(1);
         expect(state.page.totalCount).toBe(0);
+
+        state.page.apiKeys.forEach((key: ApiKey) => {
+            expect(key.isSelected).toBe(false);
+        });
     });
 });
 
 describe('getters', () => {
     const selectedApiKey = new ApiKey('testtestId', 'testtestName', 'testtestCreatedAt', 'testtestSecret');
-    selectedApiKey.isSelected = true;
 
     it('selected apiKeys', () => {
         const testApiKeysPage = new ApiKeysPage();
@@ -278,6 +306,7 @@ describe('getters', () => {
         testApiKeysPage.pageCount = 1;
 
         store.commit(API_KEYS_MUTATIONS.SET_PAGE, testApiKeysPage);
+        store.commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, selectedApiKey);
 
         const retrievedApiKeys = store.getters.selectedApiKeys;
 

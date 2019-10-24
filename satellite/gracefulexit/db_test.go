@@ -103,8 +103,9 @@ func TestTransferQueueItem(t *testing.T) {
 				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
 				require.NoError(t, err)
 
+				now := time.Now().UTC()
 				item.DurabilityRatio = 1.2
-				item.RequestedAt = time.Now()
+				item.RequestedAt = &now
 
 				err = geDB.UpdateTransferQueueItem(ctx, *item)
 				require.NoError(t, err)
@@ -124,7 +125,9 @@ func TestTransferQueueItem(t *testing.T) {
 			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1)
 			require.NoError(t, err)
 
-			item.FinishedAt = time.Now()
+			now := time.Now().UTC()
+			item.FinishedAt = &now
+
 			err = geDB.UpdateTransferQueueItem(ctx, *item)
 			require.NoError(t, err)
 

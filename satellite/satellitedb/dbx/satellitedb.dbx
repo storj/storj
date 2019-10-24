@@ -171,6 +171,7 @@ model node (
     field exit_initiated_at         utimestamp ( updatable, nullable )
     field exit_loop_completed_at    utimestamp ( updatable, nullable )
     field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_success              bool ( updatable )
 )
 
 create node ( noreturn )
@@ -875,16 +876,10 @@ read one (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 )
-read limitoffset (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at = null
-	orderby asc graceful_exit_transfer_queue.queued_at
-)
 
 //--- satellite payments ---//
 
-model stripe_customers (
+model stripe_customer (
     key user_id
     unique customer_id
 
@@ -893,8 +888,32 @@ model stripe_customers (
     field created_at  timestamp ( autoinsert )
 )
 
-create stripe_customers ( )
+create stripe_customer ( )
 read one (
-	select stripe_customers.customer_id
-	where stripe_customers.user_id = ?
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
+)
+
+model coinpayments_transaction (
+    key id
+
+    field id       text
+    field user_id  blob
+    field address  text
+    field amount   blob
+    field received blob ( updatable )
+    field status   int  ( updatable )
+    field key      text
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()
+update coinpayments_transaction ( where coinpayments_transaction.id = ? )
+
+read limitoffset (
+    select coinpayments_transaction
+    where coinpayments_transaction.created_at <= ?
+    where coinpayments_transaction.status = ?
+    orderby desc coinpayments_transaction.created_at
 )

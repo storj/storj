@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -26,6 +27,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -92,7 +94,7 @@ type Server struct {
 	}
 }
 
-// NewServer creates new instance of console server
+// NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
 	server := Server{
 		log:         logger,
@@ -112,24 +114,45 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
+	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
+	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/robots.txt", server.seoHandler)
+	router.HandleFunc("/satelliteName", server.satelliteNameHandler).Methods(http.MethodGet)
+
+	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
+	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
+	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
+	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods(http.MethodDelete)
+	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods(http.MethodPost)
+
+	paymentController := consoleapi.NewPayments(logger, service)
+	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
+	paymentsRouter.Use(server.withAuth)
+	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.HandleFunc("/activation/", server.accountActivationHandler)
+		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
+		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
+		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
+		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
 	server.server = http.Server{
-		Handler:        mux,
+		Handler:        router,
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -190,6 +213,26 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
+}
+
+// authMiddlewareHandler performs initial authorization before every request.
+func (server *Server) withAuth(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var err error
+		defer mon.Task()(&ctx)(&err)
+		token := getToken(r)
+
+		ctx = auth.WithAPIKey(ctx, []byte(token))
+		auth, err := server.service.Authorize(ctx)
+		if err != nil {
+			ctx = console.WithAuthFailure(ctx, err)
+		} else {
+			ctx = console.WithAuth(ctx, auth)
+		}
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -387,6 +430,22 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 	}
 }
 
+// serveJSONError writes JSON error to response output stream.
+func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+
+	var response struct {
+		Error string `json:"error"`
+	}
+
+	response.Error = err.Error()
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		server.log.Error("failed to write json error response", zap.Error(err))
+	}
+}
+
 // grapqlHandler is graphql endpoint http handler function
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -465,7 +524,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		isNeededFormatToGzip := formats[extension]
 
 		// because we have some static content outside of console frontend app.
-		// for example: 404 page, account activation, passsrowd reset, etc.
+		// for example: 404 page, account activation, password reset, etc.
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
@@ -490,6 +549,20 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
+}
+
+// satelliteNameHandler retrieve satellites name.
+func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
+	var response struct {
+		SatelliteName string `json:"satelliteName"`
+	}
+
+	response.SatelliteName = server.config.SatelliteName
+
+	if err := json.NewEncoder(w).Encode(&response); err != nil {
+		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		return
+	}
 }
 
 // initializeTemplates is used to initialize all templates

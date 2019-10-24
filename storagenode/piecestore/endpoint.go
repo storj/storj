@@ -48,7 +48,7 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777"`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -58,10 +58,10 @@ type OldConfig struct {
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
-	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 
-	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 
 	Monitor monitor.Config
 	Orders  orders.Config
@@ -89,6 +89,10 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
+	// liveRequests tracks the total number of incoming rpc requests. For gRPC
+	// requests only, this number is compared to config.MaxConcurrentRequests
+	// and limits the number of gRPC requests. dRPC requests are tracked but
+	// not limited.
 	liveRequests int32
 }
 
@@ -155,12 +159,12 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, true)
 }
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, false)
 }
 
 // uploadStream is the minimum interface required to perform settlements.
@@ -171,7 +175,7 @@ type uploadStream interface {
 }
 
 // doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
+func (endpoint *Endpoint) doUpload(stream uploadStream, limitRequests bool) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -181,7 +185,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 
 	endpoint.pingStats.WasPinged(time.Now())
 
-	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+	if limitRequests && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
 		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
 	}
@@ -265,8 +269,16 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 		return ErrInternal.Wrap(err)
 	}
 
+	orderSaved := false
 	largestOrder := pb.Order{}
-	defer endpoint.saveOrder(ctx, limit, &largestOrder)
+	// Ensure that the order is saved even in the face of an error. In the
+	// success path, the order will be saved just before sending the response
+	// and closing the stream (in which case, orderSaved will be true).
+	defer func() {
+		if !orderSaved {
+			endpoint.saveOrder(ctx, limit, &largestOrder)
+		}
+	}()
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -351,6 +363,11 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
+
+			// Save the order before completing the call. Set orderSaved so
+			// that the defer above does not also save.
+			orderSaved = true
+			endpoint.saveOrder(ctx, limit, &largestOrder)
 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
 				Done: storageNodeHash,
@@ -685,7 +702,8 @@ func min(a, b int64) int64 {
 
 // ignoreEOF ignores io.EOF error.
 func ignoreEOF(err error) error {
-	if err == io.EOF {
+	// gRPC gives us an io.EOF but dRPC gives us a wrapped io.EOF
+	if errs.Is(err, io.EOF) {
 		return nil
 	}
 	return err

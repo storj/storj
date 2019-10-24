@@ -6,7 +6,10 @@ package rpc
 import (
 	"context"
 	"net"
+	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
@@ -20,10 +23,6 @@ type Dialer struct {
 	// insecure connections can be made.
 	TLSOptions *tlsopts.Options
 
-	// RequestTimeout causes any read/write operations on the raw socket
-	// to error if they take longer than it if it is non-zero.
-	RequestTimeout time.Duration
-
 	// DialTimeout causes all the tcp dials to error if they take longer
 	// than it if it is non-zero.
 	DialTimeout time.Duration
@@ -35,14 +34,17 @@ type Dialer struct {
 	// TransferRate limits all read/write operations to go slower than
 	// the size per second if it is non-zero.
 	TransferRate memory.Size
+
+	// PoolCapacity is the maximum number of cached connections to hold.
+	PoolCapacity int
 }
 
 // NewDefaultDialer returns a Dialer with default timeouts set.
 func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 	return Dialer{
-		TLSOptions:     tlsOptions,
-		RequestTimeout: 10 * time.Minute,
-		DialTimeout:    20 * time.Second,
+		TLSOptions:   tlsOptions,
+		DialTimeout:  20 * time.Second,
+		PoolCapacity: 5,
 	}
 }
 
@@ -83,15 +85,14 @@ func (d Dialer) dialContext(ctx context.Context, address string) (net.Conn, erro
 	}
 
 	return &timedConn{
-		Conn:    conn,
-		timeout: d.RequestTimeout,
-		rate:    d.TransferRate,
+		Conn: conn,
+		rate: d.TransferRate,
 	}, nil
 }
 
 // DialNode creates an rpc connection to the specified node.
 func (d Dialer) DialNode(ctx context.Context, node *pb.Node) (_ *Conn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
 	if d.TLSOptions == nil {
 		return nil, Error.New("tls options not set when required for this dial")
@@ -111,6 +112,54 @@ func (d Dialer) DialAddressID(ctx context.Context, address string, id storj.Node
 	return d.dial(ctx, address, d.TLSOptions.ClientTLSConfig(id))
 }
 
+// DialAddressInsecureBestEffort is like DialAddressInsecure but tries to dial a node securely if
+// it can.
+//
+// nodeURL is like a storj.NodeURL but (a) requires an address and (b) does not require a
+// full node id and will work with just a node prefix. The format is either:
+//  * node_host:node_port
+//  * node_id_prefix@node_host:node_port
+// Examples:
+//  * 33.20.0.1:7777
+//  * [2001:db8:1f70::999:de8:7648:6e8]:7777
+//  * 12vha9oTFnerx@33.20.0.1:7777
+//  * 12vha9oTFnerx@[2001:db8:1f70::999:de8:7648:6e8]:7777
+//
+// DialAddressInsecureBestEffort:
+//  * will use a node id if provided in the nodeURL paramenter
+//  * will otherwise look up the node address in a known map of node address to node ids and use
+// 		the remembered node id.
+//  * will otherwise dial insecurely
+func (d Dialer) DialAddressInsecureBestEffort(ctx context.Context, nodeURL string) (_ *Conn, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if d.TLSOptions == nil {
+		return nil, Error.New("tls options not set when required for this dial")
+	}
+
+	var nodeIDPrefix, nodeAddress string
+	parts := strings.Split(nodeURL, "@")
+	switch len(parts) {
+	default:
+		return nil, Error.New("malformed node url: %q", nodeURL)
+	case 1:
+		nodeAddress = parts[0]
+	case 2:
+		nodeIDPrefix, nodeAddress = parts[0], parts[1]
+	}
+
+	if len(nodeIDPrefix) > 0 {
+		return d.dial(ctx, nodeAddress, d.TLSOptions.ClientTLSConfigPrefix(nodeIDPrefix))
+	}
+
+	if nodeID, found := KnownNodeID(nodeAddress); found {
+		return d.dial(ctx, nodeAddress, d.TLSOptions.ClientTLSConfig(nodeID))
+	}
+
+	zap.S().Warnf("unknown node id for address %q: please specify node id in form node_id@node_host:node_port for added security", nodeAddress)
+	return d.dial(ctx, nodeAddress, d.TLSOptions.UnverifiedClientTLSConfig())
+}
+
 // DialAddressInsecure dials to the specified address and does not check the node id.
 func (d Dialer) DialAddressInsecure(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -126,5 +175,5 @@ func (d Dialer) DialAddressInsecure(ctx context.Context, address string) (_ *Con
 func (d Dialer) DialAddressUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return d.dialInsecure(ctx, address)
+	return d.dialUnencrypted(ctx, address)
 }

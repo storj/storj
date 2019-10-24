@@ -77,6 +77,12 @@ type DB interface {
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
 	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+	// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
+	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error)
+	// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
+	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
+	// GetExitStatus returns a node's graceful exit status.
+	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -129,12 +135,22 @@ type UpdateRequest struct {
 	UptimeDQ     float64
 }
 
+// ExitStatus is used for reading graceful exit status.
+type ExitStatus struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     *time.Time
+	ExitLoopCompletedAt *time.Time
+	ExitFinishedAt      *time.Time
+	ExitSuccess         bool
+}
+
 // ExitStatusRequest is used to update a node's graceful exit status.
 type ExitStatusRequest struct {
 	NodeID              storj.NodeID
 	ExitInitiatedAt     time.Time
 	ExitLoopCompletedAt time.Time
 	ExitFinishedAt      time.Time
+	ExitSuccess         bool
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
@@ -148,6 +164,8 @@ type NodeDossier struct {
 	Contained    bool
 	Disqualified *time.Time
 	PieceCount   int64
+	ExitStatus   ExitStatus
+	CreatedAt    time.Time
 }
 
 // NodeStats contains statistics about a node.

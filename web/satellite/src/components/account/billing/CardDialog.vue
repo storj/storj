@@ -2,17 +2,49 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dialog">
-        <p class="label dialog__make-default">Make Default</p>
-        <p class="label dialog__delete">Delete</p>
+    <div class="dialog" v-click-outside="closeCardsDialog">
+        <p class="label dialog__make-default" @click="onMakeDefaultClick">Make Default</p>
+        <p class="label dialog__delete" @click="onRemoveClick">Delete</p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    CLEAR_CARDS_SELECTION,
+    MAKE_CARD_DEFAULT,
+    REMOVE_CARD,
+} = PAYMENTS_ACTIONS;
 
 @Component
-export default class CardDialog extends Vue {}
+export default class CardDialog extends Vue {
+    @Prop({default: ''})
+    private readonly cardId: string;
+
+    public closeCardsDialog(): void {
+        this.$store.dispatch(CLEAR_CARDS_SELECTION);
+    }
+
+    public async onMakeDefaultClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
+    public async onRemoveClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(REMOVE_CARD, this.cardId);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+}
 </script>
 
 <style scoped lang="scss">
