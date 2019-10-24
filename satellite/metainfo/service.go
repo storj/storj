@@ -81,8 +81,10 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 
 		// put all existing pieces to a map
 		pieceMap := make(map[int32]*pb.RemotePiece)
+		uniqueNodeMap := make(map[storj.NodeID]struct{})
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			pieceMap[piece.PieceNum] = piece
+			uniqueNodeMap[piece.NodeId] = struct{}{}
 		}
 
 		// remove the toRemove pieces from the map
@@ -105,6 +107,10 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 			_, exists := pieceMap[piece.PieceNum]
 			if exists {
 				return nil, Error.New("piece to add already exists (piece no: %d)", piece.PieceNum)
+			}
+			_, exists = uniqueNodeMap[piece.NodeId]
+			if exists {
+				return nil, Error.New("node already exits for the piece to add (piece no: %d, node id: %s)", piece.PieceNum, piece.NodeId.String())
 			}
 			pieceMap[piece.PieceNum] = piece
 		}
