@@ -337,9 +337,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				if ErrInvalidArgument.Has(err) {
 					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-				} else {
-					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			deleteMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_DeletePiece{
