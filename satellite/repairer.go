@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package repairer
+package satellite
 
 import (
 	"context"
@@ -18,38 +18,19 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/repair/repairer"
 )
 
-// PeerConfig contains the necessary information to configure a repairer peer.
-type PeerConfig struct {
-	Identity identity.Config
-	Server   server.Config
-
-	Contact contact.Config
-	Overlay overlay.Config
-
-	Metainfo metainfo.Config
-	Orders   orders.Config
-
-	Checker  checker.Config
-	Repairer Config
-
-	Version version_checker.Config
-}
-
-// Peer is the repairer process.
+// Repairer is the repairer process.
 //
 // architecture: Peer
-type Peer struct {
+type Repairer struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 
@@ -59,14 +40,14 @@ type Peer struct {
 	Metainfo        *metainfo.Service
 	Overlay         *overlay.Service
 	Orders          *orders.Service
-	SegmentRepairer *SegmentRepairer
-	Repairer        *Service
+	SegmentRepairer *repairer.SegmentRepairer
+	Repairer        *repairer.Service
 }
 
-// NewPeer creates a new repairer process.
-func NewPeer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
-	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB, ordersDB orders.DB, versionInfo version.Info, config *PeerConfig) (*Peer, error) {
-	peer := &Peer{
+// NewRepairer creates a new repairer peer.
+func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
+	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB, ordersDB orders.DB, versionInfo version.Info, config *Config) (*Repairer, error) {
+	peer := &Repairer{
 		Log:      log,
 		Identity: full,
 	}
@@ -118,7 +99,7 @@ func NewPeer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainfo.Po
 
 	{ // setup repairer
 		log.Debug("Setting up repairer")
-		peer.SegmentRepairer = NewSegmentRepairer(
+		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment repairer"),
 			peer.Metainfo,
 			peer.Orders,
@@ -129,14 +110,14 @@ func NewPeer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainfo.Po
 			config.Checker.RepairOverride,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
-		peer.Repairer = NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
+		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 	}
 
 	return peer, nil
 }
 
 // Run runs the repair process until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) (err error) {
+func (peer *Repairer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
@@ -153,7 +134,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 }
 
 // Close closes all the resources.
-func (peer *Peer) Close() error {
+func (peer *Repairer) Close() error {
 	var errlist errs.Group
 
 	// close services in reverse initialization order
@@ -166,4 +147,4 @@ func (peer *Peer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Repairer) ID() storj.NodeID { return peer.Identity.ID }

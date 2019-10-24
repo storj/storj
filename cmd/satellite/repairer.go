@@ -11,28 +11,21 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
 )
-
-// Repairer defines repairer configuration
-type Repairer struct {
-	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
-
-	repairer.PeerConfig
-}
 
 func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	identity, err := repairerRunCfg.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), repairerRunCfg.Database)
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
 	if err != nil {
 		return errs.New("Error starting master database: %+v", err)
 	}
@@ -40,7 +33,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), repairerRunCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metainfo database: %+v", err)
 	}
@@ -48,7 +41,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(repairerRunCfg.Server.Config)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -56,7 +49,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := repairer.NewPeer(
+	peer, err := satellite.NewRepairer(
 		log,
 		identity,
 		pointerDB,
@@ -66,7 +59,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		db.OverlayCache(),
 		db.Orders(),
 		version.Build,
-		&repairerRunCfg.PeerConfig,
+		&runCfg.Config,
 	)
 	if err != nil {
 		return err
@@ -77,7 +70,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, log, nil, repairerRunCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher on repairer: ", err)
 	}
 

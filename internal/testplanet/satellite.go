@@ -57,7 +57,7 @@ import (
 type SatelliteSystem struct {
 	Peer     *satellite.Peer
 	API      *satellite.API
-	Repairer *repairer.Peer
+	Repairer *satellite.Repairer
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -433,7 +433,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API, repairerPeer *repairer.Peer) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
 	system := &SatelliteSystem{
 		Peer:     peer,
 		API:      api,
@@ -512,21 +512,9 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 }
 
 func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB,
-	satConfig satellite.Config, versionInfo version.Info) (*repairer.Peer, error) {
+	config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 
-	config := &repairer.PeerConfig{
-		Identity: satConfig.Identity,
-		Server:   satConfig.Server,
-		Contact:  satConfig.Contact,
-		Overlay:  satConfig.Overlay,
-		Metainfo: satConfig.Metainfo,
-		Orders:   satConfig.Orders,
-		Checker:  satConfig.Checker,
-		Repairer: satConfig.Repairer,
-		Version:  satConfig.Version,
-	}
-
-	return repairer.NewPeer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, config)
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, &config)
 }

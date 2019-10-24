@@ -95,8 +95,6 @@ var (
 	runCfg   Satellite
 	setupCfg Satellite
 
-	repairerRunCfg Repairer
-
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
@@ -135,7 +133,7 @@ func init() {
 	reportsCmd.AddCommand(gracefulExitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(runRepairerCmd, &repairerRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
