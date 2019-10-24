@@ -283,8 +283,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			var transferMsg *pb.SatelliteMessage
-			mon.IntVal("graceful_exit_pieces_failed").Observe(progress.PiecesFailed)
-			mon.IntVal("graceful_exit_pieces_transferred").Observe(progress.PiecesTransferred)
+			mon.IntVal("graceful_exit_pieces_failed_transfer").Observe(progress.PiecesFailed)
+			mon.IntVal("graceful_exit_pieces_succeeded_transfer").Observe(progress.PiecesTransferred)
 
 			processed := progress.PiecesFailed + progress.PiecesTransferred
 			// check node's exiting progress to see if it has failed passed max failure threshold
