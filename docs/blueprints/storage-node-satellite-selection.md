@@ -20,19 +20,25 @@ removing the burden of future maintenance.
 
 ## Design
 
-The proposed design uses one or more Trusted Satellite Lists combined with
-an explicit allow and block list.
+The proposed design is to discover trusted Satellites from externally
+maintained lists from trusted sources with the ability to manually trust/block
+Satellites.
 
-### Satellite URL
+### Concepts
+
+#### Satellite URL
 
 A Satellite URL holds all the information needed to contact and identify a
 Satellite. It is comprised of an optional scheme (i.e. `storj://`), an optional
 ID, and an address.
 
-The ID can be a full ID or just a prefix. The ID is used to verify the
-connected peer and **SHOULD** be set to avoid connecting to an unintended peer.
+The ID can be a full ID or just a prefix. A prefix **SHOULD** be at least 8
+characters long in order to contain enough entropy to be useful. The ID is used
+to verify the connected peer and **SHOULD** be set to avoid connecting to an
+unintended peer.
 
-The address **MUST** contain both a host and port for the purposes of this feature.
+The address **MUST** contain both a host and port for the purposes of this
+feature.
 
 The following are all examples of valid Satellite URLs:
 
@@ -45,128 +51,166 @@ storj://12EayRS2@us-central-1.tardigrade.io:7777
 storj://12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777
 ```
 
-### Trusted Satellite List
+#### Trusted Satellite List
 
 The Trusted Satellite List is a text document where each line represents the
-Satellite URL of a trusted Satellite, like so:
+Satellite URL of a trusted Satellite.
+
+Satellite URLs in the Trusted Satellite List **MUST** contain a full ID.
 
 ```
 12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777
 121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777
 ```
 
-### Trusted Satellite List URLs
+### Storage Node Configuration
 
-A Trusted Satellite List URL is a URL where a Trusted Satellite List
-can be downloaded. It **SHOULD** be an HTTPS URL to ensure transport security
-and prevent a person-in-the-middle from tampering with the list.
+The Storage Node configuration for Satellite selection is a list of one or more
+entries, where each entry is one of the following:
 
-For example:
+* Trusted Satellite List URL
+* Trusted Satellite URL
+* Untrusted Satellite URL
+
+#### Trusted Satellite List URL Entry
+
+This entry contains a URL where a Trusted Satellite List can be downloaded.
+
+Supported schemes are `file://`, `http://` and `https://`.  When
+not using `file://` it **SHOULD** be an `https://` URL to ensure transport
+security and prevent a person-in-the-middle from tampering with the list.
+
+Examples:
 
 ```
 https://www.tardigrade.io/trusted-satellites
+file:///some/path/to/trusted-satellites.txt
 ```
 
-### Allow List
+#### Trusted Satellite URL Entry
 
-The Allow List contains Satellite URLS of explicitly trusted Satellites.
+This entry contains the URL to an explicitly trusted Satellite. The format of
+the entry is a Satellite URL. The URL **SHOULD** contain an ID. A
+partial ID **MAY** be used if it simplifies UX.
 
-### Block List
+#### Untrusted Satellite URL Entry
 
-The Block List contains Satellite URLs of explicitly blocked Satellites.
+This entry contains the URL to an explicitly untrusted Satellite. The format of
+the entry is a Satellite URL prefixed with a `!`. Since the ID portion of the
+Satellite URL is ignored for blocking purposes, the blocked Satellite URL
+**SHOULD** contain just the address, like so:
+
+```
+!us-central-1.tardigrade.io:7777
+```
 
 ### Building the List of Trusted Satellite URLs
 
-To build the list of trusted Satellite URLs, the following steps are performed,
-in order:
+To build the list of trusted Satellite URLs each entry in the configuration is
+traversed in order, parsed, and processed accordingly:
 
-1. Trusted Satellite Lists are downloaded from all Trusted Satellite List URLs and aggregated _in the order_ they are specified in the configuration.
-1. URLs from the Allow List are then aggregated into the trusted list.
-1. URLs in the Block List are removed from the trust list, if present. URLs
-   in the Block list that are not present in the trust list are ignored.
+1. If the entry begins with a `!`, it represents an untrusted Satellite URL entry. It is aggregated into the `untrusted` list, which is used later.
+1. If the entry begins with `file://`, `http://`, or `https://`, it is a Trusted Satellite List URL. The URL is used to fetch a list of Trusted Satellite URLs that are aggregated into the `trusted` list.
+1. If the entry begins with `storj://`, or otherwise does not use a scheme, it is a trusted Satellite URL entry. It is aggregated into the `trusted` list.
+1. If an entry does not match any of the above, it is a configuration error.
 
 If a Trusted Satellite List cannot be fetched a warning should be logged. If
 available, the last known copy from the Trusted Satellite List URL should be
-used. Storage Nodes should persist the downloaded lists.
+used. Storage Nodes should attempt to persist the downloaded lists. If they
+cannot, a warning should be logged.
 
 When aggregating Satellite URLs, the following rules **MUST** be followed:
 
-* Satellite URL IDs are equivalent if they are equal, or one is a prefix of the
+* A Satellite URL in the `trusted list` is considered _authoritative_ if it
+  matches either of the following criteria:
+    * Configured via a Trusted Satellite URL entry
+    * Configured via a Trusted Satellite List and has a matching DNS root or
+      IP address with the URL used to download the list.
+* Satellite URL _IDs_ are equivalent if they are equal, or one is a prefix of the
   other (including an empty ID).
 * Satellite URLs are equivalent if the address portions are equal.
-* When aggregating equivalent Satellite URLs with equivalent IDs, the Satellite
+* When aggregating equivalent Satellite URLs with _equivalent IDs_, the Satellite
   URL with the longer ID is preferred over one with a shorter (or no) ID.
-* When aggregating equivalent Satellite URLs with non-equivalent IDs, the new
-  URL wins.
-* When blocking URLs, ID equivalence is ignored. In other words, URLs in the
-  trust list are equivalent with one in the Block List, they are removed.
+* When aggregating equivalent Satellite URLs with non-equivalent IDs, the
+  _authoritative_ Satellite URL wins. If neither or both are _authoritative_,
+  the one aggregated first wins.
 
-#### Examples
+After all configuration entries have been processed, each URL in the `trusted`
+list is compared to the `untrusted` list. If there is an equivalent Satellite
+URL in the `untrusted` list, the Satellite URL is removed from the `trusted
+list`. The ID portion of the Satellite URL is ignored for purposes of
+comparison with the `untrusted` list.
 
-##### Longest ID Preferred
+#### Example
 
-List A:
+Consider the following Trusted Satellite List URLs and their contents:
 
-```
-abcd@foo.com:7777
-foo.com:7777
-```
-
-List B:
+* `https://foo.test/trusted-satellites`
 
 ```
-ab@foo.com:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@c.baz.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@d.buz.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@d.quz.test:7777
 ```
 
-Results in:
+* `https://bar.test/trusted-satellites`
 
 ```
-abcd@foo.com:7777
+2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777
+2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777
+2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@c.baz.test:7777
+2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@d.buz.test:7777
 ```
 
-##### Last URL Wins When ID is not Equivalent
-
-List A:
+Now consider the following configuration:
 
 ```
-abcd@foo.com:7777
+1xxxxxxxx@e.quz.test:7777
+https://foo.test/trusted-satellites
+0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777
+0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777
+https://bar.test/trusted-satellites
+!buz.test:7777
 ```
 
-List B:
+The following list of trusted Satellite URLs is produced:
 
 ```
-ef@foo.com:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@e.quz.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777
+0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777
+1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@c.baz.test:7777
 ```
 
-Results in:
+`1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@e.quz.test:7777` is
+selected because even though `1xxxxxxxx@e.quz.test:7777` was _authoritative_
+and also came first,
+`1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@e.quz.test:7777` contained
+a full ID that was longer than the prefix.
 
-```
-ef@foo.com:7777
-```
+`1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777` is
+selected because `foo.test` is authoritative for this entry and it therefore
+cannot be overridden by `bar.test`. It also wins over
+`0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.foo.test:7777` even
+though that entry is authoritative since it was aggregated first.
 
-##### URL in the Block List
+`0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777` is
+selected because explicit trusted Satellite URL entries are authoritative so it
+replaces the `b.bar.test` entry provided by `foo.test`. It also wins over
+`2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@b.bar.test:7777` even
+though that entry also authoritative since it was aggregated first.
 
-List A:
+`1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@c.baz.test:7777` wins because
+it was aggregated first and no other entry is authoritative.
 
-```
-abcd@foo.com:7777
-```
+No `*@d.buz.test:7777` entries are selected because they have been explicitly
+blocked.
 
-Block List:
+### Rebuilding the List of Trusted Satellite URLs
 
-```
-foo.com:7777
-```
-
-Results in:
-
-```
-
-```
-
-### Refreshing the List
-
-The list of trusted Satellite URLs should be refreshed daily (with some jitter).
+The list of trusted Satellite URLs should be recalculated daily (with some jitter).
 
 ### Backwards Compatability
 
@@ -182,18 +226,17 @@ a fixed set of trusted Satellite URLs.
 * If aggregation yields no URLs (list URL unreachable) should we default to anything? How should this be reported?
 * If block listing removes all URLs, how should this be reported?
 * Can we safely auto-migrate storage nodes into this new method of management?
+* How long does the storage node wait before garbage collecting pieces from Satellites it no longer trusts? Should this be manual operation?
 
 ## To Do
 
 * Implement an endpoint at `https://www.tardigrade.io/trusted-satellites` to return the default list of trusted Satellites.
 * Implement a `trust.ListConfig` configuration struct which:
-  * Contains a list of Trusted Satellite List URLs (with a release default of `https://www.tardigrade.io/trusted-satellites`)
-  * Contains the Allow List
-  * Contains the Block List
+  * Contains the list of entries (with a release default of a single list containing `https://www.tardigrade.io/trusted-satellites`)
   * Contains a refresh interval
   * Maintains backwards compatability with `WhitelistedSatellites` in `piecestore.OldConfig`
 * Implement `storj.io/storj/storagenode/trust.List` that:
   * Consumes `trust.ListConfig` for configuration
-  * Performs the initial fetching and aggregation of trusted Satellite URLs
+  * Performs the initial fetching and building of trusted Satellite URLs
   * Updates according to the refresh interval (with jitter)
 * Refactor `storj.io/storj/storagenode/trust.Pool` to use `trust.List`
