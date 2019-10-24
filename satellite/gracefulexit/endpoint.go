@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -35,6 +36,8 @@ var (
 	ErrInvalidReplacementPieceID = Error.New("Invalid replacement piece ID")
 	// ErrInvalidOriginalPieceID is an error for when original piece ID doesn't match derived original piece ID.
 	ErrInvalidOriginalPieceID = Error.New("Invalid original piece ID")
+	// ErrInvalidArgument is an error class for internal errors used to check which rpc code to use.
+	ErrInvalidArgument = errs.Class("graceful exit")
 )
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -332,8 +335,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
-				// Don't wrap this error since handleSucceeded returns rpc status errors.
-				return err
+				if ErrInvalidArgument.Has(err) {
+					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+				} else {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
+				}
 			}
 			deleteMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_DeletePiece{
@@ -478,42 +484,42 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	transfer, ok := pending.get(originalPieceID)
 	if !ok {
-		endpoint.log.Error("could not find transfer item in pending queue", zap.Stringer("piece ID", originalPieceID))
-		return Error.New("could not find transfer item in pending queue")
+		endpoint.log.Error("Could not find transfer item in pending queue", zap.Stringer("Piece ID", originalPieceID))
+		return Error.New("Could not find transfer item in pending queue")
 	}
 
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
-		return Error.New("Original order limit cannot be nil.")
+		return ErrInvalidArgument.New("Original order limit cannot be nil")
 	}
 	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
 	if originalPieceHash == nil {
-		return Error.New("Original piece hash cannot be nil.")
+		return ErrInvalidArgument.New("Original piece hash cannot be nil")
 	}
 	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
 	if replacementPieceHash == nil {
-		return Error.New("Replacement piece hash cannot be nil.")
+		return ErrInvalidArgument.New("Replacement piece hash cannot be nil")
 	}
 
 	// verify that the original piece hash and replacement piece hash match
 	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, ErrHashMismatch.Error())
+		return ErrInvalidArgument.Wrap(ErrHashMismatch)
 	}
 
 	// verify that the satellite signed the original order limit
 	err = endpoint.orders.VerifyOrderLimitSignature(ctx, originalOrderLimit)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return ErrInvalidArgument.Wrap(err)
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
 	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return ErrInvalidArgument.Wrap(err)
 	}
 
 	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
-		return ErrInvalidOriginalPieceID
+		return ErrInvalidArgument.Wrap(ErrInvalidOriginalPieceID)
 	}
 
 	// TODO add nil checks/figure out a better way to get the receiving node ID
@@ -521,7 +527,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
-		return ErrInvalidReplacementPieceID
+		return ErrInvalidArgument.Wrap(ErrInvalidReplacementPieceID)
 	}
 
 	// get peerID and signee for new storage node
@@ -534,7 +540,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return ErrInvalidArgument.Wrap(err)
 	}
 
 	// TODO add nil check for getting path
