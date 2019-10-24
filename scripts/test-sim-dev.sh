@@ -2,17 +2,20 @@
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+LOG_FILE=${STORJ_SIM_POSTGRES_LOG:-"storj-sim-postgres.log"}
 CONTAINER_NAME=storj_sim_postgres
-docker run -d --rm -p 5433:5432 --name $CONTAINER_NAME postgres:9.6
 
 cleanup(){
   docker rm -f $CONTAINER_NAME
 }
 trap cleanup EXIT
 
+docker run --rm -d -p 5433:5432 --name $CONTAINER_NAME postgres:9.6 -c log_min_duration_statement=0
+docker logs -f $CONTAINER_NAME > $LOG_FILE 2>&1 &
+
 STORJ_SIM_DATABASE=${STORJ_SIM_DATABASE:-"teststorj"}
 
-RETRIES=5
+RETRIES=10
 
 until docker exec $CONTAINER_NAME psql -h localhost -U postgres -d postgres -c "select 1" > /dev/null 2>&1 || [ $RETRIES -eq 0 ]; do
   echo "Waiting for postgres server, $((RETRIES--)) remaining attempts..."
