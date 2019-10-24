@@ -432,14 +432,8 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	transfer, ok := pending.get(originalPieceID)
 	if !ok {
-		endpoint.log.Error("could not find transfer message in pending queue", zap.Stringer("piece ID", originalPieceID))
-		return Error.New("could not find transfer message in pending queue")
-	}
-
-	// TODO add nil check for getting path
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
-	if err != nil {
-		return Error.Wrap(err)
+		endpoint.log.Error("could not find transfer item in pending queue", zap.Stringer("piece ID", originalPieceID))
+		return Error.New("could not find transfer item in pending queue")
 	}
 
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
@@ -495,6 +489,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// TODO add nil check for getting path
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	var failed int64
