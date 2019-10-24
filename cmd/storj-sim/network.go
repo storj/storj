@@ -299,6 +299,25 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 	}
 
+	// Create the repairer process for each satellite
+	var repairerPeers []*Process
+	for i, satellite := range satellites {
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-repairer/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		repairerPeers = append(repairerPeers, process)
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"repair",
+			},
+		})
+
+		process.WaitForStart(satellite)
+	}
+
 	// Create gateways for each satellite
 	for i, satellite := range satelliteAPIs {
 		satellite := satellite
@@ -520,6 +539,10 @@ func identitySetup(network *Processes) (*Processes, error) {
 
 		if strings.Contains(process.Name, "satellite-api") {
 			// satellite-api uses the same identity as the satellite
+			continue
+		}
+		if strings.Contains(process.Name, "satellite-repair") {
+			// satellite-repair uses the same identity as the satellite
 			continue
 		}
 
