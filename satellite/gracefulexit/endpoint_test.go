@@ -395,15 +395,10 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 		}
-		// check that there are no exiting nodes.
-		for {
-			exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-			require.NoError(t, err)
-			if len(exitingNodeIDs) == 0 {
-				break
-			}
-			t.Log("warning: waiting for node to exit")
-		}
+
+		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodeIDs, 0)
 
 		exitingNode, err := findNodeToExit(ctx, planet, objects)
 		require.NoError(t, err)
