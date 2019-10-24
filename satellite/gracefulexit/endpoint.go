@@ -160,7 +160,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		// TODO revisit this. Should check if signature was sent
 		completed := &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{ExitCompleted: &pb.ExitCompleted{}}}
 		err = stream.Send(completed)
-		return Error.Wrap(err)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		mon.Meter("graceful_exit_completed").Mark(1)
+		return nil
 	}
 
 	if exitStatus.ExitInitiatedAt == nil {
@@ -253,6 +257,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			}
+			mon.Meter("graceful_exit_completed").Mark(1)
 			break
 		}
 		// skip if there are none pending
@@ -448,12 +453,15 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 
 	pending.delete(pieceID)
 
+	mon.Meter("graceful_exit_transfer_succeeded").Mark(1)
+
 	return nil
 }
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	mon.Meter("graceful_exit_transfer_failed").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
