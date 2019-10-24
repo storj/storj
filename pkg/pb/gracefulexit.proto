@@ -103,6 +103,8 @@ message ExitCompleted {
 message ExitFailed {
   enum Reason {
       VERIFICATION_FAILED = 0;
+      INACTIVE_TIMEFRAME_EXCEEDED = 1;
+      OVERALL_FAILURE_PERCENTAGE_EXCEEDED = 2;
   }
   // on failure
   bytes exit_failure_signature  = 1;
