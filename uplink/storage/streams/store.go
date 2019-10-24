@@ -378,7 +378,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 			streamID:      object.StreamID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
-			m:             streamMeta.LastSegmentMeta,
 			size:          stream.SegmentsSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
@@ -618,7 +617,6 @@ type lazySegmentRanger struct {
 	streamID      storj.StreamID
 	segmentIndex  int32
 	rs            storj.RedundancyScheme
-	m             *pb.SegmentMeta
 	size          int64
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
