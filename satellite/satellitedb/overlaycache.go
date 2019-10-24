@@ -829,11 +829,11 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 }
 
 // GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
-func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
 		`),
@@ -846,41 +846,12 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes st
 	}()
 
 	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
+		var exitingNodeStatus overlay.ExitStatus
+		err = rows.Scan(&exitingNodeStatus.NodeID, &exitingNodeStatus.ExitInitiatedAt, &exitingNodeStatus.ExitLoopCompletedAt, &exitingNodeStatus.ExitFinishedAt, &exitingNodeStatus.ExitSuccess)
 		if err != nil {
 			return nil, err
 		}
-		exitingNodes = append(exitingNodes, id)
-	}
-	return exitingNodes, nil
-}
-
-// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
-func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
-		WHERE exit_initiated_at IS NOT NULL
-		AND exit_loop_completed_at IS NULL
-		AND exit_finished_at IS NULL
-		`),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
-		}
-		exitingNodes = append(exitingNodes, id)
+		exitingNodes = append(exitingNodes, &exitingNodeStatus)
 	}
 	return exitingNodes, nil
 }

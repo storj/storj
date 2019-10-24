@@ -4,18 +4,21 @@
 package gracefulexit
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -25,6 +28,11 @@ import (
 
 // millis for the transfer queue building ticker
 const buildQueueMillis = 100
+
+var (
+	// ErrInvalidArgument is an error class for invalid argument errors used to check which rpc code to use.
+	ErrInvalidArgument = errs.Class("graceful exit")
+)
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
 type drpcEndpoint struct{ *Endpoint }
@@ -38,20 +46,23 @@ type processStream interface {
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
-	log       *zap.Logger
-	interval  time.Duration
-	db        DB
-	overlaydb overlay.DB
-	overlay   *overlay.Service
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	config    Config
+	log            *zap.Logger
+	interval       time.Duration
+	db             DB
+	overlaydb      overlay.DB
+	overlay        *overlay.Service
+	metainfo       *metainfo.Service
+	orders         *orders.Service
+	peerIdentities overlay.PeerIdentities
+	config         Config
 }
 
 type pendingTransfer struct {
 	path             []byte
 	pieceSize        int64
 	satelliteMessage *pb.SatelliteMessage
+	rootPieceID      storj.PieceID
+	pieceNum         int32
 }
 
 // pendingMap for managing concurrent access to the pending transfer map.
@@ -107,16 +118,18 @@ func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service, config Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
+	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		interval:  time.Millisecond * buildQueueMillis,
-		db:        db,
-		overlaydb: overlaydb,
-		overlay:   overlay,
-		metainfo:  metainfo,
-		orders:    orders,
-		config:    config,
+		log:            log,
+		interval:       time.Millisecond * buildQueueMillis,
+		db:             db,
+		overlaydb:      overlaydb,
+		overlay:        overlay,
+		metainfo:       metainfo,
+		orders:         orders,
+		peerIdentities: peerIdentities,
+		config:         config,
 	}
 }
 
@@ -136,7 +149,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 	// TODO should we error if the node is DQ'd?
 
@@ -148,12 +161,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
 			return nil
 		}
-		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Unknown, Error.Wrap(err).Error())
+		}
+		return nil
 	}
 
 	exitStatus, err := endpoint.overlaydb.GetExitStatus(ctx, nodeID)
 	if err != nil {
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	if exitStatus.ExitFinishedAt != nil {
@@ -161,9 +177,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		completed := &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{ExitCompleted: &pb.ExitCompleted{}}}
 		err = stream.Send(completed)
 		if err != nil {
-			return Error.Wrap(err)
+			mon.Meter("graceful_exit_completed").Mark(1)
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
-		mon.Meter("graceful_exit_completed").Mark(1)
 		return nil
 	}
 
@@ -171,7 +187,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
 		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {
-			return Error.Wrap(err)
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		}
+		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 0)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
 
 		// graceful exit initiation metrics
@@ -182,12 +202,18 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
 
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
-		return Error.Wrap(err)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		}
+		return nil
 	}
 
 	if exitStatus.ExitLoopCompletedAt == nil {
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
-		return Error.Wrap(err)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		}
+		return nil
 	}
 
 	pending := newPendingMap()
@@ -197,7 +223,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	handleError := func(err error) error {
 		errChan <- err
 		close(errChan)
-		return Error.Wrap(err)
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	var group errgroup.Group
@@ -213,7 +239,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures, endpoint.config.EndpointBatchSize, 0)
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						return handleError(err)
 					}
@@ -244,18 +270,57 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 
 		pendingCount := pending.length()
+
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
-			// TODO check whether failure threshold is met before sending completed
-			// TODO needs exit signature
-			transferMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_ExitCompleted{
-					ExitCompleted: &pb.ExitCompleted{},
-				},
+			exitStatusRequest := &overlay.ExitStatusRequest{
+				NodeID:         nodeID,
+				ExitFinishedAt: time.Now().UTC(),
 			}
+
+			progress, err := endpoint.db.GetProgress(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+
+			var transferMsg *pb.SatelliteMessage
+			processed := progress.PiecesFailed + progress.PiecesTransferred
+			// check node's exiting progress to see if it has failed passed max failure threshold
+			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
+
+				exitStatusRequest.ExitSuccess = false
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitFailed{
+						ExitFailed: &pb.ExitFailed{
+							Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+						},
+					},
+				}
+			} else {
+				exitStatusRequest.ExitSuccess = true
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitCompleted{
+						ExitCompleted: &pb.ExitCompleted{},
+					},
+				}
+			}
+
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+
 			err = stream.Send(transferMsg)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+			}
+
+			// remove remaining items from the queue after notifying nodes about their exit status
+			err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			mon.Meter("graceful_exit_completed").Mark(1)
 			break
@@ -274,7 +339,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
-				return Error.Wrap(err)
+				if ErrInvalidArgument.Has(err) {
+					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+				}
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			deleteMsg := &pb.SatelliteMessage{
 				Message: &pb.SatelliteMessage_DeletePiece{
@@ -285,20 +353,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			err = stream.Send(deleteMsg)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
-				return Error.Wrap(err)
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		default:
-			return Error.New("unknown storage node message: %v", m)
+			return rpcstatus.Error(rpcstatus.Unknown, Error.New("unknown storage node message: %v", m).Error())
 		}
 	}
 
 	if err := group.Wait(); err != nil {
-		return err
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
 	return nil
@@ -405,53 +473,115 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
 		satelliteMessage: transferMsg,
+		rootPieceID:      remote.RootPieceId,
+		pieceNum:         incomplete.PieceNum,
 	})
 
 	return nil
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if message.Succeeded.GetOriginalOrderLimit() == nil {
-		return Error.New("original order limit cannot be nil.")
-	}
-	if message.Succeeded.GetOriginalPieceHash() == nil {
-		return Error.New("original piece hash cannot be nil.")
-	}
 
-	pieceID := message.Succeeded.OriginalPieceId
-	endpoint.log.Debug("transfer succeeded", zap.Stringer("piece ID", pieceID))
+	originalPieceID := message.Succeeded.OriginalPieceId
 
-	// TODO validation
-
-	transfer, ok := pending.get(pieceID)
+	transfer, ok := pending.get(originalPieceID)
 	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("piece ID", pieceID))
-
-		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properly
+		endpoint.log.Error("Could not find transfer item in pending queue", zap.Stringer("Piece ID", originalPieceID))
+		return Error.New("Could not find transfer item in pending queue")
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
+	if transfer.satelliteMessage == nil {
+		return Error.New("Satellite message cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece() == nil {
+		return Error.New("Satellite message transfer piece cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit() == nil {
+		return Error.New("Addressed order limit on transfer piece cannot be nil")
+	}
+	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
+		return Error.New("Addressed order limit on transfer piece cannot be nil")
+	}
+	if transfer.path == nil {
+		return Error.New("Transfer path cannot be nil")
+	}
+
+	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
+	if originalOrderLimit == nil {
+		return ErrInvalidArgument.New("Original order limit cannot be nil")
+	}
+	originalPieceHash := message.Succeeded.GetOriginalPieceHash()
+	if originalPieceHash == nil {
+		return ErrInvalidArgument.New("Original piece hash cannot be nil")
+	}
+	replacementPieceHash := message.Succeeded.GetReplacementPieceHash()
+	if replacementPieceHash == nil {
+		return ErrInvalidArgument.New("Replacement piece hash cannot be nil")
+	}
+
+	// verify that the original piece hash and replacement piece hash match
+	if !bytes.Equal(originalPieceHash.Hash, replacementPieceHash.Hash) {
+		return ErrInvalidArgument.New("Piece hashes for transferred piece don't match")
+	}
+
+	// verify that the satellite signed the original order limit
+	err = endpoint.orders.VerifyOrderLimitSignature(ctx, originalOrderLimit)
+	if err != nil {
+		return ErrInvalidArgument.Wrap(err)
+	}
+
+	// verify that the public key on the order limit signed the original piece hash
+	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
+	if err != nil {
+		return ErrInvalidArgument.Wrap(err)
+	}
+
+	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
+		return ErrInvalidArgument.New("Invalid original piece ID")
+	}
+
+	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+
+	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
+	if calculatedNewPieceID != replacementPieceHash.PieceId {
+		return ErrInvalidArgument.New("Invalid replacement piece ID")
+	}
+
+	// get peerID and signee for new storage node
+	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	signee := signing.SigneeFromPeerIdentity(peerID)
+
+	// verify that the new node signed the replacement piece hash
+	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
+	if err != nil {
+		return ErrInvalidArgument.Wrap(err)
+	}
+
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	var failed int64
-	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > 0 {
+	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount >= endpoint.config.MaxFailuresPerPiece {
 		failed = -1
 	}
 
-	err = endpoint.db.IncrementProgress(ctx, nodeID, transfer.pieceSize, 1, failed)
+	err = endpoint.db.IncrementProgress(ctx, exitingNodeID, transfer.pieceSize, 1, failed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	pending.delete(pieceID)
+	pending.delete(originalPieceID)
 
 	mon.Meter("graceful_exit_transfer_succeeded").Mark(1)
 
@@ -491,8 +621,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		return Error.Wrap(err)
 	}
 
-	// only increment failed if it hasn't failed before
-	if failedCount == 1 {
+	// only increment overall failed count if piece failures has reached the threshold
+	if failedCount == endpoint.config.MaxFailuresPerPiece {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)
