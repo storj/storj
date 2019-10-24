@@ -119,7 +119,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	var ctx context.Context
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = process.Ctx(cmd)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
@@ -161,10 +161,18 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRecover(cmd *cobra.Command, args []string) error {
-	log := zap.S()
+	log.Println("storagenode updater recovering!")
 
-	log.Error("storagenode updater recovering!")
+	badExec := strings.Replace(os.Args[0], ".backup", "", 1)
+	log.Printf("deleting bad updater binary: %s\n", badExec)
+	if err := os.Remove(badExec); err != nil {
+		return errs.Wrap(err)
+	}
 
+	log.Printf("restoring backup binary from: %s\n", os.Args[0])
+	if err := os.Rename(os.Args[0], badExec); err != nil {
+		return errs.Wrap(err)
+	}
 	return nil
 }
 
@@ -265,7 +273,8 @@ func renameUpdater(_ version.SemVer) error {
 	}
 
 	dir := filepath.Dir(os.Args[0])
-	backupExec := filepath.Join(dir, updaterServiceName+".backup."+extension)
+	base := filepath.Base(os.Args[0])[:len(extension)]
+	backupExec := filepath.Join(dir, base+".backup."+extension)
 
 	if err := os.Rename(os.Args[0], backupExec); err != nil {
 		return errs.Wrap(err)
