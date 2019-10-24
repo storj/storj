@@ -211,6 +211,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var morePiecesFlag int32 = 1
 	errChan := make(chan error, 1)
+	processChan := make(chan bool, 1)
+
 	handleError := func(err error) error {
 		errChan <- err
 		close(errChan)
@@ -221,6 +223,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	group.Go(func() error {
 		ticker := time.NewTicker(endpoint.interval)
 		defer ticker.Stop()
+		defer func() {
+			processChan <- true
+
+		}()
 
 		for range ticker.C {
 			if pending.length() == 0 {
@@ -248,6 +254,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
+				processChan <- true
 			}
 		}
 		return nil
@@ -261,6 +268,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 
 		pendingCount := pending.length()
+
+		// wait if there are none pending
+		if pendingCount == 0 {
+			select {
+			case <-processChan:
+			}
+		}
 
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
@@ -315,10 +329,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			break
 		}
-		// skip if there are none pending
-		if pendingCount == 0 {
-			continue
-		}
 
 		request, err := stream.Recv()
 		if err != nil {
@@ -327,23 +337,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		switch m := request.GetMessage().(type) {
 		case *pb.StorageNodeMessage_Succeeded:
-			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
+			err = endpoint.handleSucceeded(ctx, stream, pending, nodeID, m)
 			if err != nil {
 				if ErrInvalidArgument.Has(err) {
 					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 				}
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			deleteMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_DeletePiece{
-					DeletePiece: &pb.DeletePiece{
-						OriginalPieceId: m.Succeeded.OriginalPieceId,
-					},
-				},
-			}
-			err = stream.Send(deleteMsg)
-			if err != nil {
-				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
@@ -470,7 +469,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	return nil
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStream, pending *pendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	originalPieceID := message.Succeeded.OriginalPieceId
@@ -556,6 +555,8 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
+	endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, replacementPieceHash, transfer.path, transfer.pieceNum)
+
 	var failed int64
 	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount >= endpoint.config.MaxFailuresPerPiece {
 		failed = -1
@@ -572,6 +573,18 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	pending.delete(originalPieceID)
+
+	deleteMsg := &pb.SatelliteMessage{
+		Message: &pb.SatelliteMessage_DeletePiece{
+			DeletePiece: &pb.DeletePiece{
+				OriginalPieceId: originalPieceID,
+			},
+		},
+	}
+	err = stream.Send(deleteMsg)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }
@@ -617,6 +630,44 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	}
 
 	pending.delete(pieceID)
+
+	return nil
+}
+
+// updatePointer
+func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, pieceHash *pb.PieceHash, path []byte, pieceNum int32) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// remove the node from the pointer
+	pointer, err := endpoint.metainfo.Get(ctx, string(path))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	remote := pointer.GetRemote()
+	// nothing to do here
+	if remote == nil {
+		return nil
+	}
+
+	var toRemove []*pb.RemotePiece
+	for _, piece := range remote.GetRemotePieces() {
+		if piece.NodeId == exitingNodeID {
+			toRemove = []*pb.RemotePiece{piece}
+			break
+		}
+	}
+	var toAdd []*pb.RemotePiece
+	if !receivingNodeID.IsZero() {
+		toAdd = []*pb.RemotePiece{{
+			PieceNum: pieceNum,
+			NodeId:   receivingNodeID,
+			Hash:     pieceHash,
+		}}
+	}
+	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), pointer, toAdd, toRemove)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }
