@@ -245,8 +245,16 @@ func TestFailureHashMismatch(t *testing.T) {
 			}
 			err = processClient.Send(message)
 			require.NoError(t, err)
+		case *pb.SatelliteMessage_ExitFailed:
+			status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+			require.NoError(t, err)
+			require.False(t, status.ExitSuccess)
+			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
+			break
+		//case *pb.SatelliteMessage_ExitCompleted:
+		//	fmt.Println("exit completed??")
 		default:
-			require.FailNow(t, "should not reach this case")
+			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
 		_, err = processClient.Recv()
@@ -396,9 +404,10 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			require.NoError(t, err)
 		}
 
-		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
-		require.Len(t, exitingNodeIDs, 0)
+		require.Len(t, exitingNodes, 0)
 
 		exitingNode, err := findNodeToExit(ctx, planet, objects)
 		require.NoError(t, err)
@@ -422,11 +431,11 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		switch response.GetMessage().(type) {
 		case *pb.SatelliteMessage_NotReady:
 			// now check that the exiting node is initiated.
-			exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 			require.NoError(t, err)
-			require.Len(t, exitingNodeIDs, 1)
+			require.Len(t, exitingNodes, 1)
 
-			require.Equal(t, exitingNode.ID(), exitingNodeIDs[0])
+			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 		default:
 			t.FailNow()
 		}
