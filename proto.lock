@@ -866,6 +866,10 @@
                 "integer": 2
               },
               {
+                "name": "SATELLITE_VALIDATION",
+                "integer": 3
+              },
+              {
                 "name": "UNKNOWN",
                 "integer": 10
               }
