@@ -66,20 +66,20 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        try {
-            await this.$store.dispatch(SETUP_ACCOUNT);
-            await this.$store.dispatch(GET_BALANCE);
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            if (error instanceof ErrorUnauthorized) {
-                AuthToken.remove();
-                await this.$router.push(RouteConfig.Login.path);
-
-                return;
-            }
-
-            await this.$notify.error(error.message);
-        }
+        // try {
+        //     await this.$store.dispatch(SETUP_ACCOUNT);
+        //     await this.$store.dispatch(GET_BALANCE);
+        //     await this.$store.dispatch(GET_CREDIT_CARDS);
+        // } catch (error) {
+        //     if (error instanceof ErrorUnauthorized) {
+        //         AuthToken.remove();
+        //         await this.$router.push(RouteConfig.Login.path);
+        //
+        //         return;
+        //     }
+        //
+        //    await this.$notify.error(error.message);
+        // }
 
         let projects: Project[] = [];
 
