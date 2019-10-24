@@ -89,6 +89,10 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
+	// liveRequests tracks the total number of incoming rpc requests. For gRPC
+	// requests only, this number is compared to config.MaxConcurrentRequests
+	// and limits the number of gRPC requests. dRPC requests are tracked but
+	// not limited.
 	liveRequests int32
 }
 
@@ -155,12 +159,12 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, true)
 }
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, false)
 }
 
 // uploadStream is the minimum interface required to perform settlements.
@@ -171,7 +175,7 @@ type uploadStream interface {
 }
 
 // doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
+func (endpoint *Endpoint) doUpload(stream uploadStream, limitRequests bool) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -181,7 +185,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 
 	endpoint.pingStats.WasPinged(time.Now())
 
-	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+	if limitRequests && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
 		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
 	}
