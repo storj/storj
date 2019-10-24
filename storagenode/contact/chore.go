@@ -82,7 +82,7 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 				Operator: &self.Operator,
 			})
 			if !resp.PingNodeSuccess {
-				chore.log.Debug("Check-In with satellite failed due to failed ping back", zap.String("satellite ID", satellite.String()), zap.String("satellite addr", addr), zap.String("ping back error message", resp.GetPingErrorMessage()))
+				chore.log.Error("Check-In with satellite failed due to failed ping back", zap.String("satellite ID", satellite.String()), zap.String("satellite addr", addr), zap.String("ping back error message", resp.GetPingErrorMessage()))
 			}
 
 			return err

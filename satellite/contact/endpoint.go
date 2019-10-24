@@ -6,7 +6,6 @@ package contact
 import (
 	"context"
 	"fmt"
-	"net"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -103,39 +102,26 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (_ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
-	if err != nil {
-		err = errPingBackDial.New("failed to dial address %s: %v", req.Address, err)
-
-		if _, ok := err.(net.Error); ok {
-			err = errPingBackDial.New("network error, failed to dial address %s: %v", req.Address, err)
-		}
-
-		endpoint.log.Info("pingBack dialing error", zap.String("node addr", req.Address), zap.String("nodeID", peerID.String()), zap.String("error", err.Error()))
-		return false, "", err
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
 	pingNodeSuccess := true
 	var pingErrorMessage string
 
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
 	if err != nil {
-		// If there is an error from trying to ping the node, return that error as
+		// If there is an error from trying to dial and ping the node, return that error as
 		// pingErrorMessage and not as the err. We want to use this info to update
 		// node contact info and do not want to terminate execution by returning an err
+		mon.Event("failed dial")
 		pingNodeSuccess = false
-		pingErrorMessage = fmt.Sprintf("failed to ping node at address %s: %v", req.Address, err)
+		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q", peerID, req.Address, err)
+		endpoint.log.Info("pingBack failed to dial storage node", zap.String("nodeID", peerID.String()), zap.String("node address", req.Address), zap.String("pingErrorMessage", pingErrorMessage), zap.String("error", err.Error()))
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
-		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-			pingErrorMessage = fmt.Sprintf("unauthenticated, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
-		}
-		if rpcstatus.Code(err) == rpcstatus.Internal {
-			pingErrorMessage = fmt.Sprintf("internal error, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
-		}
-		if _, ok := err.(net.Error); ok {
-			pingErrorMessage = fmt.Sprintf("network error, failed to ping node (ID: %s) at address %s: %v", peerID.String(), req.Address, err)
-		}
+	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	if err != nil {
+		mon.Event("failed ping node")
+		pingNodeSuccess = false
+		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
 		endpoint.log.Info("pingBack pingNode error", zap.String("nodeID", peerID.String()), zap.String("pingErrorMessage", pingErrorMessage), zap.String("error", err.Error()))
 	}
 
