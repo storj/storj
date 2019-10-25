@@ -6,12 +6,15 @@ package signing_test
 import (
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -205,4 +208,65 @@ func TestPieceHashVerification(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, unsignedBytes, encoded)
 	}
+}
+
+func TestSignExitCompleted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+		finishedAt := time.Now().UTC()
+		signer := signing.SignerFromFullIdentity(satellite.Identity)
+		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+
+		unsigned := &pb.ExitCompleted{
+			SatelliteId: satellite.ID(),
+			NodeId:      node.ID(),
+			Completed:   finishedAt,
+		}
+		signed, err := signing.SignExitCompleted(ctx, signer, unsigned)
+		require.NoError(t, err)
+
+		err = signing.VerifyExitCompleted(ctx, signee, signed)
+		require.NoError(t, err)
+
+		signed.SatelliteId = testrand.NodeID()
+
+		err = signing.VerifyExitCompleted(ctx, signee, signed)
+		require.Error(t, err)
+	})
+}
+
+func TestSignExitFailed(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+		finishedAt := time.Now().UTC()
+		signer := signing.SignerFromFullIdentity(satellite.Identity)
+		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+
+		unsigned := &pb.ExitFailed{
+			SatelliteId: satellite.ID(),
+			NodeId:      node.ID(),
+			Failed:      finishedAt,
+			Reason:      pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+		}
+		signed, err := signing.SignExitFailed(ctx, signer, unsigned)
+		require.NoError(t, err)
+
+		err = signing.VerifyExitFailed(ctx, signee, signed)
+		require.NoError(t, err)
+
+		signed.Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
+
+		err = signing.VerifyExitFailed(ctx, signee, signed)
+		require.Error(t, err)
+	})
 }
