@@ -113,7 +113,7 @@ func VerifyExitCompleted(ctx context.Context, satellite Signee, signed *pb.ExitC
 		return Error.Wrap(err)
 	}
 
-	return satellite.HashAndVerifySignature(ctx, bytes, signed.ExitCompleteSignature)
+	return Error.Wrap(satellite.HashAndVerifySignature(ctx, bytes, signed.ExitCompleteSignature))
 }
 
 // VerifyExitFailed verifies that the signature inside ExitFailed belongs to the satellite
@@ -124,5 +124,5 @@ func VerifyExitFailed(ctx context.Context, satellite Signee, signed *pb.ExitFail
 		return Error.Wrap(err)
 	}
 
-	return satellite.HashAndVerifySignature(ctx, bytes, signed.ExitFailureSignature)
+	return Error.Wrap(satellite.HashAndVerifySignature(ctx, bytes, signed.ExitFailureSignature))
 }

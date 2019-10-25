@@ -300,14 +300,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
 				exitStatusRequest.ExitSuccess = false
-				// TODO needs signature
 				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
 				if err != nil {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
 			} else {
 				exitStatusRequest.ExitSuccess = true
-				// TODO needs signature
 				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, -1)
 				if err != nil {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
