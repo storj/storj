@@ -89,7 +89,9 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public onMemberClick(member: ProjectMember): void {
-        this.$store.dispatch(TOGGLE_SELECTION, member);
+        if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
+            this.$store.dispatch(TOGGLE_SELECTION, member);
+        }
     }
 
     public get projectMembers(): ProjectMember[] {

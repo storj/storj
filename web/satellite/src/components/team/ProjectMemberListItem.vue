@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="user-container">
+    <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
-            <div class="checkbox"></div>
+            <div v-if="!isProjectOwner" class="checkbox"></div>
             <div class="user-container__base-info__avatar" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
@@ -85,7 +85,6 @@ export default class ProjectMemberListItem extends Vue {
                 max-width: 40px;
                 min-height: 40px;
                 max-height: 40px;
-                margin-left: 20px;
                 border-radius: 6px;
                 display: flex;
                 align-items: center;
@@ -132,6 +131,7 @@ export default class ProjectMemberListItem extends Vue {
 
     .checkbox {
         background-image: url('../../../static/images/team/checkboxEmpty.png');
+        margin-right: 20px;
         min-width: 23px;
         height: 23px;
     }
@@ -151,5 +151,9 @@ export default class ProjectMemberListItem extends Vue {
         .user-container__user-email {
             color: #fff;
         }
+    }
+
+    .owner {
+        cursor: default;
     }
 </style>

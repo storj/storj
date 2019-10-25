@@ -29,21 +29,21 @@ export default class CardDialog extends Vue {
         this.$store.dispatch(CLEAR_CARDS_SELECTION);
     }
 
-    public async onMakeDefaultClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
-        } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-        }
-    }
+    // public async onMakeDefaultClick(): Promise<void> {
+    //     try {
+    //         await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+    //     } catch (error) {
+    //         await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+    //     }
+    // }
 
-    public async onRemoveClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(REMOVE_CARD, this.cardId);
-        } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-        }
-    }
+    // public async onRemoveClick(): Promise<void> {
+    //     try {
+    //         await this.$store.dispatch(REMOVE_CARD, this.cardId);
+    //     } catch (error) {
+    //         await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+    //     }
+    // }
 }
 </script>
 

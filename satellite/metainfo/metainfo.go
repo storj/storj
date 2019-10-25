@@ -1269,7 +1269,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
-		EncryptedPath: []byte{},
+		EncryptedPath: req.EncryptedPrefix,
 		Time:          time.Now(),
 	})
 	if err != nil {
