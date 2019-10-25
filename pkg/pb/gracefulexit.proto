@@ -5,6 +5,7 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 import "orders.proto";
 
@@ -98,6 +99,12 @@ message DeletePiece {
 message ExitCompleted {
   // when everything is completed
   bytes exit_complete_signature = 1;
+  // satellite who issued this exit completed
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit completed was issued to
+  bytes node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit completed
+  google.protobuf.Timestamp completed = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message ExitFailed {
@@ -109,6 +116,12 @@ message ExitFailed {
   // on failure
   bytes exit_failure_signature  = 1;
   Reason reason                 = 2;
+  // satellite who issued this exit failed
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit failed was issued to
+  bytes node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit failed
+  google.protobuf.Timestamp failed = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message SatelliteMessage {
