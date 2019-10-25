@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 // Flags contains different flags for commands
@@ -48,6 +49,16 @@ func main() {
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")
+	}
+
+	address, cleanup, err := redisserver.Start()
+	defer cleanup()
+	if err != nil {
+		os.Exit(1)
+	}
+	err = os.Setenv("STORJ_SIM_REDIS", address)
+	if err != nil {
+		os.Exit(1)
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
@@ -106,9 +117,8 @@ func main() {
 	rootCmd.AddCommand(
 		networkCmd,
 	)
-
 	rootCmd.SilenceUsage = true
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
