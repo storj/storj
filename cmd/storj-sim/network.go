@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage/redis/redisnamespace"
 )
 
 const (
@@ -268,12 +269,16 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-
 		if flags.Redis != "" {
-			process.Arguments["setup"] = append(process.Arguments["setup"],
-				"--server.revocation-dburl", flags.Redis)
+			dbs := redisnamespace.GetAll()
+			dbCount := len(dbs)
+			for key, val := range dbs {
+				flag := "--server." + key
+				dbVal := val + dbCount
+				url := redisnamespace.CreatePath(flags.Redis, dbVal)
+				process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
+			}
 		}
-
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
