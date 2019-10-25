@@ -489,6 +489,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return err
 	}
 
+	// validate fullName
+	if fullName == "" {
+		return errs.New("full name can't be empty")
+	}
+
 	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
 		FullName:     fullName,

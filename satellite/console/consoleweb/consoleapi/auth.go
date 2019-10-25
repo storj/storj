@@ -164,11 +164,9 @@ func (a *Auth) Get(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID uuid.UUID `json:"id"`
-
-		FullName  string `json:"fullName"`
-		ShortName string `json:"shortName"`
-
+		ID        uuid.UUID `json:"id"`
+		FullName  string    `json:"fullName"`
+		ShortName string    `json:"shortName"`
 		Email     string    `json:"email"`
 		PartnerID uuid.UUID `json:"partnerId"`
 	}
