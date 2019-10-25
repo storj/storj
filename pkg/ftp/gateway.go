@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -246,6 +245,12 @@ func (driver *Driver) ListFiles(cc server.ClientContext) (files []os.FileInfo, e
 		}
 
 		for _, item := range list.Items {
+			if item.IsPrefix && item.Path[len(item.Path)-1] == '/' {
+				item.Path = item.Path[:len(item.Path)-1]
+			}
+			if item.Path == "" {
+				continue
+			}
 			files = append(files, virtualFileInfo{
 				name:    item.Path,
 				modTime: item.Modified,
@@ -311,32 +316,32 @@ func (driver *Driver) openBucket(ctx context.Context, bucketName string) (b *upl
 func (driver *Driver) GetFileInfo(cc server.ClientContext, path string) (fi os.FileInfo, err error) {
 	ctx, bucketName, path := ParsePath(path)
 	defer mon.Task()(&ctx)(&err)
-
+	//if path is root
 	if bucketName == "" {
 		return &virtualFileInfo{name: path, size: 0, isDir: true}, nil
 	}
-
+	//if path is a bucket
 	bucket, err := driver.openBucket(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
-
 	if path == "" {
 		return virtualFileInfo{name: bucketName, modTime: bucket.Created, isDir: true}, nil
 	}
-
+	//if path is a file
 	object, err := bucket.OpenObject(ctx, path)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	if err == nil {
+		return virtualFileInfo{name: object.Meta.Path, modTime: object.Meta.Modified, size: object.Meta.Size}, nil
+	}
+	//if path is a directory
+	if storj.ErrObjectNotFound.Has(err) {
+		object, err = bucket.OpenObject(ctx, path+"/")
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, os.ErrNotExist
 		}
-		return nil, err
 	}
-	if storj.ErrObjectNotFound.Has(err) {
-		return nil, os.ErrNotExist
-	}
-	return virtualFileInfo{name: object.Meta.Path, modTime: object.Meta.Modified, size: object.Meta.Size}, nil
+	return nil, err
 }
 
 // CanAllocate gives the approval to allocate some data
@@ -368,6 +373,9 @@ func (driver *Driver) DeleteFile(cc server.ClientContext, path string) (err erro
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 	err = bucket.DeleteObject(ctx, path)
+	if err != nil {
+		err = bucket.DeleteObject(ctx, path+"/")
+	}
 	return err
 }
 
@@ -377,10 +385,10 @@ func (driver *Driver) RenameFile(cc server.ClientContext, from, to string) (err 
 	defer mon.Task()(&ctx)(&err)
 	// Windows creates a folder called "New Folder" whenever you try to make
 	// a new folder; this is a hack to accomodate that
-	if ToBucketName(from) == "new-folder" {
+	if strings.HasSuffix(from, "New Folder") {
 		return errs.Combine(
-			driver.MakeDirectory(cc, to),
-			driver.DeleteFile(cc, from),
+			driver.MakeDirectory(cc, to+"/"),
+			driver.DeleteFile(cc, from+"/"),
 		)
 	}
 	return Error.New("can't rename")

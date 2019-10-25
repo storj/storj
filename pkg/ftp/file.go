@@ -102,6 +102,11 @@ func (f *virtualFile) Read(buffer []byte) (byteCount int, err error) {
 		return int(f.readOffset - origOffset), io.ErrUnexpectedEOF
 	}
 	return int(bytesToRead), nil
+	// bytesRead, err := reader.Read(buffer)
+	// if err == nil || err == io.EOF {
+	// 	f.readOffset += int64(bytesRead)
+	// }
+	// return int(bytesRead), err
 }
 
 func (f *virtualFile) Seek(n int64, w int) (_ int64, err error) {
@@ -113,7 +118,7 @@ func (f *virtualFile) Seek(n int64, w int) (_ int64, err error) {
 	case os.SEEK_END:
 		f.readOffset = f.Size() - n
 	default:
-		err = fmt.Errorf("Bad seek whence")
+		err = fmt.Errorf("Bad seek whence : %d", w)
 	}
 	return f.readOffset, err
 }
