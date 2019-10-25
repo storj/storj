@@ -8,6 +8,10 @@ for /d %%d in (release\*) do (
     rem build the installer
     msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
 
+    rem cleanup copied binaries
+    del installer\windows\storagenode.exe
+    del installer\windows\storagenode-updater.exe
+
     rem copy the MSI to the release dir
     copy installer\windows\bin\Release\storagenode.msi %%d\storagenode_windows_amd64.msi
 )
