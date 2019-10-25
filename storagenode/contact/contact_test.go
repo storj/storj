@@ -62,8 +62,10 @@ func TestNodeInfoUpdated(t *testing.T) {
 		require.NotEqual(t, oldCapacity, newCapacity)
 
 		node.Contact.Service.UpdateSelf(&newCapacity)
-		node.Contact.Chore.TriggerWait()
-
+		//node.Contact.Chore.TriggerWait()
+		for _, loop := range node.Contact.Chore.Cycles {
+			loop.TriggerWait()
+		}
 		newInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
 
