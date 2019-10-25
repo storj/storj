@@ -413,29 +413,44 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 		return err
 	}
 
-	// TODO do it in batch
-	streamID, err := s.metainfo.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
-		Bucket:        []byte(path.Bucket()),
-		EncryptedPath: []byte(encPath.Raw()),
-	})
+	batchItems := []metainfo.BatchItem{
+		&metainfo.BeginDeleteObjectParams{
+			Bucket:        []byte(path.Bucket()),
+			EncryptedPath: []byte(encPath.Raw()),
+		},
+		&metainfo.ListSegmentsParams{
+			CursorPosition: storj.SegmentPosition{
+				Index: 0,
+			},
+		},
+	}
+
+	resps, err := s.metainfo.Batch(ctx, batchItems...)
 	if err != nil {
 		return err
 	}
 
-	// TODO handle `more`
-	items, _, err := s.metainfo.ListSegments(ctx, metainfo.ListSegmentsParams{
-		StreamID: streamID,
-		CursorPosition: storj.SegmentPosition{
-			Index: 0,
-		},
-	})
+	if len(resps) != 2 {
+		return errs.New(
+			"metainfo.Batch request returned an unexpected number of responses. Want: 2, got: %d", len(resps),
+		)
+	}
+
+	delResp, err := resps[0].BeginDeleteObject()
 	if err != nil {
 		return err
 	}
+
+	listResp, err := resps[1].ListSegment()
+	if err != nil {
+		return err
+	}
+
+	// TODO handle listResp.More
 
 	var errlist errs.Group
-	for _, item := range items {
-		err = s.segments.Delete(ctx, streamID, item.Position.Index)
+	for _, item := range listResp.Items {
+		err = s.segments.Delete(ctx, delResp.StreamID, item.Position.Index)
 		if err != nil {
 			errlist.Add(err)
 			continue
