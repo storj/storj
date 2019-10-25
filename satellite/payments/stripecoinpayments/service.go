@@ -24,10 +24,11 @@ var Error = errs.Class("stripecoinpayments service error")
 
 // Config stores needed information for payment service initialization.
 type Config struct {
-	StripeSecretKey           string        `help:"stripe API secret key" default:""`
-	CoinpaymentsPublicKey     string        `help:"coinpayments API public key" default:""`
-	CoinpaymentsPrivateKey    string        `help:"coinpayments API preivate key key" default:""`
-	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	StripeSecretKey              string        `help:"stripe API secret key" default:""`
+	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
+	CoinpaymentsPrivateKey       string        `help:"coinpayments API preivate key key" default:""`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -143,7 +144,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 
 // applyAccountBalanceLoop fetches all unapplied transaction in a loop, applying transaction
 // received amount to stripe customer balance.
-func (service *Service) applyAccountBalanceLoop(ctx context.Context) (err error) {
+func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const (
