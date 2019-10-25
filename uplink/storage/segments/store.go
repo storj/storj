@@ -42,7 +42,7 @@ type ListItem struct {
 
 // Store for segments
 type Store interface {
-	Get(ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
+	Download(ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
 	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 }
@@ -151,8 +151,8 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	return Meta{}, nil
 }
 
-// Get requests the satellite to read a segment and downloaded the pieces from the storage nodes.
-func (s *segmentStore) Get(
+// Download downloadeds the pieces from the storage nodes.
+func (s *segmentStore) Download(
 	ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme,
 ) (rr ranger.Ranger, _ storj.SegmentEncryption, err error) {
 	defer mon.Task()(&ctx, info, limits, objectRS)(&err)

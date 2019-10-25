@@ -57,7 +57,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 			return segment, err
 		}
 
-		_, segmentEnc, err := stream.db.segments.Get(ctx, info, limits, stream.info.RedundancyScheme)
+		_, segmentEnc, err := stream.db.segments.Download(ctx, info, limits, stream.info.RedundancyScheme)
 		if err != nil {
 			return segment, err
 		}
