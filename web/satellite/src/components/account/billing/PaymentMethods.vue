@@ -68,8 +68,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/CardComponent.vue';
-import TokenDepositSelection from '@/components/account/billing/TokenDepositSelection.vue';
 import StripeCardInput from '@/components/account/billing/StripeCardInput.vue';
+import TokenDepositSelection from '@/components/account/billing/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -80,6 +80,7 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
+    PROCESS_COIN_PAYMENT,
 } = PAYMENTS_ACTIONS;
 
 interface StripeForm {
@@ -96,7 +97,8 @@ interface StripeForm {
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
-    private tokenDepositValue: number = 20;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = '20';
+    private tokenDepositValue: string = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public async mounted() {
         try {
@@ -124,7 +126,7 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
-    public onChangeTokenValue(value: number) {
+    public onChangeTokenValue(value: string) {
         this.tokenDepositValue = value;
     }
 
@@ -140,14 +142,15 @@ export default class PaymentMethods extends Vue {
     }
     public onCancel(): void {
         this.areaState = PaymentMethodsBlockState.DEFAULT;
-        this.tokenDepositValue = 20;
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
         return;
     }
 
-    public onConfirmAddSTORJ(): void {
+    public async onConfirmAddSTORJ(): Promise<void> {
+        await this.$store.dispatch(PROCESS_COIN_PAYMENT, this.tokenDepositValue);
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         this.areaState = PaymentMethodsBlockState.DEFAULT;
-        console.log('tokenDepositValue', this.tokenDepositValue);
     }
 
     public async onConfirmAddStripe(): Promise<void> {

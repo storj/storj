@@ -48,6 +48,13 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeCreditCardDefault(cardId: string): Promise<void>;
+
+    /**
+     *
+     * @param amount
+     * @throws Error
+     */
+    processCoinPayment(amount: string): Promise<void>;
 }
 
 export class CreditCard {
@@ -65,7 +72,7 @@ export class CreditCard {
 
 export class PaymentAmountOption {
     public constructor(
-        public value: number,
+        public value: string,
         public label: string = '',
     ) {}
 }

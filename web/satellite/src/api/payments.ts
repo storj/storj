@@ -139,4 +139,13 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         throw new Error('can not make credit card default');
     }
+
+    /**
+     * Process coin payments
+     * @param amount
+     * @throws Error
+     */
+    public async processCoinPayment(amount: string): Promise<void> {
+
+    }
 }

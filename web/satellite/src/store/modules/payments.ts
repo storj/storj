@@ -22,6 +22,7 @@ export const PAYMENTS_ACTIONS = {
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
+    PROCESS_COIN_PAYMENT: 'processCoinPayment',
 };
 
 const {
@@ -42,6 +43,7 @@ const {
     CLEAR_PAYMENT_INFO,
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
+    PROCESS_COIN_PAYMENT,
 } = PAYMENTS_ACTIONS;
 
 class PaymentsState {
@@ -132,6 +134,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 await api.removeCreditCard(cardId);
 
                 commit(SET_CREDIT_CARDS, state.creditCards.filter(card => card.id !== cardId));
+            },
+            [PROCESS_COIN_PAYMENT]: async function({commit}: any, amount: string): Promise<void> {
+                await api.processCoinPayment(amount);
             },
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);

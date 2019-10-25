@@ -49,11 +49,11 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component
 export default class TokenDepositSelection extends Vue {
     public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(20, `US $20`),
-        new PaymentAmountOption(5, `US $5`),
-        new PaymentAmountOption(10, `US $10`),
-        new PaymentAmountOption(100, `US $100`),
-        new PaymentAmountOption(1000, `US $1000`),
+        new PaymentAmountOption('20', `US $20`),
+        new PaymentAmountOption('5', `US $5`),
+        new PaymentAmountOption('10', `US $10`),
+        new PaymentAmountOption('100', `US $100`),
+        new PaymentAmountOption('1000', `US $1000`),
     ];
 
     public current: PaymentAmountOption = this.paymentOptions[0];
@@ -73,7 +73,7 @@ export default class TokenDepositSelection extends Vue {
     }
 
     public onCustomAmountChange(): void {
-        this.$emit('onChangeTokenValue', parseFloat(this.customAmount));
+        this.$emit('onChangeTokenValue', this.customAmount);
     }
 
     public select(option: PaymentAmountOption): void {
