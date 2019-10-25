@@ -556,7 +556,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, replacementPieceHash, transfer.path, transfer.pieceNum)
+	err = endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -626,7 +626,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	return nil
 }
 
-func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, pieceHash *pb.PieceHash, path []byte, pieceNum int32) (err error) {
+func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// remove the node from the pointer
@@ -652,7 +652,6 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 		toAdd = []*pb.RemotePiece{{
 			PieceNum: pieceNum,
 			NodeId:   receivingNodeID,
-			Hash:     pieceHash,
 		}}
 	}
 	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), pointer, toAdd, toRemove)
