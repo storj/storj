@@ -250,7 +250,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
-				"--server.extensions.revocation=false", //todo update to true
+				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
