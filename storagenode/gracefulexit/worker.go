@@ -112,7 +112,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			defer cancel()
 
 			// TODO what's the typical expiration setting?
-			pieceHash, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
+			pieceHash, peerID, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
 			if err != nil {
 				if piecestore.ErrVerifyUntrusted.Has(err) {
 					worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
@@ -136,22 +136,6 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				continue
 			}
 
-			// ecclient.PutPiece already dials the node, but we need to access the connection directly to check the signature
-			nodeConn, err := worker.dialer.DialNode(ctx, &pb.Node{
-				Id:      addrLimit.GetLimit().StorageNodeId,
-				Address: addrLimit.GetStorageNodeAddress(),
-			})
-			if err != nil {
-				worker.log.Error("failed to connect to storagenode", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, pb.TransferFailed_STORAGE_NODE_UNAVAILABLE, pieceID, c.Send)
-				continue
-			}
-			peerID, err := nodeConn.PeerIdentity()
-			if err != nil {
-				worker.log.Error("failed to get peer ID from storagenode", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-				worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
-				continue
-			}
 			signee := signing.SigneeFromPeerIdentity(peerID)
 			err = signing.VerifyPieceHashSignature(ctx, signee, pieceHash)
 			if err != nil {
