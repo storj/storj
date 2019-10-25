@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -211,62 +211,60 @@ func TestPieceHashVerification(t *testing.T) {
 }
 
 func TestSignExitCompleted(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 1,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		node := planet.StorageNodes[0]
-		finishedAt := time.Now().UTC()
-		signer := signing.SignerFromFullIdentity(satellite.Identity)
-		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		unsigned := &pb.ExitCompleted{
-			SatelliteId: satellite.ID(),
-			NodeId:      node.ID(),
-			Completed:   finishedAt,
-		}
-		signed, err := signing.SignExitCompleted(ctx, signer, unsigned)
-		require.NoError(t, err)
+	satIdentity, err := testidentity.NewTestIdentity(ctx)
+	nodeID := testrand.NodeID()
+	require.NoError(t, err)
 
-		err = signing.VerifyExitCompleted(ctx, signee, signed)
-		require.NoError(t, err)
+	finishedAt := time.Now().UTC()
+	signer := signing.SignerFromFullIdentity(satIdentity)
+	signee := signing.SigneeFromPeerIdentity(satIdentity.PeerIdentity())
 
-		signed.SatelliteId = testrand.NodeID()
+	unsigned := &pb.ExitCompleted{
+		SatelliteId: satIdentity.ID,
+		NodeId:      nodeID,
+		Completed:   finishedAt,
+	}
+	signed, err := signing.SignExitCompleted(ctx, signer, unsigned)
+	require.NoError(t, err)
 
-		err = signing.VerifyExitCompleted(ctx, signee, signed)
-		require.Error(t, err)
-	})
+	err = signing.VerifyExitCompleted(ctx, signee, signed)
+	require.NoError(t, err)
+
+	signed.SatelliteId = testrand.NodeID()
+
+	err = signing.VerifyExitCompleted(ctx, signee, signed)
+	require.Error(t, err)
 }
 
 func TestSignExitFailed(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 1,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		node := planet.StorageNodes[0]
-		finishedAt := time.Now().UTC()
-		signer := signing.SignerFromFullIdentity(satellite.Identity)
-		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		unsigned := &pb.ExitFailed{
-			SatelliteId: satellite.ID(),
-			NodeId:      node.ID(),
-			Failed:      finishedAt,
-			Reason:      pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
-		}
-		signed, err := signing.SignExitFailed(ctx, signer, unsigned)
-		require.NoError(t, err)
+	satIdentity, err := testidentity.NewTestIdentity(ctx)
+	nodeID := testrand.NodeID()
+	require.NoError(t, err)
 
-		err = signing.VerifyExitFailed(ctx, signee, signed)
-		require.NoError(t, err)
+	finishedAt := time.Now().UTC()
+	signer := signing.SignerFromFullIdentity(satIdentity)
+	signee := signing.SigneeFromPeerIdentity(satIdentity.PeerIdentity())
 
-		signed.Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
+	unsigned := &pb.ExitFailed{
+		SatelliteId: satIdentity.ID,
+		NodeId:      nodeID,
+		Failed:      finishedAt,
+		Reason:      pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+	}
+	signed, err := signing.SignExitFailed(ctx, signer, unsigned)
+	require.NoError(t, err)
 
-		err = signing.VerifyExitFailed(ctx, signee, signed)
-		require.Error(t, err)
-	})
+	err = signing.VerifyExitFailed(ctx, signee, signed)
+	require.NoError(t, err)
+
+	signed.Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
+
+	err = signing.VerifyExitFailed(ctx, signee, signed)
+	require.Error(t, err)
 }
