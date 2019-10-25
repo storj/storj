@@ -137,7 +137,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 
 	results, err := client.db.MGet(keyStrings...).Result()
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	values := []storage.Value{}
