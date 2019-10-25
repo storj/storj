@@ -137,6 +137,62 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Update updates user's full name and short name.
+func (a *Auth) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updatedInfo struct {
+		FullName  string `json:"fullName"`
+		ShortName string `json:"shortName"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
+		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// Get gets authorized user and take it's params.
+func (a *Auth) Get(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var user struct {
+		ID        uuid.UUID `json:"id"`
+		FullName  string    `json:"fullName"`
+		ShortName string    `json:"shortName"`
+		Email     string    `json:"email"`
+		PartnerID uuid.UUID `json:"partnerId"`
+	}
+
+	auth, err := console.GetAuth(ctx)
+	if err != nil {
+		a.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	user.ShortName = auth.User.ShortName
+	user.FullName = auth.User.FullName
+	user.Email = auth.User.Email
+	user.ID = auth.User.ID
+	user.PartnerID = auth.User.PartnerID
+
+	err = json.NewEncoder(w).Encode(&user)
+	if err != nil {
+		a.log.Error("could not encode user info", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // Delete - authorizes user and deletes account by password.
 func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -1,9 +1,9 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`should render correctly 1`] = `
-<div class="user-container">
+<div class="user-container owner">
   <div class="user-container__base-info">
-    <div class="checkbox"></div>
+    <!---->
     <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
       <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
@@ -18,9 +18,9 @@ exports[`should render correctly 1`] = `
 `;
 
 exports[`should render correctly with item row highlighted 1`] = `
-<div class="user-container">
+<div class="user-container owner">
   <div class="user-container__base-info">
-    <div class="checkbox"></div>
+    <!---->
     <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
       <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
