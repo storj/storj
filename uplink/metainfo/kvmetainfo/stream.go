@@ -47,7 +47,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		info, limits, err := stream.db.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+		info, _, err := stream.db.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 			StreamID: stream.id,
 			Position: storj.SegmentPosition{
 				Index: int32(index),
@@ -57,14 +57,9 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 			return segment, err
 		}
 
-		_, segmentEnc, err := stream.db.segments.Download(ctx, info, limits, stream.info.RedundancyScheme)
-		if err != nil {
-			return segment, err
-		}
-
 		segment.Size = stream.info.FixedSegmentSize
-		segment.EncryptedKeyNonce = segmentEnc.EncryptedKeyNonce
-		segment.EncryptedKey = segmentEnc.EncryptedKey
+		segment.EncryptedKeyNonce = info.SegmentEncryption.EncryptedKeyNonce
+		segment.EncryptedKey = info.SegmentEncryption.EncryptedKey
 	} else {
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce

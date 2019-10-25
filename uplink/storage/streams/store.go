@@ -343,7 +343,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		limits = resp.Limits
 	}
 
-	lastSegmentRanger, _, err := s.segments.Download(ctx, info, limits, object.RedundancyScheme)
+	lastSegmentRanger, err := s.segments.Ranger(ctx, info, limits, object.RedundancyScheme)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -645,12 +645,12 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (_
 			return nil, err
 		}
 
-		rr, encryption, err := lr.segments.Download(ctx, info, limits, lr.rs)
+		rr, err := lr.segments.Ranger(ctx, info, limits, lr.rs)
 		if err != nil {
 			return nil, err
 		}
 
-		encryptedKey, keyNonce := encryption.EncryptedKey, encryption.EncryptedKeyNonce
+		encryptedKey, keyNonce := info.SegmentEncryption.EncryptedKey, info.SegmentEncryption.EncryptedKeyNonce
 		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.cipher, lr.derivedKey, encryptedKey, &keyNonce, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
