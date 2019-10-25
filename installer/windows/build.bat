@@ -1,12 +1,12 @@
-rem set the TAG env var from the release dir
-for /f %%i in ('dir /B release') do set TAG=%%i
+@echo off
+for /d %%d in (release\*) do (
+    rem copy the storagenode binaries to the installer project
+    copy %%d\storagenode_windows_amd64.exe installer\windows\storagenode.exe
+    copy %%d\storagenode-updater_windows_amd64.exe installer\windows\storagenode-updater.exe
 
-rem copy the storagenode binaries to the installer project
-copy release\%TAG%\storagenode_windows_amd64.exe installer\windows\storagenode.exe
-copy release\%TAG%\storagenode-updater_windows_amd64.exe installer\windows\storagenode-updater.exe
+    rem build the installer
+    msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
 
-rem build the installer
-msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
-
-rem copy the MSI to the release dir
-copy installer\windows\bin\Release\storagenode.msi release\%TAG%\storagenode_windows_amd64.msi
+    rem copy the MSI to the release dir
+    copy installer\windows\bin\Release\storagenode.msi %%d\storagenode_windows_amd64.msi
+)
