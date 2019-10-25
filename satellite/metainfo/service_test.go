@@ -107,7 +107,7 @@ func TestUpdatePiecesDuplicateNodeID(t *testing.T) {
 
 // getRemoteSegment returns a remote pointer its path from satellite.
 func getRemoteSegment(
-	t *testing.T, ctx context.Context, satellite *testplanet.SatelliteSystem,
+	ctx context.Context, t *testing.T, satellite *testplanet.SatelliteSystem,
 ) (_ *pb.Pointer, path string) {
 	t.Helper()
 
