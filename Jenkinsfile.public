@@ -117,6 +117,8 @@ pipeline {
                     steps {
                         // just to verify its building with recent changes
                         sh 'make libuplink-gomobile'
+                        sh 'rm libuplink-android-sources.jar'
+                        sh 'rm libuplink-android.aar'
                     }
                 }
 
