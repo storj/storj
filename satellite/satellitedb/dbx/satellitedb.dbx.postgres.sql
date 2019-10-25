@@ -226,6 +226,12 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,

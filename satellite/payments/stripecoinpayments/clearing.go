@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
 )
@@ -19,9 +20,10 @@ var ErrClearing = errs.Class("stripecoinpayments clearing error")
 // Clearing runs process of reconciling transactions deposits,
 // customer balance, invoices and usages.
 type Clearing struct {
-	log              *zap.Logger
-	service          *Service
-	TransactionCycle sync2.Cycle
+	log               *zap.Logger
+	service           *Service
+	TransactionCycle  sync2.Cycle
+	ApplyBalanceCycle sync2.Cycle
 }
 
 // NewClearing creates new clearing loop.
@@ -37,7 +39,9 @@ func NewClearing(log *zap.Logger, service *Service, txInterval time.Duration) *C
 func (clearing *Clearing) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = clearing.TransactionCycle.Run(ctx,
+	var group errgroup.Group
+
+	clearing.TransactionCycle.Start(ctx, &group,
 		func(ctx context.Context) error {
 			clearing.log.Info("running transactions update cycle")
 
@@ -48,8 +52,19 @@ func (clearing *Clearing) Run(ctx context.Context) (err error) {
 			return nil
 		},
 	)
+	clearing.ApplyBalanceCycle.Start(ctx, &group,
+		func(ctx context.Context) error {
+			clearing.log.Info("running apply account balance cycle")
 
-	return ErrClearing.Wrap(err)
+			if err := clearing.service.applyAccountBalanceLoop(ctx); err != nil {
+				clearing.log.Error("account apply balance cycle failed", zap.Error(ErrClearing.Wrap(err)))
+			}
+
+			return nil
+		},
+	)
+
+	return ErrClearing.Wrap(group.Wait())
 }
 
 // Close closes all underlying resources.
