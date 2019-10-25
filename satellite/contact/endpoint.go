@@ -67,11 +67,11 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
 		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.String("node ID", nodeID.String()), zap.String("error", err.Error()))
-		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
-
 		if errPingBackDial.Has(err) {
 			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
+		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
 		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	}
 	nodeInfo := overlay.NodeCheckInInfo{
@@ -114,6 +114,7 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q", peerID, req.Address, err)
 		endpoint.log.Info("pingBack failed to dial storage node", zap.String("nodeID", peerID.String()), zap.String("node address", req.Address), zap.String("pingErrorMessage", pingErrorMessage), zap.String("error", err.Error()))
+		return pingNodeSuccess, pingErrorMessage, nil
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
