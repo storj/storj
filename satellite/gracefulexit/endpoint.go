@@ -653,7 +653,6 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing
 			SatelliteId: endpoint.signer.ID(),
 			NodeId:      nodeID,
 			Failed:      finishedAt,
-			Reason:      reason,
 		}
 		if reason >= 0 {
 			unsigned.Reason = reason
