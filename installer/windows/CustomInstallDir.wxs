@@ -113,9 +113,9 @@ Patch dialog sequence:
             <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_BANDWIDTH_VALID<>"1"]]></Publish>
             <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_BANDWIDTH_VALID="1"</Publish>
           
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH OR WIX_UPGRADE_DETECTED</Publish>
 
             <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
 
