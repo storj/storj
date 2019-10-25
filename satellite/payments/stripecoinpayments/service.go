@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go"
-
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
