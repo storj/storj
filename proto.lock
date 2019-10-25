@@ -876,6 +876,14 @@
             "enum_fields": [
               {
                 "name": "VERIFICATION_FAILED"
+              },
+              {
+                "name": "INACTIVE_TIMEFRAME_EXCEEDED",
+                "integer": 1
+              },
+              {
+                "name": "OVERALL_FAILURE_PERCENTAGE_EXCEEDED",
+                "integer": 2
               }
             ]
           }
