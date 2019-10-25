@@ -98,8 +98,10 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 				continue
 			}
 			existing := pieceMap[piece.PieceNum]
-			if existing != nil && existing.NodeId == piece.NodeId {
+			_, ok := uniqueNodeMap[piece.NodeId]
+			if existing != nil && existing.NodeId == piece.NodeId && ok {
 				delete(pieceMap, piece.PieceNum)
+				delete(uniqueNodeMap, piece.NodeId)
 			}
 		}
 
@@ -117,6 +119,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 				return nil, ErrDuplicatedNodeID.New("piece num: %d, node id: %s", piece.PieceNum, piece.NodeId.String())
 			}
 			pieceMap[piece.PieceNum] = piece
+			uniqueNodeMap[piece.NodeId] = struct{}{}
 		}
 
 		// copy the pieces from the map back to the pointer
