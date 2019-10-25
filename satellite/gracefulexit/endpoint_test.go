@@ -13,14 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -182,9 +180,17 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitFailed:
+			require.NotNil(t, m)
+			require.NotNil(t, m.ExitFailed)
+			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -249,9 +255,17 @@ func TestFailureHashMismatch(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitFailed:
+			require.NotNil(t, m)
+			require.NotNil(t, m.ExitFailed)
+			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -285,8 +299,15 @@ func TestFailureUnknownError(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		_, err = processClient.Recv()
+		response, err = processClient.Recv()
 		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -353,9 +374,17 @@ func TestFailureUplinkSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitFailed:
+			require.NotNil(t, m)
+			require.NotNil(t, m.ExitFailed)
+			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
 
 		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
