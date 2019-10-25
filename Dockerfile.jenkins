@@ -58,10 +58,14 @@ ENV PATH ${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}
 RUN yes | sdkmanager  --licenses
 RUN touch /root/.android/repositories.cfg
 
+# Platform tools
+RUN sdkmanager "platform-tools" "platforms;android-24" "tools" "emulator"
+
 # The `yes` is for accepting all non-standard tool licenses.
 RUN yes | sdkmanager --update --channel=3
 RUN yes | sdkmanager \
-    "ndk-bundle" 
+    "ndk-bundle" \
+    "system-images;android-24;default;x86_64"
 
 # Linters
 
