@@ -35,7 +35,7 @@ func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounti
 // project, back to the time of the last accounting tally.
 func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	val, err := cache.client.Get(ctx, []byte(projectID.String()))
+	val, err := cache.client.Get(ctx, projectID[:])
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return 0, nil
@@ -54,7 +54,7 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
 		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
 	}
-	return cache.client.IncrBy(ctx, []byte(projectID.String()), inlineSpaceUsed+remoteSpaceUsed)
+	return cache.client.IncrBy(ctx, projectID[:], inlineSpaceUsed+remoteSpaceUsed)
 }
 
 // ResetTotals reset all space-used totals for all projects back to zero. This
