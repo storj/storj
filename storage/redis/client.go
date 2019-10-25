@@ -50,6 +50,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 	if err := client.db.Ping().Err(); err != nil {
 		return nil, Error.New("ping failed: %v", err)
 	}
+
 	return client, nil
 }
 
@@ -70,6 +71,7 @@ func NewClientFrom(address string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
 
