@@ -95,6 +95,7 @@ func Process() (addr string, cleanup func(), err error) {
 	if err := cmd.Start(); err != nil {
 		return "", nil, err
 	}
+
 	cleanup = func() {
 		processgroup.Kill(cmd)
 		_ = os.RemoveAll(tmpdir)
@@ -133,6 +134,7 @@ func Process() (addr string, cleanup func(), err error) {
 		cleanup()
 		return "", nil, fmt.Errorf("unable to ping: %v", err)
 	}
+
 	return addr, cleanup, nil
 }
 
@@ -146,7 +148,6 @@ func pingServer(addr string) error {
 func Mini() (addr string, cleanup func(), err error) {
 	server, err := miniredis.Run()
 	if err != nil {
-		fmt.Println("redis 1 " + err.Error())
 		return "", nil, err
 	}
 
