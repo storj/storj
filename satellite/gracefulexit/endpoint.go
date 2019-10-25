@@ -556,6 +556,11 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
+	err = endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	var failed int64
 	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount >= endpoint.config.MaxFailuresPerPiece {
 		failed = -1
@@ -617,6 +622,42 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	}
 
 	pending.delete(pieceID)
+
+	return nil
+}
+
+func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// remove the node from the pointer
+	pointer, err := endpoint.metainfo.Get(ctx, string(path))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	remote := pointer.GetRemote()
+	// nothing to do here
+	if remote == nil {
+		return nil
+	}
+
+	var toRemove []*pb.RemotePiece
+	for _, piece := range remote.GetRemotePieces() {
+		if piece.NodeId == exitingNodeID && piece.PieceNum == pieceNum {
+			toRemove = []*pb.RemotePiece{piece}
+			break
+		}
+	}
+	var toAdd []*pb.RemotePiece
+	if !receivingNodeID.IsZero() {
+		toAdd = []*pb.RemotePiece{{
+			PieceNum: pieceNum,
+			NodeId:   receivingNodeID,
+		}}
+	}
+	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), pointer, toAdd, toRemove)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }
