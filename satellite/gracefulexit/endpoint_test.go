@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -153,6 +152,7 @@ func TestConcurrentConnections(t *testing.T) {
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
+
 		// check that there are no exiting nodes.
 		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
@@ -161,7 +161,34 @@ func TestConcurrentConnections(t *testing.T) {
 		exitingNode, err := findNodeToExit(ctx, planet, 2)
 		require.NoError(t, err)
 
-		// connect to satellite so we initiate the exit.
+		waitChan := make(chan struct{})
+		var group errgroup.Group
+		concurrentCalls := 4
+		for i := 0; i < concurrentCalls; i++ {
+			group.Go(func() error {
+				// connect to satellite so we initiate the exit.
+				conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+				require.NoError(t, err)
+				defer func() {
+					err = errs.Combine(err, conn.Close())
+				}()
+
+				client := conn.SatelliteGracefulExitClient()
+
+				// wait for "main" call to begin
+				<-waitChan
+
+				c, err := client.Process(ctx)
+				require.NoError(t, err)
+
+				_, err = c.Recv()
+				require.Error(t, err)
+				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				return nil
+			})
+		}
+
+		// connect to satellite so we initiate the exit ("main" call)
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
 		defer func() {
@@ -169,32 +196,27 @@ func TestConcurrentConnections(t *testing.T) {
 		}()
 
 		client := conn.SatelliteGracefulExitClient()
+		// this connection will immediately return since graceful exit has not been initiated yet
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+		_, err = c.Recv()
+		require.NoError(t, err)
 
-		var group errgroup.Group
-		var mu sync.Mutex
-		recvErrList := []error{}
-		concurrentCalls := 4
-		for i := 0; i < concurrentCalls; i++ {
-			group.Go(func() error {
-				c, err := client.Process(ctx)
-				require.NoError(t, err)
+		// wait for initial loop to start so we have pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-				_, err = c.Recv()
-				if err != nil {
-					mu.Lock()
-					recvErrList = append(recvErrList, err)
-					mu.Unlock()
-				}
-				return nil
-			})
-		}
+		// this connection should not close immediately, since there are pieces to transfer
+		c, err = client.Process(ctx)
+		require.NoError(t, err)
+
+		_, err = c.Recv()
+		require.NoError(t, err)
+
+		// start receiving from concurrent connections
+		close(waitChan)
 
 		err = group.Wait()
 		require.NoError(t, err)
-		require.Len(t, recvErrList, concurrentCalls-1)
-		for _, err := range recvErrList {
-			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-		}
 	})
 }
 
