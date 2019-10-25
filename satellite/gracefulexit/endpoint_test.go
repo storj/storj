@@ -427,8 +427,15 @@ func TestSuccessPointerUpdate(t *testing.T) {
 			t.FailNow()
 		}
 
-		_, err = processClient.Recv()
+		response, err = processClient.Recv()
 		require.NoError(t, err)
+
+		switch response.GetMessage().(type) {
+		case *pb.SatelliteMessage_DeletePiece:
+			// expect the delete piece message
+		default:
+			t.FailNow()
+		}
 
 		// check that the exit has completed and we have the correct transferred/failed values
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
@@ -445,6 +452,8 @@ func TestSuccessPointerUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		found := 0
+		require.NotNil(t, pointer.GetRemote())
+		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			require.NotEqual(t, exitingNode.ID(), piece.NodeId)
 			if piece.NodeId == recNodeID {

@@ -642,7 +642,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 
 	var toRemove []*pb.RemotePiece
 	for _, piece := range remote.GetRemotePieces() {
-		if piece.NodeId == exitingNodeID {
+		if piece.NodeId == exitingNodeID && piece.PieceNum == pieceNum {
 			toRemove = []*pb.RemotePiece{piece}
 			break
 		}
