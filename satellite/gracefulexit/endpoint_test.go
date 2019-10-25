@@ -427,7 +427,7 @@ func TestSuccessPointerUpdate(t *testing.T) {
 			t.FailNow()
 		}
 
-		response, err = processClient.Recv()
+		_, err = processClient.Recv()
 		require.NoError(t, err)
 
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -440,7 +440,10 @@ func TestSuccessPointerUpdate(t *testing.T) {
 
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
+
 		pointer, err := satellite.Metainfo.Service.Get(ctx, string(keys[0]))
+		require.NoError(t, err)
+
 		found := 0
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			require.NotEqual(t, exitingNode.ID(), piece.NodeId)
