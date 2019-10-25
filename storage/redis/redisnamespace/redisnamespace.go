@@ -6,8 +6,8 @@ package redisnamespace
 import "strconv"
 
 var dbs = map[string]int{
-	"liveAccounting-dburl": 0,
-	"revocation-dburl":     1,
+	"live-accounting.db":      0,
+	"server.revocation-dburl": 1,
 }
 
 // GetDB returns the database value of the key provided.

@@ -21,13 +21,13 @@ var (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	LiveAccountingDB string `help:"what to use for storing real-time accounting data" default:"memory"`
+	DB string `help:"what to use for storing real-time accounting data" default:"memory"`
 }
 
 // NewCache creates a new accounting.Cache instance using the type specified backend in
 // the provided config.
 func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
-	parts := strings.SplitN(config.LiveAccountingDB, ":", 2)
+	parts := strings.SplitN(config.DB, ":", 2)
 	var backendType string
 	if len(parts) == 0 || parts[0] == "" {
 		backendType = "memory"
@@ -38,7 +38,7 @@ func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
 	case "memory":
 		return newMemoryLiveAccounting(log)
 	case "redis":
-		return newRedisLiveAccounting(log, config.LiveAccountingDB)
+		return newRedisLiveAccounting(log, config.DB)
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q", backendType)
 	}

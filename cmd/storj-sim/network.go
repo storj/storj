@@ -273,8 +273,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			dbs := redisnamespace.GetAll()
 			dbCount := len(dbs)
 			for key, val := range dbs {
-				flag := "--server." + key
-				dbVal := val + dbCount
+				flag := "--" + key
+				dbVal := val + (dbCount * i)
 				url := redisnamespace.CreatePath(flags.Redis, dbVal)
 				process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 			}

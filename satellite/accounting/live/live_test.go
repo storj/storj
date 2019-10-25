@@ -44,7 +44,7 @@ func TestLiveAccountingCache(t *testing.T) {
 		var config live.Config
 		if tt.backend == "redis" {
 			config = live.Config{
-				StorageBackend: "redis://" + address + "?db=0",
+				LiveAccountingDB: "redis://" + address + "?db=0",
 			}
 		}
 
@@ -81,7 +81,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	defer cleanup()
 
 	config := live.Config{
-		StorageBackend: "redis://" + address + "?db=0",
+		LiveAccountingDB: "redis://" + address + "?db=0",
 	}
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestPlainMemoryCacheConcurrency(t *testing.T) {
 	defer ctx.Cleanup()
 
 	config := live.Config{
-		StorageBackend: "memory",
+		LiveAccountingDB: "memory",
 	}
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestNegativeSpaceUsed(t *testing.T) {
 	defer ctx.Cleanup()
 
 	config := live.Config{
-		StorageBackend: "memory:",
+		LiveAccountingDB: "memory:",
 	}
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
