@@ -143,7 +143,10 @@ func (a *Auth) Update(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var updatedInfo console.UserInfo
+	var updatedInfo struct {
+		FullName  string `json:"fullName"`
+		ShortName string `json:"shortName"`
+	}
 
 	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
 	if err != nil {
