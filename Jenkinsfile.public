@@ -113,6 +113,13 @@ pipeline {
                     }
                 }
 
+               stage('Build [gomobile]') {
+                    steps {
+                        // just to verify its building with recent changes
+                        sh 'make libuplink-gomobile'
+                    }
+                }
+
                 stage('npm') {
                     steps {
                         dir("web/satellite") {
