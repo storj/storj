@@ -176,7 +176,7 @@ func (a *Auth) Get(w http.ResponseWriter, r *http.Request) {
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 
