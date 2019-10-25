@@ -131,6 +131,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods(http.MethodPost)
 	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods(http.MethodPost)
 	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods(http.MethodPost)
+	authRouter.HandleFunc("/", authController.Get).Methods(http.MethodGet)
+	authRouter.HandleFunc("/update", authController.Update).Methods(http.MethodPut)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()

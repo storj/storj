@@ -482,21 +482,17 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, er
 }
 
 // UpdateAccount updates User
-func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
+func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = info.IsValid(); err != nil {
-		return err
-	}
-
 	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
-		FullName:     info.FullName,
-		ShortName:    info.ShortName,
+		FullName:     fullName,
+		ShortName:    shortName,
 		Email:        auth.User.Email,
 		PasswordHash: nil,
 		Status:       auth.User.Status,
