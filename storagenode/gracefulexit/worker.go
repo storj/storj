@@ -130,7 +130,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
 				continue
 			}
-			if !bytes.Equal(pieceHash.PieceId.Bytes(), addrLimit.Limit.PieceId.Bytes()) {
+			if pieceHash.PieceId != addrLimit.Limit.PieceId {
 				worker.log.Error("piece id from new storagenode does not match order limit", zap.Stringer("storagenode ID", addrLimit.Limit.StorageNodeId), zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID))
 				worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
 				continue
