@@ -1,4 +1,5 @@
 @echo off
+rem build msi installer for each release directory
 for /d %%d in (release\*) do (
     rem copy the storagenode binaries to the installer project
     copy %%d\storagenode_windows_amd64.exe installer\windows\storagenode.exe
