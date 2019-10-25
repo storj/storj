@@ -10,19 +10,6 @@ var dbs = map[string]int{
 	"server.revocation-dburl": 1,
 }
 
-// GetDB returns the database value of the key provided.
-func GetDB(key string) int {
-	return dbs[key]
-}
-
-// GetKeys returns all the keys in the map
-func GetKeys() (keys []string) {
-	for key := range dbs {
-		keys = append(keys, key)
-	}
-	return keys
-}
-
 // GetAll returns entire db map
 func GetAll() map[string]int {
 	return dbs
