@@ -175,7 +175,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	if exitStatus.ExitFinishedAt != nil {
-		finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess)
+		// TODO maybe we should store the reason in the DB so we know how it originally failed.
+		finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess, -1)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -230,7 +231,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		defer ticker.Stop()
 		defer func() {
 			processChan <- true
-
+			close(processChan)
 		}()
 
 		for range ticker.C {
@@ -300,15 +301,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				exitStatusRequest.ExitSuccess = false
 				// TODO needs signature
-				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess)
+				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
 				if err != nil {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
-				transferMsg.GetExitFailed().Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			} else {
 				exitStatusRequest.ExitSuccess = true
 				// TODO needs signature
-				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess)
+				transferMsg, err = endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, -1)
 				if err != nil {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
@@ -581,11 +581,11 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 			},
 		},
 	}
+
 	err = stream.Send(deleteMsg)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	return nil
 }
 
@@ -634,7 +634,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 	return nil
 }
 
-func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing.Signer, nodeID storj.NodeID, finishedAt time.Time, success bool) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing.Signer, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	if success {
 		unsigned := &pb.ExitCompleted{
 			SatelliteId: endpoint.signer.ID(),
@@ -653,6 +653,10 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing
 			SatelliteId: endpoint.signer.ID(),
 			NodeId:      nodeID,
 			Failed:      finishedAt,
+			Reason:      reason,
+		}
+		if reason >= 0 {
+			unsigned.Reason = reason
 		}
 		signed, err := signing.SignExitFailed(ctx, endpoint.signer, unsigned)
 		if err != nil {
