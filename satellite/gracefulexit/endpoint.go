@@ -341,19 +341,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				if ErrInvalidArgument.Has(err) {
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
-					// TODO(moby) use getFinishedMessage helper after 3368 is merged
 					exitStatusRequest := &overlay.ExitStatusRequest{
 						NodeID:         nodeID,
 						ExitFinishedAt: time.Now().UTC(),
 						ExitSuccess:    false,
 					}
-					// TODO needs signature
-					transferMsg := &pb.SatelliteMessage{
-						Message: &pb.SatelliteMessage_ExitFailed{
-							ExitFailed: &pb.ExitFailed{
-								Reason: pb.ExitFailed_VERIFICATION_FAILED,
-							},
-						},
+
+					finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess, pb.ExitFailed_VERIFICATION_FAILED)
+					if err != nil {
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
@@ -361,7 +357,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
-					err = stream.Send(transferMsg)
+					err = stream.Send(finishedMsg)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 					}
