@@ -66,9 +66,9 @@ type generateInfo struct {
 var infos = map[string]generateInfo{
 	"drpc": {
 		Name:   "drpc",
-		Import: "storj.io/drpc/drpcconn",
+		Import: "storj.io/storj/pkg/rpc/rpcpool",
 		Prefix: "DRPC",
-		Conn:   "drpcconn.Conn",
+		Conn:   "rpcpool.Conn",
 		Tag:    "drpc",
 	},
 	"grpc": {

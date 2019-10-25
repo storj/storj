@@ -47,7 +47,10 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, gracefulexit.ErrNodeNotFound.Wrap(err)
+
+	} else if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)
@@ -221,7 +224,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is not NULL
-			AND failed_count <= ?
+			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
 	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {

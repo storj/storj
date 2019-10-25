@@ -57,7 +57,7 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
           />
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
       </Component>

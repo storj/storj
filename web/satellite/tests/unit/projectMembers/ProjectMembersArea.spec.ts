@@ -26,7 +26,7 @@ const { FETCH } = PROJECT_MEMBER_MUTATIONS;
 const store = new Vuex.Store({modules: { projectsModule, projectMembersModule, appStateModule }});
 
 describe('ProjectMembersArea.vue', () => {
-    const project = new Project('id', 'projectName', 'projectDescription', 'test', true);
+    const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
 
     const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');

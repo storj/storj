@@ -79,6 +79,13 @@ var (
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
+	gracefulExitCmd = &cobra.Command{
+		Use:   "graceful-exit [start] [end]",
+		Short: "Generate a graceful exit report",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdGracefulExit,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -94,6 +101,11 @@ var (
 	partnerAttribtionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
+	}
+	gracefulExitCfg struct {
+		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Output    string `help:"destination of report output" default:""`
+		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
 	}
 	confDir     string
 	identityDir string
@@ -112,11 +124,13 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
+	reportsCmd.AddCommand(gracefulExitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -301,6 +315,45 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
+func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[0])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+
+	// adding one day to properly account for the entire end day
+	end = end.AddDate(0, 0, 1)
+
+	// ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if gracefulExitCfg.Output == "" {
+		return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(gracefulExitCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+	}()
+
+	return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, file)
+}
+
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -324,7 +377,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if nodeUsageCfg.Output == "" {
-		return generateCSV(ctx, start, end, os.Stdout)
+		return generateNodeUsageCSV(ctx, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -337,7 +390,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateCSV(ctx, start, end, file)
+	return generateNodeUsageCSV(ctx, start, end, file)
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {

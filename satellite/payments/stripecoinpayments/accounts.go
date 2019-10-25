@@ -36,12 +36,13 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 		Email: stripe.String(email),
 	}
 
-	if _, err := accounts.service.stripeClient.Customers.New(params); err != nil {
+	customer, err := accounts.service.stripeClient.Customers.New(params)
+	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return Error.Wrap(accounts.service.customers.Insert(ctx, userID, email))
+	return Error.Wrap(accounts.service.customers.Insert(ctx, userID, customer.ID))
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.

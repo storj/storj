@@ -56,10 +56,10 @@ service SatelliteGracefulExit {
 }
 
 message TransferSucceeded {
-  metainfo.AddressedOrderLimit addressed_order_limit   = 1;
+  orders.OrderLimit            original_order_limit    = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
-  bytes original_piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+  bytes                        original_piece_id       = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message TransferFailed {
@@ -67,7 +67,9 @@ message TransferFailed {
   enum Error {
       NOT_FOUND                 = 0;
       STORAGE_NODE_UNAVAILABLE  = 1;
-      UNKNOWN                   = 2;
+      HASH_VERIFICATION         = 2;
+
+      UNKNOWN                   = 10;
   }
   Error error = 2;
 }
@@ -101,6 +103,8 @@ message ExitCompleted {
 message ExitFailed {
   enum Reason {
       VERIFICATION_FAILED = 0;
+      INACTIVE_TIMEFRAME_EXCEEDED = 1;
+      OVERALL_FAILURE_PERCENTAGE_EXCEEDED = 2;
   }
   // on failure
   bytes exit_failure_signature  = 1;
