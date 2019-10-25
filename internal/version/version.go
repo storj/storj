@@ -174,6 +174,10 @@ func (sem SemVer) IsZero() bool {
 	return reflect.ValueOf(sem).IsZero()
 }
 
+func (old OldSemVer) String() string {
+	return fmt.Sprintf("v%d.%d.%d", old.Major, old.Minor, old.Patch)
+}
+
 // SemVer converts a version struct into a semantic version struct.
 func (ver *Version) SemVer() (SemVer, error) {
 	return NewSemVer(ver.Version)

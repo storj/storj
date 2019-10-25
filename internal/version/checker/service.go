@@ -156,6 +156,6 @@ func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
-func isAcceptedVersion(test version.SemVer, target version.SemVer) bool {
-	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
+func isAcceptedVersion(test version.SemVer, target version.OldSemVer) bool {
+	return test.Major > uint64(target.Major) || (test.Major == uint64(target.Major) && (test.Minor > uint64(target.Minor) || (test.Minor == uint64(target.Minor) && test.Patch >= uint64(target.Patch))))
 }
