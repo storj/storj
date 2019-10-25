@@ -31,7 +31,7 @@
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
-                <StorjInput class="form"/>
+                <TokenDepositSelection class="form" @onChangeTokenValue="onChangeTokenValue"/>
             </div>
             <VButton
                 label="Continue to Coin Payments"
@@ -42,7 +42,7 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput
+            <StripeCardInput
                 class="payment-methods-area__adding-container__stripe"
                 ref="stripeInput"
                 :on-stripe-response-callback="addCard"
@@ -68,8 +68,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/CardComponent.vue';
-import StorjInput from '@/components/account/billing/StorjInput.vue';
-import StripeInput from '@/components/account/billing/StripeInput.vue';
+import TokenDepositSelection from '@/components/account/billing/TokenDepositSelection.vue';
+import StripeCardInput from '@/components/account/billing/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -90,12 +90,13 @@ interface StripeForm {
     components: {
         VButton,
         CardComponent,
-        StorjInput,
-        StripeInput,
+        TokenDepositSelection,
+        StripeCardInput,
     },
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+    private tokenDepositValue: number = 20;
 
     public async mounted() {
         try {
@@ -106,7 +107,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public $refs!: {
-        stripeInput: StripeInput & StripeForm;
+        stripeCardInput: StripeCardInput & StripeForm;
     };
 
     public get creditCards(): CreditCard[] {
@@ -123,6 +124,10 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    public onChangeTokenValue(value: number) {
+        this.tokenDepositValue = value;
+    }
+
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
 
@@ -135,16 +140,18 @@ export default class PaymentMethods extends Vue {
     }
     public onCancel(): void {
         this.areaState = PaymentMethodsBlockState.DEFAULT;
+        this.tokenDepositValue = 20;
 
         return;
     }
 
     public onConfirmAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.DEFAULT;
+        console.log('tokenDepositValue', this.tokenDepositValue);
     }
 
     public async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeInput.onSubmit();
+        await this.$refs.stripeCardInput.onSubmit();
     }
 
     public async addCard(token: string) {
