@@ -363,8 +363,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				ChoreBatchSize: 10,
 				ChoreInterval:  defaultInterval,
 
-				EndpointBatchSize:   100,
-				EndpointMaxFailures: 5,
+				EndpointBatchSize:            100,
+				MaxFailuresPerPiece:          5,
+				MaxInactiveTimeFrame:         time.Second * 10,
+				OverallMaxFailuresPercentage: 10,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
