@@ -72,7 +72,7 @@ var (
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		// NB: can't use `log.output` because windows service command args containing "." are bugged.
-		Log            string `help:"path to log file, if empty standard output will be used" default:""`
+		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
 	confDir     string
