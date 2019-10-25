@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestInsertUpdate(t *testing.T) {
+func TestInsertUpdateConsume(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -73,6 +73,40 @@ func TestInsertUpdate(t *testing.T) {
 			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
 			assert.Equal(t, update.Received, page.Transactions[0].Received)
 			assert.Equal(t, update.Status, page.Transactions[0].Status)
+
+			err = transactions.Update(ctx,
+				[]stripecoinpayments.TransactionUpdate{
+					{
+						TransactionID: createTx.ID,
+						Status:        coinpayments.StatusReceived,
+						Received:      *received,
+					},
+				},
+				coinpayments.TransactionIDList{
+					createTx.ID,
+				},
+			)
+			require.NoError(t, err)
+
+			page, err = transactions.ListUnapplied(ctx, 0, 1, time.Now())
+			require.NoError(t, err)
+			require.NotNil(t, page.Transactions)
+			require.Equal(t, 1, len(page.Transactions))
+
+			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
+			assert.Equal(t, update.Received, page.Transactions[0].Received)
+			assert.Equal(t, coinpayments.StatusReceived, page.Transactions[0].Status)
+		})
+
+		t.Run("consume", func(t *testing.T) {
+			err := transactions.Consume(ctx, createTx.ID)
+			require.NoError(t, err)
+
+			page, err := transactions.ListUnapplied(ctx, 0, 1, time.Now())
+			require.NoError(t, err)
+
+			assert.Nil(t, page.Transactions)
+			assert.Equal(t, 0, len(page.Transactions))
 		})
 	})
 }
@@ -156,8 +190,6 @@ func TestList(t *testing.T) {
 
 			err := db.CoinpaymentsTransactions().Update(ctx, updates, applies)
 			require.NoError(t, err)
-
-			//t.Skip()
 
 			page, err := db.CoinpaymentsTransactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
 			require.NoError(t, err)
