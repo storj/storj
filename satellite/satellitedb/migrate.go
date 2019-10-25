@@ -1319,6 +1319,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add payments update balance intents",
+				Version:     62,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
 		},
 	}
 }

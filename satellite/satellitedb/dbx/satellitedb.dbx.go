@@ -491,12 +491,6 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
-CREATE TABLE stripecoinpayments_apply_balance_intents (
-	tx_id text NOT NULL,
-	state integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tx_id )
-);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -561,6 +555,12 @@ CREATE TABLE project_members (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+);
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
@@ -4342,77 +4342,6 @@ func (f StripeCustomer_CreatedAt_Field) value() interface{} {
 
 func (StripeCustomer_CreatedAt_Field) _Column() string { return "created_at" }
 
-type StripecoinpaymentsApplyBalanceIntent struct {
-	TxId      string
-	State     int
-	CreatedAt time.Time
-}
-
-func (StripecoinpaymentsApplyBalanceIntent) _Table() string {
-	return "stripecoinpayments_apply_balance_intents"
-}
-
-type StripecoinpaymentsApplyBalanceIntent_Update_Fields struct {
-	State StripecoinpaymentsApplyBalanceIntent_State_Field
-}
-
-type StripecoinpaymentsApplyBalanceIntent_TxId_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func StripecoinpaymentsApplyBalanceIntent_TxId(v string) StripecoinpaymentsApplyBalanceIntent_TxId_Field {
-	return StripecoinpaymentsApplyBalanceIntent_TxId_Field{_set: true, _value: v}
-}
-
-func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StripecoinpaymentsApplyBalanceIntent_TxId_Field) _Column() string { return "tx_id" }
-
-type StripecoinpaymentsApplyBalanceIntent_State_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func StripecoinpaymentsApplyBalanceIntent_State(v int) StripecoinpaymentsApplyBalanceIntent_State_Field {
-	return StripecoinpaymentsApplyBalanceIntent_State_Field{_set: true, _value: v}
-}
-
-func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StripecoinpaymentsApplyBalanceIntent_State_Field) _Column() string { return "state" }
-
-type StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func StripecoinpaymentsApplyBalanceIntent_CreatedAt(v time.Time) StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field {
-	return StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) _Column() string { return "created_at" }
-
 type User struct {
 	Id              []byte
 	Email           string
@@ -5419,6 +5348,77 @@ func (f ProjectMember_CreatedAt_Field) value() interface{} {
 }
 
 func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
+
+type StripecoinpaymentsApplyBalanceIntent struct {
+	TxId      string
+	State     int
+	CreatedAt time.Time
+}
+
+func (StripecoinpaymentsApplyBalanceIntent) _Table() string {
+	return "stripecoinpayments_apply_balance_intents"
+}
+
+type StripecoinpaymentsApplyBalanceIntent_Update_Fields struct {
+	State StripecoinpaymentsApplyBalanceIntent_State_Field
+}
+
+type StripecoinpaymentsApplyBalanceIntent_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripecoinpaymentsApplyBalanceIntent_TxId(v string) StripecoinpaymentsApplyBalanceIntent_TxId_Field {
+	return StripecoinpaymentsApplyBalanceIntent_TxId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_TxId_Field) _Column() string { return "tx_id" }
+
+type StripecoinpaymentsApplyBalanceIntent_State_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsApplyBalanceIntent_State(v int) StripecoinpaymentsApplyBalanceIntent_State_Field {
+	return StripecoinpaymentsApplyBalanceIntent_State_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_State_Field) _Column() string { return "state" }
+
+type StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsApplyBalanceIntent_CreatedAt(v time.Time) StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field {
+	return StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) _Column() string { return "created_at" }
 
 type UsedSerial struct {
 	SerialNumberId int
@@ -10012,6 +10012,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10063,16 +10073,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

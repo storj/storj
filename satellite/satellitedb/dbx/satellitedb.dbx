@@ -921,8 +921,8 @@ read limitoffset (
 model stripecoinpayments_apply_balance_intent (
     key tx_id
 
-    field tx_id text
-    field state int  ( updatable )
+    field tx_id coinpayments_transaction.id  cascade
+    field state int                          ( updatable )
 
     field created_at timestamp ( autoinsert )
 )

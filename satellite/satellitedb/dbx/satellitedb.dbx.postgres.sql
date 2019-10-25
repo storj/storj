@@ -226,12 +226,6 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
-CREATE TABLE stripecoinpayments_apply_balance_intents (
-	tx_id text NOT NULL,
-	state integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tx_id )
-);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -296,6 +290,12 @@ CREATE TABLE project_members (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+);
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,

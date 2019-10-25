@@ -162,8 +162,8 @@ func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 					txs.received,
 					txs.key,
 					txs.created_at
-				FROM from coinpayments_transactions as txs 
-				INNER JOIN stripecoinpayments_apply_balance_intent as ints
+				FROM coinpayments_transactions as txs 
+				INNER JOIN stripecoinpayments_apply_balance_intents as ints
 				ON txs.id = ints.tx_id
 				WHERE txs.status = ?
 				AND txs.created_at <= ?
@@ -171,7 +171,7 @@ func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 				ORDER by txs.created_at DESC
 				LIMIT ? OFFSET ?`)
 
-	rows, err := db.db.QueryContext(ctx, query)
+	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit, offset)
 	if err != nil {
 		return stripecoinpayments.TransactionsPage{}, err
 	}
