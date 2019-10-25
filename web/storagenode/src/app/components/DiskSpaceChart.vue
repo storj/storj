@@ -42,6 +42,10 @@ class StampTooltip {
     },
 })
 export default class DiskSpaceChart extends Vue {
+    private readonly TOOLTIP_MARGIN: number = 20;
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
+
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
@@ -101,11 +105,10 @@ export default class DiskSpaceChart extends Vue {
         const diskSpaceChart = document.getElementById('disk-space-chart');
 
         if (diskSpaceChart) {
-            const twentyPixels = 20;
             const position = diskSpaceChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - twentyPixels + 'px';
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
+            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - this.TOOLTIP_MARGIN + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
 

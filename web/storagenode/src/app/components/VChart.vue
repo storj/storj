@@ -152,7 +152,3 @@ export default class VChart extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss">
-    /* mock no-empty-source rule of stylelint */
-</style>

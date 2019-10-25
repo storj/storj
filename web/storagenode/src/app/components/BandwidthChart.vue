@@ -50,6 +50,9 @@ class BandwidthTooltip {
     },
 })
 export default class BandwidthChart extends Vue {
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
+
     private get allBandwidth(): BandwidthUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
@@ -131,8 +134,8 @@ export default class BandwidthChart extends Vue {
         const bandwidthChart = document.getElementById('bandwidth-chart');
         if (bandwidthChart) {
             const position = bandwidthChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
             tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
