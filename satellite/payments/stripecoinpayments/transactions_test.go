@@ -62,7 +62,7 @@ func TestInsertUpdate(t *testing.T) {
 				Received:      *received,
 			}
 
-			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update})
+			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
 			require.NoError(t, err)
 
 			page, err := transactions.ListPending(ctx, 0, 1, time.Now())
@@ -78,55 +78,99 @@ func TestInsertUpdate(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		transactions := db.CoinpaymentsTransactions()
+	const (
+		transactionCount = 10
+	)
 
-		const (
-			transactionCount = 10
-		)
+	// create transactions
+	amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
+	require.True(t, ok)
+	received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
+	require.True(t, ok)
 
-		// create transactions
-		amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
-		require.True(t, ok)
+	var txs []stripecoinpayments.Transaction
+	for i := 0; i < transactionCount; i++ {
+		id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+		addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+		key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 
-		var txs []stripecoinpayments.Transaction
-		for i := 0; i < transactionCount; i++ {
-			id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
-			addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
-			key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
-
-			createTX := stripecoinpayments.Transaction{
-				ID:        coinpayments.TransactionID(id),
-				AccountID: uuid.UUID{},
-				Address:   addr,
-				Amount:    *amount,
-				Received:  *received,
-				Status:    coinpayments.StatusPending,
-				Key:       key,
-			}
-
-			_, err := transactions.Insert(ctx, createTX)
-			require.NoError(t, err)
-
-			txs = append(txs, createTX)
+		createTX := stripecoinpayments.Transaction{
+			ID:        coinpayments.TransactionID(id),
+			AccountID: uuid.UUID{},
+			Address:   addr,
+			Amount:    *amount,
+			Received:  *received,
+			Status:    coinpayments.StatusPending,
+			Key:       key,
 		}
 
-		page, err := transactions.ListPending(ctx, 0, transactionCount, time.Now())
-		require.NoError(t, err)
-		require.Equal(t, transactionCount, len(page.Transactions))
+		txs = append(txs, createTX)
+	}
+	t.Run("pending transactions", func(t *testing.T) {
+		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+			for _, tx := range txs {
+				_, err := db.CoinpaymentsTransactions().Insert(ctx, tx)
+				require.NoError(t, err)
+			}
 
-		for _, act := range page.Transactions {
-			for _, exp := range txs {
-				if act.ID == exp.ID {
-					compareTransactions(t, exp, act)
+			page, err := db.CoinpaymentsTransactions().ListPending(ctx, 0, transactionCount, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, transactionCount, len(page.Transactions))
+
+			for _, act := range page.Transactions {
+				for _, exp := range txs {
+					if act.ID == exp.ID {
+						compareTransactions(t, exp, act)
+					}
 				}
 			}
-		}
+		})
+	})
+
+	t.Run("unapplied transaction", func(t *testing.T) {
+		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+			var updatedTxs []stripecoinpayments.Transaction
+			var updates []stripecoinpayments.TransactionUpdate
+			var applies coinpayments.TransactionIDList
+
+			for _, tx := range txs {
+				_, err := db.CoinpaymentsTransactions().Insert(ctx, tx)
+				require.NoError(t, err)
+
+				tx.Status = coinpayments.StatusReceived
+
+				updates = append(updates,
+					stripecoinpayments.TransactionUpdate{
+						TransactionID: tx.ID,
+						Status:        tx.Status,
+						Received:      tx.Received,
+					},
+				)
+
+				applies = append(applies, tx.ID)
+				updatedTxs = append(updatedTxs, tx)
+			}
+
+			err := db.CoinpaymentsTransactions().Update(ctx, updates, applies)
+			require.NoError(t, err)
+
+			//t.Skip()
+
+			page, err := db.CoinpaymentsTransactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, transactionCount, len(page.Transactions))
+
+			for _, act := range page.Transactions {
+				for _, exp := range updatedTxs {
+					if act.ID == exp.ID {
+						compareTransactions(t, exp, act)
+					}
+				}
+			}
+		})
 	})
 }
 
