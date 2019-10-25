@@ -423,7 +423,7 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	// TODO handle `more`
-	items, _, err := s.metainfo.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+	items, _, err := s.metainfo.ListSegments(ctx, metainfo.ListSegmentsParams{
 		StreamID: streamID,
 		CursorPosition: storj.SegmentPosition{
 			Index: 0,

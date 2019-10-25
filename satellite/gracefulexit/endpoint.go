@@ -182,6 +182,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := newPendingMap()
 
 	var morePiecesFlag int32 = 1
+	errChan := make(chan error, 1)
+	handleError := func(err error) error {
+		errChan <- err
+		close(errChan)
+		return Error.Wrap(err)
+	}
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -192,13 +198,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
-					return Error.Wrap(err)
+					return handleError(err)
 				}
 
 				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures, endpoint.config.EndpointBatchSize, 0)
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 
@@ -211,7 +217,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
-						return Error.Wrap(err)
+						return handleError(err)
 					}
 				}
 			}
@@ -220,19 +226,64 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
+		select {
+		case <-errChan:
+			return group.Wait()
+		default:
+		}
+
 		pendingCount := pending.length()
+
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
-			// TODO check whether failure threshold is met before sending completed
-			// TODO needs exit signature
-			transferMsg := &pb.SatelliteMessage{
-				Message: &pb.SatelliteMessage_ExitCompleted{
-					ExitCompleted: &pb.ExitCompleted{},
-				},
+			exitStatusRequest := &overlay.ExitStatusRequest{
+				NodeID:         nodeID,
+				ExitFinishedAt: time.Now().UTC(),
 			}
+
+			progress, err := endpoint.db.GetProgress(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+
+			var transferMsg *pb.SatelliteMessage
+			processed := progress.PiecesFailed + progress.PiecesTransferred
+			// check node's exiting progress to see if it has failed passed max failure threshold
+			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
+
+				exitStatusRequest.ExitSuccess = false
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitFailed{
+						ExitFailed: &pb.ExitFailed{
+							Reason: pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED,
+						},
+					},
+				}
+			} else {
+				exitStatusRequest.ExitSuccess = true
+				// TODO needs signature
+				transferMsg = &pb.SatelliteMessage{
+					Message: &pb.SatelliteMessage_ExitCompleted{
+						ExitCompleted: &pb.ExitCompleted{},
+					},
+				}
+			}
+
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+
 			err = stream.Send(transferMsg)
 			if err != nil {
 				return Error.Wrap(err)
+			}
+
+			// remove remaining items from the queue after notifying nodes about their exit status
+			err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
 		}
@@ -252,7 +303,17 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			}
-
+			deleteMsg := &pb.SatelliteMessage{
+				Message: &pb.SatelliteMessage_DeletePiece{
+					DeletePiece: &pb.DeletePiece{
+						OriginalPieceId: m.Succeeded.OriginalPieceId,
+					},
+				},
+			}
+			err = stream.Send(deleteMsg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		case *pb.StorageNodeMessage_Failed:
 			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
@@ -349,7 +410,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -378,11 +439,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if message.Succeeded.GetAddressedOrderLimit() == nil {
-		return Error.New("Addressed order limit cannot be nil.")
+	if message.Succeeded.GetOriginalOrderLimit() == nil {
+		return Error.New("original order limit cannot be nil.")
 	}
 	if message.Succeeded.GetOriginalPieceHash() == nil {
-		return Error.New("Original piece hash cannot be nil.")
+		return Error.New("original piece hash cannot be nil.")
 	}
 
 	pieceID := message.Succeeded.OriginalPieceId
@@ -403,7 +464,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	}
 
 	var failed int64
-	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > 0 {
+	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount >= endpoint.config.MaxFailuresPerPiece {
 		failed = -1
 	}
 
@@ -454,8 +515,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		return Error.Wrap(err)
 	}
 
-	// only increment failed if it hasn't failed before
-	if failedCount == 1 {
+	// only increment overall failed count if piece failures has reached the threshold
+	if failedCount == endpoint.config.MaxFailuresPerPiece {
 		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)

@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite/mailservice"
 )
 
-// Error - console auth api error type
-var Error = errs.Class("console auth api error")
+// ErrAuthAPI - console auth api error type.
+var ErrAuthAPI = errs.Class("console auth api error")
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
@@ -74,7 +74,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(tokenResponse)
 	if err != nil {
-		a.log.Error("token handler could not encode token response", zap.Error(Error.Wrap(err)))
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -132,7 +132,35 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(&user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(Error.Wrap(err)))
+		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// Delete - authorizes user and deletes account by password.
+func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var request struct {
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.service.DeleteAccount(ctx, request.Password)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -156,7 +184,12 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
-		a.serveJSONError(w, http.StatusNotFound, err)
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -277,6 +310,6 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
 }

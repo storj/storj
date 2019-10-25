@@ -57,10 +57,8 @@ func TestSuccess(t *testing.T) {
 							Succeeded: &pb.TransferSucceeded{
 								OriginalPieceId:   m.TransferPiece.OriginalPieceId,
 								OriginalPieceHash: &pb.PieceHash{PieceId: m.TransferPiece.OriginalPieceId},
-								AddressedOrderLimit: &pb.AddressedOrderLimit{
-									Limit: &pb.OrderLimit{
-										PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-									},
+								OriginalOrderLimit: &pb.OrderLimit{
+									PieceId: m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
 								},
 							},
 						},
@@ -84,7 +82,7 @@ func TestSuccess(t *testing.T) {
 				// TODO test completed signature stuff
 				break
 			default:
-				t.FailNow()
+				// TODO finish other message types above so this shouldn't happen
 			}
 		}
 
@@ -125,6 +123,12 @@ func TestFailure(t *testing.T) {
 			case *pb.SatelliteMessage_ExitCompleted:
 				// TODO test completed signature stuff
 				break
+			case *pb.SatelliteMessage_ExitFailed:
+				status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+				require.NoError(t, err)
+				require.False(t, status.ExitSuccess)
+				require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
+				break
 			default:
 				t.FailNow()
 			}
@@ -163,9 +167,9 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			require.NoError(t, err)
 		}
 		// check that there are no exiting nodes.
-		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
-		require.Len(t, exitingNodeIDs, 0)
+		require.Len(t, exitingNodes, 0)
 
 		exitingNode, err := findNodeToExit(ctx, planet, objects)
 		require.NoError(t, err)
@@ -189,11 +193,11 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		switch response.GetMessage().(type) {
 		case *pb.SatelliteMessage_NotReady:
 			// now check that the exiting node is initiated.
-			exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 			require.NoError(t, err)
-			require.Len(t, exitingNodeIDs, 1)
+			require.Len(t, exitingNodes, 1)
 
-			require.Equal(t, exitingNode.ID(), exitingNodeIDs[0])
+			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 		default:
 			t.FailNow()
 		}
