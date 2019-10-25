@@ -330,7 +330,39 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
 				if ErrInvalidArgument.Has(err) {
-					return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+					// immediately fail and complete graceful exit for nodes that fail satellite validation
+					// TODO(moby) use getFinishedMessage helper after 3368 is merged
+					exitStatusRequest := &overlay.ExitStatusRequest{
+						NodeID:         nodeID,
+						ExitFinishedAt: time.Now().UTC(),
+						ExitSuccess:    false,
+					}
+					// TODO needs signature
+					transferMsg := &pb.SatelliteMessage{
+						Message: &pb.SatelliteMessage_ExitFailed{
+							ExitFailed: &pb.ExitFailed{
+								Reason: pb.ExitFailed_VERIFICATION_FAILED,
+							},
+						},
+					}
+
+					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+					if err != nil {
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
+					}
+
+					err = stream.Send(transferMsg)
+					if err != nil {
+						return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+					}
+
+					// remove remaining items from the queue after notifying nodes about their exit status
+					err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+					if err != nil {
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
+					}
+
+					break
 				}
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
