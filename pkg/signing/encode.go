@@ -108,3 +108,25 @@ func EncodeSegmentID(ctx context.Context, segmentID *pb.SatSegmentID) (_ []byte,
 	segmentID.SatelliteSignature = signature
 	return out, err
 }
+
+// EncodeExitCompleted encodes ExitCompleted into bytes for signing.
+func EncodeExitCompleted(ctx context.Context, exitCompleted *pb.ExitCompleted) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	signature := exitCompleted.ExitCompleteSignature
+	exitCompleted.ExitCompleteSignature = nil
+	out, err := proto.Marshal(exitCompleted)
+	exitCompleted.ExitCompleteSignature = signature
+
+	return out, err
+}
+
+// EncodeExitFailed encodes ExitFailed into bytes for signing.
+func EncodeExitFailed(ctx context.Context, exitFailed *pb.ExitFailed) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	signature := exitFailed.ExitFailureSignature
+	exitFailed.ExitFailureSignature = nil
+	out, err := proto.Marshal(exitFailed)
+	exitFailed.ExitFailureSignature = signature
+
+	return out, err
+}
