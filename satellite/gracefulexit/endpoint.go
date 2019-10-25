@@ -347,7 +347,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						ExitSuccess:    false,
 					}
 
-					finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess, pb.ExitFailed_VERIFICATION_FAILED)
+					finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, pb.ExitFailed_VERIFICATION_FAILED)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
