@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // Flags contains different flags for commands
@@ -51,16 +50,6 @@ func main() {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")
 	}
 
-	address, cleanup, err := redisserver.Start()
-	defer cleanup()
-	if err != nil {
-		os.Exit(1)
-	}
-	err = os.Setenv("STORJ_SIM_REDIS", address)
-	if err != nil {
-		os.Exit(1)
-	}
-
 	rootCmd.PersistentFlags().StringVarP(&flags.Directory, "config-dir", "", configDir, "base project directory")
 	rootCmd.PersistentFlags().StringVarP(&flags.Host, "host", "", "127.0.0.1", "host to use for network")
 
@@ -72,7 +61,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
-	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis (defaults to STORJ_SIM_REDIS)")
+	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", "miniredis", "connection string for redis (defaults to miniredis)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
@@ -118,7 +107,7 @@ func main() {
 		networkCmd,
 	)
 	rootCmd.SilenceUsage = true
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
