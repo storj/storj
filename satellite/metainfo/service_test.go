@@ -74,7 +74,7 @@ func TestUpdatePiecesDuplicateNodeID(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, saPeer, "test1", "test/path", expectedData)
 		require.NoError(t, err)
 
-		pointer, path := getRemoteSegment(t, ctx, saPeer)
+		pointer, path := getRemoteSegment(ctx, t, saPeer)
 
 		duplicatedNodeID := storj.NodeID{}
 		pieceToRemove := make([]*pb.RemotePiece, 1)
