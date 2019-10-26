@@ -602,8 +602,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 
 		pieceMap := make(map[storj.NodeID]int)
 		for _, piece := range pieces {
-			count := pieceMap[piece.NodeId]
-			pieceMap[piece.NodeId] = count + 1
+			pieceMap[piece.NodeId]++
 		}
 
 		exitingNodeID := exitingNode.ID()
