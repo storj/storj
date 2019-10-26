@@ -13,12 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -586,6 +588,29 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		_, err = processClient.Recv()
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.Internal))
+
+		// check exiting node is still in the pointer
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
+		require.NoError(t, err)
+		path := string(keys[0])
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		require.NotNil(t, pointer.GetRemote())
+		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+
+		pieceMap := make(map[storj.NodeID]struct{})
+		for _, piece := range pieces {
+			pieceMap[piece.NodeId] = struct{}{}
+		}
+
+		exitingNodeID := exitingNode.ID()
+		_, ok := pieceMap[exitingNodeID]
+		require.True(t, ok)
+		_, ok = pieceMap[recNodeID]
+		require.True(t, ok)
+
 	})
 }
 
