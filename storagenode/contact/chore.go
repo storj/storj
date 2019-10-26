@@ -58,6 +58,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	var group errgroup.Group
 
+	if err = chore.service.waitForSelfData(ctx); err != nil {
+		return err
+	}
+
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
 		// set backOff interval to a random value [1, 6) to create some jitter
