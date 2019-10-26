@@ -71,7 +71,9 @@ func port(peerclass, index, endpoint int) string {
 
 func networkExec(flags *Flags, args []string, command string) error {
 	processes, cleanup, err := newNetwork(flags)
-	defer cleanup()
+	if cleanup != nil {
+		defer cleanup()
+	}
 	if err != nil {
 		return err
 	}
@@ -103,8 +105,11 @@ func networkExec(flags *Flags, args []string, command string) error {
 
 func networkEnv(flags *Flags, args []string) error {
 	flags.OnlyEnv = true
+
 	processes, cleanup, err := newNetwork(flags)
-	defer cleanup()
+	if cleanup != nil {
+		defer cleanup()
+	}
 	if err != nil {
 		return err
 	}
@@ -140,7 +145,9 @@ func networkEnv(flags *Flags, args []string) error {
 
 func networkTest(flags *Flags, command string, args []string) error {
 	processes, cleanup, err := newNetwork(flags)
-	defer cleanup()
+	if cleanup != nil {
+		defer cleanup()
+	}
 	if err != nil {
 		return err
 	}
@@ -224,18 +231,14 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 	}
 	// gateway must wait for the versioncontrol to start up
 
-	redisAddress := ""
-	// start a redis server
+	// start a mini redis server
+	rootpath := flags.Redis
 	if flags.Redis == "miniredis" {
-		redisAddress, cleanup, err := redisserver.Start()
+		address, cleanup, err := redisserver.Start()
 		if err != nil {
 			return nil, cleanup, err
 		}
-		//err = os.Setenv("STORJ_SIM_REDIS", "redis://"+address)
-		//if err != nil {
-		//	fmt.Println("JEN : " + err.Error())
-		//	return nil, cleanup, err
-		//}
+		rootpath = "redis://" + address
 	}
 
 	// Create satellites
@@ -286,13 +289,10 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		rootpath := flags.Redis
+
 		if flags.Redis != "" {
 			dbs := redisnamespace.GetAll()
 			dbCount := len(dbs)
-			if flags.Redis == "miniredis" {
-				rootpath = "redis://" + address
-			}
 			for key, val := range dbs {
 				flag := "--" + key
 				dbVal := val + (dbCount * i)
