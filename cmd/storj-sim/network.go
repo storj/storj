@@ -231,9 +231,9 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 	}
 	// gateway must wait for the versioncontrol to start up
 
-	// start a mini redis server
+	// start a test redis server
 	rootpath := flags.Redis
-	if flags.Redis == "miniredis" {
+	if flags.Redis == "testServer" {
 		address, cleanup, err := redisserver.Start()
 		if err != nil {
 			return nil, cleanup, err
