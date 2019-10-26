@@ -104,3 +104,25 @@ func VerifySegmentID(ctx context.Context, satellite Signee, signed *pb.SatSegmen
 
 	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
 }
+
+// VerifyExitCompleted verifies that the signature inside ExitCompleted belongs to the satellite
+func VerifyExitCompleted(ctx context.Context, satellite Signee, signed *pb.ExitCompleted) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeExitCompleted(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return Error.Wrap(satellite.HashAndVerifySignature(ctx, bytes, signed.ExitCompleteSignature))
+}
+
+// VerifyExitFailed verifies that the signature inside ExitFailed belongs to the satellite
+func VerifyExitFailed(ctx context.Context, satellite Signee, signed *pb.ExitFailed) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeExitFailed(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return Error.Wrap(satellite.HashAndVerifySignature(ctx, bytes, signed.ExitFailureSignature))
+}
