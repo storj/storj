@@ -152,7 +152,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					info := fillUserInfo(&auth.User, input)
 
-					err = service.UpdateAccount(p.Context, info)
+					err = service.UpdateAccount(p.Context, info.FullName, info.ShortName)
 					if err != nil {
 						return nil, HandleError(err)
 					}
