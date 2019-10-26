@@ -600,17 +600,19 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 
-		pieceMap := make(map[storj.NodeID]struct{})
+		pieceMap := make(map[storj.NodeID]int)
 		for _, piece := range pieces {
-			pieceMap[piece.NodeId] = struct{}{}
+			count := pieceMap[piece.NodeId]
+			pieceMap[piece.NodeId] = count + 1
 		}
 
 		exitingNodeID := exitingNode.ID()
-		_, ok := pieceMap[exitingNodeID]
+		count, ok := pieceMap[exitingNodeID]
 		require.True(t, ok)
-		_, ok = pieceMap[recNodeID]
+		require.Equal(t, 1, count)
+		count, ok = pieceMap[recNodeID]
 		require.True(t, ok)
-
+		require.Equal(t, 1, count)
 	})
 }
 
