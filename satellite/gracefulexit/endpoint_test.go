@@ -5,6 +5,7 @@ package gracefulexit_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -582,6 +583,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			err = processClient.Send(success)
 			require.NoError(t, err)
 		default:
+			fmt.Println("message", m)
 			t.FailNow()
 		}
 
