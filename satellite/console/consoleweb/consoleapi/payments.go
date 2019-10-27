@@ -5,12 +5,13 @@ package consoleapi
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-	"io/ioutil"
-	"net/http"
 
 	"storj.io/storj/satellite/console"
 )

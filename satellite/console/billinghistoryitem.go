@@ -3,7 +3,9 @@
 
 package console
 
-import "time"
+import (
+	"time"
+)
 
 // BillingHistoryItem holds all public information about billing history line.
 type BillingHistoryItem struct {
