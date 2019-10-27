@@ -64,10 +64,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
-		// set backOff interval to a random value [1, 6) to create some jitter
-		rand.Seed(time.Now().UnixNano())
-		backOff := time.Duration(rand.Int63n(int64(6*time.Second)) + 1)
 
+		rand.Seed(time.Now().UnixNano())
+		// set backOff interval to a random value [1, 5] to create some jitter
+		backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1)
 		interval := chore.interval
 		cycle := sync2.NewCycle(interval)
 		chore.Cycles = append(chore.Cycles, cycle)
@@ -122,21 +122,6 @@ func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err err
 		return errPingSatellite.New("failed to check into satellite %s: %v", id.String(), err)
 	}
 	return nil
-}
-
-// Pause pauses all the cycles in the contact chore
-func (chore *Chore) Pause() {
-	for _, loop := range chore.Cycles {
-		loop.Pause()
-	}
-}
-
-// TriggerWait ensures that each cycle is done at least once and waits for completion.
-// If the cycle is currently running it waits for the previous to complete and then runs.
-func (chore *Chore) TriggerWait() {
-	for _, loop := range chore.Cycles {
-		loop.TriggerWait()
-	}
 }
 
 // Close stops all the cycles in the contact chore
