@@ -723,14 +723,28 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 		return nil
 	}
 
-	var toRemove []*pb.RemotePiece
+	pieceMap := make(map[storj.NodeID]*pb.RemotePiece)
 	for _, piece := range remote.GetRemotePieces() {
-		if piece.NodeId == exitingNodeID && piece.PieceNum == pieceNum {
-			toRemove = []*pb.RemotePiece{piece}
-			break
-		}
+		pieceMap[piece.NodeId] = piece
 	}
+
+	var toRemove []*pb.RemotePiece
+	existingPiece, ok := pieceMap[exitingNodeID]
+	if !ok {
+		return Error.New("node no longer has the piece. Node ID: %s", exitingNodeID.String())
+	}
+	if existingPiece != nil && existingPiece.PieceNum != pieceNum {
+		return Error.New("invalid existing piece info. Exiting Node ID: %s, PieceNum: %d", exitingNodeID.String(), pieceNum)
+	}
+	toRemove = []*pb.RemotePiece{existingPiece}
+	delete(pieceMap, exitingNodeID)
+
 	var toAdd []*pb.RemotePiece
+	// check receiving node id is not already in the pointer
+	_, ok = pieceMap[receivingNodeID]
+	if ok {
+		return Error.New("node id already exists in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
+	}
 	if !receivingNodeID.IsZero() {
 		toAdd = []*pb.RemotePiece{{
 			PieceNum: pieceNum,
