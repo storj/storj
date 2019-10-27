@@ -46,6 +46,7 @@ const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -71,6 +72,7 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
             await this.$store.dispatch(GET_BALANCE);
+            await this.$store.dispatch(GET_BILLING_HISTORY);
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {

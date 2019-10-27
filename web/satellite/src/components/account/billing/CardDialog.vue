@@ -57,7 +57,7 @@ export default class CardDialog extends Vue {
         align-items: center;
         justify-content: flex-end;
         z-index: 100;
-        background-image: url("../../../../static/images/payments/Dialog.svg");
+        background-image: url("../../../../static/images/payments/Dialog.png");
         background-size: contain;
         width: 167px;
         height: 122px;

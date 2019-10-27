@@ -14,14 +14,17 @@
         <div class="billing-history-area__content">
             <h1 class="billing-history-area__content__title">Billing History</h1>
             <SortingHeader/>
-            <BillingItem/>
-            <BillingItem/>
-            <BillingItem/>
-            <BillingItem/>
-            <BillingItem/>
-            <BillingItem/>
+            <BillingItem
+                v-for="item in billingHistoryItems"
+                :billing-item="item"
+            />
         </div>
-        <PaginationArea/>
+<!--        <VPagination-->
+<!--            v-if="totalPageCount > 1"-->
+<!--            class="pagination-area"-->
+<!--            :total-page-count="totalPageCount"-->
+<!--            :on-page-click-callback="onPageClick"-->
+<!--        />-->
     </div>
 </template>
 
@@ -29,21 +32,34 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import BillingItem from '@/components/account/billing/BillingItem.vue';
-import PaginationArea from '@/components/account/billing/PaginationArea.vue';
 import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+import VPagination from '@/components/common/VPagination.vue';
 
 import { RouteConfig } from '@/router';
+import { BillingHistoryItem } from '@/types/payments';
 
 @Component({
     components: {
-        PaginationArea,
         BillingItem,
         SortingHeader,
+        VPagination,
     },
 })
 export default class BillingHistory extends Vue {
+    public get billingHistoryItems(): BillingHistoryItem[] {
+        return this.$store.state.paymentsModule.billingHistory;
+    }
+
     public onBackToAccountClick(): void {
         this.$router.push(RouteConfig.Billing.path);
+    }
+
+    public get totalPageCount(): number {
+        return 1;
+    }
+
+    public onPageClick(index: number): void {
+        return;
     }
 }
 </script>

@@ -5,7 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
@@ -41,7 +40,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		isDefault := false
-		if customer.InvoiceSettings != nil {
+		if customer.InvoiceSettings.DefaultPaymentMethod != nil {
 			isDefault = customer.InvoiceSettings.DefaultPaymentMethod.ID == stripeCard.ID
 		}
 
@@ -62,7 +61,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	return cards, nil
 }
 
-// Add is used to save new credit card and attach it to payment account.
+// Add is used to save new credit card, attach it to payment account and make it default.
 func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
@@ -85,7 +84,18 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 		Customer: &customerID,
 	}
 
-	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+	card, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: stripe.String(card.ID),
+		},
+	}
+
+	_, err = creditCards.service.stripeClient.Customers.Update(customerID, params)
 
 	// TODO: handle created but not attached card manually?
 	return Error.Wrap(err)

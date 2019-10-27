@@ -181,6 +181,37 @@ func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID str
 	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
+// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add transactions, etc in future
+	for _, invoice := range invoices {
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          invoice.ID,
+			Description: invoice.Description,
+			Amount:      invoice.Amount,
+			Status:      invoice.Status,
+			Link:        invoice.Link,
+			End:         invoice.End,
+			Start:       invoice.Start,
+			Type:        Invoice,
+		})
+	}
+
+	return billingHistory, nil
+}
+
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)

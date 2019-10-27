@@ -95,6 +95,7 @@ interface StripeForm {
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+    private isLoading: boolean = false;
 
     public async mounted() {
         try {
@@ -147,15 +148,33 @@ export default class PaymentMethods extends Vue {
     }
 
     public async addCard(token: string) {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
+            this.isLoading = false;
+
             return;
         }
 
         await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.isLoading = false;
+        }
+
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+        this.isLoading = false;
     }
 }
 </script>
