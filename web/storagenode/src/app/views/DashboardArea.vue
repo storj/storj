@@ -19,6 +19,7 @@ import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
+
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 
 const {

@@ -5,6 +5,7 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 import "orders.proto";
 
@@ -59,7 +60,7 @@ message TransferSucceeded {
   orders.OrderLimit            original_order_limit    = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
-  bytes original_piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+  bytes                        original_piece_id       = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message TransferFailed {
@@ -98,15 +99,29 @@ message DeletePiece {
 message ExitCompleted {
   // when everything is completed
   bytes exit_complete_signature = 1;
+  // satellite who issued this exit completed
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit completed was issued to
+  bytes node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit completed
+  google.protobuf.Timestamp completed = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message ExitFailed {
   enum Reason {
       VERIFICATION_FAILED = 0;
+      INACTIVE_TIMEFRAME_EXCEEDED = 1;
+      OVERALL_FAILURE_PERCENTAGE_EXCEEDED = 2;
   }
   // on failure
   bytes exit_failure_signature  = 1;
   Reason reason                 = 2;
+  // satellite who issued this exit failed
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit failed was issued to
+  bytes node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit failed
+  google.protobuf.Timestamp failed = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message SatelliteMessage {
