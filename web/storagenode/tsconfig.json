@@ -31,7 +31,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "src/**/*.vue"
+    "src/**/*.vue",
+    "src/app/types/svg.d.ts"
   ],
   "exclude": [
     "node_modules"
