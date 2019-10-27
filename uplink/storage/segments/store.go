@@ -43,7 +43,7 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
-	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ []*pb.SegmentPieceUploadResult, size int64, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 }
 
@@ -70,56 +70,13 @@ func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ []*pb.SegmentPieceUploadResult, size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	peekReader := NewPeekThresholdReader(data)
-	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	if !remoteSized {
-		segmentIndex, encryption, err := segmentInfo()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-
-		err = s.metainfo.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-			StreamID: streamID,
-			Position: storj.SegmentPosition{
-				Index: int32(segmentIndex),
-			},
-			Encryption:          encryption,
-			EncryptedInlineData: peekReader.thresholdBuf,
-		})
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		return Meta{}, nil
-	}
-
-	segmentIndex, encryption, err := segmentInfo()
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	segmentID, limits, piecePrivateKey, err := s.metainfo.BeginSegment(ctx, metainfo.BeginSegmentParams{
-		StreamID:      streamID,
-		MaxOrderLimit: s.maxEncryptedSegmentSize,
-		Position: storj.SegmentPosition{
-			Index: int32(segmentIndex),
-		},
-	})
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	sizedReader := SizeReader(peekReader)
-
+	sizedReader := SizeReader(NewPeekThresholdReader(data))
 	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
 	if err != nil {
-		return Meta{}, Error.Wrap(err)
+		return nil, -1, Error.Wrap(err)
 	}
 
 	uploadResults := make([]*pb.SegmentPieceUploadResult, 0, len(successfulNodes))
@@ -135,20 +92,10 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	}
 
 	if l := len(uploadResults); l < s.rs.OptimalThreshold() {
-		return Meta{}, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
+		return nil, -1, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
 	}
 
-	err = s.metainfo.CommitSegment(ctx, metainfo.CommitSegmentParams{
-		SegmentID:         segmentID,
-		SizeEncryptedData: sizedReader.Size(),
-		Encryption:        encryption,
-		UploadResult:      uploadResults,
-	})
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	return Meta{}, nil
+	return uploadResults, sizedReader.Size(), nil
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes

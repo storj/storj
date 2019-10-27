@@ -293,7 +293,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold)
+	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold, 8*memory.MiB.Int64())
 	require.NoError(t, err)
 
 	return metainfo, segmentStore, streamStore

@@ -4,7 +4,6 @@
 package streams
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"io"
@@ -66,17 +65,18 @@ type typedStore interface {
 // streamStore is a store for streams. It implements typedStore as part of an ongoing migration
 // to use typed paths. See the shim for the store that the rest of the world interacts with.
 type streamStore struct {
-	metainfo        *metainfo.Client
-	segments        segments.Store
-	segmentSize     int64
-	encStore        *encryption.Store
-	encBlockSize    int
-	cipher          storj.CipherSuite
-	inlineThreshold int
+	metainfo                *metainfo.Client
+	segments                segments.Store
+	segmentSize             int64
+	encStore                *encryption.Store
+	encBlockSize            int
+	cipher                  storj.CipherSuite
+	inlineThreshold         int
+	maxEncryptedSegmentSize int64
 }
 
 // newTypedStreamStore constructs a typedStore backed by a streamStore.
-func newTypedStreamStore(metainfo *metainfo.Client, segments segments.Store, segmentSize int64, encStore *encryption.Store, encBlockSize int, cipher storj.CipherSuite, inlineThreshold int) (typedStore, error) {
+func newTypedStreamStore(metainfo *metainfo.Client, segments segments.Store, segmentSize int64, encStore *encryption.Store, encBlockSize int, cipher storj.CipherSuite, inlineThreshold int, maxEncryptedSegmentSize int64) (typedStore, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
@@ -85,13 +85,14 @@ func newTypedStreamStore(metainfo *metainfo.Client, segments segments.Store, seg
 	}
 
 	return &streamStore{
-		metainfo:        metainfo,
-		segments:        segments,
-		segmentSize:     segmentSize,
-		encStore:        encStore,
-		encBlockSize:    encBlockSize,
-		cipher:          cipher,
-		inlineThreshold: inlineThreshold,
+		metainfo:                metainfo,
+		segments:                segments,
+		segmentSize:             segmentSize,
+		encStore:                encStore,
+		encBlockSize:            encBlockSize,
+		cipher:                  cipher,
+		inlineThreshold:         inlineThreshold,
+		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
 	}, nil
 }
 
@@ -123,7 +124,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	var currentSegment int64
 	var streamSize int64
-	var putMeta segments.Meta
 	var objectMetadata []byte
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
@@ -171,11 +171,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			return Meta{}, currentSegment, streamID, err
 		}
 
-		encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
-		if err != nil {
-			return Meta{}, currentSegment, streamID, err
-		}
-
 		// generate random nonce for encrypting the content key
 		var keyNonce storj.Nonce
 		_, err = rand.Read(keyNonce[:])
@@ -196,10 +191,50 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
 		}
-		var transformedReader io.Reader
+
+		segmentEncryption := storj.SegmentEncryption{}
+		if s.cipher != storj.EncNull {
+			segmentEncryption = storj.SegmentEncryption{
+				EncryptedKey:      encryptedKey,
+				EncryptedKeyNonce: keyNonce,
+			}
+		}
+
 		if isRemote {
+			encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
+
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
-			transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
+			transformedReader := encryption.TransformReader(paddedReader, encrypter, 0)
+
+			segmentID, limits, piecePrivateKey, err := s.metainfo.BeginSegment(ctx, metainfo.BeginSegmentParams{
+				StreamID:      streamID,
+				MaxOrderLimit: s.maxEncryptedSegmentSize,
+				Position: storj.SegmentPosition{
+					Index: int32(currentSegment),
+				},
+			})
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
+
+			uploadResults, size, err := s.segments.Put(ctx, transformedReader, expiration, limits, piecePrivateKey)
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
+
+			err = s.metainfo.CommitSegment(ctx, metainfo.CommitSegmentParams{
+				SegmentID:         segmentID,
+				SizeEncryptedData: size,
+				Encryption:        segmentEncryption,
+				UploadResult:      uploadResults,
+			})
+
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
 		} else {
 			data, err := ioutil.ReadAll(peekReader)
 			if err != nil {
@@ -209,20 +244,18 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			if err != nil {
 				return Meta{}, currentSegment, streamID, err
 			}
-			transformedReader = bytes.NewReader(cipherData)
-		}
 
-		putMeta, err = s.segments.Put(ctx, streamID, transformedReader, expiration, func() (_ int64, segmentEncryption storj.SegmentEncryption, err error) {
-			if s.cipher != storj.EncNull {
-				segmentEncryption = storj.SegmentEncryption{
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: keyNonce,
-				}
+			err = s.metainfo.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+				StreamID: streamID,
+				Position: storj.SegmentPosition{
+					Index: int32(currentSegment),
+				},
+				Encryption:          segmentEncryption,
+				EncryptedInlineData: cipherData,
+			})
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
 			}
-			return currentSegment, segmentEncryption, nil
-		})
-		if err != nil {
-			return Meta{}, currentSegment, streamID, err
 		}
 
 		streamInfo, err := proto.Marshal(&pb.StreamInfo{
@@ -253,7 +286,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				EncryptedKey: encryptedKey,
 				KeyNonce:     keyNonce[:],
 			}
-
 		}
 
 		objectMetadata, err = proto.Marshal(&streamMeta)
@@ -278,7 +310,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	resultMeta := Meta{
-		Modified:   putMeta.Modified,
 		Expiration: expiration,
 		Size:       streamSize,
 		Data:       metadata,
