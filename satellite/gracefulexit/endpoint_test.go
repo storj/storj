@@ -5,7 +5,6 @@ package gracefulexit_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -550,7 +549,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			pieces := pointer.GetRemote().GetRemotePieces()
 
 			for _, piece := range pieces {
-				if pieceToRemove[0] == nil {
+				if pieceToRemove[0] == nil && piece.NodeId != exitingNode.ID() {
 					pieceToRemove[0] = piece
 					continue
 				}
@@ -583,7 +582,6 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			err = processClient.Send(success)
 			require.NoError(t, err)
 		default:
-			fmt.Println("message", m)
 			t.FailNow()
 		}
 
