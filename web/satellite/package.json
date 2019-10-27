@@ -48,6 +48,7 @@
     "tslint-loader": "3.5.4",
     "typescript": "3.5.3",
     "vue-segment-analytics": "0.3.2",
+    "vue-svg-loader": "0.12.0",
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
     "vue-template-compiler": "2.6.10",
@@ -85,8 +86,9 @@
     "transform": {
       "^.+\\.js$": "babel-jest",
       "^.+\\.vue$": "vue-jest",
-      ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
-      "^.+\\.tsx?$": "ts-jest"
+      ".+\\.(css|styl|less|sass|scss|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
+      "^.+\\.tsx?$": "ts-jest",
+      "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
     },
     "transformIgnorePatterns": [
       "/node_modules/(?!(apollo-client|apollo-link))"

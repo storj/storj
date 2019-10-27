@@ -18,6 +18,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
+
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';

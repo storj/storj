@@ -1096,7 +1096,11 @@ func (client *Client) Batch(ctx context.Context, requests ...BatchItem) (resp []
 		Requests: batchItems,
 	})
 	if err != nil {
-		return []BatchResponse{}, err
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
+			return []BatchResponse{}, storj.ErrObjectNotFound.Wrap(err)
+		}
+
+		return []BatchResponse{}, Error.Wrap(err)
 	}
 
 	resp = make([]BatchResponse, len(response.Responses))
