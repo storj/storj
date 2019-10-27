@@ -235,6 +235,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}()
 
 		for range ticker.C {
+			// exit if context canceled
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
@@ -279,6 +286,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if pendingCount == 0 {
 			select {
 			case <-processChan:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 
