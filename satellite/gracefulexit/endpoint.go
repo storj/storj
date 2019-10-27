@@ -743,7 +743,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 	// check receiving node id is not already in the pointer
 	_, ok = pieceMap[receivingNodeID]
 	if ok {
-		return Error.New("node id already exist in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
+		return Error.New("node id already exists in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
 	}
 	if !receivingNodeID.IsZero() {
 		toAdd = []*pb.RemotePiece{{
