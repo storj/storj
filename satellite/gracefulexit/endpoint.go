@@ -303,8 +303,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			var transferMsg *pb.SatelliteMessage
-			mon.IntVal("graceful_exit_pieces_failed_transfer").Observe(progress.PiecesFailed)
-			mon.IntVal("graceful_exit_pieces_succeeded_transfer").Observe(progress.PiecesTransferred)
+			mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
+			mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
 
 			processed := progress.PiecesFailed + progress.PiecesTransferred
 			// check node's exiting progress to see if it has failed passed max failure threshold
@@ -633,14 +633,14 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	mon.Meter("graceful_exit_transfer_success").Mark(1)
+	mon.Meter("graceful_exit_transfer_piece_success").Mark(1)
 	return nil
 }
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
-	mon.Meter("graceful_exit_transfer_fail").Mark(1)
+	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
