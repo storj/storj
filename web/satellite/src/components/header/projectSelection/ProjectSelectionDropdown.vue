@@ -84,7 +84,7 @@ export default class ProjectSelectionDropdown extends Vue {
         border-radius: 4px;
         padding: 10px 0 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
-        background-color: #FFFFFF;
+        background-color: #fff;
         z-index: 1120;
     }
 
@@ -95,8 +95,8 @@ export default class ProjectSelectionDropdown extends Vue {
         overflow-x: hidden;
         height: auto;
         max-height: 240px;
-        background-color: #FFFFFF;
-        font-family: 'font_regular';
+        background-color: #fff;
+        font-family: 'font_regular', sans-serif;
 
         &__project-choice {
             display: flex;
@@ -114,7 +114,7 @@ export default class ProjectSelectionDropdown extends Vue {
             }
 
             &:hover {
-                background-color: #F2F2F6;
+                background-color: #f2f2f6;
             }
 
             &__mark-container {
@@ -128,27 +128,31 @@ export default class ProjectSelectionDropdown extends Vue {
     }
 
     .selected {
-        font-family: 'font_bold';
+        font-family: 'font_bold', sans-serif;
     }
 
     /* width */
+
     ::-webkit-scrollbar {
         width: 4px;
     }
 
     /* Track */
+
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
     /* Handle */
+
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }
 
     @media screen and (max-width: 1024px) {
+
         .project-selection-choice-container {
             top: 50px;
         }

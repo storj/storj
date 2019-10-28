@@ -161,7 +161,7 @@ export default class DeleteProjectPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
     }
 
     .input-container.full-input {
@@ -169,14 +169,14 @@ export default class DeleteProjectPopup extends Vue {
     }
 
     .red {
-        background-color: #EB5757;
+        background-color: #eb5757;
     }
 
     .delete-project-popup {
         width: 100%;
         max-width: 800px;
         height: 460px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -193,10 +193,10 @@ export default class DeleteProjectPopup extends Vue {
             margin-right: 55px;
 
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin-bottom: 30px;
                 margin-top: 0;
             }
@@ -208,7 +208,7 @@ export default class DeleteProjectPopup extends Vue {
             height: 335px;
 
             &__confirmation-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 margin-bottom: 30px;
@@ -220,9 +220,9 @@ export default class DeleteProjectPopup extends Vue {
                 align-items: center;
 
                 .text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     padding-left: 10px;
-                    color: #EB5757;
+                    color: #eb5757;
                 }
             }
 
@@ -231,7 +231,7 @@ export default class DeleteProjectPopup extends Vue {
             }
 
             .delete-project-input {
-                font-family: 'font_regular';
+                font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 margin-top: 10px;
@@ -268,12 +268,13 @@ export default class DeleteProjectPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .delete-project-popup {
 
             &__info-panel-container {

@@ -155,14 +155,14 @@ export default class DashboardArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-	.dashboard-container {
+    .dashboard-container {
         position: fixed;
         max-width: 100%;
-		width: 100%;
-		height: 100%;
-		left: 0;
-		top: 0;
-        background-color: #F5F6FA;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        background-color: #f5f6fa;
         z-index: 10;
 
         &__wrap {
@@ -182,16 +182,18 @@ export default class DashboardArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px)  {
+    @media screen and (max-width: 1024px) {
+
         .regular-navigation {
             display: none;
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .dashboard-container {
 
-            &__main-area{
+            &__main-area {
                 left: 60px;
             }
         }

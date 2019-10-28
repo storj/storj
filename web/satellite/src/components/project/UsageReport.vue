@@ -251,9 +251,9 @@ export default class UsageReport extends Vue {
             align-items: center;
             justify-content: flex-start;
             height: 56px;
-            
+
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 29px;
                 color: #354049;
@@ -261,7 +261,7 @@ export default class UsageReport extends Vue {
                 margin-block-end: 0.5em;
             }
         }
-        
+
         &__options-area {
             display: flex;
             flex-direction: row;
@@ -269,7 +269,7 @@ export default class UsageReport extends Vue {
             justify-content: flex-end;
             height: 100%;
             margin-top: 39px;
-            
+
             &__option {
                 display: flex;
                 flex-direction: row;
@@ -277,81 +277,81 @@ export default class UsageReport extends Vue {
                 justify-content: center;
                 width: 271px;
                 height: 100%;
-                background-color: #FFFFFF;
-                border: solid 1px #F2F2F2;
+                background-color: #fff;
+                border: solid 1px #f2f2f2;
                 border-radius: 6px;
                 cursor: pointer;
                 margin-left: 20px;
-                
+
                 &__label {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
                 }
-                
+
                 &__image {
                     margin-left: 10px;
                 }
-                
+
                 &.active {
-                    background-color: #2683FF;
-                    
+                    background-color: #2683ff;
+
                     .usage-report-container__options-area__option__label {
-                        color: #FFFFFF;
+                        color: #fff;
                     }
 
                     .usage-report-container__options-area__option__image {
-	                    
+
                         .usage-report-svg-path {
-                            fill: #ffffff !important;
+                            fill: #fff !important;
                         }
                     }
                 }
             }
         }
-        
+
         &__main-area {
             display: flex;
             flex-direction: column;
             margin-top: 33px;
-            
+
             &__info-area {
                 display: flex;
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
                 height: 40vh;
-                
+
                 &__item {
                     max-width: 454px;
                     max-height: 393px;
                     width: 100%;
                     height: 100%;
-                    background-color: #ffffff;
+                    background-color: #fff;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
                     border-radius: 6px;
                     margin-right: 20px;
-                    
+
                     &:last-child {
                         margin-right: 0;
                     }
-                    
+
                     &__title {
-                        font-family: 'font_regular';
+                        font-family: 'font_regular', sans-serif;
                         font-size: 18px;
                         line-height: 24px;
                         color: #354049;
                         margin-block-start: 0;
                         margin-block-end: 0;
                     }
-                    
+
                     &__amount {
                         margin-top: 22px;
-                        font-family: 'font_medium';
+                        font-family: 'font_medium', sans-serif;
                         font-size: 44px;
                         line-height: 67px;
                         color: #354049;
@@ -360,65 +360,65 @@ export default class UsageReport extends Vue {
                     }
                 }
             }
-            
+
             &__footer {
                 padding: 0 32px;
                 height: 86px;
                 margin-top: 24px;
-                background-color: #ffffff;
+                background-color: #fff;
                 border-radius: 6px;
                 display: flex;
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
-                
+
                 &__rollup-info {
-                    font-family: 'font_regular';
+                    font-family: 'font_regular', sans-serif;
                     font-size: 16px;
                     line-height: 21px;
-                    color: #AFB7C1;
-                
+                    color: #afb7c1;
+
                     &__bold-text {
-                        font-family: 'font_medium';
+                        font-family: 'font_medium', sans-serif;
                         color: #354049;
                     }
                 }
-                
+
                 &__report-area {
                     display: flex;
                     flex-direction: row;
                     align-items: center;
                     justify-content: space-between;
-                
+
                     &__download-text {
-                        font-family: 'font_medium';
+                        font-family: 'font_medium', sans-serif;
                         font-weight: bold;
                         font-size: 16px;
                         line-height: 21px;
                         color: #354049;
                         margin-right: 30px;
                     }
-                
+
                     &__image {
                         cursor: pointer;
-                        
+
                         .background {
-                            fill: #E2ECF7;
+                            fill: #e2ecf7;
                         }
-                        
+
                         .blue {
-                            fill: #2683FF;
+                            fill: #2683ff;
                         }
                     }
-                
+
                     &__image:hover {
-                    
+
                         .background {
-                            fill: #2683FF;
+                            fill: #2683ff;
                         }
-                        
+
                         .blue {
-                            fill: #FFFFFF;
+                            fill: #fff;
                         }
                     }
                 }
@@ -427,10 +427,11 @@ export default class UsageReport extends Vue {
     }
 
     @media screen and (max-width: 1600px) {
+
         .usage-report-container {
 
             &__header {
-                
+
                 &__title {
                     font-size: 24px;
                     line-height: 29px;
@@ -448,34 +449,34 @@ export default class UsageReport extends Vue {
                     }
                 }
             }
-            
+
             &__main-area {
-                
+
                 &__info-area {
-                    
+
                     &__item {
-                    
+
                         &__title {
                             font-size: 14px;
                             line-height: 19px;
                         }
-	                       
+
                         &__amount {
                             font-size: 36px;
                             line-height: 54px;
                         }
                     }
                 }
-                
+
                 &__footer {
-                    
+
                     &__rollup-info {
                         font-size: 16px;
                         line-height: 21px;
                     }
-                    
+
                     &__report-area {
-                        
+
                         &__download-text {
                             font-size: 16px;
                             line-height: 23px;
@@ -487,6 +488,7 @@ export default class UsageReport extends Vue {
     }
 
     @media screen and (max-width: 1350px) {
+
         .usage-report-container {
 
             &__options-area {

@@ -70,11 +70,11 @@ export default class ProjectSelectionArea extends Vue {
 <style scoped lang="scss">
     .project-selection-container {
         position: relative;
-        background-color: #FFFFFF;
+        background-color: #fff;
         cursor: pointer;
 
         &__no-projects-text {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #354049;
@@ -92,11 +92,11 @@ export default class ProjectSelectionArea extends Vue {
         height: 50px;
 
         &__name {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #354049;
-            transition: opacity .2s ease-in-out;
+            transition: opacity 0.2s ease-in-out;
         }
 
         &__expander-area {
@@ -110,6 +110,7 @@ export default class ProjectSelectionArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .project-selection-container {
             margin-right: 30px;
             padding-right: 10px;

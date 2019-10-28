@@ -125,7 +125,7 @@ export default class EditProfilePopup extends Vue {
         align-content: center;
         justify-content: flex-start;
     }
-    
+
     .edit-profile-popup-container {
         position: fixed;
         top: 0;
@@ -137,9 +137,9 @@ export default class EditProfilePopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
     }
-    
+
     .input-container.full-input {
         width: 100%;
     }
@@ -147,7 +147,7 @@ export default class EditProfilePopup extends Vue {
     .edit-profile-popup {
         width: 100%;
         max-width: 440px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -155,7 +155,7 @@ export default class EditProfilePopup extends Vue {
         position: relative;
         justify-content: center;
         padding: 80px;
-        
+
         &__info-panel-container {
             display: flex;
             flex-direction: column;
@@ -164,12 +164,12 @@ export default class EditProfilePopup extends Vue {
             margin-right: 100px;
             margin-top: 20px;
         }
-        
+
         &__form-container {
             width: 100%;
             max-width: 440px;
             margin-top: 10px;
-            
+
             &__avatar {
                 width: 60px;
                 height: 60px;
@@ -177,25 +177,25 @@ export default class EditProfilePopup extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: #E8EAF2;
+                background: #e8eaf2;
                 margin-right: 20px;
-                
+
                 &__letter {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
                 }
             }
-            
+
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 60px;
-                color: #384B65;
+                color: #384b65;
                 margin-top: 0;
             }
-            
+
             &__button-container {
                 width: 100%;
                 display: flex;
@@ -205,7 +205,7 @@ export default class EditProfilePopup extends Vue {
                 margin-top: 40px;
             }
         }
-        
+
         &__close-cross-container {
             display: flex;
             justify-content: center;
@@ -216,23 +216,23 @@ export default class EditProfilePopup extends Vue {
             height: 24px;
             width: 24px;
             cursor: pointer;
-            
+
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .edit-profile-popup {
-            
+
             &__info-panel-container {
                 display: none;
-                
             }
-            
+
             &__form-container {
-                
+
                 &__button-container {
                     width: 100%;
                 }

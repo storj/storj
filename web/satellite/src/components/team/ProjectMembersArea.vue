@@ -89,7 +89,9 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public onMemberClick(member: ProjectMember): void {
-        this.$store.dispatch(TOGGLE_SELECTION, member);
+        if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
+            this.$store.dispatch(TOGGLE_SELECTION, member);
+        }
     }
 
     public get projectMembers(): ProjectMember[] {
@@ -163,11 +165,11 @@ export default class ProjectMembersArea extends Vue {
 <style scoped lang="scss">
     .team-area {
         padding: 40px 65px 55px 64px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             width: 100%;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             top: auto;
         }
 
@@ -191,7 +193,7 @@ export default class ProjectMembersArea extends Vue {
             flex-direction: column;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
                 margin-top: 100px;
@@ -208,12 +210,14 @@ export default class ProjectMembersArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .team-area {
             padding: 40px 40px 55px 40px;
         }
     }
 
     @media screen and (max-height: 800px) {
+
         .team-area {
 
             &__container {
