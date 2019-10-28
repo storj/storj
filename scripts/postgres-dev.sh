@@ -23,5 +23,3 @@ done
 docker exec $CONTAINER_NAME psql -h localhost -U postgres -c "create database $STORJ_SIM_DATABASE;"
 
 export STORJ_SIM_POSTGRES="postgres://postgres@localhost:5433/$STORJ_SIM_DATABASE?sslmode=disable"
-
-eval $@
