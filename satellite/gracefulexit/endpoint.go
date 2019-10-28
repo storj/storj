@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
@@ -227,50 +228,44 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		ticker := time.NewTicker(endpoint.interval)
-		defer ticker.Stop()
+		loop := sync2.NewCycle(endpoint.interval)
+		defer loop.Stop()
 		defer func() {
 			processChan <- true
 			close(processChan)
 		}()
 
-	loop:
-		for {
-			select {
-			case <-ctx.Done():
-				// exit if context canceled
-				return ctx.Err()
-			case <-ticker.C:
-				if pending.length() == 0 {
-					incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
+		return loop.Run(ctx, func(ctx context.Context) error {
+			if pending.length() == 0 {
+				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
+				if err != nil {
+					return handleError(err)
+				}
+
+				if len(incomplete) == 0 {
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						return handleError(err)
 					}
-
-					if len(incomplete) == 0 {
-						incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
-						if err != nil {
-							return handleError(err)
-						}
-					}
-
-					if len(incomplete) == 0 {
-						endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
-						atomic.StoreInt32(&morePiecesFlag, 0)
-						break loop
-					}
-
-					for _, inc := range incomplete {
-						err = endpoint.processIncomplete(ctx, stream, pending, inc)
-						if err != nil {
-							return handleError(err)
-						}
-					}
-					processChan <- true
 				}
+
+				if len(incomplete) == 0 {
+					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
+					atomic.StoreInt32(&morePiecesFlag, 0)
+					loop.Stop()
+					return nil
+				}
+
+				for _, inc := range incomplete {
+					err = endpoint.processIncomplete(ctx, stream, pending, inc)
+					if err != nil {
+						return handleError(err)
+					}
+				}
+				processChan <- true
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 
 	for {
