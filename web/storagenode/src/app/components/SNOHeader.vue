@@ -64,7 +64,7 @@ export default class SNOHeader extends Vue {
         height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #FFFFFF;
+        background-color: #fff;
 
         &__content-holder {
             width: 822px;
@@ -84,23 +84,23 @@ export default class SNOHeader extends Vue {
                     &:hover {
 
                         .refresh-button-svg-rect {
-                            fill: #133E9C;
+                            fill: #133e9c;
                         }
 
                         .refresh-button-svg-path {
-                            fill: #FFFFFF;
+                            fill: #fff;
                         }
                     }
                 }
             }
 
             &__node-id-container {
-                color: #535F77;
+                color: #535f77;
                 height: 44px;
                 padding: 0 14px 0 14px;
                 display: flex;
                 align-items: center;
-                border: 1px solid #E8E8E8;
+                border: 1px solid #e8e8e8;
                 border-radius: 12px;
                 font-size: 14px;
 

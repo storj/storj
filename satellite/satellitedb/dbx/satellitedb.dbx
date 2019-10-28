@@ -837,7 +837,7 @@ read one (
 
 model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
-    key node_id path
+    key node_id path piece_num
 
     field node_id             blob
     field path                blob
@@ -855,6 +855,7 @@ create graceful_exit_transfer_queue ( noreturn )
 update graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 	noreturn
 )
 delete graceful_exit_transfer_queue ( 
@@ -864,6 +865,7 @@ delete graceful_exit_transfer_queue (
 delete graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 )
 
 delete graceful_exit_transfer_queue ( 
@@ -875,6 +877,7 @@ read one (
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 )
 
 //--- satellite payments ---//
