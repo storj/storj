@@ -83,7 +83,7 @@ export default class ReferralStats extends Vue {
 
         &__title {
             text-align: center;
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
         }
 
         &__wrapper {
@@ -92,7 +92,7 @@ export default class ReferralStats extends Vue {
             justify-content: space-around;
             left: 15%;
             right: 15%;
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
         }
 
         &__card {
@@ -115,7 +115,7 @@ export default class ReferralStats extends Vue {
             &-title {
                 display: block;
                 text-transform: uppercase;
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 14px;
                 line-height: 18px;
             }
@@ -129,7 +129,7 @@ export default class ReferralStats extends Vue {
 
             &-number {
                 display: block;
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 46px;
                 line-height: 60px;
                 margin-bottom: 27px;

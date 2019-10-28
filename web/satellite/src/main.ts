@@ -5,8 +5,8 @@ import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import App from './App.vue';
-import router from './router';
-import store from './store';
+import { router } from './router';
+import { store } from './store';
 
 Vue.config.devtools = true;
 Vue.config.performance = true;
