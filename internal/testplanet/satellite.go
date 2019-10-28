@@ -413,7 +413,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
-		repairerPeer, err := planet.newRepairer(i, identity, db, pointerDB, revocationDB, config, versionInfo)
+		repairerPeer, err := planet.newRepairer(i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -508,10 +508,15 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
 }
 
-func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB,
-	config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config,
+	versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
 
 	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, &config)
 }
