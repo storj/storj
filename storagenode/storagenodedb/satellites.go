@@ -53,7 +53,7 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
 		query := `UPDATE satellites SET status = ? WHERE node_id = ?`
-		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
+		_, err = tx.ExecContext(ctx, query, exitStatus, satelliteID)
 		if err != nil {
 			return err
 		}
