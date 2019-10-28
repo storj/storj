@@ -51,6 +51,7 @@ const (
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
+	repairPeer         = 5
 
 	// Endpoint
 	publicGRPC  = 0
@@ -312,6 +313,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"repair",
+				"--debug.addr", net.JoinHostPort(host, port(repairPeer, i, debugHTTP)),
 			},
 		})
 
