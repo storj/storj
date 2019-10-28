@@ -135,12 +135,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		return Meta{}, currentSegment, streamID, err
 	}
 
-	initialRequests := make([]metainfo.BatchItem, 0)
-	initialRequests = append(initialRequests, &metainfo.BeginObjectParams{
+	beginObjectReq := &metainfo.BeginObjectParams{
 		Bucket:        []byte(path.Bucket()),
 		EncryptedPath: []byte(encPath.Raw()),
 		ExpiresAt:     expiration,
-	})
+	}
 
 	if err != nil {
 		return Meta{}, currentSegment, streamID, err
@@ -156,14 +155,15 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	eofReader := NewEOFReader(data)
 
-	var lastCommitSegment *metainfo.CommitSegmentParams
+	var lastCommitSegmentReq *metainfo.CommitSegmentParams
 	for !eofReader.isEOF() && !eofReader.hasError() {
-		if lastCommitSegment != nil {
-			err = s.metainfo.CommitSegment(ctx, *lastCommitSegment)
+		// CommitSegment created in previous iteration, otherwise it will be batched with CommitObject
+		if lastCommitSegmentReq != nil {
+			err = s.metainfo.CommitSegment(ctx, *lastCommitSegmentReq)
 			if err != nil {
 				return Meta{}, currentSegment, streamID, err
 			}
-			lastCommitSegment = nil
+			lastCommitSegmentReq = nil
 		}
 		// generate random key for encrypting the segment's content
 		var contentKey storj.Key
@@ -230,8 +230,10 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			var limits []*pb.AddressedOrderLimit
 			var piecePrivateKey storj.PiecePrivateKey
 			if currentSegment == 0 {
-				initialRequests = append(initialRequests, beginSegment)
-				responses, err := s.metainfo.Batch(ctx, initialRequests...)
+				responses, err := s.metainfo.Batch(ctx, []metainfo.BatchItem{
+					beginObjectReq,
+					beginSegment,
+				}...)
 				if err != nil {
 					return Meta{}, currentSegment, streamID, err
 				}
@@ -261,7 +263,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				return Meta{}, currentSegment, streamID, err
 			}
 
-			lastCommitSegment = &metainfo.CommitSegmentParams{
+			lastCommitSegmentReq = &metainfo.CommitSegmentParams{
 				SegmentID:         segmentID,
 				SizeEncryptedData: size,
 				Encryption:        segmentEncryption,
@@ -284,10 +286,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				Encryption:          segmentEncryption,
 				EncryptedInlineData: cipherData,
 			}
-
 			if currentSegment == 0 {
-				initialRequests = append(initialRequests, makeInlineSegment)
-				responses, err := s.metainfo.Batch(ctx, initialRequests...)
+				responses, err := s.metainfo.Batch(ctx, []metainfo.BatchItem{
+					beginObjectReq,
+					makeInlineSegment,
+				}...)
 				if err != nil {
 					return Meta{}, currentSegment, streamID, err
 				}
@@ -352,9 +355,9 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		StreamID:          streamID,
 		EncryptedMetadata: objectMetadata,
 	}
-	if lastCommitSegment != nil {
+	if lastCommitSegmentReq != nil {
 		_, err = s.metainfo.Batch(ctx, []metainfo.BatchItem{
-			lastCommitSegment,
+			lastCommitSegmentReq,
 			&commitObject,
 		}...)
 	} else {
