@@ -684,7 +684,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			// no piece hash removes piece from pointer, invalid piece number
+			// set piece number to be out of range of limit slice
 			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].PieceNum = int32(len(limits))
 			},
