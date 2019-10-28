@@ -85,8 +85,10 @@ func (srv *Service) Run(ctx context.Context) (err error) {
 }
 
 // IsAllowed returns whether if the Service is allowed to operate or not
-func (srv *Service) IsAllowed() bool {
-	srv.checked.Wait()
+func (srv *Service) IsAllowed(ctx context.Context) bool {
+	if !srv.checked.Wait(ctx) {
+		return false
+	}
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	return srv.allowed
