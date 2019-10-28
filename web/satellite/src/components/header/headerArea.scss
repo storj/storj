@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 .dashboard-header-container {
-    font-family: 'font_medium';
+    font-family: 'font_medium', sans-serif;
     height: 100px;
     min-height: 100px;
     background-color: white;
@@ -30,7 +30,7 @@
                 margin-left: 13px;
                 font-size: 16px;
                 line-height: 23px;
-                color: #A9B5C1;
+                color: #a9b5c1;
             }
         }
 
@@ -61,6 +61,7 @@
 }
 
 @media screen and (min-width: 1025px) {
+
     .adapted-navigation,
     .navigation-blur,
     .dashboard-header-container__left-area__close-button {
@@ -69,6 +70,7 @@
 }
 
 @media screen and (max-width: 1024px) {
+
     .dashboard-header-container {
         padding: 0 40px;
 

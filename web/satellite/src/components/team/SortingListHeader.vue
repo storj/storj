@@ -103,10 +103,10 @@ export default class SortingListHeader extends Vue {
         &__email-container {
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: #2A2A32;
+                color: #2a2a32;
                 margin: 0;
             }
         }
