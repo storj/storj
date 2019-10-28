@@ -68,7 +68,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		rand.Seed(time.Now().UnixNano())
 		// set backOff interval to a random value [1, 5] to create some jitter
-		//backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1) //loop rather than random
+		//backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1)
 		backOff := time.Second
 		interval := chore.interval
 		cycle := sync2.NewCycle(interval)

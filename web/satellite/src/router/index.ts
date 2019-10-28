@@ -51,7 +51,7 @@ export abstract class RouteConfig {
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
-const router = new Router({
+export const router = new Router({
     mode: 'history',
     routes: [
         {
@@ -185,5 +185,3 @@ router.beforeEach((to, from, next) => {
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
-
-export default router;
