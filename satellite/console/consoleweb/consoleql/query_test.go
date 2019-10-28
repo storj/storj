@@ -190,6 +190,7 @@ func TestGraphqlQuery(t *testing.T) {
 			FullName:  "Mickey Last",
 			ShortName: "Last",
 			Password:  "123a123",
+			Email:     "muu1@mail.test",
 		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
