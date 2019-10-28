@@ -71,8 +71,6 @@ func TestGracefulExitDB(t *testing.T) { //satelliteID storj.NodeID, finishedAt t
 			require.Equal(t, nodeID, satellite.SatelliteID)
 			require.False(t, satellite.AddedAt.IsZero())
 			require.EqualValues(t, 3, satellite.Status)
-
-			db.Satellites()
 		}
 	})
 }
