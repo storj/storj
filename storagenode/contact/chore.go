@@ -127,8 +127,8 @@ func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err err
 }
 
 // Pause stops all the cycles in the contact chore
-func (chore *Chore) Pause() {
-	chore.started.Wait(context.TODO())
+func (chore *Chore) Pause(ctx context.Context) {
+	chore.started.Wait(ctx)
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	for _, cycle := range chore.cycles {
@@ -138,8 +138,8 @@ func (chore *Chore) Pause() {
 
 // TriggerWait ensures that each cycle is done at least once and waits for completion.
 // If the cycle is currently running it waits for the previous to complete and then runs.
-func (chore *Chore) TriggerWait() {
-	chore.started.Wait(context.TODO())
+func (chore *Chore) TriggerWait(ctx context.Context) {
+	chore.started.Wait(ctx)
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	var group errgroup.Group
