@@ -19,8 +19,8 @@
                 <div class="cov-date-box" v-if="isDaysChoiceShown">
                     <div class="cov-picker-box">
                         <div class="week">
-                            <ul>
-                                <li v-for="week in daysInWeek" :key="week">{{week}}</li>
+                            <ul class="week-ul">
+                                <li class="week-li" v-for="week in daysInWeek" :key="week">{{week}}</li>
                             </ul>
                         </div>
                         <div class="day" v-for="(day, index) in daysToShow" :key="index" @click="checkDay(day)" :class="{'checked':day.checked,'unavailable':day.unavailable,'passive-day': !(day.inMonth), 'today': day.today}" :style="day.checked ? (option.color && option.color.checkedDay ? { background: option.color.checkedDay } : { background: '#2683FF' }) : {}">{{day.value}}</div>
@@ -269,20 +269,23 @@ export default class VDatePicker extends Vue {
         left: 0;
         overflow: hidden;
         -webkit-animation: fadein 0.5s;
+
         /* Safari, Chrome and Opera > 12.1 */
         -moz-animation: fadein 0.5s;
-        /* Firefox < 16 */
-        -ms-animation: fadein 0.5s;
+
         /* Internet Explorer */
         -o-animation: fadein 0.5s;
+
         /* Opera < 12.1 */
         animation: fadein 0.5s;
     }
 
     @keyframes fadein {
+
         from {
             opacity: 0;
         }
+
         to {
             opacity: 1;
         }
@@ -290,9 +293,11 @@ export default class VDatePicker extends Vue {
 
     /* Firefox < 16 */
     @-moz-keyframes fadein {
+
         from {
             opacity: 0;
         }
+
         to {
             opacity: 1;
         }
@@ -300,9 +305,11 @@ export default class VDatePicker extends Vue {
 
     /* Safari, Chrome and Opera > 12.1 */
     @-webkit-keyframes fadein {
+
         from {
             opacity: 0;
         }
+
         to {
             opacity: 1;
         }
@@ -310,9 +317,11 @@ export default class VDatePicker extends Vue {
 
     /* Internet Explorer */
     @-ms-keyframes fadein {
+
         from {
             opacity: 0;
         }
+
         to {
             opacity: 1;
         }
@@ -320,16 +329,18 @@ export default class VDatePicker extends Vue {
 
     /* Opera < 12.1 */
     @-o-keyframes fadein {
+
         from {
             opacity: 0;
         }
+
         to {
             opacity: 1;
         }
     }
 
     .cov-date-body {
-        background: #3F51B5;
+        background: #3f51b5;
         overflow: hidden;
         font-size: 16px;
         font-weight: 400;
@@ -344,7 +355,7 @@ export default class VDatePicker extends Vue {
         -ms-transform: translate(-50%, -50%);
         transform: translate(-50%, -50%);
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
     }
 
     .cov-picker-box {
@@ -354,7 +365,6 @@ export default class VDatePicker extends Vue {
         box-sizing: border-box !important;
         -moz-box-sizing: border-box !important;
         -webkit-box-sizing: border-box !important;
-        -ms-box-sizing: border-box !important;
         width: 400px;
         max-width: 100%;
         height: 280px;
@@ -374,13 +384,13 @@ export default class VDatePicker extends Vue {
         vertical-align: middle;
     }
 
-    .week ul {
+    .week-ul {
         margin: 0 0 8px;
         padding: 0;
         list-style: none;
     }
 
-    .week ul li {
+    .week-li {
         width: 14.2%;
         display: inline-block;
         text-align: center;
@@ -394,8 +404,8 @@ export default class VDatePicker extends Vue {
     }
 
     .checked {
-        background: #2683FF;
-        color: #FFF !important;
+        background: #2683ff;
+        color: #fff !important;
     }
 
     .unavailable {
@@ -432,7 +442,7 @@ export default class VDatePicker extends Vue {
         padding: 10px 0 !important;
         box-sizing: border-box;
         font-size: 18px;
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
         line-height: 30px;
         display: flex;
         flex-direction: column;
@@ -451,15 +461,15 @@ export default class VDatePicker extends Vue {
     }
 
     .day:hover {
-        background: #EAEAEA;
+        background: #eaeaea;
     }
 
     .unavailable:hover {
         background: none;
     }
 
-    .cov-date-next::before,
-    .cov-date-previous::before {
+    .cov-date-next:before,
+    .cov-date-previous:before {
         width: 20px;
         height: 2px;
         text-align: center;
@@ -476,8 +486,8 @@ export default class VDatePicker extends Vue {
         transform: rotate(45deg);
     }
 
-    .cov-date-next::after,
-    .cov-date-previous::after {
+    .cov-date-next:after,
+    .cov-date-previous:after {
         width: 20px;
         height: 2px;
         text-align: center;
@@ -494,13 +504,13 @@ export default class VDatePicker extends Vue {
         transform: rotate(-45deg);
     }
 
-    .cov-date-previous::after {
+    .cov-date-previous:after {
         -webkit-transform: rotate(45deg);
         -moz-transform: rotate(45deg);
         transform: rotate(45deg);
     }
 
-    .cov-date-previous::before {
+    .cov-date-previous:before {
         -webkit-transform: rotate(-45deg);
         -moz-transform: rotate(-45deg);
         transform: rotate(-45deg);
@@ -525,7 +535,7 @@ export default class VDatePicker extends Vue {
 
     .cov-vue-date {
         display: inline-block;
-        color: #5D5D5D;
+        color: #5d5d5d;
     }
 
     .watch-box {
@@ -538,16 +548,16 @@ export default class VDatePicker extends Vue {
     }
 
     ::-webkit-scrollbar-track {
-        background: #E3E3E3;
+        background: #e3e3e3;
     }
 
     ::-webkit-scrollbar-thumb {
-        background: #C1C1C1;
+        background: #c1c1c1;
         border-radius: 2px;
     }
 
     .cov-date-box {
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
     }
 
     .today {

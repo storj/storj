@@ -55,19 +55,6 @@ export default class AccountButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .account-button-container {
-        position: relative;
-        background-color: #FFFFFF;
-        cursor: pointer;
-
-        &:hover {
-
-            .account-button-toggle-container__user-name {
-                opacity: 0.7;
-            }
-        }
-    }
-
     .account-button-toggle-container {
         display: flex;
         flex-direction: row;
@@ -78,11 +65,11 @@ export default class AccountButton extends Vue {
 
         &__user-name {
             margin-left: 12px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #354049;
-            transition: opacity .2s ease-in-out;
+            transition: opacity 0.2s ease-in-out;
         }
 
         &__avatar {
@@ -92,10 +79,10 @@ export default class AccountButton extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #E8EAF2;
+            background: #e8eaf2;
 
             &__letter {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;
@@ -110,7 +97,21 @@ export default class AccountButton extends Vue {
         }
     }
 
+    .account-button-container {
+        position: relative;
+        background-color: #fff;
+        cursor: pointer;
+
+        &:hover {
+
+            .account-button-toggle-container__user-name {
+                opacity: 0.7;
+            }
+        }
+    }
+
     @media screen and (max-width: 1024px) {
+
         .account-button-toggle-container {
 
             &__user-name,

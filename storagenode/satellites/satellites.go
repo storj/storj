@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-//Status refers to the state of the relationship with a satellites
+// Status refers to the state of the relationship with a satellites
 type Status = int
 
 const (
@@ -26,7 +26,7 @@ const (
 	ExitFailed = 4
 )
 
-//ExitProgress contains the status of a graceful exit
+// ExitProgress contains the status of a graceful exit
 type ExitProgress struct {
 	SatelliteID       storj.NodeID
 	InitiatedAt       *time.Time
@@ -36,10 +36,19 @@ type ExitProgress struct {
 	CompletionReceipt []byte
 }
 
+// Satellite contains the satellite and status
+type Satellite struct {
+	SatelliteID storj.NodeID
+	AddedAt     time.Time
+	Status      int32
+}
+
 // DB works with satellite database
 //
 // architecture: Database
 type DB interface {
+	// GetSatellite retrieves that satellite by ID
+	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 	InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
 	// UpdateGracefulExit increments the total bytes deleted during a graceful exit
