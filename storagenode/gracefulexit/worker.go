@@ -122,7 +122,13 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	return errs.Wrap(err)
 }
 
-func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.TransferPiece, c pb.SatelliteGracefulExit_ProcessClient) error {
+type gracefulExitStream interface {
+	Context() context.Context
+	Send(*pb.StorageNodeMessage) error
+	Recv() (*pb.SatelliteMessage, error)
+}
+
+func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.TransferPiece, c gracefulExitStream) error {
 	pieceID := transferPiece.OriginalPieceId
 	reader, err := worker.store.Reader(ctx, worker.satelliteID, pieceID)
 	if err != nil {

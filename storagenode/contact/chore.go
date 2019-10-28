@@ -48,6 +48,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Info("Storagenode contact chore starting up")
 
+	if err = chore.service.waitForSelfData(ctx); err != nil {
+		return err
+	}
+
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
 		if err := chore.pingSatellites(ctx); err != nil {
 			chore.log.Error("pingSatellites failed", zap.Error(err))
