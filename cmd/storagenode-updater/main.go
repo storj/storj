@@ -212,6 +212,8 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 		} else {
 			log.Printf("%s version is up to date\n", runCfg.ServiceName)
 		}
+	} else {
+		log.Printf("%s version is up to date\n", runCfg.ServiceName)
 	}
 
 	return nil
