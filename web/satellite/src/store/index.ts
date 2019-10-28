@@ -43,7 +43,7 @@ const projectUsageApi = new ProjectUsageApiGql();
 const paymentsApi = new PaymentsHttpApi();
 
 // Satellite store (vuex)
-const store = new Vuex.Store({
+export const store = new Vuex.Store({
     modules: {
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
@@ -57,5 +57,3 @@ const store = new Vuex.Store({
         bucketUsageModule: makeBucketsModule(bucketsApi),
     },
 });
-
-export default store;
