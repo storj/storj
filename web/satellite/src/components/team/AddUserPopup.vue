@@ -85,7 +85,7 @@ import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
@@ -158,7 +158,7 @@ export default class AddUserPopup extends Vue {
         }
 
         if (emailArray.includes(this.$store.state.usersModule.email)) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. You can't add yourself to the project`);
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
             this.isLoading = false;
 
             return;
@@ -167,19 +167,19 @@ export default class AddUserPopup extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${error.message}`);
+            await this.$notify.error(`Error during adding project members. ${error.message}`);
             this.isLoading = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+        await this.$notify.success('Members successfully added to project!');
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);

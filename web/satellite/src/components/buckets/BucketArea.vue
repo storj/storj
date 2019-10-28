@@ -83,7 +83,6 @@ import NotificationIcon from '@/../static/images/buckets/notification.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 const {
@@ -156,7 +155,7 @@ export default class BucketArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
         }
     }
 
@@ -164,7 +163,7 @@ export default class BucketArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, page);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
         }
     }
 }

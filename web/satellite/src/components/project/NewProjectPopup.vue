@@ -68,7 +68,6 @@ import { CreateProjectModel, Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
@@ -118,7 +117,7 @@ export default class NewProjectPopup extends Vue {
             this.createdProjectId = project.id;
         } catch (e) {
             this.isLoading = false;
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            await this.$notify.error(e.message);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
@@ -129,7 +128,7 @@ export default class NewProjectPopup extends Vue {
         try {
             await this.fetchProjectMembers();
         } catch (e) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            await this.$notify.error(e.message);
         }
 
         this.clearApiKeys();
@@ -204,8 +203,8 @@ export default class NewProjectPopup extends Vue {
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 
-    private notifySuccess(message: string): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+    private async notifySuccess(message: string): Promise<void> {
+        await this.$notify.success(message);
     }
 }
 </script>

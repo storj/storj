@@ -4,6 +4,8 @@
 import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
+
 import App from './App.vue';
 import { router } from './router';
 import { store } from './store';
@@ -11,6 +13,10 @@ import { store } from './store';
 Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
+
+const notificator = new NotificatorPlugin();
+
+Vue.use(notificator);
 
 let clickOutsideEvent: EventListener;
 

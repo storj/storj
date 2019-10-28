@@ -64,7 +64,6 @@ import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
@@ -99,11 +98,11 @@ export default class DeleteProjectPopup extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
 
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
+            await this.$notify.success('Project was successfully deleted');
 
             await this.selectProject();
         } catch (e) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            await this.$notify.error(e.message);
         }
 
         this.isLoading = false;

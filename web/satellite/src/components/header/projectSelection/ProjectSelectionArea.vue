@@ -29,7 +29,7 @@ import HideIcon from '@/../static/images/common/BlueHide.svg';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 
@@ -45,7 +45,7 @@ export default class ProjectSelectionArea extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
