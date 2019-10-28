@@ -14,7 +14,7 @@ import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -47,7 +47,7 @@ export default class RegistrationSuccessPopup extends Vue {
         try {
             await this.auth.resendEmail(userId);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
+            await this.$notify.error('Could not send email ');
         }
 
         this.startResendEmailCountdown();
@@ -97,7 +97,7 @@ export default class RegistrationSuccessPopup extends Vue {
     .register-success-popup {
         width: 100%;
         max-width: 845px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -121,15 +121,15 @@ export default class RegistrationSuccessPopup extends Vue {
             margin-top: 10px;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin: 0;
             }
 
             &__text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
@@ -138,7 +138,7 @@ export default class RegistrationSuccessPopup extends Vue {
             }
 
             &__verification-cooldown {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 12px;
                 line-height: 16px;
                 color: #354049;
@@ -146,7 +146,7 @@ export default class RegistrationSuccessPopup extends Vue {
                 margin: 0;
 
                 &__bold-text {
-                    color: #2683FF;
+                    color: #2683ff;
                 }
             }
 
@@ -172,12 +172,13 @@ export default class RegistrationSuccessPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .register-success-popup {
 
             &__info-panel-container {

@@ -121,9 +121,9 @@ export default class MonthlyBillingSummary extends Vue {
     .current-month-area {
         margin-bottom: 32px;
         padding: 40px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             display: flex;
@@ -133,7 +133,7 @@ export default class MonthlyBillingSummary extends Vue {
             &__month-info {
 
                 &__title {
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     font-size: 32px;
                     line-height: 48px;
                 }
@@ -165,13 +165,13 @@ export default class MonthlyBillingSummary extends Vue {
             &__title {
                 font-size: 14px;
                 line-height: 21px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
 
             &__usage-charges {
                 margin: 18px 0 0 0;
                 padding: 20px 20px 20px 20px;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
 
@@ -198,7 +198,7 @@ export default class MonthlyBillingSummary extends Vue {
             &__referral-credits {
                 margin: 18px 0 12px 0;
                 padding: 20px 20px 20px 20px;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
 

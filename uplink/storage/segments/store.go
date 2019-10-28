@@ -42,7 +42,8 @@ type ListItem struct {
 
 // Store for segments
 type Store interface {
-	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
+	// Ranger creates a ranger for downloading erasure codes from piece store nodes.
+	Ranger(ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme) (ranger.Ranger, error)
 	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 }
@@ -151,24 +152,16 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	return Meta{}, nil
 }
 
-// Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
-func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, _ storj.SegmentEncryption, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	info, limits, err := s.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
-		StreamID: streamID,
-		Position: storj.SegmentPosition{
-			Index: segmentIndex,
-		},
-	})
-	if err != nil {
-		return nil, storj.SegmentEncryption{}, Error.Wrap(err)
-	}
+// Ranger creates a ranger for downloading erasure codes from piece store nodes.
+func (s *segmentStore) Ranger(
+	ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme,
+) (rr ranger.Ranger, err error) {
+	defer mon.Task()(&ctx, info, limits, objectRS)(&err)
 
 	switch {
 	// no order limits also means its inline segment
 	case len(info.EncryptedInlineData) != 0 || len(limits) == 0:
-		return ranger.ByteRanger(info.EncryptedInlineData), info.SegmentEncryption, nil
+		return ranger.ByteRanger(info.EncryptedInlineData), nil
 	default:
 		needed := CalcNeededNodes(objectRS)
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
@@ -192,20 +185,20 @@ func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segment
 
 		fc, err := infectious.NewFEC(int(objectRS.RequiredShares), int(objectRS.TotalShares))
 		if err != nil {
-			return nil, storj.SegmentEncryption{}, err
+			return nil, err
 		}
 		es := eestream.NewRSScheme(fc, int(objectRS.ShareSize))
 		redundancy, err := eestream.NewRedundancyStrategy(es, int(objectRS.RepairShares), int(objectRS.OptimalShares))
 		if err != nil {
-			return nil, storj.SegmentEncryption{}, err
+			return nil, err
 		}
 
 		rr, err = s.ec.Get(ctx, selected, info.PiecePrivateKey, redundancy, info.Size)
 		if err != nil {
-			return nil, storj.SegmentEncryption{}, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 
-		return rr, info.SegmentEncryption, nil
+		return rr, nil
 	}
 }
 
