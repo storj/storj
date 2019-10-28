@@ -90,7 +90,3 @@ func TestLocalAndUpdateSelf(t *testing.T) {
 		_ = group.Wait()
 	})
 }
-
-func TestX(t *testing.T) {
-
-}
