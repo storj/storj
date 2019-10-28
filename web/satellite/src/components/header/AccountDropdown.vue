@@ -76,15 +76,17 @@ export default class AccountDropdown extends Vue {
         border-radius: 4px;
         padding: 10px 0 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
-        background-color: #FFFFFF;
+        background-color: #fff;
         z-index: 1120;
     }
+
     .account-dropdown-overflow-container {
         position: relative;
         width: 210px;
         height: auto;
-        background-color: #FFFFFF;
+        background-color: #fff;
     }
+
     .account-dropdown-item-container {
         display: flex;
         flex-direction: row;
@@ -94,7 +96,7 @@ export default class AccountDropdown extends Vue {
         padding-right: 20px;
 
         &__title {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             margin-left: 20px;
             font-size: 14px;
             line-height: 20px;
@@ -102,10 +104,10 @@ export default class AccountDropdown extends Vue {
         }
 
         &:hover {
-            background-color: #F2F2F6;
+            background-color: #f2f2f6;
 
             .account-dropdown-svg-path {
-                fill: #2683FF !important;
+                fill: #2683ff !important;
             }
         }
 

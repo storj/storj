@@ -1,5 +1,5 @@
-/*Copyright (C) 2019 Storj Labs, Inc.*/
-/*See LICENSE for copying information.*/
+/* Copyright (C) 2019 Storj Labs, Inc. */
+/* See LICENSE for copying information. */
 
 .error-container {
     position: fixed;
@@ -27,7 +27,8 @@ h1 {
     font-size: 32px;
 }
 
-img, a {
+img,
+a {
     -webkit-user-drag: none;
     -khtml-user-drag: none;
     -moz-user-drag: none;

@@ -78,6 +78,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, satellite := range satellites {
+			if satellite.FinishedAt != nil {
+				continue
+			}
 			satelliteID := satellite.SatelliteID
 			addr, err := chore.trust.GetAddress(ctx, satelliteID)
 			if err != nil {

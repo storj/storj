@@ -36,7 +36,7 @@ export default class VList extends Vue {
         width: 100%;
 
         &__item {
-             width: 100%;
+            width: 100%;
         }
     }
 </style>
