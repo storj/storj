@@ -209,11 +209,11 @@ func update(ctx context.Context, nodeID storj.NodeID) (err error) {
 			log.Println("service", runCfg.ServiceName, "restarted successfully")
 
 			// TODO remove old binary ??
-		} else {
-			log.Printf("%s version is up to date\n", runCfg.ServiceName)
+			return nil
 		}
 	}
 
+	log.Printf("%s version is up to date\n", runCfg.ServiceName)
 	return nil
 }
 
