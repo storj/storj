@@ -225,7 +225,7 @@ func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 		return stripecoinpayments.TransactionsPage{}, err
 	}
 
-	if len(page.Transactions) > limit+1 {
+	if len(page.Transactions) == limit+1 {
 		page.Next = true
 		page.NextOffset = offset + int64(limit) + 1
 		page.Transactions = page.Transactions[:len(page.Transactions)-1]
