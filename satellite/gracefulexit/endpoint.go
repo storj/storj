@@ -341,22 +341,19 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			break
 		}
 
-		timedCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		done := make(chan struct{})
 		var request *pb.StorageNodeMessage
 		var recvErr error
 		go func() {
-			request, err = stream.Recv()
-			if err != nil {
-				recvErr = err
-			}
-			cancel()
+			request, recvErr = stream.Recv()
+			close(done)
 		}()
 
 		timer := time.NewTimer(endpoint.recvTimeout)
 		select {
 		case <-timer.C:
 			return rpcstatus.Error(rpcstatus.DeadlineExceeded, Error.New("timeout while waiting to receive message from storagenode").Error())
-		case <-timedCtx.Done():
+		case <-done:
 		}
 		if recvErr != nil {
 			return eofHandler(recvErr)
