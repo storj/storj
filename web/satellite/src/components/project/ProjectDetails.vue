@@ -154,21 +154,21 @@ export default class ProjectDetailsArea extends Vue {
         position: relative;
         overflow: hidden;
         height: 85vh;
-        font-family: 'font_regular';
-        
+        font-family: 'font_regular', sans-serif;
+
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 24px;
             line-height: 29px;
             color: #354049;
         }
-        
+
         &__button-area {
             margin-top: 3vh;
             margin-bottom: 100px;
         }
     }
-    
+
     .project-details-info-container {
         height: auto;
         margin-top: 37px;
@@ -176,7 +176,7 @@ export default class ProjectDetailsArea extends Vue {
         flex-direction: row;
         justify-content: space-between;
         align-items: flex-start;
-        
+
         &__name-container {
             min-height: 67px;
             width: 100%;
@@ -200,15 +200,19 @@ export default class ProjectDetailsArea extends Vue {
                 color: #354049;
             }
         }
-        
+
         &__description-container {
-            @extend .project-details-info-container__name-container;
             min-height: 67px;
+            width: 100%;
+            border-radius: 6px;
+            display: flex;
             height: auto;
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
-            
+            padding: 28px;
+            background-color: #fff;
+
             &__text {
                 display: flex;
                 flex-direction: column;
@@ -221,7 +225,7 @@ export default class ProjectDetailsArea extends Vue {
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.4);
                 }
-                
+
                 &__project-description {
                     font-size: 16px;
                     line-height: 21px;
@@ -232,15 +236,20 @@ export default class ProjectDetailsArea extends Vue {
                     word-break: break-word;
                 }
             }
-            
+
             &--editing {
-                @extend .project-details-info-container__description-container;
+                min-height: 67px;
+                width: 100%;
+                border-radius: 6px;
                 display: flex;
+                height: auto;
+                padding: 28px;
+                background-color: #fff;
                 flex-direction: column;
                 justify-content: center;
                 align-items: flex-start;
             }
-            
+
             &__buttons-area {
                 margin-top: 2vh;
                 display: flex;
@@ -249,14 +258,14 @@ export default class ProjectDetailsArea extends Vue {
                 width: 380px;
                 justify-content: space-between;
             }
-            
+
             .project-details-svg {
                 cursor: pointer;
-                
+
                 &:hover {
 
                     .project-details-svg__rect {
-                        fill: #2683FF;
+                        fill: #2683ff;
                     }
 
                     .project-details-svg__path {
@@ -265,22 +274,33 @@ export default class ProjectDetailsArea extends Vue {
                 }
             }
         }
-        
+
         &__portability-container {
-            @extend .project-details-info-container__description-container;
-            
+            min-height: 67px;
+            width: 100%;
+            border-radius: 6px;
+            display: flex;
+            height: auto;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 28px;
+            background-color: #fff;
+
             &__info {
                 display: flex;
                 flex-direction: row;
                 align-items: center;
-            
+
                 &__text {
                     margin-left: 2vw;
                 }
             }
-            
+
             &__buttons-area {
-                @extend .project-details-info-container__portability-container__info;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
                 width: 380px;
                 justify-content: space-between;
             }
