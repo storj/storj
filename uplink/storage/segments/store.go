@@ -194,11 +194,7 @@ func (s *segmentStore) Ranger(
 	}
 
 	rr, err = s.ec.Get(ctx, selected, info.PiecePrivateKey, redundancy, info.Size)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return rr, nil
+	return rr, Error.Wrap(err)
 }
 
 // Delete requests the satellite to delete a segment and tells storage nodes
