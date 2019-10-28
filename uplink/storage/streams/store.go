@@ -136,7 +136,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	initialRequests := make([]metainfo.BatchItem, 0)
-
 	initialRequests = append(initialRequests, &metainfo.BeginObjectParams{
 		Bucket:        []byte(path.Bucket()),
 		EncryptedPath: []byte(encPath.Raw()),
@@ -157,7 +156,15 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	eofReader := NewEOFReader(data)
 
+	var lastCommitSegment *metainfo.CommitSegmentParams
 	for !eofReader.isEOF() && !eofReader.hasError() {
+		if lastCommitSegment != nil {
+			err = s.metainfo.CommitSegment(ctx, *lastCommitSegment)
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
+			lastCommitSegment = nil
+		}
 		// generate random key for encrypting the segment's content
 		var contentKey storj.Key
 		_, err = rand.Read(contentKey[:])
@@ -254,15 +261,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				return Meta{}, currentSegment, streamID, err
 			}
 
-			err = s.metainfo.CommitSegment(ctx, metainfo.CommitSegmentParams{
+			lastCommitSegment = &metainfo.CommitSegmentParams{
 				SegmentID:         segmentID,
 				SizeEncryptedData: size,
 				Encryption:        segmentEncryption,
 				UploadResult:      uploadResults,
-			})
-
-			if err != nil {
-				return Meta{}, currentSegment, streamID, err
 			}
 		} else {
 			data, err := ioutil.ReadAll(peekReader)
@@ -345,10 +348,18 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		return Meta{}, currentSegment, streamID, eofReader.err
 	}
 
-	err = s.metainfo.CommitObject(ctx, metainfo.CommitObjectParams{
+	commitObject := metainfo.CommitObjectParams{
 		StreamID:          streamID,
 		EncryptedMetadata: objectMetadata,
-	})
+	}
+	if lastCommitSegment != nil {
+		_, err = s.metainfo.Batch(ctx, []metainfo.BatchItem{
+			lastCommitSegment,
+			&commitObject,
+		}...)
+	} else {
+		err = s.metainfo.CommitObject(ctx, commitObject)
+	}
 	if err != nil {
 		return Meta{}, currentSegment, streamID, err
 	}
