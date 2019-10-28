@@ -305,7 +305,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		},
 		&metainfo.DownloadSegmentParams{
 			Position: storj.SegmentPosition{
-				Index: -1,
+				Index: -1, // Request the last segment
 			},
 		},
 	)
