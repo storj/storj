@@ -18,7 +18,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { setUserId } from '@/utils/consoleLocalStorage';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
@@ -55,7 +55,7 @@ export default class RegisterArea extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
-    mounted(): void {
+    async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -65,7 +65,7 @@ export default class RegisterArea extends Vue {
         try {
             decoded = atob(ids);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Invalid Referral URL');
+            await this.$notify.error('Invalid Referral URL');
             this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
             return;
@@ -170,7 +170,7 @@ export default class RegisterArea extends Vue {
                 (registrationSuccessPopupRef as any).startResendEmailCountdown();
             }
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             this.isLoading = false;
         }

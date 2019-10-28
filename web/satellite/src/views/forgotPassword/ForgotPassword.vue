@@ -13,7 +13,6 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
@@ -45,9 +44,9 @@ export default class ForgotPassword extends Vue {
 
         try {
             await this.auth.forgotPassword(this.email);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
+            await this.$notify.success('Please look for instructions at your email');
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
     }
 
