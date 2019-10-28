@@ -32,7 +32,7 @@ type Chore struct {
 	trust *trust.Pool
 
 	interval time.Duration
-	Cycles   []*sync2.Cycle
+	cycles   []*sync2.Cycle
 	mu       sync.Mutex
 }
 
@@ -65,7 +65,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	}
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
-
 		rand.Seed(time.Now().UnixNano())
 		// set backOff interval to a random value [1, 5] to create some jitter
 		//backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1)
@@ -73,9 +72,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		interval := chore.interval
 		cycle := sync2.NewCycle(interval)
 		chore.mu.Lock()
-		chore.Cycles = append(chore.Cycles, cycle)
-		chore.mu.Unlock()
+		chore.cycles = append(chore.cycles, cycle)
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
+			chore.log.Info("starting contact cycle for satellite " + satellite.String())
 			err := chore.pingSatellite(ctx, satellite)
 			if err == nil {
 				return nil
@@ -100,6 +99,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 			}
 		})
+		chore.mu.Unlock()
 	}
 	return group.Wait()
 }
@@ -130,8 +130,8 @@ func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err err
 // Pause stops all the cycles in the contact chore
 func (chore *Chore) Pause() {
 	chore.mu.Lock()
-	cycles := make([]*sync2.Cycle, len(chore.Cycles))
-	copy(cycles, chore.Cycles)
+	cycles := make([]*sync2.Cycle, len(chore.cycles))
+	copy(cycles, chore.cycles)
 	chore.mu.Unlock()
 	for _, cycle := range cycles {
 		cycle.Pause()
@@ -142,8 +142,8 @@ func (chore *Chore) Pause() {
 // If the cycle is currently running it waits for the previous to complete and then runs.
 func (chore *Chore) TriggerWait() {
 	chore.mu.Lock()
-	cycles := make([]*sync2.Cycle, len(chore.Cycles))
-	copy(cycles, chore.Cycles)
+	cycles := make([]*sync2.Cycle, len(chore.cycles))
+	copy(cycles, chore.cycles)
 	chore.mu.Unlock()
 	for _, cycle := range cycles {
 		cycle.TriggerWait()
@@ -153,8 +153,8 @@ func (chore *Chore) TriggerWait() {
 // Close stops all the cycles in the contact chore
 func (chore *Chore) Close() error {
 	chore.mu.Lock()
-	cycles := make([]*sync2.Cycle, len(chore.Cycles))
-	copy(cycles, chore.Cycles)
+	cycles := make([]*sync2.Cycle, len(chore.cycles))
+	copy(cycles, chore.cycles)
 	chore.mu.Unlock()
 	for _, cycle := range cycles {
 		cycle.Close()

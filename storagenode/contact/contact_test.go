@@ -52,7 +52,6 @@ func TestNodeInfoUpdated(t *testing.T) {
 		node := planet.StorageNodes[0]
 
 		node.Contact.Chore.Pause()
-
 		oldInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
 		oldCapacity := oldInfo.Capacity
