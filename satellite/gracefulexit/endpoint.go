@@ -217,8 +217,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := newPendingMap()
 
 	var morePiecesFlag int32 = 1
+	var loopRunningFlag int32 = 1
 	errChan := make(chan error, 1)
-	processChan := make(chan bool, 1)
+	processCond := sync.NewCond(&sync.Mutex{})
 
 	handleError := func(err error) error {
 		errChan <- err
@@ -228,14 +229,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		loop := sync2.NewCycle(endpoint.interval)
-		defer loop.Stop()
+		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			processChan <- true
-			close(processChan)
+			atomic.StoreInt32(&loopRunningFlag, 0)
+			processCond.Broadcast()
 		}()
 
-		return loop.Run(ctx, func(ctx context.Context) error {
+		ctx, cancel := context.WithCancel(ctx)
+		return incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
@@ -252,7 +253,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
 					atomic.StoreInt32(&morePiecesFlag, 0)
-					loop.Stop()
+					cancel()
 					return nil
 				}
 
@@ -262,7 +263,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
-				processChan <- true
+				processCond.Broadcast()
 			}
 			return nil
 		})
@@ -276,15 +277,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 
 		pendingCount := pending.length()
-
-		// wait if there are none pending
-		if pendingCount == 0 {
-			select {
-			case <-processChan:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
 
 		// if there are no more transfers and the pending queue is empty, send complete
 		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
@@ -332,6 +324,27 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
+		} else if pendingCount == 0 {
+			// if incomplete loop has exited, return
+			if atomic.LoadInt32(&loopRunningFlag) == 0 {
+				return nil
+			}
+
+			// otherwise, wait for incomplete loop
+			processCond.L.Lock()
+			processCond.Wait()
+			processCond.L.Unlock()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			pendingCount = pending.length()
+			// if pending count is still 0 and the loop has exited, return
+			if pendingCount == 0 && atomic.LoadInt32(&loopRunningFlag) == 0 {
+				return nil
+			}
 		}
 
 		request, err := stream.Recv()
