@@ -60,7 +60,7 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
-		LogPath        string `help:"path to log file, if empty standard output will be used" default:""`
+		Log            string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
 	confDir     string
@@ -81,8 +81,8 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if runCfg.LogPath != "" {
-		logFile, err := os.OpenFile(runCfg.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if runCfg.Log != "" {
+		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Fatalf("error opening log file: %s", err)
 		}
