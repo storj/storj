@@ -52,7 +52,6 @@ func TestNodeInfoUpdated(t *testing.T) {
 
 		oldInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
-
 		oldCapacity := oldInfo.Capacity
 
 		newCapacity := pb.NodeCapacity{
@@ -60,9 +59,7 @@ func TestNodeInfoUpdated(t *testing.T) {
 			FreeDisk:      0,
 		}
 		require.NotEqual(t, oldCapacity, newCapacity)
-
 		node.Contact.Service.UpdateSelf(&newCapacity)
-
 		node.Contact.Chore.TriggerWait()
 
 		newInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
