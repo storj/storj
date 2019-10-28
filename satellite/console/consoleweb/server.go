@@ -117,26 +117,32 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
-	paymentController := consoleapi.NewPayments(logger, service)
-
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+	router.HandleFunc("/satelliteName", server.satelliteNameHandler).Methods(http.MethodGet)
 
-	authRouter := router.PathPrefix("/api/auth").Subrouter()
+	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
+	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
+	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
+	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods(http.MethodDelete)
+	authRouter.Handle("/", server.withAuth(http.HandlerFunc(authController.Get))).Methods(http.MethodGet)
+	authRouter.Handle("/update", server.withAuth(http.HandlerFunc(authController.Update))).Methods(http.MethodPut)
+	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods(http.MethodPost)
 
-	authRouter.HandleFunc("/token", authController.Token).Methods("POST")
-	authRouter.HandleFunc("/register", authController.Register).Methods("POST")
-	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods("POST")
-	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods("DELETE")
-	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods("POST")
-	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods("POST")
-	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods("POST")
-
-	router.HandleFunc("/api/v0/payments/cards", paymentController.AddCreditCard)
-	router.HandleFunc("/api/v0/payments/account/balance", paymentController.AccountBalance)
-	router.HandleFunc("/api/v0/payments/account", paymentController.SetupAccount)
+	paymentController := consoleapi.NewPayments(logger, service)
+	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
+	paymentsRouter.Use(server.withAuth)
+	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
@@ -520,7 +526,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		isNeededFormatToGzip := formats[extension]
 
 		// because we have some static content outside of console frontend app.
-		// for example: 404 page, account activation, passsrowd reset, etc.
+		// for example: 404 page, account activation, password reset, etc.
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
@@ -545,6 +551,20 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
+}
+
+// satelliteNameHandler retrieve satellites name.
+func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
+	var response struct {
+		SatelliteName string `json:"satelliteName"`
+	}
+
+	response.SatelliteName = server.config.SatelliteName
+
+	if err := json.NewEncoder(w).Encode(&response); err != nil {
+		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		return
+	}
 }
 
 // initializeTemplates is used to initialize all templates

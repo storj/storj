@@ -6,7 +6,7 @@
         <div class="current-month-area__header">
             <div class="current-month-area__header__month-info">
                 <h1 class="current-month-area__header__month-info__title">Current Month</h1>
-                <h2 class="current-month-area__header__month-info__title-info">August 1 - 15 2019</h2>
+                <h2 class="current-month-area__header__month-info__title-info">{{currentPeriod}}</h2>
             </div>
             <div class="current-month-area__header__usage-info" v-if="false">
                 <span class="current-month-area__header__usage-info__data">Usage <b class="current-month-area__header__usage-info__data__bold-text">$12.44</b></span>
@@ -84,6 +84,20 @@ import VButton from '@/components/common/VButton.vue';
 export default class MonthlyBillingSummary extends Vue {
     private areUsageChargesShown: boolean = false;
     private areReferralCreditsShown: boolean = false;
+
+    public get currentPeriod(): string {
+        const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const now: Date = new Date();
+        const monthNumber = now.getMonth();
+        const date = now.getDate();
+        const year = now.getFullYear();
+
+        if (date === 1) {
+            return `${months[monthNumber]} 1 ${year}`;
+        }
+
+        return `${months[monthNumber]} 1 - ${date} ${year}`;
+    }
 
     public toggleUsageChargesPopup(): void {
         this.areUsageChargesShown = !this.areUsageChargesShown;

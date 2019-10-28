@@ -119,7 +119,13 @@ contact.external-address: ""
 # graceful-exit.endpoint-batch-size: 100
 
 # maximum number of transfer failures per piece.
-# graceful-exit.endpoint-max-failures: 3
+# graceful-exit.max-failures-per-piece: 3
+
+# maximum inactive time frame of transfer activities per node.
+# graceful-exit.max-inactive-time-frame: 500h0m0s
+
+# maximum percentage of transfer failures per node.
+# graceful-exit.overall-max-failures-percentage: 10
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
