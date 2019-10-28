@@ -226,6 +226,7 @@ Data Science could use this approach to more nicely calculate statistics however
 
 ## Open issues
 
+* The design needs to account for potential satellite or DNS outages to ensure that we do not unfairly disqualify nodes if the satellite cannot be contacted.
 * The design indefinitely checks offline storage nodes until they are disqualified.
 * The implementation requires coordination with the team working in [Kademlia removal blueprint](kademlia-removal.md) for the "ping" functionality.
 * The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.

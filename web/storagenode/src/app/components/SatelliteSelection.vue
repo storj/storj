@@ -57,14 +57,14 @@ export default class SatelliteSelection extends Vue {
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        background-color: #FFFFFF;
-        border: 1px solid #E8E8E8;
+        background-color: #fff;
+        border: 1px solid #e8e8e8;
         border-radius: 12px;
         padding: 0 12px;
         position: relative;
         font-size: 14px;
         cursor: pointer;
-        color: #535F77;
+        color: #535f77;
 
         &__bold-text {
             margin-right: 3px;
