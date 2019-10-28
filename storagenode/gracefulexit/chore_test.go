@@ -25,7 +25,7 @@ import (
 func TestChore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 9,
+		StorageNodeCount: 10,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite1 := planet.Satellites[0]
@@ -70,9 +70,7 @@ func TestChore(t *testing.T) {
 		}
 		require.NotNil(t, newExitingNode)
 
-		// TODO enable this after the satellite endpoint starts updating graceful exit status tables
-		// otherwise this fails because the original exiting node information is still returned in several queries
-		//exitSatellite(ctx, t, planet, newExitingNode)
+		exitSatellite(ctx, t, planet, newExitingNode)
 	})
 }
 

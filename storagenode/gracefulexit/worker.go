@@ -225,10 +225,12 @@ func (worker *Worker) DeletePiece(ctx context.Context, pieceID pb.PieceID) error
 	if err != nil {
 		return err
 	}
+
 	err = worker.store.Delete(ctx, worker.satelliteID, pieceID)
 	if err != nil {
 		return err
 	}
+
 	// update the bytes_deleted if store.Delete succeded
 	return worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, pieceSize)
 }
@@ -246,6 +248,7 @@ func (worker *Worker) DeletePiecesBySatellite(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for id, size := range pieceMap {
 		err := worker.store.Delete(ctx, worker.satelliteID, id)
 		if err != nil {
@@ -259,7 +262,6 @@ func (worker *Worker) DeletePiecesBySatellite(ctx context.Context) error {
 	}
 
 	return nil
-
 }
 
 func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, send func(*pb.StorageNodeMessage) error) {
