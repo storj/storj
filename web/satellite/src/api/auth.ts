@@ -20,7 +20,7 @@ export class AuthHttpApi {
      */
     public async resendEmail(userId: string): Promise<void> {
         const path = `${this.ROOT_PATH}/resend-email/${userId}`;
-        const response = await this.http.put(path, userId, false);
+        const response = await this.http.post(path, userId, false);
         if (response.ok) {
             return;
         }
@@ -57,7 +57,7 @@ export class AuthHttpApi {
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.put(path, email, false);
+        const response = await this.http.post(path, email, false);
         if (response.ok) {
             return;
         }
@@ -72,12 +72,12 @@ export class AuthHttpApi {
      * @throws Error
      */
     public async update(userInfo: UpdatedUser): Promise<void> {
-        const path = `${this.ROOT_PATH}/update`;
+        const path = `${this.ROOT_PATH}/account`;
         const body = {
             fullName: userInfo.fullName,
             shortName: userInfo.shortName,
         };
-        const response = await this.http.put(path, JSON.stringify(body), true);
+        const response = await this.http.patch(path, JSON.stringify(body), true);
         if (response.ok) {
             return;
         }
@@ -91,7 +91,7 @@ export class AuthHttpApi {
      * @throws Error
      */
     public async get(): Promise<User> {
-        const path = `${this.ROOT_PATH}/`;
+        const path = `${this.ROOT_PATH}/account`;
         const response = await this.http.get(path, true);
         if (response.ok) {
             return await response.json();
@@ -108,12 +108,12 @@ export class AuthHttpApi {
      * @throws Error
      */
     public async changePassword(password: string, newPassword: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/change-password`;
+        const path = `${this.ROOT_PATH}/account/change-password`;
         const body = {
             password: password,
             newPassword: newPassword,
         };
-        const response = await this.http.patch(path, JSON.stringify(body), true);
+        const response = await this.http.post(path, JSON.stringify(body), true);
         if (response.ok) {
             return;
         }
@@ -132,8 +132,11 @@ export class AuthHttpApi {
      * @throws Error
      */
     public async delete(password: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/${password}`;
-        const response = await this.http.delete(path, true);
+        const path = `${this.ROOT_PATH}/account/delete`;
+        const body = {
+            password: password,
+        };
+        const response = await this.http.post(path, JSON.stringify(body), true);
         if (response.ok) {
             return;
         }
@@ -156,7 +159,7 @@ export class AuthHttpApi {
      * @throws Error
      */
     public async register(user: {fullName: string; shortName: string; email: string; partnerId: string; password: string}, secret: string, referrerUserId: string): Promise<string> {
-        const path = `${this.ROOT_PATH}/`;
+        const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
             referrerUserId: referrerUserId ? referrerUserId : '',

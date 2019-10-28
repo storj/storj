@@ -148,7 +148,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update updates user's full name and short name.
-func (a *Auth) Update(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -171,7 +171,7 @@ func (a *Auth) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get gets authorized user and take it's params.
-func (a *Auth) Get(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -204,20 +204,22 @@ func (a *Auth) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete - authorizes user and deletes account by password.
-func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	password, ok := params["password"]
-	if !ok {
-		err = errs.New("password expected")
+	var deleteRequest struct {
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&deleteRequest)
+	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.service.DeleteAccount(ctx, password)
+	err = a.service.DeleteAccount(ctx, deleteRequest.Password)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(w, http.StatusUnauthorized, err)
@@ -341,7 +343,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ExternalAddress + consoleql.ActivationPath + token
+	link := a.ExternalAddress + "activation/?token=" + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
