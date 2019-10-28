@@ -229,6 +229,7 @@ func (worker *Worker) deletePiece(ctx context.Context, pieceID pb.PieceID) error
 
 	err = worker.store.Delete(ctx, worker.satelliteID, pieceID)
 	if err != nil {
+		// TODO: mark the piece to be DeleteFailed?
 		return err
 	}
 
@@ -254,6 +255,7 @@ func (worker *Worker) deletePiecesBySatellite(ctx context.Context) error {
 	for id, size := range pieceMap {
 		err := worker.store.Delete(ctx, worker.satelliteID, id)
 		if err != nil {
+			// TODO: mark the piece to be DeleteFailed?
 			return err
 		}
 		// update transfer progress
