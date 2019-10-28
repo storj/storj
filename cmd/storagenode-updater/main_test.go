@@ -4,11 +4,15 @@
 package main_test
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -24,16 +28,103 @@ import (
 	"storj.io/storj/versioncontrol"
 )
 
+const (
+	oldVersion = "v0.19.0"
+	newVersion = "v0.19.5"
+)
+
 func TestAutoUpdater(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	// build fake binary with old version for use as old storagenode binary
+	fakeOldBin := ctx.CompileWithLDFlagsX("./testdata/binbuilder", map[string]string{
+		"main.version": oldVersion,
+	})
+	fakeStoragenode := ctx.File("fake", "storagenode")
+	copyBin(ctx, t, fakeStoragenode, fakeOldBin)
+
+	// build fake binary with new version for use as updated storagenode and updater binaries
+	fakeNewBin := ctx.CompileWithLDFlagsX("./testdata/binbuilder", map[string]string{
+		"main.version": newVersion,
+	})
+	updateBins := map[string]string{
+		"storagenode":         fakeNewBin,
+		"storagenode-updater": fakeNewBin,
+	}
+
+	identConfig := testIdentityFiles(ctx, t)
+
+	peer, cleanupVersionControl := testVersionControlWithUpdates(ctx, t, updateBins)
+	defer cleanupVersionControl()
+
+	// build real updater with old version
+	oldSemVer, err := version.NewSemVer(oldVersion)
+	require.NoError(t, err)
+
+	oldInfo := version.Info{
+		Timestamp:  time.Now(),
+		CommitHash: "",
+		Version:    oldSemVer,
+		Release:    false,
+	}
+	oldRealUpdater := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
+	logPath := ctx.File("storagenode-updater.log")
+
+	// run updater (update)
+	args := []string{"run"}
+	args = append(args, "--config-dir", ctx.Dir())
+	args = append(args, "--server-address", "http://"+peer.Addr())
+	args = append(args, "--binary-location", fakeStoragenode)
+	args = append(args, "--check-interval", "0s")
+	args = append(args, "--identity.cert-path", identConfig.CertPath)
+	args = append(args, "--identity.key-path", identConfig.KeyPath)
+	args = append(args, "--log", logPath)
+
+	// NB: updater currently uses `log.SetOutput` so all output after that call
+	// only goes to the log file.
+	out, err := exec.Command(oldRealUpdater, args...).CombinedOutput()
+	outStr := string(out)
+	logData, logErr := ioutil.ReadFile(logPath)
+	if assert.NoError(t, logErr) {
+		logStr := string(logData)
+		t.Log(logStr)
+		if !assert.Contains(t, logStr, "storagenode restarted successfully") {
+			t.Log(logStr)
+		}
+		if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
+			t.Log(logStr)
+		}
+	} else {
+		t.Log(outStr)
+	}
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+}
+
+func copyBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
+	s, err := os.Open(src)
+	require.NoError(t, err)
+	defer ctx.Check(s.Close)
+
+	d, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0755)
+	require.NoError(t, err)
+	defer ctx.Check(d.Close)
+
+	_, err = io.Copy(d, s)
+	require.NoError(t, err)
+}
+
+func testIdentityFiles(ctx *testcontext.Context, t *testing.T) identity.Config {
+	t.Helper()
 
 	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 
 	identConfig := identity.Config{
-		CertPath: ctx.File("identity.cert"),
-		KeyPath:  ctx.File("identity.Key"),
+		CertPath: ctx.File("identity", "identity.cert"),
+		KeyPath:  ctx.File("identity", "identity.Key"),
 	}
 	err = identConfig.Save(ident)
 	require.NoError(t, err)
@@ -46,41 +137,30 @@ func TestAutoUpdater(t *testing.T) {
 	err = ioutil.WriteFile(ctx.File("config.yaml"), []byte(configData), 0644)
 	require.NoError(t, err)
 
-	testFiles := map[string]struct {
-		oldBin string
-		newZip string
-	}{
-		"storagenode": {
-			"testdata/fake-storagenode",
-			"testdata/fake-storagenode.zip",
-		},
-		"storagenode-updater": {
-			"testdata/fake-storagenode-updater",
-			"testdata/fake-storagenode-updater.zip",
-		},
-	}
+	return identConfig
+}
+
+func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updateBins map[string]string) (*versioncontrol.Peer, func()) {
+	t.Helper()
 
 	var mux http.ServeMux
-	for name, file := range testFiles {
-		oldBinData, err := ioutil.ReadFile(file.oldBin)
+	for name, src := range updateBins {
+		dst := ctx.File("updates", name+".zip")
+		zipBin(t, dst, src)
+		zipData, err := ioutil.ReadFile(dst)
 		require.NoError(t, err)
 
-		err = ioutil.WriteFile(ctx.File(name), oldBinData, 0755)
-		require.NoError(t, err)
-
-		newZipData, err := ioutil.ReadFile(file.newZip)
-		require.NoError(t, err)
 		mux.HandleFunc("/"+name, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, err := w.Write(newZipData)
+			_, err := w.Write(zipData)
 			require.NoError(t, err)
 		}))
 	}
 
 	ts := httptest.NewServer(&mux)
-	defer ts.Close()
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
+		// NB: this config field is required for versioncontrol to run.
 		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
@@ -91,7 +171,7 @@ func TestAutoUpdater(t *testing.T) {
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
-					Version: "0.19.5",
+					Version: newVersion,
 					URL:     ts.URL + "/storagenode",
 				},
 				Rollout: versioncontrol.RolloutConfig{
@@ -101,7 +181,7 @@ func TestAutoUpdater(t *testing.T) {
 			},
 			StoragenodeUpdater: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
-					Version: "0.19.5",
+					Version: newVersion,
 					URL:     ts.URL + "/storagenode-updater",
 				},
 				Rollout: versioncontrol.RolloutConfig{
@@ -116,47 +196,31 @@ func TestAutoUpdater(t *testing.T) {
 	ctx.Go(func() error {
 		return peer.Run(ctx)
 	})
-	defer ctx.Check(peer.Close)
+	return peer, func() {
+		ts.Close()
+		ctx.Check(peer.Close)
+	}
+}
 
-	// NB: same as old fake-storagenode version
-	ver, err := version.NewSemVer("v0.19.0")
+func zipBin(t *testing.T, dst, src string) {
+	t.Helper()
+
+	zipFile, err := os.Create(dst)
 	require.NoError(t, err)
 
-	info := version.Info{
-		Timestamp:  time.Now(),
-		CommitHash: "",
-		Version:    ver,
-		Release:    false,
-	}
-	updaterBin := ctx.CompileWithVersion("", info)
+	base := filepath.Base(dst)
+	base = base[:len(base)-len(".zip")]
 
-	args := make([]string, 0)
-	args = append(args, "run")
-	args = append(args, "--config-dir")
-	args = append(args, ctx.Dir())
-	args = append(args, "--server-address")
-	args = append(args, "http://"+peer.Addr())
-	args = append(args, "--binary-location")
-	args = append(args, ctx.File("storagenode"))
-	args = append(args, "--check-interval")
-	args = append(args, "0s")
-	args = append(args, "--identity.cert-path")
-	args = append(args, identConfig.CertPath)
-	args = append(args, "--identity.key-path")
-	args = append(args, identConfig.KeyPath)
+	writer := zip.NewWriter(zipFile)
+	contents, err := writer.Create(base)
+	require.NoError(t, err)
 
-	out, err := exec.Command(updaterBin, args...).CombinedOutput()
-	result := string(out)
-	if !assert.NoError(t, err) {
-		t.Log(result)
-		t.Fatal(err)
-	}
+	data, err := ioutil.ReadFile(src)
+	require.NoError(t, err)
 
-	if !assert.Contains(t, result, "storagenode restarted successfully") {
-		t.Log(result)
-	}
+	_, err = contents.Write(data)
+	require.NoError(t, err)
 
-	if !assert.Contains(t, result, "storagenode-updater restarted successfully") {
-		t.Log(result)
-	}
+	err = writer.Close()
+	require.NoError(t, err)
 }

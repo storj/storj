@@ -97,10 +97,13 @@ func init() {
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if runCfg.Log != "" {
+		// TODO: improve logging; other commands use zap but due to an apparent
+		// windows bug we're unable to use the existing process logging infrastructure.
 		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Fatalf("error opening log file: %s", err)
 		}
+		log.Printf("writing all further log output to %s", runCfg.Log)
 		defer func() { err = errs.Combine(err, logFile.Close()) }()
 		log.SetOutput(logFile)
 	}
