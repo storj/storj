@@ -47,7 +47,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     FETCH,
@@ -138,7 +138,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, index);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
     }
 
@@ -148,7 +148,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         this.resetPaginator();
@@ -165,11 +165,11 @@ export default class ProjectMembersArea extends Vue {
 <style scoped lang="scss">
     .team-area {
         padding: 40px 65px 55px 64px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             width: 100%;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             top: auto;
         }
 
@@ -193,7 +193,7 @@ export default class ProjectMembersArea extends Vue {
             flex-direction: column;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
                 margin-top: 100px;
@@ -210,12 +210,14 @@ export default class ProjectMembersArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .team-area {
             padding: 40px 40px 55px 40px;
         }
     }
 
     @media screen and (max-height: 800px) {
+
         .team-area {
 
             &__container {
