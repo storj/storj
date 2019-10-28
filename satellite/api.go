@@ -441,7 +441,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup graceful exit
 		log.Debug("Satellite API Process setting up graceful exit endpoint")
-		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(peer.Log.Named("gracefulexit:endpoint"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Overlay.Service, peer.Metainfo.Service, peer.Orders.Service, peer.DB.PeerIdentities(), config.GracefulExit)
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.GracefulExit(),
+			peer.Overlay.DB,
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.DB.PeerIdentities(),
+			config.GracefulExit)
+
 		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}

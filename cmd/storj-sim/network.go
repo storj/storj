@@ -146,7 +146,10 @@ func networkTest(flags *Flags, command string, args []string) error {
 	processes.Start(ctx, &group, "run")
 
 	for _, process := range processes.List {
-		process.Status.Started.Wait()
+		process.Status.Started.Wait(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	cmd := exec.CommandContext(ctx, command, args...)
@@ -159,7 +162,6 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
-	time.Sleep(6 * time.Second) //hack: this is so the contact chore can send the satellite the capacity info on its second iteration after 5s
 	errRun := cmd.Run()
 
 	cancel()
