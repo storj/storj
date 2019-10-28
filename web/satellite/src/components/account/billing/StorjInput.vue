@@ -87,7 +87,7 @@ export default class StorjInput extends Vue {
         border-radius: 8px;
         background-color: transparent;
         padding: 0 36px 0 20px;
-        font-family: font_medium;
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         line-height: 28px;
         color: #354049;
@@ -130,7 +130,7 @@ export default class StorjInput extends Vue {
             height: 100%;
 
             &__label {
-                font-family: font_medium;
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 28px;
                 color: #354049;
@@ -147,7 +147,7 @@ export default class StorjInput extends Vue {
         width: 256px;
         position: absolute;
         height: auto;
-        font-family: font_medium;
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         line-height: 48px;
         color: #354049;
@@ -165,7 +165,7 @@ export default class StorjInput extends Vue {
             cursor: pointer;
 
             &:hover {
-                background-color: #F2F2F6;
+                background-color: #f2f2f6;
             }
         }
 
@@ -190,7 +190,7 @@ export default class StorjInput extends Vue {
             }
 
             &:hover {
-                background-color: #F2F2F6;
+                background-color: #f2f2f6;
             }
 
             &.selected {
