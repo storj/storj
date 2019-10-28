@@ -261,6 +261,7 @@ export default class ProjectDetailsArea extends Vue {
 
             .project-details-svg {
                 cursor: pointer;
+                min-width: 40px;
 
                 &:hover {
 
