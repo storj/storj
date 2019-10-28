@@ -54,8 +54,8 @@ export default class ApiKeysCopyPopup extends Vue {
         this.$emit('closePopup');
     }
 
-    public onCopyClick(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
+    public async onCopyClick(): Promise<void> {
+        await this.$notify.success('Key saved to clipboard');
         this.isCopiedButtonShown = true;
     }
 }

@@ -29,7 +29,6 @@ import { Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
@@ -49,25 +48,25 @@ export default class ProjectSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+            await this.$notify.error('Unable to fetch buckets: ' + error.message);
         }
     }
 

@@ -122,7 +122,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
@@ -218,9 +218,9 @@ export default class ApiKeysArea extends Vue {
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(DELETE);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API keys deleted successfully`);
+            await this.$notify.success(`API keys deleted successfully`);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
 
         try {
@@ -336,7 +336,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async notifyFetchError(error: Error): Promise<void> {
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+        await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
     }
 }
 </script>
