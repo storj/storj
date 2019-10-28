@@ -307,6 +307,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			mon.IntVal("graceful_exit_pieces_succeeded_transfer").Observe(progress.PiecesTransferred)
 
 			processed := progress.PiecesFailed + progress.PiecesTransferred
+			mon.IntVal("graceful_exit_successful_bytes_transfer_ratio").Observe(progress.PiecesTransferred / processed)
+
 			// check node's exiting progress to see if it has failed passed max failure threshold
 			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
