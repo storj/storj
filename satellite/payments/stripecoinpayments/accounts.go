@@ -15,7 +15,6 @@ import (
 // accounts is an implementation of payments.Accounts.
 type accounts struct {
 	service *Service
-	userID  uuid.UUID
 }
 
 // CreditCards exposes all needed functionality to manage account credit cards.
@@ -24,34 +23,46 @@ func (accounts *accounts) CreditCards() payments.CreditCards {
 }
 
 // Setup creates a payment account for the user.
-func (accounts *accounts) Setup(ctx context.Context, email string) (err error) {
-	defer mon.Task()(&ctx, accounts.userID, email)(&err)
+// If account is already set up it will return nil.
+func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	_, err = accounts.service.customers.GetCustomerID(ctx, userID)
+	if err == nil {
+		return nil
+	}
 
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
 	}
 
-	if _, err := accounts.service.stripeClient.Customers.New(params); err != nil {
-		return ErrorStripe.Wrap(err)
+	customer, err := accounts.service.stripeClient.Customers.New(params)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return accounts.service.customers.Insert(ctx, accounts.userID, email)
+	return Error.Wrap(accounts.service.customers.Insert(ctx, userID, customer.ID))
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
-func (accounts *accounts) Balance(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx, accounts.userID)(&err)
+func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := accounts.service.customers.GetCustomerID(ctx, accounts.userID)
+	customerID, err := accounts.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return 0, err
+		return 0, Error.Wrap(err)
 	}
 
 	c, err := accounts.service.stripeClient.Customers.Get(customerID, nil)
 	if err != nil {
-		return 0, ErrorStripe.Wrap(err)
+		return 0, Error.Wrap(err)
 	}
 
 	return c.Balance, nil
+}
+
+// StorjTokens exposes all storj token related functionality.
+func (accounts *accounts) StorjTokens() payments.StorjTokens {
+	return &storjTokens{service: accounts.service}
 }

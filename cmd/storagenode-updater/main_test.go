@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -22,15 +23,38 @@ func TestAutoUpdater(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	content, err := ioutil.ReadFile("testdata/fake-storagenode")
-	require.NoError(t, err)
+	testFiles := []struct {
+		src   string
+		dst   string
+		perms os.FileMode
+	}{
+		{
+			"testdata/fake-storagenode",
+			ctx.File("storagenode"),
+			0755,
+		},
+		{
+			"testdata/fake-ident.cert",
+			ctx.File("identity.cert"),
+			0644,
+		},
+		{
+			"testdata/fake-ident.key",
+			ctx.File("identity.key"),
+			0600,
+		},
+	}
 
-	tmpExec := ctx.File("storagenode")
-	err = ioutil.WriteFile(tmpExec, content, 0755)
-	require.NoError(t, err)
+	for _, file := range testFiles {
+		content, err := ioutil.ReadFile(file.src)
+		require.NoError(t, err)
+
+		err = ioutil.WriteFile(file.dst, content, file.perms)
+		require.NoError(t, err)
+	}
 
 	var mux http.ServeMux
-	content, err = ioutil.ReadFile("testdata/fake-storagenode.zip")
+	content, err := ioutil.ReadFile("testdata/fake-storagenode.zip")
 	require.NoError(t, err)
 	mux.HandleFunc("/download", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write(content)
@@ -42,18 +66,22 @@ func TestAutoUpdater(t *testing.T) {
 
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
-		Versions: versioncontrol.ServiceVersions{
+		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
-		Binary: versioncontrol.Versions{
-			Storagenode: versioncontrol.Binary{
-				Suggested: versioncontrol.Version{
+		Binary: versioncontrol.ProcessesConfig{
+			Storagenode: versioncontrol.ProcessConfig{
+				Suggested: versioncontrol.VersionConfig{
 					Version: "0.19.5",
 					URL:     ts.URL + "/download",
+				},
+				Rollout: versioncontrol.RolloutConfig{
+					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Cursor: 100,
 				},
 			},
 		},
@@ -69,17 +97,24 @@ func TestAutoUpdater(t *testing.T) {
 	args = append(args, "run")
 	args = append(args, "main.go")
 	args = append(args, "run")
-	args = append(args, "--version-url")
+	args = append(args, "--server-address")
 	args = append(args, "http://"+peer.Addr())
 	args = append(args, "--binary-location")
-	args = append(args, tmpExec)
-	args = append(args, "--interval")
-	args = append(args, "0")
+	args = append(args, testFiles[0].dst)
+	args = append(args, "--check-interval")
+	args = append(args, "0s")
+	args = append(args, "--identity.cert-path")
+	args = append(args, testFiles[1].dst)
+	args = append(args, "--identity.key-path")
+	args = append(args, testFiles[2].dst)
 
 	out, err := exec.Command("go", args...).CombinedOutput()
-	assert.NoError(t, err)
-
 	result := string(out)
+	if !assert.NoError(t, err) {
+		t.Log(result)
+		t.Fatal(err)
+	}
+
 	if !assert.Contains(t, result, "restarted successfully") {
 		t.Log(result)
 	}

@@ -15,16 +15,20 @@ import (
 // creditCards is an implementation of payments.CreditCards.
 type creditCards struct {
 	service *Service
-	userID  uuid.UUID
 }
 
-// List returns a list of PaymentMethods for a given Customer.
-func (creditCards *creditCards) List(ctx context.Context) (cards []payments.CreditCard, err error) {
-	defer mon.Task()(&ctx, creditCards.userID)(&err)
+// List returns a list of credit cards for a given payment account.
+func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
+	}
+
+	customer, err := creditCards.service.stripeClient.Customers.Get(customerID, nil)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	params := &stripe.PaymentMethodListParams{
@@ -36,29 +40,35 @@ func (creditCards *creditCards) List(ctx context.Context) (cards []payments.Cred
 	for paymentMethodsIterator.Next() {
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
+		isDefault := false
+		if customer.InvoiceSettings != nil {
+			isDefault = customer.InvoiceSettings.DefaultPaymentMethod.ID == stripeCard.ID
+		}
+
 		cards = append(cards, payments.CreditCard{
-			ID:       []byte(stripeCard.ID),
-			ExpMonth: int(stripeCard.Card.ExpMonth),
-			ExpYear:  int(stripeCard.Card.ExpYear),
-			Brand:    string(stripeCard.Card.Brand),
-			Last4:    stripeCard.Card.Last4,
+			ID:        stripeCard.ID,
+			ExpMonth:  int(stripeCard.Card.ExpMonth),
+			ExpYear:   int(stripeCard.Card.ExpYear),
+			Brand:     string(stripeCard.Card.Brand),
+			Last4:     stripeCard.Card.Last4,
+			IsDefault: isDefault,
 		})
 	}
 
 	if err = paymentMethodsIterator.Err(); err != nil {
-		return nil, ErrorStripe.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return cards, nil
 }
 
 // Add is used to save new credit card and attach it to payment account.
-func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err error) {
-	defer mon.Task()(&ctx, creditCards.userID, cardToken)(&err)
+func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
+	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, creditCards.userID)
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		return err
+		return payments.ErrAccountNotSetup.Wrap(err)
 	}
 
 	cardParams := &stripe.PaymentMethodParams{
@@ -68,7 +78,7 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 
 	card, err := creditCards.service.stripeClient.PaymentMethods.New(cardParams)
 	if err != nil {
-		return ErrorStripe.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -76,10 +86,37 @@ func (creditCards *creditCards) Add(ctx context.Context, cardToken string) (err 
 	}
 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+
+	// TODO: handle created but not attached card manually?
+	return Error.Wrap(err)
+}
+
+// MakeDefault makes a credit card default payment method.
+// this credit card should be attached to account before make it default.
+func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
+	defer mon.Task()(&ctx, userID, cardID)(&err)
+
+	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
 	if err != nil {
-		// TODO: handle created but not attached card manually?
-		return ErrorStripe.Wrap(err)
+		return payments.ErrAccountNotSetup.Wrap(err)
 	}
 
-	return nil
+	params := &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: stripe.String(cardID),
+		},
+	}
+
+	_, err = creditCards.service.stripeClient.Customers.Update(customerID, params)
+
+	return Error.Wrap(err)
+}
+
+// Remove is used to remove credit card from payment account.
+func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	_, err = creditCards.service.stripeClient.PaymentMethods.Detach(cardID, nil)
+
+	return Error.Wrap(err)
 }

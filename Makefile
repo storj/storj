@@ -1,6 +1,7 @@
-GO_VERSION ?= 1.13.1
+GO_VERSION ?= 1.13.3
 GOOS ?= linux
 GOARCH ?= amd64
+GOPATH ?= $(shell go env GOPATH)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},master)
@@ -109,6 +110,10 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
+
+.PHONY: test-libuplink-gomobile
+test-libuplink-gomobile: ## Run gomobile tests
+	@./lib/uplink-gomobile/test-sim.sh
 
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
@@ -226,8 +231,13 @@ binary:
 	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-build 9 -ver-build 9 \
-	-product-version "alpha9" \
+	-product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+	        -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+	-product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+	        -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+	-product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
+	        -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
+	-product-version "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" || echo "dev" )" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
@@ -368,7 +378,7 @@ diagrams-graphml:
 update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
-		-v $(shell pwd):/storj \
+		-v ${CURDIR}:/storj \
 		-v $(shell go env GOCACHE):/go-cache \
 		-e "GOCACHE=/go-cache" \
 		-u root:root \

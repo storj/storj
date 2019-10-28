@@ -13,6 +13,10 @@ import "node.proto";
 import "pointerdb.proto";
 import "orders.proto";
 
+// NOTE!!!
+// * If someone will add stream_id or segment_id to existing or new message in this protobuf
+//   then Batch method (satellite/metainfo/batch.go) needs to be updated as well
+
 // Metainfo it's a satellite RPC service
 service Metainfo {
     // Bucket
@@ -496,7 +500,7 @@ message SegmentMakeInlineResponse {}
 message SegmentBeginDeleteRequest {
     RequestHeader header = 15;
 
-    bytes stream_id = 1;
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition position = 2;
 }
 
@@ -524,7 +528,7 @@ message SegmentFinishDeleteResponse {}
 message SegmentListRequest {
     RequestHeader header = 15;
 
-    bytes stream_id                 = 1;
+    bytes stream_id                 = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition cursor_position = 2;
     int32 limit                     = 3;
 }

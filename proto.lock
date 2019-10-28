@@ -862,8 +862,12 @@
                 "integer": 1
               },
               {
-                "name": "UNKNOWN",
+                "name": "HASH_VERIFICATION",
                 "integer": 2
+              },
+              {
+                "name": "UNKNOWN",
+                "integer": 10
               }
             ]
           },
@@ -872,6 +876,14 @@
             "enum_fields": [
               {
                 "name": "VERIFICATION_FAILED"
+              },
+              {
+                "name": "INACTIVE_TIMEFRAME_EXCEEDED",
+                "integer": 1
+              },
+              {
+                "name": "OVERALL_FAILURE_PERCENTAGE_EXCEEDED",
+                "integer": 2
               }
             ]
           }
@@ -995,8 +1007,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "addressed_order_limit",
-                "type": "metainfo.AddressedOrderLimit"
+                "name": "original_order_limit",
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
@@ -1135,6 +1147,51 @@
                 "id": 1,
                 "name": "exit_complete_signature",
                 "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "completed",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1150,6 +1207,51 @@
                 "id": 2,
                 "name": "reason",
                 "type": "Reason"
+              },
+              {
+                "id": 3,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "failed",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1221,6 +1323,9 @@
         "imports": [
           {
             "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           },
           {
             "path": "metainfo.proto"
@@ -3426,7 +3531,17 @@
               {
                 "id": 1,
                 "name": "stream_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -3551,7 +3666,17 @@
               {
                 "id": 1,
                 "name": "stream_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,

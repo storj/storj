@@ -159,7 +159,6 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
-	time.Sleep(6 * time.Second) //hack: this is so the contact chore can send the satellite the capacity info on its second iteration after 5s
 	errRun := cmd.Run()
 
 	cancel()
@@ -370,7 +369,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				host := "http://" + consoleAddress
 				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
 				consoleActivationAddress := host + "/activation/?token="
-				consoleAPIAddress := host + "/api/graphql/v0"
+				consoleAPIAddress := host + "/api/v0/graphql"
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)

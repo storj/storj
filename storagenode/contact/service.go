@@ -4,6 +4,7 @@
 package contact
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -34,13 +35,17 @@ type Service struct {
 
 	mu   sync.Mutex
 	self *overlay.NodeDossier
+
+	gotSelfData bool
+	dataWaiter  chan struct{}
 }
 
 // NewService creates a new contact service
 func NewService(log *zap.Logger, self *overlay.NodeDossier) *Service {
 	return &Service{
-		log:  log,
-		self: self,
+		log:        log,
+		self:       self,
+		dataWaiter: make(chan struct{}),
 	}
 }
 
@@ -57,5 +62,21 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	defer service.mu.Unlock()
 	if capacity != nil {
 		service.self.Capacity = *capacity
+	}
+	if !service.gotSelfData {
+		service.gotSelfData = true
+		close(service.dataWaiter)
+	}
+}
+
+// waitForSelfData waits for any incoming call to the .UpdateSelf() method on this
+// contact.Service instance, then returns. If the given context is canceled first,
+// the relevant error is returned instead.
+func (service *Service) waitForSelfData(ctx context.Context) error {
+	select {
+	case <-service.dataWaiter:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

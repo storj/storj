@@ -19,10 +19,10 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class SortBucketsHeader extends Vue {}
+@Component
+export default class SortBucketsHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -36,7 +36,6 @@
         &__item {
             width: 25%;
             margin: 0;
-            cursor: pointer;
             text-align: left;
             padding-left: 26px;
 

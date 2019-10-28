@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
+	versionchecker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -48,7 +49,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -65,7 +66,7 @@ type SatelliteSystem struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *versionchecker.Service
 
 	Contact struct {
 		Service  *contact.Service
@@ -220,7 +221,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			db, err = satellitedb.NewInMemory(log.Named("db"))
+			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
+			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
 		}
 		if err != nil {
 			return nil, err
@@ -361,8 +363,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				ChoreBatchSize: 10,
 				ChoreInterval:  defaultInterval,
 
-				EndpointBatchSize:   100,
-				EndpointMaxFailures: 5,
+				EndpointBatchSize:            100,
+				MaxFailuresPerPiece:          5,
+				MaxInactiveTimeFrame:         time.Second * 10,
+				OverallMaxFailuresPercentage: 10,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
