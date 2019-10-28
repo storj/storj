@@ -60,10 +60,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	var group errgroup.Group
 
-	if err = chore.service.waitForSelfData(ctx); err != nil {
-		return err
+	if !chore.service.initialized.Wait(ctx) {
+		return ctx.Err()
 	}
-
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
 
