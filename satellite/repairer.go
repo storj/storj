@@ -139,6 +139,9 @@ func (peer *Repairer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Overlay != nil {
+		errlist.Add(peer.Overlay.Close())
+	}
 	if peer.Repairer != nil {
 		errlist.Add(peer.Repairer.Close())
 	}
