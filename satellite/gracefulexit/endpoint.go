@@ -234,40 +234,40 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			close(processChan)
 		}()
 
-		for range ticker.C {
-			// exit if context canceled
+	loop:
+		for {
 			select {
 			case <-ctx.Done():
+				// exit if context canceled
 				return ctx.Err()
-			default:
-			}
-
-			if pending.length() == 0 {
-				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
-				if err != nil {
-					return handleError(err)
-				}
-
-				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
+			case <-ticker.C:
+				if pending.length() == 0 {
+					incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						return handleError(err)
 					}
-				}
 
-				if len(incomplete) == 0 {
-					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
-					atomic.StoreInt32(&morePiecesFlag, 0)
-					break
-				}
-
-				for _, inc := range incomplete {
-					err = endpoint.processIncomplete(ctx, stream, pending, inc)
-					if err != nil {
-						return handleError(err)
+					if len(incomplete) == 0 {
+						incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
+						if err != nil {
+							return handleError(err)
+						}
 					}
+
+					if len(incomplete) == 0 {
+						endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
+						atomic.StoreInt32(&morePiecesFlag, 0)
+						break loop
+					}
+
+					for _, inc := range incomplete {
+						err = endpoint.processIncomplete(ctx, stream, pending, inc)
+						if err != nil {
+							return handleError(err)
+						}
+					}
+					processChan <- true
 				}
-				processChan <- true
 			}
 		}
 		return nil
