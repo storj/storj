@@ -164,13 +164,13 @@ export default class ChangePasswordPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
     }
-    
+
     .input-container.full-input {
         width: 100%;
     }
-    
+
     .change-password-row-container {
         width: 100%;
         display: flex;
@@ -179,12 +179,12 @@ export default class ChangePasswordPopup extends Vue {
         justify-content: flex-start;
         margin-bottom: 20px;
     }
-    
+
     .change-password-popup {
         width: 100%;
         max-width: 440px;
         max-height: 470px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -192,7 +192,7 @@ export default class ChangePasswordPopup extends Vue {
         position: relative;
         justify-content: center;
         padding: 80px;
-        
+
         &__info-panel-container {
             display: flex;
             flex-direction: column;
@@ -201,21 +201,21 @@ export default class ChangePasswordPopup extends Vue {
             margin-right: 100px;
             margin-top: 20px;
         }
-        
+
         &__form-container {
             width: 100%;
             max-width: 440px;
-            
+
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 60px;
-                color: #384B65;
+                color: #384b65;
                 margin-bottom: 0;
                 margin-top: 0;
                 margin-left: 32px;
             }
-            
+
             &__button-container {
                 width: 100%;
                 display: flex;
@@ -225,7 +225,7 @@ export default class ChangePasswordPopup extends Vue {
                 margin-top: 32px;
             }
         }
-        
+
         &__close-cross-container {
             display: flex;
             justify-content: center;
@@ -236,22 +236,23 @@ export default class ChangePasswordPopup extends Vue {
             height: 24px;
             width: 24px;
             cursor: pointer;
-        
+
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .change-password-popup {
-            
+
             &__info-panel-container {
                 display: none;
             }
-            
+
             &__form-container {
-                
+
                 &__button-container {
                     width: 100%;
                 }

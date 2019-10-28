@@ -53,8 +53,8 @@ export default class ChecksArea extends Vue {
     .checks-area-container {
         width: 339px;
         height: 79px;
-        background-color: #FFFFFF;
-        border: 1px solid #E9EFF4;
+        background-color: #fff;
+        border: 1px solid #e9eff4;
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -67,7 +67,7 @@ export default class ChecksArea extends Vue {
             &__title {
                 font-size: 14px;
                 line-height: 21px;
-                color: #586C86;
+                color: #586c86;
                 margin: 0 5px 0 0;
             }
 
@@ -78,7 +78,7 @@ export default class ChecksArea extends Vue {
                 &:hover {
 
                     .checks-area-svg-rect {
-                        fill: #A5C7EF;
+                        fill: #a5c7ef;
                     }
                 }
             }
@@ -87,7 +87,7 @@ export default class ChecksArea extends Vue {
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
             margin: 0;
         }
     }

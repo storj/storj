@@ -66,19 +66,19 @@ export default class CardComponent extends Vue {
 
 <style scoped lang="scss">
     .bold {
-        font-family: 'font_bold';
+        font-family: 'font_bold', sans-serif;
         font-size: 16px;
         line-height: 21px;
-        color: #61666B;
+        color: #61666b;
         margin-block-start: 0.5em;
         margin-block-end: 0.5em;
     }
 
     .medium {
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
         font-size: 16px;
         line-height: 21px;
-        color: #61666B;
+        color: #61666b;
         margin-right: 5px;
     }
 
@@ -89,7 +89,7 @@ export default class CardComponent extends Vue {
         align-items: center;
         justify-content: space-between;
         padding: 20px;
-        background-color: #F5F6FA;
+        background-color: #f5f6fa;
         border-radius: 6px;
 
         &__info-area {
@@ -138,7 +138,7 @@ export default class CardComponent extends Vue {
             align-items: center;
 
             &__label {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
                 color: #000;

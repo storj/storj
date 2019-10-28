@@ -124,7 +124,7 @@ export default class DeleteAccountPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
     }
 
     .input-container.full-input {
@@ -132,7 +132,7 @@ export default class DeleteAccountPopup extends Vue {
     }
 
     .red {
-        background-color: #EB5757;
+        background-color: #eb5757;
     }
 
     .text {
@@ -144,7 +144,7 @@ export default class DeleteAccountPopup extends Vue {
     .delete-account {
         width: 100%;
         max-width: 845px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -161,10 +161,10 @@ export default class DeleteAccountPopup extends Vue {
             margin-right: 100px;
 
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin: 0 0 60px 0;
             }
         }
@@ -175,7 +175,7 @@ export default class DeleteAccountPopup extends Vue {
 
             &__confirmation-text {
                 margin: 0 0 25px 0;
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 25px;
 
@@ -206,18 +206,18 @@ export default class DeleteAccountPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .delete-account {
             padding: 10px;
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

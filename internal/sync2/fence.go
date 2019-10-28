@@ -4,75 +4,62 @@
 package sync2
 
 import (
-	"runtime"
+	"context"
 	"sync"
-	"sync/atomic"
 )
 
 // Fence allows to wait for something to happen.
 type Fence struct {
-	status uint32
-	wait   sync.Mutex
+	setup   sync.Once
+	release sync.Once
+	done    chan struct{}
 }
-
-/*
-General flow of the fence:
-
-init:
-	first arriver caller to `init` will setup a lock in `wait`
-
-Wait callers:
-	try to lock/unlock in Wait, this will block until the initial lock will be released
-
-Release caller:
-	first caller will release the initial lock
-*/
-
-const (
-	statusUninitialized = iota
-	statusInitializing
-	statusBlocked
-	statusReleased
-)
 
 // init sets up the initial lock into wait
 func (fence *Fence) init() {
-	// wait for initialization
-	for atomic.LoadUint32(&fence.status) <= statusInitializing {
-		// first arriver sets up lock
-		if atomic.CompareAndSwapUint32(&fence.status, statusUninitialized, statusInitializing) {
-			fence.wait.Lock()
-			atomic.StoreUint32(&fence.status, statusBlocked)
-		} else {
-			runtime.Gosched()
-		}
-	}
-}
-
-// Wait waits for wait to be unlocked
-func (fence *Fence) Wait() {
-	// fast-path
-	if fence.Released() {
-		return
-	}
-	fence.init()
-	// start waiting on the initial lock to be released
-	fence.wait.Lock()
-	// intentionally empty critical section to wait for Release
-	//nolint
-	fence.wait.Unlock()
-}
-
-// Released returns whether the fence has been released.
-func (fence *Fence) Released() bool {
-	return atomic.LoadUint32(&fence.status) >= statusReleased
+	fence.setup.Do(func() {
+		fence.done = make(chan struct{})
+	})
 }
 
 // Release releases everyone from Wait
 func (fence *Fence) Release() {
 	fence.init()
-	// the first one releases the status
-	if atomic.CompareAndSwapUint32(&fence.status, statusBlocked, statusReleased) {
-		fence.wait.Unlock()
+	fence.release.Do(func() { close(fence.done) })
+}
+
+// Wait waits for wait to be unlocked.
+// Returns true when it was successfully released.
+func (fence *Fence) Wait(ctx context.Context) bool {
+	fence.init()
+
+	select {
+	case <-fence.done:
+		return true
+	default:
+		select {
+		case <-ctx.Done():
+			return false
+		case <-fence.done:
+			return true
+		}
 	}
+}
+
+// Released returns whether the fence has been released.
+func (fence *Fence) Released() bool {
+	fence.init()
+
+	select {
+	case <-fence.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// Done returns channel that will be closed when the fence is released.
+func (fence *Fence) Done() chan struct{} {
+	fence.init()
+	return fence.done
 }
