@@ -51,20 +51,28 @@ type Info struct {
 	Release    bool      `json:"release,omitempty"`
 }
 
-// SemVer represents a semantic version
+// SemVer represents a semantic version.
 // TODO: replace with semver.Version
 type SemVer struct {
 	semver.Version
 }
 
-// AllowedVersions provides the Minimum SemVer per Service
+// OldSemVer represents a semantic version.
+// NB: this will be deprecated in favor of `SemVer`; these structs marshal to JSON differently.
+type OldSemVer struct {
+	Major int64 `json:"major"`
+	Minor int64 `json:"minor"`
+	Patch int64 `json:"patch"`
+}
+
+// AllowedVersions provides the Minimum SemVer per Service.
 // TODO: I don't think this name is representative of what this struct now holds.
 type AllowedVersions struct {
-	Satellite   SemVer
-	Storagenode SemVer
-	Uplink      SemVer
-	Gateway     SemVer
-	Identity    SemVer
+	Satellite   OldSemVer
+	Storagenode OldSemVer
+	Uplink      OldSemVer
+	Gateway     OldSemVer
+	Identity    OldSemVer
 
 	Processes Processes `json:"processes"`
 }
@@ -136,6 +144,21 @@ func NewSemVer(v string) (SemVer, error) {
 	}, nil
 }
 
+// NewOldSemVer parses a given version and returns an instance of OldSemVer or
+// an error if unable to parse the version.
+func NewOldSemVer(v string) (OldSemVer, error) {
+	ver, err := NewSemVer(v)
+	if err != nil {
+		return OldSemVer{}, err
+	}
+
+	return OldSemVer{
+		Major: int64(ver.Major),
+		Minor: int64(ver.Minor),
+		Patch: int64(ver.Patch),
+	}, nil
+}
+
 // Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less.
 func (sem *SemVer) Compare(version SemVer) int {
 	return sem.Version.Compare(version.Version)
@@ -149,6 +172,10 @@ func (sem *SemVer) String() (version string) {
 // IsZero checks if the semantic version is its zero value.
 func (sem SemVer) IsZero() bool {
 	return reflect.ValueOf(sem).IsZero()
+}
+
+func (old OldSemVer) String() string {
+	return fmt.Sprintf("v%d.%d.%d", old.Major, old.Minor, old.Patch)
 }
 
 // SemVer converts a version struct into a semantic version struct.

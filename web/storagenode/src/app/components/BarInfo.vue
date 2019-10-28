@@ -22,6 +22,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VBar from '@/app/components/VBar.vue';
 import VInfo from '@/app/components/VInfo.vue';
+
 import { formatBytes } from '@/app/utils/converter';
 
 @Component ({
