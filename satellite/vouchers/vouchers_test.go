@@ -19,14 +19,14 @@ func TestVouchers(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0].Local().Node
 
-		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &satellite)
+		conn, err := planet.StorageNodes[0].Dialer.DialNode(ctx, &satellite)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewVouchersClient(conn)
+		client := conn.VouchersClient()
 
 		resp, err := client.Request(ctx, &pb.VoucherRequest{})
 		require.Nil(t, resp)
-		require.EqualError(t, err, "rpc error: code = Unknown desc = Vouchers endpoint is deprecated. Please upgrade your storage node to the latest version.")
+		require.Error(t, err, "Vouchers endpoint is deprecated. Please upgrade your storage node to the latest version.")
 	})
 }

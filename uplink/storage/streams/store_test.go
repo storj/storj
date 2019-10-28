@@ -142,7 +142,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segmentItems, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+		segmentItems, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 			CursorPosition: storj.SegmentPosition{
 				Index: 0,
@@ -275,7 +275,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 	require.NoError(t, err)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
 
 	cfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
 	rs, err := eestream.NewRedundancyStrategyFromStorj(cfg.GetRedundancyScheme())

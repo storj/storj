@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
@@ -292,105 +291,11 @@ func TestRandomizedSelection(t *testing.T) {
 	})
 }
 
-func TestIsVetted(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditCount = 1
-				config.Overlay.Node.UptimeCount = 1
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var err error
-		satellitePeer := planet.Satellites[0]
-		satellitePeer.Audit.Chore.Loop.Pause()
-		satellitePeer.Audit.Worker.Loop.Pause()
-		satellitePeer.Repair.Checker.Loop.Pause()
-		service := satellitePeer.Overlay.Service
-
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[0].ID(),
-			IsUp:         true,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[1].ID(),
-			IsUp:         true,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
-		require.NoError(t, err)
-		require.True(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
-		require.NoError(t, err)
-		require.True(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[2].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-
-		// test dq-ing for bad uptime
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[0].ID(),
-			IsUp:         false,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 0,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		// test dq-ing for bad audit
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[1].ID(),
-			IsUp:         true,
-			AuditSuccess: false,
-			AuditLambda:  0,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[0].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-	})
-}
-
 func TestNodeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
-		planet.Satellites[0].Discovery.Service.Refresh.Pause()
 
 		node, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
@@ -469,6 +374,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Contained:    false,
 			Disqualified: nil,
 			PieceCount:   0,
+			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: 0.99,
@@ -498,7 +404,8 @@ func TestUpdateCheckIn(t *testing.T) {
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
-		require.Equal(t, actualNode, expectedNode)
+		expectedNode.CreatedAt = actualNode.CreatedAt
+		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
 		startOfUpdateTest := time.Now().UTC()
@@ -513,10 +420,10 @@ func TestUpdateCheckIn(t *testing.T) {
 				FreeBandwidth: int64(12355),
 			},
 			Version: &pb.NodeVersion{
-				Version:    "v0.0.0",
-				CommitHash: "",
-				Timestamp:  time.Time{},
-				Release:    false,
+				Version:    "v0.1.0",
+				CommitHash: "abc123",
+				Timestamp:  time.Now().UTC(),
+				Release:    true,
 			},
 		}
 		// confirm that the updated node is in the nodes table with the
@@ -530,6 +437,10 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
 		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
 		require.Equal(t, updatedNode.Capacity.GetFreeBandwidth(), int64(12355))
+		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
+		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
+		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
+		require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
 
 		// confirm we can udpate IsUp field
 		startOfUpdateTest2 := time.Now().UTC()

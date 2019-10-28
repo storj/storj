@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -31,12 +31,15 @@ func TestGraphqlQuery(t *testing.T) {
 
 		log := zaptest.NewLogger(t)
 
+		paymentsConfig := stripecoinpayments.Config{}
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.Customers(), db.CoinpaymentsTransactions())
+
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.Rewards(),
-			localpayments.NewService(nil),
+			payments.Accounts(),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)
@@ -48,6 +51,9 @@ func TestGraphqlQuery(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		creator := consoleql.TypeCreator{}
 		err = creator.Create(log, service, mailService)

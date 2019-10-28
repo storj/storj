@@ -10,16 +10,14 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storage"
 )
 
 var (
@@ -31,8 +29,8 @@ var (
 
 // Client creates a grpcClient
 type Client struct {
-	client    pb.MetainfoClient
-	conn      *grpc.ClientConn
+	conn      *rpc.Conn
+	client    rpc.MetainfoClient
 	apiKeyRaw []byte
 }
 
@@ -44,7 +42,7 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(client pb.MetainfoClient, apiKey *macaroon.APIKey) *Client {
+func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey) *Client {
 	return &Client{
 		client:    client,
 		apiKeyRaw: apiKey.SerializeRaw(),
@@ -52,15 +50,15 @@ func New(client pb.MetainfoClient, apiKey *macaroon.APIKey) *Client {
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, tc transport.Client, address string, apiKey *macaroon.APIKey) (*Client, error) {
-	conn, err := tc.DialAddress(ctx, address)
+func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey) (*Client, error) {
+	conn, err := dialer.DialAddressInsecureBestEffort(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &Client{
-		client:    pb.NewMetainfoClient(conn),
 		conn:      conn,
+		client:    conn.MetainfoClient(),
 		apiKeyRaw: apiKey.SerializeRaw(),
 	}, nil
 }
@@ -77,167 +75,6 @@ func (client *Client) header() *pb.RequestHeader {
 	return &pb.RequestHeader{
 		ApiKey: client.apiKeyRaw,
 	}
-}
-
-// CreateSegment requests the order limits for creating a new segment
-func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
-		Header:                  client.header(),
-		Bucket:                  []byte(bucket),
-		Path:                    []byte(path),
-		Segment:                 segmentIndex,
-		Redundancy:              redundancy,
-		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		Expiration:              expiration,
-	})
-	if err != nil {
-		return nil, rootPieceID, piecePrivateKey, Error.Wrap(err)
-	}
-
-	return response.GetAddressedLimits(), response.RootPieceId, response.PrivateKey, nil
-}
-
-// CommitSegment requests to store the pointer for the segment
-func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.CommitSegmentOld(ctx, &pb.SegmentCommitRequestOld{
-		Header:         client.header(),
-		Bucket:         []byte(bucket),
-		Path:           []byte(path),
-		Segment:        segmentIndex,
-		Pointer:        pointer,
-		OriginalLimits: originalLimits,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return response.GetPointer(), nil
-}
-
-// SegmentInfo requests the pointer of a segment
-func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.SegmentInfoOld(ctx, &pb.SegmentInfoRequestOld{
-		Header:  client.header(),
-		Bucket:  []byte(bucket),
-		Path:    []byte(path),
-		Segment: segmentIndex,
-	})
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
-		}
-		return nil, Error.Wrap(err)
-	}
-
-	return response.GetPointer(), nil
-}
-
-// ReadSegment requests the order limits for reading a segment
-func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
-		Header:  client.header(),
-		Bucket:  []byte(bucket),
-		Path:    []byte(path),
-		Segment: segmentIndex,
-	})
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
-		}
-		return nil, nil, piecePrivateKey, Error.Wrap(err)
-	}
-
-	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), response.PrivateKey, nil
-}
-
-// sortLimits sorts order limits and fill missing ones with nil values
-func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
-	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		sorted[piece.GetPieceNum()] = getLimitByStorageNodeID(limits, piece.NodeId)
-	}
-	return sorted
-}
-
-func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
-	for _, limit := range limits {
-		if limit.GetLimit().StorageNodeId == storageNodeID {
-			return limit
-		}
-	}
-	return nil
-}
-
-// DeleteSegment requests the order limits for deleting a segment
-func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
-		Header:  client.header(),
-		Bucket:  []byte(bucket),
-		Path:    []byte(path),
-		Segment: segmentIndex,
-	})
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
-		}
-		return nil, piecePrivateKey, Error.Wrap(err)
-	}
-
-	return response.GetAddressedLimits(), response.PrivateKey, nil
-}
-
-// ListSegments lists the available segments
-func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.ListSegmentsOld(ctx, &pb.ListSegmentsRequestOld{
-		Header:     client.header(),
-		Bucket:     []byte(bucket),
-		Prefix:     []byte(prefix),
-		StartAfter: []byte(startAfter),
-		EndBefore:  []byte(endBefore),
-		Recursive:  recursive,
-		Limit:      limit,
-		MetaFlags:  metaFlags,
-	})
-	if err != nil {
-		return nil, false, Error.Wrap(err)
-	}
-
-	list := response.GetItems()
-	items = make([]ListItem, len(list))
-	for i, item := range list {
-		items[i] = ListItem{
-			Path:     storj.Path(item.GetPath()),
-			Pointer:  item.GetPointer(),
-			IsPrefix: item.IsPrefix,
-		}
-	}
-
-	return items, response.GetMore(), nil
-}
-
-// SetAttribution tries to set the attribution information on the bucket.
-func (client *Client) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = client.client.SetAttributionOld(ctx, &pb.SetAttributionRequestOld{
-		Header:     client.header(),
-		PartnerId:  partnerID[:], // TODO: implement storj.UUID that can be sent using pb
-		BucketName: []byte(bucket),
-	})
-
-	return Error.Wrap(err)
 }
 
 // GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
@@ -368,7 +205,7 @@ func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (re
 
 	resp, err := client.client.GetBucket(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
 		return storj.Bucket{}, Error.Wrap(err)
@@ -407,7 +244,7 @@ func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParam
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.DeleteBucket(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.ErrBucketNotFound.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -713,7 +550,7 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 	response, err := client.client.GetObject(ctx, params.toRequest(client.header()))
 
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.ObjectInfo{}, Error.Wrap(err)
@@ -765,7 +602,7 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 
 	response, err := client.client.BeginDeleteObject(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.StreamID{}, Error.Wrap(err)
@@ -970,8 +807,8 @@ func (params *CommitSegmentParams) BatchItem() *pb.BatchRequestItem {
 	}
 }
 
-// CommitSegmentNew commits segment after upload
-func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
+// CommitSegment commits segment after upload
+func (client *Client) CommitSegment(ctx context.Context, params CommitSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitSegment(ctx, params.toRequest(client.header()))
@@ -1230,13 +1067,13 @@ func newListSegmentsResponse(response *pb.SegmentListResponse) ListSegmentsRespo
 	}
 }
 
-// ListSegmentsNew lists object segments
-func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
+// ListSegments lists object segments
+func (client *Client) ListSegments(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegments(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return []storj.SegmentListItem{}, false, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return []storj.SegmentListItem{}, false, Error.Wrap(err)
@@ -1259,7 +1096,11 @@ func (client *Client) Batch(ctx context.Context, requests ...BatchItem) (resp []
 		Requests: batchItems,
 	})
 	if err != nil {
-		return []BatchResponse{}, err
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
+			return []BatchResponse{}, storj.ErrObjectNotFound.Wrap(err)
+		}
+
+		return []BatchResponse{}, Error.Wrap(err)
 	}
 
 	resp = make([]BatchResponse, len(response.Responses))

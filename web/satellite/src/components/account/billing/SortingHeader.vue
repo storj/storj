@@ -20,10 +20,10 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class SortAccountBillingHeader extends Vue {}
+@Component
+export default class SortingHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -32,17 +32,17 @@
         background-color: rgba(245, 246, 250, 0.5);
         width: calc(100% - 60px);
         padding: 0 30px;
-        
+
         &__item {
             text-align: left;
             width: 35%;
             margin-right: 10px;
-            
+
             &__name {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 10px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
         }
     }

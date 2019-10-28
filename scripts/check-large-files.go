@@ -14,6 +14,7 @@ import (
 )
 
 var ignoreFolder = map[string]bool{
+	".build":       true,
 	".git":         true,
 	"node_modules": true,
 	"coverage":     true,

@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
@@ -36,7 +36,7 @@ type Uplink struct {
 	Log              *zap.Logger
 	Info             pb.Node
 	Identity         *identity.FullIdentity
-	Transport        transport.Client
+	Dialer           rpc.Dialer
 	StorageNodeCount int
 
 	APIKey    map[storj.NodeID]*macaroon.APIKey
@@ -64,7 +64,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		return nil, err
 	}
 
-	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
+	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
 	}, nil)
 	if err != nil {
@@ -81,7 +81,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	uplink.Log.Debug("id=" + identity.ID.String())
 
-	uplink.Transport = transport.NewClient(tlsOpts)
+	uplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	uplink.Info = pb.Node{
 		Id: uplink.Identity.ID,
@@ -149,13 +149,13 @@ func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.Dial(ctx, client.Transport, destination.Addr(), apikey)
+	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey)
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
-	return piecestore.Dial(ctx, client.Transport, &node.Node, client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, client.Dialer, &node.Node, client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
 // Upload data to specific satellite
@@ -363,7 +363,6 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
 	config.Legacy.Client.APIKey = apiKey.Serialize()
 	config.Legacy.Client.SatelliteAddr = satellite.Addr()
 
-	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
 	config.RS.MinThreshold = atLeastOne(client.StorageNodeCount * 1 / 5)     // 20% of storage nodes
@@ -403,7 +402,6 @@ func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, erro
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !config.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = config.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = config.Client.DialTimeout
-	libuplinkCfg.Volatile.RequestTimeout = config.Client.RequestTimeout
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

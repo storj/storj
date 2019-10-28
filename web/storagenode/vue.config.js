@@ -2,11 +2,19 @@
 // See LICENSE for copying information.
 
 const path = require('path');
+const StyleLintPlugin = require('stylelint-webpack-plugin');
 
 module.exports = {
     publicPath: "/static/dist",
     productionSourceMap: false,
     parallel: true,
+    configureWebpack: {
+        plugins: [
+            new StyleLintPlugin({
+                files: ['**/*.{vue,sss,less,scss,sass}'],
+            })
+        ],
+    },
     chainWebpack: config => {
         config.output.chunkFilename(`js/vendors.js`);
         config.output.filename(`js/app.js`);
@@ -20,5 +28,13 @@ module.exports = {
                 args[0].template = './index.html';
                 return args
             });
+
+        const svgRule = config.module.rule('svg');
+
+        svgRule.uses.clear();
+
+        svgRule
+            .use('vue-svg-loader')
+            .loader('vue-svg-loader');
     }
 };

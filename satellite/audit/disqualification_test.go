@@ -49,7 +49,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		var (
 			satellitePeer = planet.Satellites[0]
 			nodeID        = planet.StorageNodes[0].ID()
-			report        = &audit.Report{
+			report        = audit.Report{
 				Fails: storj.NodeIDList{nodeID},
 			}
 		)
@@ -67,7 +67,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
+			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report, "")
 			require.NoError(t, err)
 
 			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)

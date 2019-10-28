@@ -17,10 +17,11 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -33,22 +34,24 @@ type Client interface {
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) error
 	WithForceErrorDetection(force bool) Client
+	// PutPiece is not intended to be used by normal uplinks directly, but is exported to support storagenode graceful exit transfers.
+	PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, id *identity.PeerIdentity, err error)
 }
 
 type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
 	log                 *zap.Logger
-	transport           transport.Client
+	dialer              rpc.Dialer
 	memoryLimit         int
 	forceErrorDetection bool
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(log *zap.Logger, tc transport.Client, memoryLimit int) Client {
+func NewClient(log *zap.Logger, dialer rpc.Dialer, memoryLimit int) Client {
 	return &ecClient{
 		log:         log,
-		transport:   tc,
+		dialer:      dialer,
 		memoryLimit: memoryLimit,
 	}
 }
@@ -60,7 +63,7 @@ func (ec *ecClient) WithForceErrorDetection(force bool) Client {
 
 func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
 	logger := ec.log.Named(n.Id.String())
-	return piecestore.Dial(ctx, ec.transport, n, logger, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
 }
 
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
@@ -105,7 +108,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
+			hash, _, err := ec.PutPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -175,7 +178,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, peerID *identity.PeerIdentity, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -185,7 +188,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 
 	if limit == nil {
 		_, _ = io.Copy(ioutil.Discard, data)
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	storageNodeID := limit.GetLimit().StorageNodeId
@@ -200,9 +203,18 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
+
+	peerID, err = ps.GetPeerIdentity()
+	if err != nil {
+		ec.log.Debug("Failed getting peer identity from node connection",
+			zap.String("NodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
 
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
@@ -211,44 +223,46 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
+
 	defer func() {
-		if ctx.Err() != nil || err != nil {
-			hash = nil
+		if err != nil {
 			err = errs.Combine(err, upload.Cancel(ctx))
 			return
 		}
-		h, closeErr := upload.Commit(ctx)
-		hash = h
-		err = errs.Combine(err, closeErr)
+
+		hash, err = upload.Commit(ctx)
 	}()
 
 	_, err = sync2.Copy(ctx, upload, data)
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
-	if ctx.Err() == context.Canceled {
-		if parent.Err() == context.Canceled {
-			ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
+	if err != nil {
+		if errs2.IsCanceled(err) {
+			if parent.Err() == context.Canceled {
+				ec.log.Info("Upload to node canceled by user", zap.Stringer("NodeID", storageNodeID))
+			} else {
+				ec.log.Debug("Node cut from upload due to slow connection", zap.Stringer("NodeID", storageNodeID))
+			}
 		} else {
-			ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
-		}
-		err = context.Canceled
-	} else if err != nil {
-		nodeAddress := "nil"
-		if limit.GetStorageNodeAddress() != nil {
-			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
+			nodeAddress := ""
+			if limit.GetStorageNodeAddress() != nil {
+				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
+			}
+
+			ec.log.Debug("Failed uploading piece to node",
+				zap.Stringer("PieceID", pieceID),
+				zap.Stringer("NodeID", storageNodeID),
+				zap.String("Node Address", nodeAddress),
+				zap.Error(err),
+			)
 		}
 
-		ec.log.Debug("Failed uploading piece to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
-			zap.String("Node Address", nodeAddress),
-			zap.Error(err),
-		)
+		return nil, nil, err
 	}
 
-	return hash, err
+	return nil, peerID, nil
 }
 
 func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {

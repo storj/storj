@@ -40,7 +40,7 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 		}
 		defer ctx.Check(db.Close)
 
-		err = db.CreateTables()
+		err = db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -18,15 +18,16 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -38,19 +39,20 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/localpayments"
-	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -99,6 +101,12 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() metainfo.BucketsDB
+	// GracefulExit returns database for graceful exit
+	GracefulExit() gracefulexit.DB
+	// StripeCustomers returns table for storing stripe customers
+	Customers() stripecoinpayments.CustomersDB
+	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
+	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
 }
 
 // Config is the global config satellite
@@ -106,9 +114,8 @@ type Config struct {
 	Identity identity.Config
 	Server   server.Config
 
-	Contact   contact.Config
-	Overlay   overlay.Config
-	Discovery discovery.Config
+	Contact contact.Config
+	Overlay overlay.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
@@ -130,7 +137,11 @@ type Config struct {
 
 	Marketing marketingweb.Config
 
-	Version version.Config
+	Version version_checker.Config
+
+	GracefulExit gracefulexit.Config
+
+	Metrics metrics.Config
 }
 
 // Peer is the satellite
@@ -142,27 +153,22 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
-	Transport transport.Client
+	Dialer rpc.Dialer
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *version_checker.Service
 
 	// services and endpoints
 	Contact struct {
-		Service   *contact.Service
-		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
-	}
-
-	Discovery struct {
-		Service *discovery.Discovery
 	}
 
 	Metainfo struct {
@@ -209,7 +215,7 @@ type Peer struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.Cache
 	}
 
 	Mail struct {
@@ -218,6 +224,11 @@ type Peer struct {
 
 	Vouchers struct {
 		Endpoint *vouchers.Endpoint
+	}
+
+	Payments struct {
+		Accounts payments.Accounts
+		Clearing payments.Clearing
 	}
 
 	Console struct {
@@ -234,10 +245,19 @@ type Peer struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
+
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
+	}
+
+	Metrics struct {
+		Chore *metrics.Chore
+	}
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -246,31 +266,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	var err error
 
-	{
-		test := version.Info{}
-		if test != versionInfo {
+	{ // setup version control
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
 		sc := config.Server
 
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options)
+		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
 		if sc.DebugLogTraffic {
 			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
-		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, unaryInterceptor)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -309,19 +328,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
-	}
-
-	{ // setup discovery
-		log.Debug("Setting up discovery")
-		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Contact.Service, config)
 	}
 
 	{ // setup vouchers
@@ -332,19 +342,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}
@@ -376,17 +381,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -395,11 +396,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
 			peer.DB.PeerIdentities(),
-			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
+			config.Metainfo.MaxCommitInterval,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -423,9 +424,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
-			peer.Transport,
+			peer.Dialer,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Checker.RepairOverride,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 
@@ -449,7 +451,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
-			peer.Transport,
+			peer.Dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.Orders.Service,
@@ -489,7 +491,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GarbageCollection.Service = gc.NewService(
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
-			peer.Transport,
+			peer.Dialer,
 			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
@@ -502,7 +504,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -586,6 +588,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
+	{ // setup payments
+		config := paymentsconfig.Config{}
+
+		service := stripecoinpayments.NewService(
+			peer.Log.Named("stripecoinpayments service"),
+			config.StripeCoinPayments,
+			peer.DB.Customers(),
+			peer.DB.CoinpaymentsTransactions())
+
+		clearing := stripecoinpayments.NewClearing(
+			peer.Log.Named("stripecoinpayments clearing loop"),
+			service,
+			config.StripeCoinPayments.TransactionUpdateInterval)
+
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = clearing
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -599,20 +619,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.New("Auth token secret required")
 		}
 
-		// TODO: change mock implementation to using mock stripe backend
-		var pmService payments.Service
-		if consoleConfig.StripeKey != "" {
-			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
-		} else {
-			pmService = localpayments.NewService(nil)
-		}
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			pmService,
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 
@@ -661,6 +673,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
 
+	{ // setup graceful exit
+		log.Debug("Setting up graceful")
+		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.GracefulExit(),
+			peer.Overlay.DB,
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.DB.PeerIdentities(),
+			config.GracefulExit)
+
+		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+	}
+
+	{ // setup metrics service
+		peer.Metrics.Chore = metrics.NewChore(
+			peer.Log.Named("metrics"),
+			config.Metrics,
+			peer.Metainfo.Loop,
+		)
+	}
+
 	return peer, nil
 }
 
@@ -671,16 +710,13 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
@@ -717,6 +753,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -730,6 +772,14 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.Metrics.Chore != nil {
+		errlist.Add(peer.Metrics.Chore.Close())
+	}
+
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
 	}
 
 	if peer.Console.Endpoint != nil {
@@ -774,19 +824,14 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Repair.Checker.Close())
 	}
 
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
-	}
-
-	if peer.Discovery.Service != nil {
-		errlist.Add(peer.Discovery.Service.Close())
-	}
-
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())
 	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
+	}
+	if peer.Metainfo.Loop != nil {
+		errlist.Add(peer.Metainfo.Loop.Close())
 	}
 
 	return errlist.Err()

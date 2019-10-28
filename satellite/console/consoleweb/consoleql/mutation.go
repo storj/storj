@@ -152,7 +152,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					info := fillUserInfo(&auth.User, input)
 
-					err = service.UpdateAccount(p.Context, info)
+					err = service.UpdateAccount(p.Context, info.FullName, info.ShortName)
 					if err != nil {
 						return nil, HandleError(err)
 					}
@@ -329,14 +329,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							userName = user.FullName
 						}
 
+						contactInfoURL := rootObject[ContactInfoURL].(string)
+						letUsKnowURL := rootObject[LetUsKnowURL].(string)
+						termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 						mailService.SendRenderedAsync(
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
 							&ProjectInvitationEmail{
-								Origin:      origin,
-								UserName:    userName,
-								ProjectName: project.Name,
-								SignInLink:  signIn,
+								Origin:                origin,
+								UserName:              userName,
+								ProjectName:           project.Name,
+								SignInLink:            signIn,
+								LetUsKnowURL:          letUsKnowURL,
+								TermsAndConditionsURL: termsAndConditionsURL,
+								ContactInfoURL:        contactInfoURL,
 							},
 						)
 					}
@@ -451,88 +458,23 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			AddPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldCardToken: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldIsDefault: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Boolean),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectID, _ := p.Args[FieldProjectID].(string)
-					cardToken, _ := p.Args[FieldCardToken].(string)
-					isDefault, _ := p.Args[FieldIsDefault].(bool)
-
-					projID, err := uuid.Parse(projectID)
-					if err != nil {
-						return false, err
-					}
-
-					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID)
-					if err != nil {
-						return false, HandleError(err)
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 			DeletePaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					paymentID, err := uuid.Parse(fieldProjectPaymentID)
-					if err != nil {
-						return false, err
-					}
-
-					err = service.DeleteProjectPaymentMethod(p.Context, *paymentID)
-					if err != nil {
-						return false, HandleError(err)
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 			SetDefaultPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
-					},
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					fieldProjectID, _ := p.Args[FieldProjectID].(string)
-					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					paymentID, err := uuid.Parse(fieldProjectPaymentID)
-					if err != nil {
-						return false, err
-					}
-
-					projectID, err := uuid.Parse(fieldProjectID)
-					if err != nil {
-						return false, err
-					}
-
-					err = service.SetDefaultPaymentMethod(p.Context, *paymentID, *projectID)
-					if err != nil {
-						return false, HandleError(err)
-					}
-
-					return true, nil
+					return nil, nil
 				},
 			},
 		},

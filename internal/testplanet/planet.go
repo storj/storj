@@ -20,15 +20,16 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/bootstrap"
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
+
+const defaultInterval = 15 * time.Second
 
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
@@ -50,10 +51,13 @@ type Config struct {
 	Identities      *testidentity.Identities
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
+
+	Name string
 }
 
 // Planet is a full storj system setup.
 type Planet struct {
+	id        string
 	log       *zap.Logger
 	config    Config
 	directory string // TODO: ensure that everything is in-memory to speed things up
@@ -65,7 +69,6 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap      *bootstrap.Peer
 	VersionControl *versioncontrol.Peer
 	Satellites     []*SatelliteSystem
 	StorageNodes   []*storagenode.Peer
@@ -76,11 +79,6 @@ type Planet struct {
 
 	run    errgroup.Group
 	cancel func()
-}
-
-// SatelliteSystem contains all the processes needed to run a full Satellite setup
-type SatelliteSystem struct {
-	satellite.Peer
 }
 
 type closablePeer struct {
@@ -111,7 +109,13 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		log = zaptest.NewLogger(t)
 	}
 
-	return NewWithLogger(log, satelliteCount, storageNodeCount, uplinkCount)
+	return NewCustom(log, Config{
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+
+		Name: t.Name(),
+	})
 }
 
 // NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
@@ -128,15 +132,8 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 		StorageNodeCount: storageNodeCount,
 		UplinkCount:      uplinkCount,
 		IdentityVersion:  identityVersion,
-	})
-}
 
-// NewWithLogger creates a new full system with the given number of nodes.
-func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
-	return NewCustom(log, Config{
-		SatelliteCount:   satelliteCount,
-		StorageNodeCount: storageNodeCount,
-		UplinkCount:      uplinkCount,
+		Name: t.Name(),
 	})
 }
 
@@ -152,6 +149,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 
 	planet := &Planet{
 		log:        log,
+		id:         config.Name + "/" + pgutil.CreateRandomTestingSchemaName(6),
 		config:     config,
 		identities: config.Identities,
 	}
@@ -169,11 +167,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	planet.whitelistPath = whitelistPath
 
 	planet.VersionControl, err = planet.newVersionControlServer()
-	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
-	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -217,9 +210,17 @@ func (planet *Planet) Start(ctx context.Context) {
 			return peer.peer.Run(peer.ctx)
 		})
 	}
+
+	var group errgroup.Group
 	for _, peer := range planet.StorageNodes {
-		peer.Contact.Chore.Loop.TriggerWait()
+		peer := peer
+		group.Go(func() error {
+			peer.Storage2.Monitor.Loop.TriggerWait()
+			peer.Contact.Chore.Loop.TriggerWait()
+			return nil
+		})
 	}
+	_ = group.Wait()
 
 	planet.started = true
 }

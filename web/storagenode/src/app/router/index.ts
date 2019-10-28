@@ -5,7 +5,7 @@ import Vue from 'vue';
 import Router from 'vue-router';
 
 import { NavigationLink } from '@/app/types/navigation';
-import Dashboard from '@/app/views/Dashboard.vue';
+import DashboardArea from '@/app/views/DashboardArea.vue';
 
 Vue.use(Router);
 
@@ -19,7 +19,7 @@ const router = new Router({
         {
             path: RouteConfig.Root.path,
             name: RouteConfig.Root.name,
-            component: Dashboard
+            component: DashboardArea
         },
     ]
 });

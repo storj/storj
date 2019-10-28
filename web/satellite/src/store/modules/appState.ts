@@ -22,6 +22,7 @@ export const appStateModule = {
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
+            isPaymentSelectionShown: false,
         },
     },
     mutations: {
@@ -86,6 +87,11 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
+        },
+
+        // Mutation changing payment selection visibility
+        [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any): void {
+            state.appState.isPaymentSelectionShown = !state.appState.isPaymentSelectionShown;
         },
     },
     actions: {
@@ -178,6 +184,13 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.CHANGE_STATE]: function ({commit}: any, newFetchState: AppState): void {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({commit, state}: any): void {
+            if (!state.appState.isPaymentSelectionShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION);
         },
     },
 };

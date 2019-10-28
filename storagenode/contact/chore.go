@@ -5,7 +5,6 @@ package contact
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -14,7 +13,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -22,27 +21,25 @@ import (
 //
 // architecture: Chore
 type Chore struct {
-	log       *zap.Logger
-	service   *Service
-	transport transport.Client
+	log     *zap.Logger
+	service *Service
+	dialer  rpc.Dialer
 
 	trust *trust.Pool
 
-	maxSleep time.Duration
-	Loop     *sync2.Cycle
+	Loop *sync2.Cycle
 }
 
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, service *Service) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
 	return &Chore{
-		log:       log,
-		service:   service,
-		transport: transport,
+		log:     log,
+		service: service,
+		dialer:  dialer,
 
 		trust: trust,
 
-		maxSleep: maxSleep,
-		Loop:     sync2.NewCycle(interval),
+		Loop: sync2.NewCycle(interval),
 	}
 }
 
@@ -51,10 +48,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Info("Storagenode contact chore starting up")
 
+	if !chore.service.initialized.Wait(ctx) {
+		return ctx.Err()
+	}
+
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		if err := chore.randomDurationSleep(ctx); err != nil {
-			return err
-		}
 		if err := chore.pingSatellites(ctx); err != nil {
 			chore.log.Error("pingSatellites failed", zap.Error(err))
 		}
@@ -75,22 +73,13 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 			continue
 		}
 		group.Go(func() error {
-			conn, err := chore.transport.DialNode(ctx, &pb.Node{
-				Id: satellite,
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   addr,
-				},
-			})
+			conn, err := chore.dialer.DialAddressID(ctx, addr, satellite)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if cerr := conn.Close(); cerr != nil {
-					err = errs.Combine(err, cerr)
-				}
-			}()
-			_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+			defer func() { err = errs.Combine(err, conn.Close()) }()
+
+			_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 				Address:  self.Address.GetAddress(),
 				Version:  &self.Version,
 				Capacity: &self.Capacity,
@@ -102,20 +91,6 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	}
 
 	return group.Wait()
-}
-
-// randomDurationSleep sleeps for random interval in [0;maxSleep)
-// returns error if context was cancelled
-func (chore *Chore) randomDurationSleep(ctx context.Context) error {
-	if chore.maxSleep <= 0 {
-		return nil
-	}
-	jitter := time.Duration(rand.Int63n(int64(chore.maxSleep)))
-	if !sync2.Sleep(ctx, jitter) {
-		return ctx.Err()
-	}
-
-	return nil
 }
 
 // Close stops the contact chore

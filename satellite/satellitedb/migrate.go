@@ -1255,6 +1255,79 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN updated_at SET DEFAULT current_timestamp;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Remove timezone from Graceful Exit dates",
+				Version:     58,
+				Action: migrate.SQL{
+					`UPDATE nodes set exit_initiated_at = TIMEZONE('UTC', exit_initiated_at), exit_loop_completed_at = TIMEZONE('UTC', exit_loop_completed_at), 
+					     exit_finished_at = TIMEZONE('UTC', exit_finished_at);`,
+					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE timestamp;`,
+					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE timestamp;`,
+					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE timestamp;`,
+					`UPDATE graceful_exit_progress set updated_at = TIMEZONE('UTC', updated_at);`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_transferred bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_failed bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE timestamp;`,
+					`UPDATE graceful_exit_transfer_queue set queued_at = TIMEZONE('UTC', queued_at), requested_at = TIMEZONE('UTC', requested_at),
+					     last_failed_at = TIMEZONE('UTC', last_failed_at), finished_at = TIMEZONE('UTC', finished_at);`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE timestamp;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add table for storing stripe customers",
+				Version:     59,
+				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`DROP TABLE user_payments CASCADE`,
+					`CREATE TABLE stripe_customers (
+						user_id bytea NOT NULL,
+						customer_id text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id ),
+						UNIQUE ( customer_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add coinpayments_transactions table",
+				Version:     60,
+				Action: migrate.SQL{
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add graceful exit success column to nodes table",
+				Version:     61,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to have the piece_num as part of the primary key since it is possible for a node to have 2 pieces for a given segment.",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue DROP CONSTRAINT graceful_exit_transfer_queue_pkey;`,
+					`ALTER TABLE graceful_exit_transfer_queue ADD PRIMARY KEY ( node_id, path, piece_num );`,
+				},
+			},
 		},
 	}
 }

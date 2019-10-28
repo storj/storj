@@ -13,13 +13,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
@@ -141,20 +140,20 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	key, err := getAPIKey(ctx, header)
 	if err != nil {
 		endpoint.log.Debug("invalid request", zap.Error(err))
-		return nil, status.Error(codes.InvalidArgument, "Invalid API credentials")
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	return keyInfo, nil
@@ -317,6 +316,11 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 				return err
 			}
 
+			// expect that too much time has not passed between order limit creation and now
+			if time.Since(limit.OrderCreation) > endpoint.maxCommitInterval {
+				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.maxCommitInterval.Minutes())
+			}
+
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
@@ -362,26 +366,34 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
-		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+		return errs.New("no piece hash. NodeID: %v, PieceNum: %d", piece.NodeId, piece.PieceNum)
 	}
 
 	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
 	if err != nil {
-		return errs.New("piece hash signature could not be verified for node %v: %v", piece.NodeId, err)
+		return errs.New("piece hash signature could not be verified for node (NodeID: %v, PieceNum: %d): %+v",
+			piece.NodeId, piece.PieceNum, err,
+		)
 	}
 
 	timestamp := piece.Hash.Timestamp
 	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
-		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+		return errs.New("piece hash timestamp is too old (%v). NodeId: %v, PieceNum: %d)",
+			timestamp, piece.NodeId, piece.PieceNum,
+		)
 	}
 
 	limit := limits[piece.PieceNum]
 	if limit != nil {
 		switch {
 		case limit.PieceId != piece.Hash.PieceId:
-			return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+			return errs.New("piece hash pieceID (%v) doesn't match limit pieceID (%v). NodeID: %v, PieceNum: %d",
+				piece.Hash.PieceId, limit.PieceId, piece.NodeId, piece.PieceNum,
+			)
 		case limit.Limit < piece.Hash.PieceSize:
-			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
+			return errs.New("piece hash PieceSize (%d) is larger than order limit (%d). NodeID: %v, PieceNum: %d",
+				piece.Hash.PieceSize, limit.Limit, piece.NodeId, piece.PieceNum,
+			)
 		}
 	}
 	return nil

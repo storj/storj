@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
@@ -42,7 +43,7 @@ type Service struct {
 	pieceStore     *pieces.Store
 	contact        *contact.Service
 
-	version   *version.Service
+	version   *checker.Service
 	pingStats *contact.PingStats
 
 	allocatedBandwidth memory.Size
@@ -54,7 +55,7 @@ type Service struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *version.Service,
+func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {
@@ -120,6 +121,8 @@ type Dashboard struct {
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
+
+	StartedAt time.Time `json:"startedAt"`
 }
 
 // GetDashboardData returns stale dashboard data.
@@ -130,9 +133,10 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
-	data.UpToDate = s.version.IsAllowed()
+	data.UpToDate = s.version.IsAllowed(ctx)
+	data.StartedAt = s.startedAt
 
-	data.LastPinged, data.LastPingFromID, data.LastPingFromAddress = s.pingStats.WhenLastPinged()
+	data.LastPinged = s.pingStats.WhenLastPinged()
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
@@ -153,19 +157,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsage).GB(),
-		Available: s.allocatedDiskSpace.GB(),
+		Used:      spaceUsage,
+		Available: s.allocatedDiskSpace.Int64(),
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage.Total()).GB(),
-		Available: s.allocatedBandwidth.GB(),
+		Used:      bandwidthUsage,
+		Available: s.allocatedBandwidth.Int64(),
 	}
 
 	return data, nil

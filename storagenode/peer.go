@@ -6,6 +6,7 @@ package storagenode
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -14,21 +15,24 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -37,6 +41,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -50,7 +55,7 @@ var (
 // architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
-	CreateTables() error
+	CreateTables(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
@@ -64,6 +69,7 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
+	Satellites() satellites.DB
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -86,9 +92,11 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version version.Config
+	Version checker.Config
 
 	Bandwidth bandwidth.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -105,11 +113,11 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
-	Transport transport.Client
+	Dialer rpc.Dialer
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *checker.Service
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
@@ -118,7 +126,6 @@ type Peer struct {
 		Service   *contact.Service
 		Chore     *contact.Chore
 		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
 		PingStats *contact.PingStats
 	}
 
@@ -149,6 +156,11 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -163,32 +175,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
 		sc := config.Server
 
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options)
+		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
 	{ // setup trust pool
-		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
+		peer.Storage2.Trust, err = trust.NewPool(peer.Dialer, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -221,13 +232,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"), peer.Contact.Service, peer.Storage2.Trust)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup storage
@@ -271,6 +279,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
+			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
@@ -283,21 +292,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
 
+		// TODO workaround for custom timeout for order sending request (read/write)
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+
+		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		// TODO workaround for custom timeout for order sending request (read/write)
-		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
-			Dial:    config.Storage2.Orders.SenderDialTimeout,
-			Request: config.Storage2.Orders.SenderRequestTimeout,
-		})
+		dialer := rpc.NewDefaultDialer(tlsOptions)
+		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
-			ordersTransport,
+			dialer,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
@@ -307,7 +315,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
-			peer.Transport,
+			peer.Dialer,
 			peer.Storage2.Trust)
 
 		peer.NodeStats.Cache = nodestats.NewCache(
@@ -346,9 +354,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		assets := consoleassets.FileSystem
+		if config.Console.StaticDir != "" {
+			// a specific directory has been configured. use it
+			assets = http.Dir(config.Console.StaticDir)
+		}
+
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
+			assets,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
@@ -369,6 +383,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
 	}
 
+	{ // setup graceful exit service
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+			peer.Storage2.BlobsCache,
+		)
+		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+
+		peer.GracefulExit.Chore = gracefulexit.NewChore(
+			peer.Log.Named("gracefulexit:chore"),
+			config.GracefulExit,
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
+			peer.DB.Satellites(),
+		)
+	}
+
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
@@ -386,6 +420,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
 	})
 	group.Go(func() error {
@@ -395,15 +432,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
 	})
@@ -424,6 +457,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -439,6 +476,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
+	}
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}

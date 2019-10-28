@@ -4,16 +4,18 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__name-item" @click="onHeaderItemClick(ApiKeyOrderBy.NAME)">
-            <p>Key Name</p>
+            <p class="sort-header-container__name-item__title">Key Name</p>
             <VerticalArrows
-                :isActive="getSortBy === ApiKeyOrderBy.NAME"
-                :direction="getSortDirection"></VerticalArrows>
+                :is-active="areApiKeysSortedByName"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
-            <p>Created</p>
+            <p class="sort-header-container__date-item__title creation-date">Created</p>
             <VerticalArrows
-                :isActive="getSortBy === ApiKeyOrderBy.CREATED_AT"
-                :direction="getSortDirection"></VerticalArrows>
+                :is-active="areApiKeysSortedByDate"
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>
@@ -48,8 +50,12 @@ export default class SortApiKeysHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy(): ApiKeyOrderBy {
-        return this.sortBy;
+    public get areApiKeysSortedByName(): boolean {
+        return this.sortBy === ApiKeyOrderBy.NAME;
+    }
+
+    public get areApiKeysSortedByDate(): boolean {
+        return this.sortBy === ApiKeyOrderBy.CREATED_AT;
     }
 
     public async onHeaderItemClick(sortBy: ApiKeyOrderBy): Promise<void> {
@@ -81,6 +87,14 @@ export default class SortApiKeysHeader extends Vue {
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
 
+        &__date-item {
+            width: 60%;
+
+            &__title {
+                margin: 0;
+            }
+        }
+
         &__name-item,
         &__date-item {
             width: 40%;
@@ -89,23 +103,15 @@ export default class SortApiKeysHeader extends Vue {
             margin: 0;
             cursor: pointer;
 
-            p {
-                font-family: 'font_medium';
+            &__title {
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
-                margin-left: 26px;
-                color: #2A2A32;
+                margin: 0 0 0 26px;
+                color: #2a2a32;
             }
 
-            &:nth-child(1) {
-                margin-left: 0px;
-            }
-        }
-
-        &__date-item {
-            width: 60%;
-
-            P {
-                margin: 0;
+            .creation-date {
+                margin-left: 0;
             }
         }
     }
