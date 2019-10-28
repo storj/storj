@@ -62,7 +62,7 @@ type pendingTransfer struct {
 	path             []byte
 	pieceSize        int64
 	satelliteMessage *pb.SatelliteMessage
-	rootPieceID      storj.PieceID
+	originalPointer  *pb.Pointer
 	pieceNum         int32
 }
 
@@ -499,7 +499,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
 		satelliteMessage: transferMsg,
-		rootPieceID:      remote.RootPieceId,
+		originalPointer:  pointer,
 		pieceNum:         incomplete.PieceNum,
 	})
 
@@ -568,8 +568,10 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	}
 
 	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
-
-	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
+	if transfer.originalPointer == nil || transfer.originalPointer.GetRemote() == nil {
+		return Error.New("could not get remote pointer from transfer item")
+	}
+	calculatedNewPieceID := transfer.originalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.pieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
 		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}
@@ -592,7 +594,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
+	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -709,7 +711,7 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing
 	return message, nil
 }
 
-func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb.Pointer, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// remove the node from the pointer
@@ -751,7 +753,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 			NodeId:   receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), pointer, toAdd, toRemove)
+	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), originalPointer, toAdd, toRemove)
 	if err != nil {
 		return Error.Wrap(err)
 	}
