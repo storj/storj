@@ -11,7 +11,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -28,7 +28,7 @@ export default class RegistrationSuccessPopup extends Vue {
     private timeToEnableResendEmailButton: string = '00:30';
     private intervalID: any = null;
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public beforeDestroy(): void {
         if (this.intervalID) {

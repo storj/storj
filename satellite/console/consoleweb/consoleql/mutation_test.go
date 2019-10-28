@@ -79,13 +79,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John Roll",
-				ShortName: "Roll",
-				Email:     "test@mail.test",
-				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
-			},
-			Password: "123a123",
+			FullName:  "John Roll",
+			ShortName: "Roll",
+			Email:     "test@mail.test",
+			PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+			Password:  "123a123",
 		}
 		refUserID := ""
 
@@ -126,13 +124,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Create user mutation with partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Green Mickey",
-					ShortName: "Green",
-					Email:     "u1@mail.test",
-					PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
-				},
-				Password: "123a123",
+				FullName:  "Green Mickey",
+				ShortName: "Green",
+				Email:     "u1@mail.test",
+				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+				Password:  "123a123",
 			}
 
 			require.NoError(t, err)
@@ -178,13 +174,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Create user mutation without partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Red Mickey",
-					ShortName: "Red",
-					Email:     "u2@mail.test",
-					PartnerID: "",
-				},
-				Password: "123a123",
+				FullName:  "Red Mickey",
+				ShortName: "Red",
+				Email:     "u2@mail.test",
+				PartnerID: "",
+				Password:  "123a123",
 			}
 
 			require.NoError(t, err)
@@ -421,10 +415,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u1@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u1@mail.test",
 			Password: "123a123",
 		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
@@ -447,10 +439,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u2@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u2@mail.test",
 			Password: "123a123",
 		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)

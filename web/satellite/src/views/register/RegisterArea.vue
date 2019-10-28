@@ -14,7 +14,7 @@ import AuthIcon from '@/../static/images/AuthImage.svg';
 import InfoIcon from '@/../static/images/info.svg';
 import LogoIcon from '@/../static/images/Logo.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { setUserId } from '@/utils/consoleLocalStorage';
@@ -53,7 +53,7 @@ export default class RegisterArea extends Vue {
 
     private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     mounted(): void {
         if (this.$route.query.token) {
@@ -116,6 +116,7 @@ export default class RegisterArea extends Vue {
         this.user.shortName = value.trim();
     }
     public setPassword(value: string): void {
+        this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
@@ -157,7 +158,7 @@ export default class RegisterArea extends Vue {
 
     private async createUser(): Promise<void> {
         try {
-            this.userId = await this.auth.create(this.user, this.password , this.secret, this.refUserId);
+            this.userId = await this.auth.register(this.user, this.secret, this.refUserId);
 
             setUserId(this.userId);
 

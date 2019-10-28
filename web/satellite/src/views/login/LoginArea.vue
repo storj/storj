@@ -12,7 +12,7 @@ import AuthIcon from '@/../static/images/AuthImage.svg';
 import LogoIcon from '@/../static/images/Logo.svg';
 import LoadingLogoIcon from '@/../static/images/LogoWhite.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -40,7 +40,7 @@ export default class Login extends Vue {
     private emailError: string = '';
     private passwordError: string = '';
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public onLogoClick(): void {
         location.reload();
@@ -77,6 +77,7 @@ export default class Login extends Vue {
 
         try {
             this.authToken = await this.auth.token(this.email, this.password);
+            AuthToken.set(this.authToken);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.isLoading = false;

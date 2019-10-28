@@ -71,7 +71,7 @@ import VButton from '@/components/common/VButton.vue';
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { validatePassword } from '@/utils/validation';
 
@@ -91,7 +91,7 @@ export default class ChangePasswordPopup extends Vue {
     private newPasswordError: string = '';
     private confirmationPasswordError: string = '';
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public setOldPassword(value: string): void {
         this.oldPassword = value;

@@ -62,17 +62,13 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tokenResponse struct {
-		Token string `json:"token"`
-	}
-
-	tokenResponse.Token, err = a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(tokenResponse)
+	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -85,25 +81,39 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var request struct {
-		UserInfo       console.CreateUser `json:"userInfo"`
-		SecretInput    string             `json:"secret"`
-		ReferrerUserID string             `json:"referrerUserID"`
+	var registerData struct {
+		FullName       string `json:"fullName"`
+		ShortName      string `json:"shortName"`
+		Email          string `json:"email"`
+		PartnerID      string `json:"partnerId"`
+		Password       string `json:"password"`
+		SecretInput    string `json:"secret"`
+		ReferrerUserID string `json:"referrerUserID"`
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err = json.NewDecoder(r.Body).Decode(&registerData)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
+	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	user, err := a.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
+	user, err := a.service.CreateUser(ctx,
+		console.CreateUser{
+			FullName:  registerData.FullName,
+			ShortName: registerData.ShortName,
+			Email:     registerData.Email,
+			PartnerID: registerData.PartnerID,
+			Password:  registerData.Password,
+		},
+		secret,
+		registerData.ReferrerUserID,
+	)
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
@@ -115,7 +125,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ExternalAddress + consoleql.ActivationPath + token
+	link := a.ExternalAddress + "activation/?token=" + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
@@ -199,17 +209,15 @@ func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var request struct {
-		Password string `json:"password"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
+	params := mux.Vars(r)
+	password, ok := params["password"]
+	if !ok {
+		err = errs.New("password expected")
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.service.DeleteAccount(ctx, request.Password)
+	err = a.service.DeleteAccount(ctx, password)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(w, http.StatusUnauthorized, err)
@@ -276,8 +284,8 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
-	cancelPasswordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	passwordRecoveryLink := a.ExternalAddress + "password-recovery/?token=" + recoveryToken
+	cancelPasswordRecoveryLink := a.ExternalAddress + "cancel-password-recovery/?token=" + recoveryToken
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
@@ -309,13 +317,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := mux.Vars(r)
-	val, ok := params["id"]
+	id, ok := params["id"]
 	if !ok {
 		a.serveJSONError(w, http.StatusBadRequest, errs.New("id expected"))
 		return
 	}
 
-	userID, err := uuid.Parse(val)
+	userID, err := uuid.Parse(id)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return

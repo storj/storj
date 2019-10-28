@@ -11,7 +11,7 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import LogoIcon from '@/../static/images/Logo.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
@@ -29,7 +29,7 @@ export default class ForgotPassword extends Vue {
     private email: string = '';
     private emailError: string = '';
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public setEmail(value: string): void {
         this.email = value;
