@@ -305,7 +305,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		}
 
 		for _, piece := range remote.RemotePieces {
-			if piece.PieceNum >= len(originalLimits) {
+			if piece.PieceNum >= int32(len(originalLimits)) {
 				return Error.New("invalid piece number")
 			}
 
