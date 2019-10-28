@@ -7,6 +7,7 @@ import (
 	"context"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -32,6 +33,7 @@ type Chore struct {
 
 	interval time.Duration
 	Cycles   []*sync2.Cycle
+	mu       sync.Mutex
 }
 
 var (
@@ -67,11 +69,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		rand.Seed(time.Now().UnixNano())
 		// set backOff interval to a random value [1, 5] to create some jitter
-		backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1)
+		//backOff := time.Duration(rand.Int63n(int64(5*time.Second)) + 1) //loop rather than random
+		backOff := time.Second
 		interval := chore.interval
 		cycle := sync2.NewCycle(interval)
+		chore.mu.Lock()
 		chore.Cycles = append(chore.Cycles, cycle)
-
+		chore.mu.Unlock()
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
 			err := chore.pingSatellite(ctx, satellite)
 			if err == nil {
@@ -124,9 +128,36 @@ func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err err
 	return nil
 }
 
+// Pause stops all the cycles in the contact chore
+func (chore *Chore) Pause() {
+	chore.mu.Lock()
+	cycles := make([]*sync2.Cycle, len(chore.Cycles))
+	copy(cycles, chore.Cycles)
+	chore.mu.Unlock()
+	for _, cycle := range cycles {
+		cycle.Pause()
+	}
+}
+
+// TriggerWait ensures that each cycle is done at least once and waits for completion.
+// If the cycle is currently running it waits for the previous to complete and then runs.
+func (chore *Chore) TriggerWait() {
+	chore.mu.Lock()
+	cycles := make([]*sync2.Cycle, len(chore.Cycles))
+	copy(cycles, chore.Cycles)
+	chore.mu.Unlock()
+	for _, cycle := range cycles {
+		cycle.TriggerWait()
+	}
+}
+
 // Close stops all the cycles in the contact chore
 func (chore *Chore) Close() error {
-	for _, cycle := range chore.Cycles {
+	chore.mu.Lock()
+	cycles := make([]*sync2.Cycle, len(chore.Cycles))
+	copy(cycles, chore.Cycles)
+	chore.mu.Unlock()
+	for _, cycle := range cycles {
 		cycle.Close()
 	}
 	return nil
