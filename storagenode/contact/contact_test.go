@@ -5,6 +5,7 @@ package contact_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -30,6 +31,8 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.NoError(t, err)
 
 		firstPing := pingStats.WhenLastPinged()
+
+		time.Sleep(time.Second) //HACKFIX: windows has large time granularity
 
 		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)

@@ -50,11 +50,11 @@ export default class BucketItem extends Vue {
         display: flex;
         background: #fff;
         margin-bottom: 1px;
-        
+
         &__item {
             width: 25%;
             padding-left: 26px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             margin: 0;
         }

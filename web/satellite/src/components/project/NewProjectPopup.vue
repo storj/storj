@@ -68,7 +68,6 @@ import { CreateProjectModel, Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
@@ -118,7 +117,7 @@ export default class NewProjectPopup extends Vue {
             this.createdProjectId = project.id;
         } catch (e) {
             this.isLoading = false;
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            await this.$notify.error(e.message);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
@@ -129,7 +128,7 @@ export default class NewProjectPopup extends Vue {
         try {
             await this.fetchProjectMembers();
         } catch (e) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            await this.$notify.error(e.message);
         }
 
         this.clearApiKeys();
@@ -204,8 +203,8 @@ export default class NewProjectPopup extends Vue {
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 
-    private notifySuccess(message: string): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+    private async notifySuccess(message: string): Promise<void> {
+        await this.$notify.success(message);
     }
 }
 </script>
@@ -232,7 +231,7 @@ export default class NewProjectPopup extends Vue {
         width: 100%;
         max-width: 845px;
         height: 400px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -242,66 +241,66 @@ export default class NewProjectPopup extends Vue {
         padding: 100px 100px 100px 80px;
 
         &__info-panel-container {
-             display: flex;
-             flex-direction: column;
-             justify-content: flex-start;
-             align-items: center;
-             margin-right: 55px;
-             height: 535px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            margin-right: 55px;
+            height: 535px;
 
             &__main-label-text {
-                 font-family: 'font_bold';
-                 font-size: 32px;
-                 line-height: 39px;
-                 color: #384B65;
-                 margin-bottom: 60px;
-                 margin-top: 50px;
+                font-family: 'font_bold', sans-serif;
+                font-size: 32px;
+                line-height: 39px;
+                color: #384b65;
+                margin-bottom: 60px;
+                margin-top: 50px;
             }
         }
 
         &__form-container {
-             width: 100%;
-             max-width: 520px;
+            width: 100%;
+            max-width: 520px;
 
             &__button-container {
-                 width: 100%;
-                 display: flex;
-                 flex-direction: row;
-                 justify-content: space-between;
-                 align-items: center;
-                 margin-top: 30px;
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 30px;
             }
         }
 
         &__close-cross-container {
-             display: flex;
-             justify-content: center;
-             align-items: center;
-             position: absolute;
-             right: 30px;
-             top: 40px;
-             height: 24px;
-             width: 24px;
-             cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
+            top: 40px;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                 fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .new-project-popup {
 
             &__info-panel-container {
-                 display: none;
-
+                display: none;
             }
 
             &__form-container {
 
                 &__button-container {
-                     width: 100%;
+                    width: 100%;
                 }
             }
         }
