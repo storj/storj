@@ -92,7 +92,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 		case *pb.SatelliteMessage_DeletePiece:
 			pieceID := msg.DeletePiece.OriginalPieceId
-			err := worker.DeletePiece(ctx, pieceID)
+			err := worker.deletePiece(ctx, pieceID)
 			if err != nil {
 				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 			}
@@ -113,7 +113,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				return errs.Wrap(err)
 			}
 			// delete all remaining pieces
-			err = worker.DeletePiecesBySatellite(ctx)
+			err = worker.deletePiecesBySatellite(ctx)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -206,7 +206,8 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	return c.Send(success)
 }
 
-func (worker *Worker) DeletePiece(ctx context.Context, pieceID pb.PieceID) error {
+// deletePiece deletes a piece from disk based on piece id and updates the bytes deleted in satellite table.
+func (worker *Worker) deletePiece(ctx context.Context, pieceID pb.PieceID) error {
 	// get piece size
 	var pieceSize int64
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -231,11 +232,12 @@ func (worker *Worker) DeletePiece(ctx context.Context, pieceID pb.PieceID) error
 		return err
 	}
 
-	// update the bytes_deleted if store.Delete succeded
+	// update transfer progress
 	return worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, pieceSize)
 }
 
-func (worker *Worker) DeletePiecesBySatellite(ctx context.Context) error {
+// deletePiecesBySatellite deletes all pieces on disk stored by a satellite and updates the bytes deleted in satellite table.
+func (worker *Worker) deletePiecesBySatellite(ctx context.Context) error {
 	pieceMap := make(map[pb.PieceID]int64)
 	err := worker.store.WalkSatellitePieces(ctx, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
 		size, err := piece.ContentSize(ctx)
@@ -254,7 +256,7 @@ func (worker *Worker) DeletePiecesBySatellite(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// update the bytes_deleted if store.Delete succeded
+		// update transfer progress
 		err = worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, size)
 		if err != nil {
 			return err
