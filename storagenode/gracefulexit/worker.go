@@ -223,7 +223,8 @@ func (worker *Worker) deletePiece(ctx context.Context, pieceID pb.PieceID) error
 		}
 		return nil
 	})
-	if err != nil {
+
+	if err != nil && !errs.Is(err, ctxWithCancel.Err()) {
 		return err
 	}
 
@@ -252,17 +253,20 @@ func (worker *Worker) deletePiecesBySatellite(ctx context.Context) error {
 		return err
 	}
 
+	var totalDeleted int64
 	for id, size := range pieceMap {
 		err := worker.store.Delete(ctx, worker.satelliteID, id)
 		if err != nil {
 			// TODO: mark the piece to be DeleteFailed?
-			return err
+			worker.log.Debug("failed to delete a piece", zap.Stringer("Satellite ID", worker.satelliteID), zap.Stringer("Piece ID", id))
+			continue
 		}
-		// update transfer progress
-		err = worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, size)
-		if err != nil {
-			return err
-		}
+		totalDeleted += size
+	}
+	// update transfer progress
+	err = worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, totalDeleted)
+	if err != nil {
+		return err
 	}
 
 	return nil
