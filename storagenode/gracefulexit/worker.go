@@ -191,8 +191,8 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		Message: &pb.StorageNodeMessage_Succeeded{
 			Succeeded: &pb.TransferSucceeded{
 				OriginalPieceId:      transferPiece.OriginalPieceId,
-				OriginalPieceHash:    originalHash,
-				OriginalOrderLimit:   originalOrderLimit,
+				OriginalPieceHash:    &originalHash,
+				OriginalOrderLimit:   &originalOrderLimit,
 				ReplacementPieceHash: pieceHash,
 			},
 		},
