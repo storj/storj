@@ -19,6 +19,7 @@ import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
+
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 
 const {
@@ -44,7 +45,7 @@ export default class Dashboard extends Vue {
 
 <style scoped lang="scss">
     .page {
-        background-color: #F4F6F9;
+        background-color: #f4f6f9;
         display: flex;
         flex-direction: column;
         align-items: center;

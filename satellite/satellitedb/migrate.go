@@ -1319,6 +1319,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to have the piece_num as part of the primary key since it is possible for a node to have 2 pieces for a given segment.",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue DROP CONSTRAINT graceful_exit_transfer_queue_pkey;`,
+					`ALTER TABLE graceful_exit_transfer_queue ADD PRIMARY KEY ( node_id, path, piece_num );`,
+				},
+			},
 		},
 	}
 }
