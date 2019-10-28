@@ -36,7 +36,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
+		return errs.New("Error creating metainfo database on satellite api: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
