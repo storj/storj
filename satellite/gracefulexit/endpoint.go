@@ -215,7 +215,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	pending := newPendingMap()
 
-	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode recieve loop)
+	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
 	morePiecesFlag := true
 	loopRunningFlag := true
 	errChan := make(chan error, 1)
