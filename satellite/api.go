@@ -370,14 +370,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.DB.Customers(),
 			peer.DB.CoinpaymentsTransactions())
 
-		chore := stripecoinpayments.NewChore(
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = stripecoinpayments.NewChore(
 			peer.Log.Named("stripecoinpayments clearing loop"),
 			service,
 			config.StripeCoinPayments.TransactionUpdateInterval,
 			config.StripeCoinPayments.AccountBalanceUpdateInterval)
-
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = chore
 	}
 
 	{ // setup console
