@@ -41,6 +41,7 @@ func TestSuccess(t *testing.T) {
 	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
+		deletedCount := 0
 		for {
 			response, err := processClient.Recv()
 			if errs.Is(err, io.EOF) {
@@ -114,11 +115,14 @@ func TestSuccess(t *testing.T) {
 					err = processClient.Send(failed)
 					require.NoError(t, err)
 				}
+			case *pb.SatelliteMessage_DeletePiece:
+				deletedCount++
 			case *pb.SatelliteMessage_ExitCompleted:
-				// TODO test completed signature stuff
-				break
+				signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+				err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+				require.NoError(t, err)
 			default:
-				// TODO finish other message types above so this shouldn't happen
+				t.FailNow()
 			}
 		}
 
@@ -127,6 +131,7 @@ func TestSuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
+		require.EqualValues(t, numPieces, deletedCount)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.EqualValues(t, 0, progress.PiecesFailed)
 	})
