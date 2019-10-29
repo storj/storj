@@ -54,6 +54,7 @@ type Endpoint struct {
 	overlay        *overlay.Service
 	metainfo       *metainfo.Service
 	orders         *orders.Service
+	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
 	config         Config
 }
@@ -113,6 +114,40 @@ func (pm *pendingMap) delete(pieceID storj.PieceID) {
 	delete(pm.data, pieceID)
 }
 
+// connectionsTracker for tracking ongoing connections on this api server
+type connectionsTracker struct {
+	mu   sync.RWMutex
+	data map[storj.NodeID]struct{}
+}
+
+// newConnectionsTracker creates a new connectionsTracker and instantiates the map.
+func newConnectionsTracker() *connectionsTracker {
+	return &connectionsTracker{
+		data: make(map[storj.NodeID]struct{}),
+	}
+}
+
+// tryAdd adds to the map if the node ID is not already added
+// it returns true if succeeded and false if already added.
+func (pm *connectionsTracker) tryAdd(nodeID storj.NodeID) bool {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if _, ok := pm.data[nodeID]; ok {
+		return false
+	}
+	pm.data[nodeID] = struct{}{}
+	return true
+}
+
+// delete deletes a node ID from the map.
+func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	delete(pm.data, nodeID)
+}
+
 // DRPC returns a DRPC form of the endpoint.
 func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 	return &drpcEndpoint{Endpoint: endpoint}
@@ -130,13 +165,14 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		overlay:        overlay,
 		metainfo:       metainfo,
 		orders:         orders,
+		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
 		config:         config,
 	}
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) error {
+func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) (err error) {
 	return endpoint.doProcess(stream)
 }
 
@@ -157,6 +193,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	nodeID := peer.ID
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+
+	// ensure that only one connection can be opened for a single node at a time
+	if !endpoint.connections.tryAdd(nodeID) {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
+	}
+	defer func() {
+		endpoint.connections.delete(nodeID)
+	}()
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
