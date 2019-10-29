@@ -29,21 +29,21 @@ export default class CardDialog extends Vue {
         this.$store.dispatch(CLEAR_CARDS_SELECTION);
     }
 
-    public async onMakeDefaultClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
-        } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-        }
-    }
+    // public async onMakeDefaultClick(): Promise<void> {
+    //     try {
+    //         await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
+    //     } catch (error) {
+    //         await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+    //     }
+    // }
 
-    public async onRemoveClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(REMOVE_CARD, this.cardId);
-        } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-        }
-    }
+    // public async onRemoveClick(): Promise<void> {
+    //     try {
+    //         await this.$store.dispatch(REMOVE_CARD, this.cardId);
+    //     } catch (error) {
+    //         await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+    //     }
+    // }
 }
 </script>
 
@@ -57,23 +57,23 @@ export default class CardDialog extends Vue {
         align-items: center;
         justify-content: flex-end;
         z-index: 100;
-        background-image: url("../../../../static/images/payments/Dialog.svg");
+        background-image: url('../../../../static/images/payments/Dialog.svg');
         background-size: contain;
         width: 167px;
         height: 122px;
         cursor: initial;
 
         &__make-default {
-            color: #61666B;
+            color: #61666b;
         }
 
         &__delete {
-            color: #EB5757;
+            color: #eb5757;
         }
     }
 
     .label {
-        font-family: 'font_medium';
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         margin: 0;
         height: 35%;

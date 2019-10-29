@@ -39,7 +39,7 @@ export default class NewProjectArea extends Vue {
 
 <style scoped lang="scss">
     .new-project-container {
-        background-color: #FFFFFF;
+        background-color: #fff;
     }
 
     .new-project-button-container {
@@ -50,21 +50,20 @@ export default class NewProjectArea extends Vue {
         width: 170px;
         height: 50px;
         border-radius: 6px;
-        border: 1px solid #AFB7C1;
+        border: 1px solid #afb7c1;
         background-color: white;
         cursor: pointer;
 
-
         &__label {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #354049;
         }
 
         &:hover {
-            background-color: #2683FF;
-            border: 1px solid #2683FF;
+            background-color: #2683ff;
+            border: 1px solid #2683ff;
             box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
             .new-project-button-container__label {
@@ -72,10 +71,10 @@ export default class NewProjectArea extends Vue {
             }
         }
     }
-    
+
     .new-project-button-container.active {
-        background-color: #2683FF;
-        border: 1px solid #2683FF;
+        background-color: #2683ff;
+        border: 1px solid #2683ff;
         box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
         .new-project-button-container__label {

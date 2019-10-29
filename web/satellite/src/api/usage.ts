@@ -1,11 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import gql from 'graphql-tag';
-
 import { BaseGql } from '@/api/baseGql';
 import { ProjectUsage, UsageApi } from '@/types/usage';
-import apollo from '@/utils/apollo';
 
 /**
  * Exposes all project-usage-related functionality

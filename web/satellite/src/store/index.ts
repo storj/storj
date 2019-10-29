@@ -5,13 +5,13 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { AuthHttpApi } from '@/api/auth';
 import { BucketsApiGql } from '@/api/buckets';
 import { CreditsApiGql } from '@/api/credits';
 import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
-import { UsersApiGql } from '@/api/users';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
@@ -33,7 +33,7 @@ export class StoreModule<S> {
 }
 
 // TODO: remove it after we will use modules as classes and use some DI framework
-const usersApi = new UsersApiGql();
+const authApi = new AuthHttpApi();
 const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
 const bucketsApi = new BucketsApiGql();
@@ -43,7 +43,7 @@ const projectUsageApi = new ProjectUsageApiGql();
 const paymentsApi = new PaymentsHttpApi();
 
 // Satellite store (vuex)
-const store = new Vuex.Store({
+export const store = new Vuex.Store({
     modules: {
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
@@ -51,11 +51,9 @@ const store = new Vuex.Store({
         creditsModule: makeCreditsModule(creditsApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
-        usersModule: makeUsersModule(usersApi),
+        usersModule: makeUsersModule(authApi),
         projectsModule: makeProjectsModule(projectsApi),
         usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
     },
 });
-
-export default store;

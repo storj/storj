@@ -25,6 +25,10 @@ func TestGracefulExitDB(t *testing.T) { //satelliteID storj.NodeID, finishedAt t
 		for i := 0; i <= 3; i++ {
 			nodeID := testrand.NodeID()
 			start := time.Now()
+
+			_, err := db.Satellites().GetSatellite(ctx, nodeID)
+			require.NoError(t, err)
+
 			require.NoError(t, db.Satellites().InitiateGracefulExit(ctx, nodeID, start, 5000))
 			exits, err := db.Satellites().ListGracefulExits(ctx)
 			require.NoError(t, err)
@@ -61,6 +65,12 @@ func TestGracefulExitDB(t *testing.T) { //satelliteID storj.NodeID, finishedAt t
 			require.Equal(t, *exits[i].FinishedAt, stop.UTC())
 			require.Equal(t, exits[i].SatelliteID, nodeID)
 			require.Equal(t, exits[i].StartingDiskUsage, int64(5000))
+
+			satellite, err := db.Satellites().GetSatellite(ctx, nodeID)
+			require.NoError(t, err)
+			require.Equal(t, nodeID, satellite.SatelliteID)
+			require.False(t, satellite.AddedAt.IsZero())
+			require.EqualValues(t, 3, satellite.Status)
 		}
 	})
 }
