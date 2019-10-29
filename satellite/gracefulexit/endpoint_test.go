@@ -12,9 +12,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testblobs"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -24,7 +27,10 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/uplink"
 )
 
@@ -131,6 +137,90 @@ func TestSuccess(t *testing.T) {
 	})
 }
 
+func TestRecvTimeout(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 9,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				config.GracefulExit.MinDownloadTimeout = 50 * time.Millisecond
+			},
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: 8,
+			MaxThreshold:     8,
+		}
+
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		exitStatusReq := overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
+		require.NoError(t, err)
+
+		// run the satellite chore to build the transfer queue.
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		// check that the satellite knows the storage node is exiting.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 1)
+
+		storageNodeDB := exitingNode.DB.(*testblobs.SlowDB)
+		// make uploads on storage node slower than the timeout for transferring bytes to another node
+		delay := 200 * time.Millisecond
+		storageNodeDB.SetLatency(delay)
+		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
+
+		config := gracefulexit.Config{
+			// defaultInterval is 15 seconds in testplanet
+			ChoreInterval:      15 * time.Second,
+			NumWorkers:         1,
+			MinBytesPerSecond:  10 * memory.MiB,
+			MinDownloadTimeout: 2 * time.Millisecond,
+		}
+
+		// run the SN chore again to start processing transfers.
+		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), config)
+		err = worker.Run(ctx, func() {})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))
+	})
+}
+
 func TestInvalidStorageNodeSignature(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
@@ -203,160 +293,6 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
 		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
 	})
-}
-
-func TestRecvTimeout(t *testing.T) {
-	successThreshold := 8
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: successThreshold + 1,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		uplinkPeer := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
-
-		satellite.GracefulExit.Chore.Loop.Pause()
-
-		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
-		for _, node := range planet.StorageNodes {
-			nodeFullIDs[node.ID()] = node.Identity
-		}
-
-		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
-		require.NoError(t, err)
-
-		// check that there are no exiting nodes.
-		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-		require.NoError(t, err)
-		require.Len(t, exitingNodes, 0)
-
-		exitingNode, err := findNodeToExit(ctx, planet, 1)
-		require.NoError(t, err)
-
-		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
-		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
-
-		client := conn.SatelliteGracefulExitClient()
-
-		c, err := client.Process(ctx)
-		require.NoError(t, err)
-
-		response, err := c.Recv()
-		require.NoError(t, err)
-
-		// should get a NotReady since the metainfo loop would not be finished at this point.
-		switch response.GetMessage().(type) {
-		case *pb.SatelliteMessage_NotReady:
-			// now check that the exiting node is initiated.
-			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-			require.NoError(t, err)
-			require.Len(t, exitingNodes, 1)
-
-			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
-		default:
-			t.FailNow()
-		}
-		// close the old client
-		require.NoError(t, c.CloseSend())
-
-		// trigger the metainfo loop chore so we can get some pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
-
-		// make sure all the pieces are in the transfer queue
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
-		require.NoError(t, err)
-
-		// connect to satellite again to start receiving transfers
-		c, err = client.Process(ctx)
-		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, c.CloseSend())
-		}()
-
-		response, err := client.Recv()
-		require.NoError(t, err)
-
-		switch m := response.GetMessage().(type) {
-		case *pb.SatelliteMessage_TransferPiece:
-			require.NotNil(t, m)
-
-			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-			require.NoError(t, err)
-
-			header, err := pieceReader.GetPieceHeader()
-			require.NoError(t, err)
-
-			orderLimit := header.OrderLimit
-			originalPieceHash := &pb.PieceHash{
-				PieceId:   orderLimit.PieceId,
-				Hash:      header.GetHash(),
-				PieceSize: pieceReader.Size(),
-				Timestamp: header.GetCreationTime(),
-				Signature: header.GetSignature(),
-			}
-
-			newPieceHash := &pb.PieceHash{
-				PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-				Hash:      originalPieceHash.Hash,
-				PieceSize: originalPieceHash.PieceSize,
-				Timestamp: time.Now(),
-			}
-
-			receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingNodeID)
-			signer := signing.SignerFromFullIdentity(receivingNodeID)
-
-			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-			require.NoError(t, err)
-
-			success := &pb.StorageNodeMessage{
-				Message: &pb.StorageNodeMessage_Succeeded{
-					Succeeded: &pb.TransferSucceeded{
-						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-						OriginalPieceHash:    originalPieceHash,
-						OriginalOrderLimit:   &orderLimit,
-						ReplacementPieceHash: signedNewPieceHash,
-					},
-				},
-			}
-			err = processClient.Send(success)
-			require.NoError(t, err)
-		default:
-			require.FailNow(t, "should not reach this case: %#v", m)
-		}
-
-		response, err = processClient.Recv()
-		require.NoError(t, err)
-
-		switch m := response.GetMessage().(type) {
-		case *pb.SatelliteMessage_ExitFailed:
-			require.NotNil(t, m)
-			require.NotNil(t, m.ExitFailed)
-			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
-		default:
-			require.FailNow(t, "should not reach this case: %#v", m)
-		}
-
-		// TODO uncomment once progress reflects updated success and fail counts
-		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
-	})
-}
 }
 
 func TestFailureHashMismatch(t *testing.T) {
