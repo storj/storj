@@ -265,7 +265,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
-			"run": { "api" },
+			"run": {"api"},
 		})
 
 		if flags.Postgres != "" {
@@ -533,8 +533,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 			continue
 		}
 
-		if strings.Contains(process.Name, "satellite-api") {
-			// satellite-api uses the same identity as the satellite
+		if strings.Contains(process.Name, "satellite-peer") {
+			// satellite-peer uses the same identity as the satellite
 			continue
 		}
 		if strings.Contains(process.Name, "satellite-repair") {
