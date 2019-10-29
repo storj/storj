@@ -14,21 +14,23 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
-// ErrClearing is stripecoinpayments clearing loop error class.
-var ErrClearing = errs.Class("stripecoinpayments clearing error")
+// ErrChore is stripecoinpayments clearing loop chore error class.
+var ErrChore = errs.Class("stripecoinpayments chore error")
 
-// Clearing runs process of reconciling transactions deposits,
+// Chore runs clearing process of reconciling transactions deposits,
 // customer balance, invoices and usages.
-type Clearing struct {
+//
+// architecture: Chore
+type Chore struct {
 	log                 *zap.Logger
 	service             *Service
 	TransactionCycle    sync2.Cycle
 	AccountBalanceCycle sync2.Cycle
 }
 
-// NewClearing creates new clearing loop.
-func NewClearing(log *zap.Logger, service *Service, txInterval time.Duration, accBalanceInterval time.Duration) *Clearing {
-	return &Clearing{
+// NewChore creates new clearing loop chore.
+func NewChore(log *zap.Logger, service *Service, txInterval time.Duration, accBalanceInterval time.Duration) *Chore {
+	return &Chore{
 		log:                 log,
 		service:             service,
 		TransactionCycle:    *sync2.NewCycle(txInterval),
@@ -37,42 +39,42 @@ func NewClearing(log *zap.Logger, service *Service, txInterval time.Duration, ac
 }
 
 // Run runs all clearing related cycles.
-func (clearing *Clearing) Run(ctx context.Context) (err error) {
+func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
 
-	clearing.TransactionCycle.Start(ctx, &group,
+	chore.TransactionCycle.Start(ctx, &group,
 		func(ctx context.Context) error {
-			clearing.log.Info("running transactions update cycle")
+			chore.log.Info("running transactions update cycle")
 
-			if err := clearing.service.updateTransactionsLoop(ctx); err != nil {
-				clearing.log.Error("transaction update cycle failed", zap.Error(ErrClearing.Wrap(err)))
+			if err := chore.service.updateTransactionsLoop(ctx); err != nil {
+				chore.log.Error("transaction update cycle failed", zap.Error(ErrChore.Wrap(err)))
 			}
 
 			return nil
 		},
 	)
-	clearing.AccountBalanceCycle.Start(ctx, &group,
+	chore.AccountBalanceCycle.Start(ctx, &group,
 		func(ctx context.Context) error {
-			clearing.log.Info("running account balance update cycle")
+			chore.log.Info("running account balance update cycle")
 
-			if err := clearing.service.updateAccountBalanceLoop(ctx); err != nil {
-				clearing.log.Error("account balance update cycle failed", zap.Error(ErrClearing.Wrap(err)))
+			if err := chore.service.updateAccountBalanceLoop(ctx); err != nil {
+				chore.log.Error("account balance update cycle failed", zap.Error(ErrChore.Wrap(err)))
 			}
 
 			return nil
 		},
 	)
 
-	return ErrClearing.Wrap(group.Wait())
+	return ErrChore.Wrap(group.Wait())
 }
 
 // Close closes all underlying resources.
-func (clearing *Clearing) Close() (err error) {
+func (chore *Chore) Close() (err error) {
 	defer mon.Task()(nil)(&err)
 
-	clearing.TransactionCycle.Close()
-	clearing.AccountBalanceCycle.Close()
+	chore.TransactionCycle.Close()
+	chore.AccountBalanceCycle.Close()
 	return nil
 }
