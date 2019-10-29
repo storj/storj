@@ -155,21 +155,21 @@ func (db *coinpaymentsTransactions) ListPending(ctx context.Context, offset int6
 // List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
 func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	query := db.db.Rebind(`SELECT 
-					txs.id,
-					txs.user_id,
-					txs.address,
-					txs.amount,
-					txs.received,
-					txs.key,
-					txs.created_at
-				FROM coinpayments_transactions as txs 
-				INNER JOIN stripecoinpayments_apply_balance_intents as ints
-				ON txs.id = ints.tx_id
-				WHERE txs.status = ?
-				AND txs.created_at <= ?
-				AND ints.state = ?
-				ORDER by txs.created_at DESC
-				LIMIT ? OFFSET ?`)
+				txs.id,
+				txs.user_id,
+				txs.address,
+				txs.amount,
+				txs.received,
+				txs.key,
+				txs.created_at
+			FROM coinpayments_transactions as txs 
+			INNER JOIN stripecoinpayments_apply_balance_intents as ints
+			ON txs.id = ints.tx_id
+			WHERE txs.status = ?
+			AND txs.created_at <= ?
+			AND ints.state = ?
+			ORDER by txs.created_at DESC
+			LIMIT ? OFFSET ?`)
 
 	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit+1, offset)
 	if err != nil {
