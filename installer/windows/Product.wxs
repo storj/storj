@@ -88,6 +88,7 @@
       <RegistrySearch Id="ServiceCommand" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\storagenode" Name="ImagePath" Type="raw" />
     </Property>
     <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
+    <SetDirectory Action="SetInstallFolder" Id="INSTALLFOLDER" Value="[STORJ_INSTALLDIR]" Sequence="execute">WIX_UPGRADE_DETECTED</SetDirectory>
 
     <UIRef Id="CustomInstallDir" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
@@ -107,20 +108,20 @@
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
                   ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
 
-    <CustomAction Id="DeleteConfigFile" Property="STORJ_INSTALLDIR"
-                  ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
+    <CustomAction Id="DeleteConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" Impersonate="no" />
 
     <CustomAction Id="ExtractInstallDir" BinaryKey="StorjDLL" DllEntry="ExtractInstallDir" Execute="immediate" Return="check" />
-    <CustomAction Id="BackupConfigFile" Property="STORJ_INSTALLDIR"
-                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="check" HideTarget="no" Impersonate="no" />
-    <CustomAction Id="RestoreConfigFile" Property="STORJ_INSTALLDIR"
-                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="check" HideTarget="no" Impersonate="no" />
+    <CustomAction Id="BackupConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="check" Impersonate="no" />
+    <CustomAction Id="RestoreConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="check" Impersonate="no" />
 
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='DeleteConfigFile' After='RemoveFiles'>(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
       <!-- legacy: save config file as old versions of the installer will remove it -->
-      <Custom Action='ExtractInstallDir' Before='BackupConfigFile'>WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action='ExtractInstallDir' Before='SetInstallFolder'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='BackupConfigFile' Before='InstallExecute'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='RestoreConfigFile' After='RemoveExistingProducts'>WIX_UPGRADE_DETECTED</Custom>
     </InstallExecuteSequence>
