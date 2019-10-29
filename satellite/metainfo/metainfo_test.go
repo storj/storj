@@ -624,81 +624,88 @@ func TestCommitSegmentPointer(t *testing.T) {
 	// all tests needs to generate error
 	tests := []struct {
 		// defines how modify pointer before CommitSegment
-		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity)
+		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit)
 		ErrorMessage string
 	}{
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.ExpirationDate = pointer.ExpirationDate.Add(time.Second * 100)
 			},
 			ErrorMessage: "pointer expiration date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.MinReq += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.RepairThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.SuccessThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Total += 100
 			},
 			// this error is triggered earlier then Create/Commit RS comparison
 			ErrorMessage: "invalid no order limit for piece",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.ErasureShareSize += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Type = 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Type = pb.Pointer_INLINE
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
 		{
 			// no piece hash removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
+			// set piece number to be out of range of limit slice
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				pointer.Remote.RemotePieces[0].PieceNum = int32(len(limits))
+			},
+			ErrorMessage: "invalid piece number",
+		},
+		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
 
 				ctx := testcontext.New(t)
@@ -712,20 +719,20 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "all pieces needs to have the same size",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.SegmentSize = 100
 			},
 			ErrorMessage: "expected piece size is different from provided",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// nil piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// invalid piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 
@@ -760,7 +767,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
-			test.Modify(pointer, fullIDMap)
+			test.Modify(pointer, fullIDMap, limits)
 
 			_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err, "Case #%v", i)

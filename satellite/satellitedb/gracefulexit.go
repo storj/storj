@@ -119,17 +119,19 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(item.FinishedAt)
 	}
 
-	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(item.NodeID.Bytes()),
 		dbx.GracefulExitTransferQueue_Path(item.Path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(item.PieceNum)),
 		update,
 	)
 }
 
 // DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
-func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (err error) {
+func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path))
+	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	return Error.Wrap(err)
 }
 
@@ -148,11 +150,12 @@ func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, 
 }
 
 // GetTransferQueueItem gets a graceful exit transfer queue entry.
-func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (_ *gracefulexit.TransferQueueItem, err error) {
+func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(path))
+		dbx.GracefulExitTransferQueue_Path(path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

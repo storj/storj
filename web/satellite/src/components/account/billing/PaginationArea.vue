@@ -35,22 +35,22 @@ export default class PaginationArea extends Vue {}
         align-items: center;
         justify-content: space-between;
         margin-top: 39px;
-    
+
         &__pages {
             display: flex;
             align-items: center;
         }
-    
+
         &__button {
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: 1px solid #AFB7C1;
+            border: 1px solid #afb7c1;
             border-radius: 6px;
             width: 30px;
             height: 30px;
-        
+
             &:hover {
 
                 .pagination-svg-path {
@@ -58,15 +58,15 @@ export default class PaginationArea extends Vue {}
                 }
             }
         }
-    
+
         &__items {
             margin: 0 20px;
             display: flex;
-            
+
             .selected {
-                color: #2379EC;
-                font-family: 'font_bold';
-                
+                color: #2379ec;
+                font-family: 'font_bold', sans-serif;
+
                 &:after {
                     content: '';
                     display: block;
@@ -75,22 +75,22 @@ export default class PaginationArea extends Vue {}
                     left: 0;
                     width: 10px;
                     height: 2px;
-                    background-color: #2379EC;
+                    background-color: #2379ec;
                 }
             }
-        
+
             &__page-number {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 margin-right: 15px;
                 cursor: pointer;
                 display: block;
                 position: relative;
-                transition: all .2s ease;
-                
+                transition: all 0.2s ease;
+
                 &:hover {
-                    color: #2379EC;
-                    
+                    color: #2379ec;
+
                     &:after {
                         content: '';
                         display: block;
@@ -99,10 +99,10 @@ export default class PaginationArea extends Vue {}
                         left: 0;
                         width: 100%;
                         height: 2px;
-                        background-color: #2379EC;
+                        background-color: #2379ec;
                     }
                 }
-        
+
                 &:last-child {
                     margin-right: 0;
                 }
