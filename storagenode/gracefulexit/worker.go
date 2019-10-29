@@ -218,7 +218,7 @@ func (worker *Worker) deletePieces(ctx context.Context, pieceIDs []pb.PieceID) e
 		if err != nil {
 			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 		}
-		if pieceIDs == nil || len(pieceIDs) <= 0 {
+		if pieceIDs == nil || len(pieceIDs) == 0 {
 			pieceMap[piece.PieceID()] = size
 			return nil
 		}
