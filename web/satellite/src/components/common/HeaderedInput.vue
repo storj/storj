@@ -73,63 +73,63 @@ export default class HeaderedInput extends HeaderlessInput {
 
 <style scoped lang="scss">
     .input-container {
-    	display: flex;
-    	flex-direction: column;
-    	align-items: flex-start;
-    	margin-top: 10px;
-    	width: 48%;
-        font-family: 'font_regular';
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-top: 10px;
+        width: 48%;
+        font-family: 'font_regular', sans-serif;
     }
-    
+
     .label-container {
-    	display: flex;
-    	justify-content: flex-start;
+        display: flex;
+        justify-content: flex-start;
         align-items: center;
 
         &__label {
             font-size: 16px;
             line-height: 21px;
             color: #354049;
-    	}
-    
-    	&__error {
+        }
+
+        &__error {
             font-size: 16px;
             line-height: 21px;
-            color: #FF5560;
+            color: #ff5560;
             margin-left: 10px;
-    	}
+        }
     }
-    
+
     .optional-label-container {
-    	display: flex;
-    	flex-direction: row;
-    	justify-content: space-between;
-    	align-items: center;
-    	width: 100%;
-    
-    	&__optional {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+
+        &__optional {
             font-size: 16px;
             line-height: 21px;
-            color: #AFB7C1;
-    	}
+            color: #afb7c1;
+        }
     }
-    
+
     .headered-input,
     .headered-textarea {
-    	font-size: 16px;
-    	line-height: 21px;
-    	resize: none;
-    	height: 48px;
-    	width: 100%;
-    	text-indent: 20px;
-    	border-color: rgba(56, 75, 101, 0.4);
-    	border-radius: 6px;
-    	outline: none;
-    	box-shadow: none;
+        font-size: 16px;
+        line-height: 21px;
+        resize: none;
+        height: 48px;
+        width: 100%;
+        text-indent: 20px;
+        border-color: rgba(56, 75, 101, 0.4);
+        border-radius: 6px;
+        outline: none;
+        box-shadow: none;
     }
 
     .headered-textarea {
-    	padding-top: 20px;
+        padding-top: 20px;
     }
 
     .add-label {

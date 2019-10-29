@@ -12,8 +12,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import TestListItem from '@/components/common/test/TestListItem.vue';
 import VList from '@/components/common/VList.vue';
+
+import TestListItem from './TestListItem.vue';
 
 @Component({
     components: {
@@ -39,6 +40,3 @@ export default class TestList extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss"></style>
-
