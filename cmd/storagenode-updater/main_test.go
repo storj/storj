@@ -41,7 +41,7 @@ func TestAutoUpdater(t *testing.T) {
 	fakeOldBin := ctx.CompileWithLDFlagsX("./testdata/binbuilder", map[string]string{
 		"main.version": oldVersion,
 	})
-	fakeStoragenode := ctx.File("fake", "storagenode")
+	fakeStoragenode := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, fakeStoragenode, fakeOldBin)
 
 	// build fake binary with new version for use as updated storagenode and updater binaries
@@ -53,9 +53,11 @@ func TestAutoUpdater(t *testing.T) {
 		"storagenode-updater": fakeNewBin,
 	}
 
+	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
-	peer, cleanupVersionControl := testVersionControlWithUpdates(ctx, t, updateBins)
+	// run versioncontrol and update zips http servers
+	versionControlPeer, cleanupVersionControl := testVersionControlWithUpdates(ctx, t, updateBins)
 	defer cleanupVersionControl()
 
 	// build real updater with old version
@@ -74,7 +76,7 @@ func TestAutoUpdater(t *testing.T) {
 	// run updater (update)
 	args := []string{"run"}
 	args = append(args, "--config-dir", ctx.Dir())
-	args = append(args, "--server-address", "http://"+peer.Addr())
+	args = append(args, "--server-address", "http://"+versionControlPeer.Addr())
 	args = append(args, "--binary-location", fakeStoragenode)
 	args = append(args, "--check-interval", "0s")
 	args = append(args, "--identity.cert-path", identConfig.CertPath)
@@ -101,6 +103,18 @@ func TestAutoUpdater(t *testing.T) {
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
+
+	oldStoragenode := ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")
+	oldStoragenodeInfo, err := os.Stat(oldStoragenode)
+	require.NoError(t, err)
+	require.NotNil(t, oldStoragenodeInfo)
+	require.NotZero(t, oldStoragenodeInfo.Size())
+
+	backupUpdater := ctx.File("build", "storagenode-updater.backup.exe")
+	backupUpdaterInfo, err := os.Stat(backupUpdater)
+	require.NoError(t, err)
+	require.NotNil(t, backupUpdaterInfo)
+	require.NotZero(t, backupUpdaterInfo.Size())
 }
 
 func copyBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
