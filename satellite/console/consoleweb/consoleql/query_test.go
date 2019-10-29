@@ -66,12 +66,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John",
-				ShortName: "",
-				Email:     "mtest@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "John",
+			ShortName: "",
+			Email:     "mtest@mail.test",
+			Password:  "123a123",
 		}
 		refUserID := ""
 
@@ -189,12 +187,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Mickey Last",
-				ShortName: "Last",
-				Email:     "muu1@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "Mickey Last",
+			ShortName: "Last",
+			Password:  "123a123",
+			Email:     "muu1@mail.test",
 		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
@@ -215,12 +211,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Dubas Name",
-				ShortName: "Name",
-				Email:     "muu2@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "Dubas Name",
+			ShortName: "Name",
+			Email:     "muu2@mail.test",
+			Password:  "123a123",
 		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)
 
@@ -437,12 +431,10 @@ func TestGraphqlQuery(t *testing.T) {
 			regToken, err := service.CreateRegToken(ctx, 2)
 			require.NoError(t, err)
 			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user@mail.test",
-				},
-				Password: "123a123",
+				FullName:  "Example User",
+				ShortName: "Example",
+				Email:     "user@mail.test",
+				Password:  "123a123",
 			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)
@@ -477,12 +469,10 @@ func TestGraphqlQuery(t *testing.T) {
 			regToken, err := service.CreateRegToken(ctx, 2)
 			require.NoError(t, err)
 			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user1@mail.test",
-				},
-				Password: "123a123",
+				FullName:  "Example User",
+				ShortName: "Example",
+				Email:     "user1@mail.test",
+				Password:  "123a123",
 			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)
