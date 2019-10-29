@@ -1328,6 +1328,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE graceful_exit_transfer_queue ADD PRIMARY KEY ( node_id, path, piece_num );`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add payments update balance intents",
+				Version:     63,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
 		},
 	}
 }

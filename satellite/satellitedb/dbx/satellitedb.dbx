@@ -920,3 +920,21 @@ read limitoffset (
     where coinpayments_transaction.status = ?
     orderby desc coinpayments_transaction.created_at
 )
+
+model stripecoinpayments_apply_balance_intent (
+    key tx_id
+
+    field tx_id coinpayments_transaction.id  cascade
+    field state int                          ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_apply_balance_intent ()
+update stripecoinpayments_apply_balance_intent (
+    where stripecoinpayments_apply_balance_intent.tx_id = ?
+)
+delete stripecoinpayments_apply_balance_intent (
+    where stripecoinpayments_apply_balance_intent.tx_id = ?
+)
+
