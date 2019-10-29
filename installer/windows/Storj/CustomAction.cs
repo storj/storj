@@ -187,9 +187,24 @@ namespace Storj
         public static ActionResult BackupConfigFile(Session session)
         {
             CustomActionData data = session.CustomActionData;
-            string line = data["Path"].ToString();
+            string line = data["Path"];
+            // thing I don't understand:
             session.Log($"BackupConfigFile registry value: {line}");
-            String path = Util.extractPath($"{line}");
+            string substringExample = line.Substring(0, 12);
+            session.Log($"Substring 1: {substringExample}"); 
+            substringExample = line.Substring(0, 5);
+            session.Log($"Substring 2: {substringExample}");
+            substringExample = line.Substring(0, 11);
+            session.Log($"Substring 3: {substringExample}");
+            substringExample = line.Substring(0, 14);
+            session.Log($"Substring 4: {substringExample}");
+            /* output: 
+             * Substring 1: "C:\Program Files\Storj\Storage Node2\storagenode.exe" run --config-dir "C:\Program Files\Storj\Storage Node2\\"
+                Substring 2: [INST
+            Substring 3: [INSTALLDIR 
+             System.ArgumentOutOfRangeException: Index and length must refer to a location within the string.
+            */
+            string path = substringExample.Substring(0, line.IndexOf("storagenode"));
             session.Log($"BackupConfigFile extracted path: {path}");
             File.Move($"{path}config.yaml", $"{path}config.yaml.back");
             return ActionResult.Success;
@@ -199,21 +214,12 @@ namespace Storj
         public static ActionResult RestoreConfigFile(Session session)
         {
             CustomActionData data = session.CustomActionData;
-            string line = data["Path"].ToString();
+            string line = data["Path"];
             session.Log($"RestoreConfigFile registry value: {line}");
-            String path = Util.extractPath($"{line}");
+            String path = line.Substring(0, line.IndexOf("storagenode"));
             session.Log($"RestoreConfigFile extracted path: {path}");
             File.Move($"{path}config.yaml.back", $"{path}config.yaml");
             return ActionResult.Success;
-        }
-    }
-
-    class Util
-    {
-        public static string extractPath(string line)
-        {
-            int start = line.IndexOf("storagenode");
-            return line.Substring(0, start);
         }
     }
 }
