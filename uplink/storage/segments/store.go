@@ -49,24 +49,20 @@ type Store interface {
 }
 
 type segmentStore struct {
-	metainfo                *metainfo.Client
-	ec                      ecclient.Client
-	rs                      eestream.RedundancyStrategy
-	thresholdSize           int
-	maxEncryptedSegmentSize int64
-	rngMu                   sync.Mutex
-	rng                     *rand.Rand
+	metainfo *metainfo.Client
+	ec       ecclient.Client
+	rs       eestream.RedundancyStrategy
+	rngMu    sync.Mutex
+	rng      *rand.Rand
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy) Store {
 	return &segmentStore{
-		metainfo:                metainfo,
-		ec:                      ec,
-		rs:                      rs,
-		thresholdSize:           threshold,
-		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		rng:                     rand.New(rand.NewSource(time.Now().UnixNano())),
+		metainfo: metainfo,
+		ec:       ec,
+		rs:       rs,
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
