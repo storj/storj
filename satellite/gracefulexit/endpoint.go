@@ -348,7 +348,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			// if pending count is still 0 and the loop has exited, return
 			if pendingCount == 0 && !loopRunningFlag {
 				processMu.Unlock()
-				return nil
+				continue
 			}
 		}
 		processMu.Unlock()
