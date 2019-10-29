@@ -234,7 +234,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	if exitStatus.ExitInitiatedAt == nil {
 		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
-		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
@@ -242,6 +242,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
+
+		// graceful exit initiation metrics
+		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount)
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
+
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
@@ -345,7 +353,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			var transferMsg *pb.SatelliteMessage
+			mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
+			mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
+			mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred)
+
 			processed := progress.PiecesFailed + progress.PiecesTransferred
+			if processed > 0 {
+				mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed)
+			}
+
 			// check node's exiting progress to see if it has failed passed max failure threshold
 			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
@@ -361,7 +377,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
 			}
-
+			if exitStatusRequest.ExitSuccess {
+				mon.Meter("graceful_exit_success").Mark(1)
+			} else {
+				mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1)
+			}
 			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -419,6 +439,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
+					mon.Meter("graceful_exit_fail_validation").Mark(1)
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -689,12 +710,15 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	mon.Meter("graceful_exit_transfer_piece_success").Mark(1)
 	return nil
 }
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
