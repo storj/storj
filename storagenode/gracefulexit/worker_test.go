@@ -77,7 +77,6 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, queueItems, 1)
 
 		// run the SN chore again to start processing transfers.
-		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
 		err = worker.Run(ctx, func() {})
 		require.NoError(t, err)
@@ -170,7 +169,6 @@ func TestWorkerTimeout(t *testing.T) {
 		}
 
 		// run the SN chore again to start processing transfers.
-		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), config)
 		err = worker.Run(ctx, func() {})
 		require.NoError(t, err)
