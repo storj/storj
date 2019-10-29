@@ -171,7 +171,7 @@ func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 				ORDER by txs.created_at DESC
 				LIMIT ? OFFSET ?`)
 
-	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit, offset)
+	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit+1, offset)
 	if err != nil {
 		return stripecoinpayments.TransactionsPage{}, err
 	}
