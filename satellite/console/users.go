@@ -31,21 +31,15 @@ type Users interface {
 type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
-	Email     string `json:"email"`
-	PartnerID string `json:"partnerId"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
 func (user *UserInfo) IsValid() error {
 	var errs validationErrors
 
-	// validate email
-	_, err := mail.ParseAddress(user.Email)
-	errs.AddWrap(err)
-
 	// validate fullName
-	if user.FullName == "" {
-		errs.Add("fullName can't be empty")
+	if err := validateFullName(user.FullName); err != nil {
+		errs.AddWrap(err)
 	}
 
 	return errs.Combine()
@@ -53,16 +47,23 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	UserInfo
-	Password string `json:"password"`
+	FullName  string `json:"fullName"`
+	ShortName string `json:"shortName"`
+	Email     string `json:"email"`
+	PartnerID string `json:"partnerId"`
+	Password  string `json:"password"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 func (user *CreateUser) IsValid() error {
 	var errs validationErrors
 
-	errs.AddWrap(user.UserInfo.IsValid())
+	errs.AddWrap(validateFullName(user.FullName))
 	errs.AddWrap(validatePassword(user.Password))
+
+	// validate email
+	_, err := mail.ParseAddress(user.Email)
+	errs.AddWrap(err)
 
 	if user.PartnerID != "" {
 		_, err := uuid.Parse(user.PartnerID)

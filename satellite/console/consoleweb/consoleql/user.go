@@ -5,7 +5,6 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
 )
@@ -88,30 +87,20 @@ func graphqlUserInput() *graphql.InputObject {
 	})
 }
 
-// fromMapUserInfo creates UserInput from input args
-func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
+func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
 	user.Email, _ = args[FieldEmail].(string)
 	user.FullName, _ = args[FieldFullName].(string)
 	user.ShortName, _ = args[FieldShortName].(string)
-	user.PartnerID, _ = args[FieldPartnerID].(string)
-	return
-}
-
-func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
-	user.UserInfo = fromMapUserInfo(args)
 	user.Password, _ = args[FieldPassword].(string)
+	user.PartnerID, _ = args[FieldPartnerID].(string)
 	return
 }
 
 // fillUserInfo fills satellite.UserInfo from satellite.User and input args
 func fillUserInfo(user *console.User, args map[string]interface{}) console.UserInfo {
 	info := console.UserInfo{
-		Email:     user.Email,
 		FullName:  user.FullName,
 		ShortName: user.ShortName,
-	}
-	if !user.PartnerID.IsZero() {
-		info.PartnerID = user.PartnerID.String()
 	}
 
 	for fieldName, fieldValue := range args {
@@ -121,21 +110,12 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 		}
 
 		switch fieldName {
-		case FieldEmail:
-			info.Email = value
-			user.Email = value
 		case FieldFullName:
 			info.FullName = value
 			user.FullName = value
 		case FieldShortName:
 			info.ShortName = value
 			user.ShortName = value
-		case FieldPartnerID:
-			info.PartnerID = value
-			partnerID, err := uuid.Parse(value)
-			if err == nil {
-				user.PartnerID = *partnerID
-			}
 		}
 	}
 
