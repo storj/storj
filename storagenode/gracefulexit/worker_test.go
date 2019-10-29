@@ -24,6 +24,76 @@ import (
 	"storj.io/storj/uplink"
 )
 
+func TestWorkerSuccess(t *testing.T) {
+	var geConfig gracefulexit.Config
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 9,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				geConfig = config.GracefulExit
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: 8,
+			MaxThreshold:     8,
+		}
+
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		exitStatusReq := overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
+		require.NoError(t, err)
+
+		// run the satellite chore to build the transfer queue.
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		// check that the satellite knows the storage node is exiting.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 1)
+
+		// run the SN chore again to start processing transfers.
+		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		err = worker.Run(ctx, func() {})
+		require.NoError(t, err)
+
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, progress.PiecesFailed, 0)
+		require.EqualValues(t, progress.PiecesTransferred, 1)
+
+		exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.True(t, exitStatus.ExitSuccess)
+	})
+}
+
 func TestWorkerTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
