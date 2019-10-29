@@ -268,7 +268,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
-				processCond.Broadcast()
+				if pending.length() > 0 {
+					processCond.Broadcast()
+				}
 			}
 			return nil
 		})
@@ -333,12 +335,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 			break
 		} else if pendingCount == 0 {
-			// if incomplete loop has exited, return
-			if !loopRunningFlag {
-				processMu.Unlock()
-				return nil
-			}
-
 			// otherwise, wait for incomplete loop
 			processCond.Wait()
 			select {
