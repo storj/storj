@@ -82,10 +82,8 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 	}
 
 	for txsPage.Next {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 
 		txsPage, err = service.transactionsDB.ListPending(ctx, txsPage.NextOffset, limit, before)
@@ -153,10 +151,8 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 	}
 
 	for _, tx := range txsPage.Transactions {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 
 		if err = service.applyTransactionBalance(ctx, tx); err != nil {
@@ -165,10 +161,8 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 	}
 
 	for txsPage.Next {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 
 		txsPage, err := service.transactionsDB.ListUnapplied(ctx, txsPage.NextOffset, limit, before)
@@ -177,10 +171,8 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 		}
 
 		for _, tx := range txsPage.Transactions {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
+			if err = ctx.Err(); err != nil {
+				return err
 			}
 
 			if err = service.applyTransactionBalance(ctx, tx); err != nil {
