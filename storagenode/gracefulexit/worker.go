@@ -158,15 +158,17 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 
 	putCtx := ctx
 
-	if worker.minBytesPerSecond > 0 {
-		maxTransferTime := time.Duration(int64(time.Second) * originalHash.PieceSize / worker.minBytesPerSecond.Int64())
-		if maxTransferTime < worker.minDownloadTimeout {
-			maxTransferTime = worker.minDownloadTimeout
-		}
-		var cancel func()
-		putCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
-		defer cancel()
+	if worker.minBytesPerSecond == 0 {
+		// set minBytesPerSecond to default 128B if set to 0
+		worker.minBytesPerSecond = 128 * memory.B
 	}
+	maxTransferTime := time.Duration(int64(time.Second) * originalHash.PieceSize / worker.minBytesPerSecond.Int64())
+	if maxTransferTime < worker.minDownloadTimeout {
+		maxTransferTime = worker.minDownloadTimeout
+	}
+	var cancel func()
+	putCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
+	defer cancel()
 
 	// TODO what's the typical expiration setting?
 	pieceHash, peerID, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
