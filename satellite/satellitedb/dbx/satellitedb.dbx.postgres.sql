@@ -291,6 +291,12 @@ CREATE TABLE project_members (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,

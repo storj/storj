@@ -51,7 +51,7 @@ import VButton from '@/components/common/VButton.vue';
 import DeleteAccountIcon from '@/../static/images/account/deleteAccountPopup/deleteAccount.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-import { AuthApi } from '@/api/auth';
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -70,7 +70,7 @@ export default class DeleteAccountPopup extends Vue {
     private password: string = '';
     private isLoading: boolean = false;
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public setPassword(value: string): void {
         this.password = value;
