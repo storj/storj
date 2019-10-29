@@ -47,7 +47,6 @@ const (
 
 	// Peer class
 	satellitePeer      = 0
-	satelliteAPI       = 4
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
@@ -60,6 +59,7 @@ const (
 	debugHTTP   = 9
 	// satellite specific constants
 	debugRepairerHTTP = 8
+	debugPeerHTTP     = 7
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -229,15 +229,40 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
 	}
 
-	var satellites []*Process
-	for i := 0; i < flags.SatelliteCount; i++ {
+	// Create the API process for each satellite
+	var satelliteAPIs []*Process
+	for i, satellite := range satelliteAPIs {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
+		})
+		satelliteAPIs = append(satelliteAPIs, process)
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"api",
+				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
+				"--server.address", process.Address,
+				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
+			},
+		})
+
+		process.WaitForStart(satellite)
+	}
+
+	var satellitePeers []*Process
+	for i := 0; i < flags.SatelliteCount; i++ {
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-peer/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    "",
 		})
-		satellites = append(satellites, process)
+		satellitePeers = append(satellitePeers, process)
 
 		consoleAuthToken := "secure_token"
 
@@ -258,7 +283,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 			"run": {},
 		})
@@ -275,33 +300,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 	}
 
-	// Create the API process for each satellite
-	var satelliteAPIs []*Process
-	for i, satellite := range satellites {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-api/%d", i),
-			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(satelliteAPI, i, publicGRPC)),
-		})
-		satelliteAPIs = append(satelliteAPIs, process)
-
-		process.Arguments = withCommon(process.Directory, Arguments{
-			"run": {
-				"api",
-				"--console.address", net.JoinHostPort(host, port(satelliteAPI, i, publicHTTP)),
-				"--marketing.address", net.JoinHostPort(host, port(satelliteAPI, i, privateHTTP)),
-				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, port(satelliteAPI, i, privateGRPC)),
-				"--debug.addr", net.JoinHostPort(host, port(satelliteAPI, i, debugHTTP)),
-			},
-		})
-
-		process.WaitForStart(satellite)
-	}
-
 	// Create the repairer process for each satellite
-	for i, satellite := range satellites {
+	for i, satellite := range satelliteAPIs {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",
@@ -478,15 +478,15 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.ExecBefore["setup"] = func(process *Process) error {
 			whitelisted := []string{}
-			for _, satelliteAPI := range satelliteAPIs {
+			for _, satellite := range satelliteAPIs {
 				peer, err := identity.PeerConfig{
-					CertPath: filepath.Join(satelliteAPI.Directory, "identity.cert"),
+					CertPath: filepath.Join(satellite.Directory, "identity.cert"),
 				}.Load()
 				if err != nil {
 					return err
 				}
 
-				whitelisted = append(whitelisted, peer.ID.String()+"@"+satelliteAPI.Address)
+				whitelisted = append(whitelisted, peer.ID.String()+"@"+satellite.Address)
 			}
 
 			process.Arguments["setup"] = append(process.Arguments["setup"],
