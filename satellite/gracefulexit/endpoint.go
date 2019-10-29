@@ -46,18 +46,17 @@ type processStream interface {
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
-	log              *zap.Logger
-	interval         time.Duration
-	signer           signing.Signer
-	db               DB
-	overlaydb        overlay.DB
-	overlay          *overlay.Service
-	metainfo         *metainfo.Service
-	orders           *orders.Service
-	connectionsMapMu sync.Mutex
-	connectionsMap   map[storj.NodeID]struct{}
-	peerIdentities   overlay.PeerIdentities
-	config           Config
+	log            *zap.Logger
+	interval       time.Duration
+	signer         signing.Signer
+	db             DB
+	overlaydb      overlay.DB
+	overlay        *overlay.Service
+	metainfo       *metainfo.Service
+	orders         *orders.Service
+	connections    *connectionsTracker
+	peerIdentities overlay.PeerIdentities
+	config         Config
 }
 
 type pendingTransfer struct {
@@ -115,6 +114,41 @@ func (pm *pendingMap) delete(pieceID storj.PieceID) {
 	delete(pm.data, pieceID)
 }
 
+// connectionsTracker for tracking ongoing connections on this api server
+type connectionsTracker struct {
+	mu   sync.RWMutex
+	data map[storj.NodeID]struct{}
+}
+
+// newConnectionsTracker creates a new connectionsTracker and instantiates the map.
+func newConnectionsTracker() *connectionsTracker {
+	newData := make(map[storj.NodeID]struct{})
+	return &connectionsTracker{
+		data: newData,
+	}
+}
+
+// putIfAvailable adds to the map if the node ID is not already connected
+// it returns true if succeeded and false if the connection is already open.
+func (pm *connectionsTracker) putIfAvailable(nodeID storj.NodeID) bool {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if _, ok := pm.data[nodeID]; ok {
+		return false
+	}
+	pm.data[nodeID] = struct{}{}
+	return true
+}
+
+// delete deletes a node ID from the map.
+func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	delete(pm.data, nodeID)
+}
+
 // DRPC returns a DRPC form of the endpoint.
 func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 	return &drpcEndpoint{Endpoint: endpoint}
@@ -132,7 +166,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		overlay:        overlay,
 		metainfo:       metainfo,
 		orders:         orders,
-		connectionsMap: make(map[storj.NodeID]struct{}),
+		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
 		config:         config,
 	}
@@ -162,17 +196,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
 
 	// ensure that only one connection can be opened for a single node at a time
-	endpoint.connectionsMapMu.Lock()
-	if _, ok := endpoint.connectionsMap[nodeID]; ok {
-		endpoint.connectionsMapMu.Unlock()
+	if !endpoint.connections.putIfAvailable(nodeID) {
 		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
 	}
-	endpoint.connectionsMap[nodeID] = struct{}{}
-	endpoint.connectionsMapMu.Unlock()
 	defer func() {
-		endpoint.connectionsMapMu.Lock()
-		delete(endpoint.connectionsMap, nodeID)
-		endpoint.connectionsMapMu.Unlock()
+		endpoint.connections.delete(nodeID)
 	}()
 
 	eofHandler := func(err error) error {
