@@ -77,7 +77,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	sizedReader := SizeReader(NewPeekThresholdReader(data))
 	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
 	if err != nil {
-		return nil, -1, Error.Wrap(err)
+		return nil, size, Error.Wrap(err)
 	}
 
 	uploadResults := make([]*pb.SegmentPieceUploadResult, 0, len(successfulNodes))
@@ -93,7 +93,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	}
 
 	if l := len(uploadResults); l < s.rs.OptimalThreshold() {
-		return nil, -1, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
+		return nil, size, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
 	}
 
 	return uploadResults, sizedReader.Size(), nil
