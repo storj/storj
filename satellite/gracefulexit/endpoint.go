@@ -406,7 +406,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	if err := group.Wait(); err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		if !errs.Is(err, context.Canceled) {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+
+		}
 	}
 
 	return nil

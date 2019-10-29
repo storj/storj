@@ -115,8 +115,11 @@ func TestSuccess(t *testing.T) {
 				}
 			case *pb.SatelliteMessage_DeletePiece:
 				deletedCount++
+			case *pb.SatelliteMessage_ExitCompleted:
+				signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+				err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+				require.NoError(t, err)
 			default:
-				// TODO finish other message types above so this shouldn't happen
 				t.FailNow()
 			}
 		}
