@@ -51,6 +51,10 @@ func TestRecovery(t *testing.T) {
 	}
 	oldRealUpdater := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", info)
 
+	// modify Product.wxs
+	restoreProductWix := modifyProductWix()
+	defer ctx.Check(restoreProductWix)
+
 	installerDir, err := filepath.Abs(filepath.Join("..", "..", "installer", "windows"))
 	require.NoError(t, err)
 
@@ -102,11 +106,14 @@ func TestRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//logPath := ctx.File("storagenode-updater.log")
+	// TODO: better way to do this?
+	//installDir := `C:\Program Files\Storj\Storage Node\`
+	//storagenodeLog := installDir + "storagenode.log"
+	//updaterLog := installDir + "storagenode-updater.log"
 
 	//// run updater recovery
 	//args := []string{"recover"}
-	//args = append(args, "--log", logPath)
+	//args = append(args, "--log", storagenodeLog)
 	//
 	//out, err := exec.Command(oldRealUpdater, args...).CombinedOutput()
 	//result := string(out)
@@ -117,7 +124,7 @@ func TestRecovery(t *testing.T) {
 
 	//// NB: updater currently uses `log.SetOutput` so all output after that call
 	//// only goes to the log file.
-	//logData, logErr := ioutil.ReadFile(logPath)
+	//logData, logErr := ioutil.ReadFile(storagenodeLog)
 	//if assert.NoError(t, logErr) {
 	//	logStr := string(logData)
 	//	t.Log(logStr)
@@ -131,4 +138,12 @@ func TestRecovery(t *testing.T) {
 	//if !assert.NoError(t, err) {
 	//	t.FailNow()
 	//}
+}
+
+func modifyProductWix() func() error {
+	// scan through file
+	// write each line to new file
+	// check for `Id="Storagenodeupdater"` and set flag true
+	// if flag true when `Arguments=...` encountered, write string replacement
+	return func() error {return nil}
 }

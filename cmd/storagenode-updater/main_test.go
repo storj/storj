@@ -35,9 +35,8 @@ const (
 )
 
 func TestAutoUpdater_unix(t *testing.T) {
-	// TODO: add windows version of this test; requires installing service
 	if runtime.GOOS == "windows" {
-		t.SkipNow()
+		t.Skip("requires storagenode and storagenode-updater to be installed as windows services")
 	}
 
 	ctx := testcontext.New(t)

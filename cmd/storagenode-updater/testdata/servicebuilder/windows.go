@@ -62,7 +62,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	var group errgroup.Group
 	group.Go(func() error {
-		time.Sleep(time.Minute)
+		time.Sleep(5 * time.Second)
 		return nil
 	})
 
