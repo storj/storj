@@ -323,9 +323,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 			}
 			if exitStatusRequest.ExitSuccess {
-				mon.Meter("graceful_exit_completed_success").Mark(1)
+				mon.Meter("graceful_exit_success").Mark(1)
 			} else {
-				mon.Meter("graceful_exit_completed_fail").Mark(1)
+				mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1)
 			}
 			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
@@ -367,6 +367,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
+					mon.Meter("graceful_exit_fail_validation").Mark(1)
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())

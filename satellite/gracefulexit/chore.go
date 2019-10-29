@@ -86,6 +86,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					ExitSuccess:    false,
 					ExitFinishedAt: time.Now().UTC(),
 				}
+				mon.Meter("graceful_exit_fail_inactive").Mark(1)
 				_, err = chore.overlay.UpdateExitStatus(ctx, exitStatusRequest)
 				if err != nil {
 					chore.log.Error("error updating exit status", zap.Error(err))
