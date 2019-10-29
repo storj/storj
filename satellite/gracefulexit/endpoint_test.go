@@ -7,11 +7,13 @@ import (
 	"context"
 	"io"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -127,6 +129,101 @@ func TestSuccess(t *testing.T) {
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.EqualValues(t, 0, progress.PiecesFailed)
+	})
+}
+
+func TestConcurrentConnections(t *testing.T) {
+	successThreshold := 8
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		// check that there are no exiting nodes.
+		exitingNodeIDs, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodeIDs, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 2)
+		require.NoError(t, err)
+
+		var group errgroup.Group
+		concurrentCalls := 4
+		var wg sync.WaitGroup
+		wg.Add(1)
+		for i := 0; i < concurrentCalls; i++ {
+			group.Go(func() (err error) {
+				// connect to satellite so we initiate the exit.
+				conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+				require.NoError(t, err)
+				defer func() {
+					err = errs.Combine(err, conn.Close())
+				}()
+
+				client := conn.SatelliteGracefulExitClient()
+
+				// wait for "main" call to begin
+				wg.Wait()
+
+				c, err := client.Process(ctx)
+				require.NoError(t, err)
+
+				_, err = c.Recv()
+				require.Error(t, err)
+				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				return nil
+			})
+		}
+
+		// connect to satellite so we initiate the exit ("main" call)
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer func() {
+			err = errs.Combine(err, conn.Close())
+		}()
+
+		client := conn.SatelliteGracefulExitClient()
+		// this connection will immediately return since graceful exit has not been initiated yet
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+		response, err := c.Recv()
+		require.NoError(t, err)
+		switch response.GetMessage().(type) {
+		case *pb.SatelliteMessage_NotReady:
+		default:
+			t.FailNow()
+		}
+
+		// wait for initial loop to start so we have pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		// this connection should not close immediately, since there are pieces to transfer
+		c, err = client.Process(ctx)
+		require.NoError(t, err)
+
+		_, err = c.Recv()
+		require.NoError(t, err)
+
+		// start receiving from concurrent connections
+		wg.Done()
+
+		err = group.Wait()
+		require.NoError(t, err)
 	})
 }
 
