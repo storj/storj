@@ -65,6 +65,7 @@ export default class ProjectOverviewArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .project-overview {
             padding: 44px 40px 55px 40px;
 

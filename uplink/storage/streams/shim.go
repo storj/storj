@@ -29,8 +29,8 @@ type shimStore struct {
 }
 
 // NewStreamStore constructs a Store.
-func NewStreamStore(metainfo *metainfo.Client, segments segments.Store, segmentSize int64, encStore *encryption.Store, encBlockSize int, cipher storj.CipherSuite, inlineThreshold int) (Store, error) {
-	typedStore, err := newTypedStreamStore(metainfo, segments, segmentSize, encStore, encBlockSize, cipher, inlineThreshold)
+func NewStreamStore(metainfo *metainfo.Client, segments segments.Store, segmentSize int64, encStore *encryption.Store, encBlockSize int, cipher storj.CipherSuite, inlineThreshold int, maxEncryptedSegmentSize int64) (Store, error) {
+	typedStore, err := newTypedStreamStore(metainfo, segments, segmentSize, encStore, encBlockSize, cipher, inlineThreshold, maxEncryptedSegmentSize)
 	if err != nil {
 		return nil, err
 	}

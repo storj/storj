@@ -65,7 +65,7 @@ export default class NoBucketArea extends Vue {}
 
     .no-buckets-area {
         padding: 50px 60px 50px 70px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             width: 100%;
@@ -74,10 +74,10 @@ export default class NoBucketArea extends Vue {}
             align-items: center;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
             }
 
             &__image {
@@ -86,7 +86,7 @@ export default class NoBucketArea extends Vue {}
         }
 
         &__info {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             height: 81px;
             display: flex;
             align-items: center;
@@ -97,7 +97,7 @@ export default class NoBucketArea extends Vue {}
         }
 
         &__subtitle {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 18px;
             line-height: 27px;
             color: #354049;
@@ -124,14 +124,14 @@ export default class NoBucketArea extends Vue {}
                 align-items: flex-start;
 
                 &__title {
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     font-size: 18px;
                     line-height: 27px;
                     color: #354049;
                 }
 
                 &__text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.7);
@@ -140,7 +140,7 @@ export default class NoBucketArea extends Vue {}
         }
 
         &__s3-link {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             margin-top: 18px;
             font-size: 12px;
             line-height: 17px;
@@ -162,7 +162,7 @@ export default class NoBucketArea extends Vue {}
                 height: 40px;
                 min-width: 40px;
                 margin-right: 42px;
-                background-color: #2683FF;
+                background-color: #2683ff;
                 border-radius: 10px;
                 display: flex;
                 justify-content: center;
@@ -172,7 +172,7 @@ export default class NoBucketArea extends Vue {}
             &__text-area {
 
                 &__title {
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     font-size: 18px;
                     line-height: 27px;
                     color: #354049;
@@ -180,7 +180,7 @@ export default class NoBucketArea extends Vue {}
                 }
 
                 &__text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.7);
@@ -190,8 +190,8 @@ export default class NoBucketArea extends Vue {}
     }
 
     .s3-gateway-link {
-        font-family: 'font_medium';
-        color: #2683FF;
+        font-family: 'font_medium', sans-serif;
+        color: #2683ff;
 
         &:hover {
             text-decoration: underline;
@@ -200,25 +200,24 @@ export default class NoBucketArea extends Vue {}
 
     .buckets-divider {
         height: 1px;
-        background-color: #AFB7C1;
+        background-color: #afb7c1;
         margin-top: 12px;
     }
 
     .documentation-link__button {
         width: 205px;
         height: 48px;
-        background-color: #2683FF;
+        background-color: #2683ff;
         display: flex;
         justify-content: center;
         align-items: center;
         border-radius: 6px;
 
         .documentation-link__button__label {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #fff;
-
         }
 
         &:hover {
@@ -227,26 +226,30 @@ export default class NoBucketArea extends Vue {}
     }
 
     @media screen and (max-width: 1024px) {
+
         .no-buckets-area {
             padding: 52px 40px 52px 40px;
         }
     }
 
-    @media screen and (min-height:790px) and (max-height: 818px) {
+    @media screen and (min-height: 790px) and (max-height: 818px) {
+
         .no-buckets-area {
             overflow-y: scroll;
             height: 628px;
         }
     }
 
-    @media screen and (min-height:760px) and (max-height: 789px) {
+    @media screen and (min-height: 760px) and (max-height: 789px) {
+
         .no-buckets-area {
             overflow-y: scroll;
             height: 595px;
         }
     }
 
-    @media screen and (min-height:730px) and (max-height: 759px) {
+    @media screen and (min-height: 730px) and (max-height: 759px) {
+
         .no-buckets-area {
             overflow-y: scroll;
             height: 550px;

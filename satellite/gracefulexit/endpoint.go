@@ -54,6 +54,7 @@ type Endpoint struct {
 	overlay        *overlay.Service
 	metainfo       *metainfo.Service
 	orders         *orders.Service
+	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
 	config         Config
 }
@@ -62,7 +63,7 @@ type pendingTransfer struct {
 	path             []byte
 	pieceSize        int64
 	satelliteMessage *pb.SatelliteMessage
-	rootPieceID      storj.PieceID
+	originalPointer  *pb.Pointer
 	pieceNum         int32
 }
 
@@ -113,6 +114,40 @@ func (pm *pendingMap) delete(pieceID storj.PieceID) {
 	delete(pm.data, pieceID)
 }
 
+// connectionsTracker for tracking ongoing connections on this api server
+type connectionsTracker struct {
+	mu   sync.RWMutex
+	data map[storj.NodeID]struct{}
+}
+
+// newConnectionsTracker creates a new connectionsTracker and instantiates the map.
+func newConnectionsTracker() *connectionsTracker {
+	return &connectionsTracker{
+		data: make(map[storj.NodeID]struct{}),
+	}
+}
+
+// tryAdd adds to the map if the node ID is not already added
+// it returns true if succeeded and false if already added.
+func (pm *connectionsTracker) tryAdd(nodeID storj.NodeID) bool {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if _, ok := pm.data[nodeID]; ok {
+		return false
+	}
+	pm.data[nodeID] = struct{}{}
+	return true
+}
+
+// delete deletes a node ID from the map.
+func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	delete(pm.data, nodeID)
+}
+
 // DRPC returns a DRPC form of the endpoint.
 func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 	return &drpcEndpoint{Endpoint: endpoint}
@@ -130,13 +165,14 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		overlay:        overlay,
 		metainfo:       metainfo,
 		orders:         orders,
+		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
 		config:         config,
 	}
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) error {
+func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) (err error) {
 	return endpoint.doProcess(stream)
 }
 
@@ -157,6 +193,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	nodeID := peer.ID
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+
+	// ensure that only one connection can be opened for a single node at a time
+	if !endpoint.connections.tryAdd(nodeID) {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
+	}
+	defer func() {
+		endpoint.connections.delete(nodeID)
+	}()
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
@@ -243,6 +287,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}()
 
 		for range ticker.C {
+			// exit if context canceled
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
@@ -287,6 +338,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if pendingCount == 0 {
 			select {
 			case <-processChan:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 
@@ -426,7 +479,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if nodePiece == nil {
 		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -447,7 +500,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 			return Error.Wrap(err)
 		}
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -506,7 +559,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
 		satelliteMessage: transferMsg,
-		rootPieceID:      remote.RootPieceId,
+		originalPointer:  pointer,
 		pieceNum:         incomplete.PieceNum,
 	})
 
@@ -575,8 +628,10 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	}
 
 	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
-
-	calculatedNewPieceID := transfer.rootPieceID.Derive(receivingNodeID, transfer.pieceNum)
+	if transfer.originalPointer == nil || transfer.originalPointer.GetRemote() == nil {
+		return Error.New("could not get remote pointer from transfer item")
+	}
+	calculatedNewPieceID := transfer.originalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.pieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
 		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}
@@ -594,12 +649,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return ErrInvalidArgument.Wrap(err)
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
+	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -614,7 +669,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.path)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -649,7 +704,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 
 		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -719,7 +774,7 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing
 	return message, nil
 }
 
-func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb.Pointer, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// remove the node from the pointer
@@ -733,21 +788,35 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, exitingNodeID storj
 		return nil
 	}
 
-	var toRemove []*pb.RemotePiece
+	pieceMap := make(map[storj.NodeID]*pb.RemotePiece)
 	for _, piece := range remote.GetRemotePieces() {
-		if piece.NodeId == exitingNodeID && piece.PieceNum == pieceNum {
-			toRemove = []*pb.RemotePiece{piece}
-			break
-		}
+		pieceMap[piece.NodeId] = piece
 	}
+
+	var toRemove []*pb.RemotePiece
+	existingPiece, ok := pieceMap[exitingNodeID]
+	if !ok {
+		return Error.New("node no longer has the piece. Node ID: %s", exitingNodeID.String())
+	}
+	if existingPiece != nil && existingPiece.PieceNum != pieceNum {
+		return Error.New("invalid existing piece info. Exiting Node ID: %s, PieceNum: %d", exitingNodeID.String(), pieceNum)
+	}
+	toRemove = []*pb.RemotePiece{existingPiece}
+	delete(pieceMap, exitingNodeID)
+
 	var toAdd []*pb.RemotePiece
+	// check receiving node id is not already in the pointer
+	_, ok = pieceMap[receivingNodeID]
+	if ok {
+		return Error.New("node id already exists in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
+	}
 	if !receivingNodeID.IsZero() {
 		toAdd = []*pb.RemotePiece{{
 			PieceNum: pieceNum,
 			NodeId:   receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), pointer, toAdd, toRemove)
+	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), originalPointer, toAdd, toRemove)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -4,6 +4,7 @@
 package testcontext
 
 import (
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -26,7 +27,15 @@ type CompileCOptions struct {
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
 
-	exe := ctx.File("build", path.Base(pkg)+".exe")
+	var binName string
+	if pkg == "" {
+		dir, _ := os.Getwd()
+		binName = path.Base(dir)
+	} else {
+		binName = path.Base(pkg)
+	}
+
+	exe := ctx.File("build", binName+".exe")
 
 	args := []string{"build"}
 	if raceEnabled {
