@@ -53,6 +53,13 @@ type StorageNodeUsage struct {
 	Timestamp time.Time
 }
 
+// ProjectSummary
+type ProjectSummary struct {
+	Storage float64
+	Egress  int64
+	Objects int64
+}
+
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
 //
 // architecture: Database
@@ -93,6 +100,8 @@ type ProjectAccounting interface {
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// GetProjectUsageLimits returns project usage limit
 	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	// ProjectSummary
+	ProjectSummary(ctx context.Context, projectID uuid.UUID, start, before time.Time) (ProjectSummary, error)
 }
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.

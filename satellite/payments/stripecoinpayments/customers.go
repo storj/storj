@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
@@ -16,4 +17,22 @@ type CustomersDB interface {
 
 	// GetCustomerID return stripe customers id.
 	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
+	// List returns page with customers created before specified date.
+	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
+}
+
+// Customer holds stripe customer id
+// and corresponding satellite user id.
+type Customer struct {
+	ID     string
+	UserID uuid.UUID
+}
+
+// CustomersPage holds customers and
+// indicates if there is more data available
+// and provides next offset.
+type CustomersPage struct {
+	Customers  []Customer
+	Next       bool
+	NextOffset int64
 }

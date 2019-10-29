@@ -5,14 +5,18 @@ package stripecoinpayments
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"storj.io/storj/internal/memory"
 
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -36,6 +40,9 @@ type Service struct {
 	log            *zap.Logger
 	customers      CustomersDB
 	transactionsDB TransactionsDB
+	invoicesDB     InvoicesDB
+	projects       Projects
+	accounting     accounting.ProjectAccounting
 	stripeClient   *client.API
 	coinPayments   *coinpayments.Client
 }
@@ -211,4 +218,114 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 
 	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
 	return err
+}
+
+// CreateInvoices creates invoices for all accounts for specified billing period.
+func (service *Service) PopulateInvoices(ctx context.Context, period time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+
+	now := time.Now().UTC()
+	utc := period.UTC()
+
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	before := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+	if before.After(now) {
+		return Error.New("can not create invoices for future periods")
+	}
+
+	cusPage, err := service.customers.List(ctx, 0, limit, before)
+	if err != nil {
+		return err
+	}
+
+	for _, cus := range cusPage.Customers {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.customerPopulateInvoice(ctx, cus, start, before); err != nil {
+			return err
+		}
+	}
+
+	for cusPage.Next {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		cusPage, err = service.customers.List(ctx, cusPage.NextOffset, limit, before)
+		if err != nil {
+			return err
+		}
+
+		for _, cus := range cusPage.Customers {
+			if err = ctx.Err(); err != nil {
+				return err
+			}
+
+			if err = service.customerPopulateInvoice(ctx, cus, start, before); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// customerPopulateInvoice populates invoice with project usage for specific customer.
+func (service *Service) customerPopulateInvoice(ctx context.Context, customer Customer, start, before time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	projs, err := service.projects.List(ctx, customer.UserID, before)
+	if err != nil {
+		return err
+	}
+
+	for _, proj := range projs {
+		if err = service.invoicesDB.CheckProjectInvoicing(ctx, proj.ID, start, before); err != nil {
+			if err == ErrInvoiceRecordExists {
+				service.log.Info(fmt.Sprintf("populate invoice found record for %s, period: %s-%s, skipping",
+					proj.ID, start, before))
+
+				continue
+			}
+
+			return err
+		}
+
+		summ, err := service.accounting.ProjectSummary(ctx, proj.ID, start, before)
+		if err != nil {
+			return err
+		}
+
+		desc := fmt.Sprintf("project %s: storage %f, egress %f, objects %d",
+			proj.Name,
+			memory.Size(summ.Storage).TB,
+			memory.Size(summ.Egress).TB(),
+			summ.Objects)
+
+		params := &stripe.InvoiceItemParams{
+			Amount:      stripe.Int64(0),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Customer:    stripe.String(customer.ID),
+			Description: stripe.String(desc),
+			Period: &stripe.InvoiceItemPeriodParams{
+				End:   stripe.Int64(before.Unix()),
+				Start: stripe.Int64(start.Unix()),
+			},
+		}
+
+		params.AddMetadata("projectID", proj.ID.String())
+		//params.AddMetadata("type", "storage")
+
+		_, err = service.stripeClient.InvoiceItems.New(params)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
