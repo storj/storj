@@ -16,6 +16,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/groupcancel"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -305,16 +306,25 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	errch := make(chan error, len(limits))
+	setLimits := 0
+	for _, addressedLimit := range limits {
+		if addressedLimit != nil {
+			setLimits++
+		}
+	}
+
+	gctx, cancel := groupcancel.NewContext(ctx, setLimits, .75, 2)
+	defer cancel()
+
+	errch := make(chan error, setLimits)
 	for _, addressedLimit := range limits {
 		if addressedLimit == nil {
-			errch <- nil
 			continue
 		}
 
 		go func(addressedLimit *pb.AddressedOrderLimit) {
 			limit := addressedLimit.GetLimit()
-			ps, err := ec.dialPiecestore(ctx, &pb.Node{
+			ps, err := ec.dialPiecestore(gctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
@@ -327,7 +337,8 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, limit, privateKey)
+
+			err = ps.Delete(gctx, limit, privateKey)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				ec.log.Debug("Failed deleting piece from node",
@@ -340,23 +351,21 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}(addressedLimit)
 	}
 
-	allerrs := collectErrors(errch, len(limits))
-	if len(allerrs) > 0 && len(allerrs) == len(limits) {
-		return allerrs[0]
-	}
-
-	return nil
-}
-
-func collectErrors(errs <-chan error, size int) []error {
-	var result []error
-	for i := 0; i < size; i++ {
-		err := <-errs
-		if err != nil {
-			result = append(result, err)
+	var anySuccess bool
+	var lastErr error
+	for i := 0; i < setLimits; i++ {
+		if err := <-errch; err == nil {
+			gctx.Success()
+			anySuccess = true
+		} else {
+			gctx.Failure()
+			lastErr = err
 		}
 	}
-	return result
+	if anySuccess {
+		return nil
+	}
+	return lastErr
 }
 
 func unique(limits []*pb.AddressedOrderLimit) bool {
