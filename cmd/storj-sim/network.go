@@ -231,7 +231,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create the API process for each satellite
 	var satelliteAPIs []*Process
-	for i, satellite := range satelliteAPIs {
+
+	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
@@ -240,41 +241,20 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		satelliteAPIs = append(satelliteAPIs, process)
 
-		process.Arguments = withCommon(process.Directory, Arguments{
-			"run": {
-				"api",
-				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
-				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
-				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
-			},
-		})
-
-		process.WaitForStart(satellite)
-	}
-
-	var satellitePeers []*Process
-	for i := 0; i < flags.SatelliteCount; i++ {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-peer/%d", i),
-			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    "",
-		})
-		satellitePeers = append(satellitePeers, process)
-
 		consoleAuthToken := "secure_token"
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
+				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
 				"--marketing.base-url", "",
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
 				"--server.address", process.Address,
+				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
@@ -283,9 +263,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
-			"run": {},
+			"run": { "api" },
 		})
 
 		if flags.Postgres != "" {
@@ -298,6 +278,22 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
+	}
+
+	var satellitePeers []*Process
+	for i, satellite := range satelliteAPIs {
+		satellite := satellite
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-peer/%d", i),
+			Executable: "satellite",
+			Directory:  satellite.Directory,
+			Address:    "",
+		})
+		satellitePeers = append(satellitePeers, process)
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"run": {},
+		})
 	}
 
 	// Create the repairer process for each satellite
