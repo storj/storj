@@ -378,7 +378,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 			streamID:      object.StreamID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
-			m:             streamMeta.LastSegmentMeta,
 			size:          stream.SegmentsSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
@@ -618,7 +617,6 @@ type lazySegmentRanger struct {
 	streamID      storj.StreamID
 	segmentIndex  int32
 	rs            storj.RedundancyScheme
-	m             *pb.SegmentMeta
 	size          int64
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
@@ -626,12 +624,12 @@ type lazySegmentRanger struct {
 	cipher        storj.CipherSuite
 }
 
-// Size implements Ranger.Size
+// Size implements Ranger.Size.
 func (lr *lazySegmentRanger) Size() int64 {
 	return lr.size
 }
 
-// Range implements Ranger.Range to be lazily connected
+// Range implements Ranger.Range to be lazily connected.
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if lr.ranger == nil {
@@ -659,7 +657,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (_
 	return lr.ranger.Range(ctx, offset, length)
 }
 
-// decryptRanger returns a decrypted ranger of the given rr ranger
+// decryptRanger returns a decrypted ranger of the given rr ranger.
 func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.CipherSuite, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (decrypted ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, encryptedKeyNonce)
