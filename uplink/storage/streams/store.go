@@ -157,14 +157,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	var lastCommitSegmentReq *metainfo.CommitSegmentParams
 	for !eofReader.isEOF() && !eofReader.hasError() {
-		// CommitSegment created in previous iteration, otherwise it will be batched with CommitObject
-		if lastCommitSegmentReq != nil {
-			err = s.metainfo.CommitSegment(ctx, *lastCommitSegmentReq)
-			if err != nil {
-				return Meta{}, currentSegment, streamID, err
-			}
-			lastCommitSegmentReq = nil
-		}
 		// generate random key for encrypting the segment's content
 		var contentKey storj.Key
 		_, err = rand.Read(contentKey[:])
@@ -226,11 +218,9 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				},
 			}
 
-			var segmentID storj.SegmentID
-			var limits []*pb.AddressedOrderLimit
-			var piecePrivateKey storj.PiecePrivateKey
+			var responses []metainfo.BatchResponse
 			if currentSegment == 0 {
-				responses, err := s.metainfo.Batch(ctx, []metainfo.BatchItem{
+				responses, err = s.metainfo.Batch(ctx, []metainfo.BatchItem{
 					beginObjectReq,
 					beginSegment,
 				}...)
@@ -242,21 +232,23 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 					return Meta{}, currentSegment, streamID, err
 				}
 				streamID = objResponse.StreamID
-
-				segResponse, err := responses[1].BeginSegment()
-				if err != nil {
-					return Meta{}, currentSegment, streamID, err
-				}
-				segmentID = segResponse.SegmentID
-				limits = segResponse.Limits
-				piecePrivateKey = segResponse.PiecePrivateKey
 			} else {
 				beginSegment.StreamID = streamID
-				segmentID, limits, piecePrivateKey, err = s.metainfo.BeginSegment(ctx, *beginSegment)
+				responses, err = s.metainfo.Batch(ctx, []metainfo.BatchItem{
+					lastCommitSegmentReq,
+					beginSegment,
+				}...)
 				if err != nil {
 					return Meta{}, currentSegment, streamID, err
 				}
 			}
+			segResponse, err := responses[1].BeginSegment()
+			if err != nil {
+				return Meta{}, currentSegment, streamID, err
+			}
+			segmentID := segResponse.SegmentID
+			limits := segResponse.Limits
+			piecePrivateKey := segResponse.PiecePrivateKey
 
 			uploadResults, size, err := s.segments.Put(ctx, transformedReader, expiration, limits, piecePrivateKey)
 			if err != nil {
