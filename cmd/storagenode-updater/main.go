@@ -96,17 +96,8 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if runCfg.Log != "" {
-		// TODO: improve logging; other commands use zap but due to an apparent
-		// windows bug we're unable to use the existing process logging infrastructure.
-		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatalf("error opening log file: %s", err)
-		}
-		log.Printf("writing all further log output to %s", runCfg.Log)
-		defer func() { err = errs.Combine(err, logFile.Close()) }()
-		log.SetOutput(logFile)
-	}
+	err, closeLog := openLog()
+	defer func() { err = errs.Combine(err, closeLog()) }()
 
 	if !fileExists(runCfg.BinaryLocation) {
 		log.Fatal("unable to find storage node executable binary")
@@ -163,7 +154,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func cmdRecover(cmd *cobra.Command, args []string) error {
+func cmdRecover(cmd *cobra.Command, args []string) (err error) {
+	err, closeLog := openLog()
+	defer func() { err = errs.Combine(err, closeLog()) }()
+
 	log.Println("storagenode updater recovering!")
 
 	badExec := strings.Replace(os.Args[0], ".backup", "", 1)
@@ -386,4 +380,22 @@ func fileExists(filename string) bool {
 
 func main() {
 	process.Exec(rootCmd)
+}
+
+// TODO: improve logging; other commands use zap but due to an apparent
+// windows bug we're unable to use the existing process logging infrastructure.
+func openLog() (error, func() error) {
+	noop := func() error {return nil}
+
+	if runCfg.Log != "" {
+		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Printf("error opening log file: %s", err)
+			return err, noop
+		}
+		log.Printf("writing all further log output to %s", runCfg.Log)
+		log.SetOutput(logFile)
+		return nil, logFile.Close
+	}
+	return nil, noop
 }
