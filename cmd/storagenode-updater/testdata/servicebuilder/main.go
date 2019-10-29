@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,13 +13,10 @@ import (
 var (
 	exitCode string
 	version  string
+	ctx      = context.Background()
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Printf("Version: %s\n", version)
-	}
-
 	var (
 		code int
 		err  error
@@ -30,6 +28,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	}
+
+	command := os.Args[1]
+	if len(os.Args) > 1 && command == "version" {
+		fmt.Printf("Version: %s\n", version)
 	}
 	os.Exit(code)
 }
