@@ -118,10 +118,16 @@
                 </Control>
 
                 <Control Id="InstallTitle" Type="Text" X="15" Y="15" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Hidden="yes" Text="!(loc.VerifyReadyDlgInstallTitle)">
-                    <Condition Action="show">NOT Installed</Condition>
+                    <Condition Action="show">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Condition>
                 </Control>
                 <Control Id="InstallText" Type="Text" X="25" Y="70" Width="320" Height="80" Hidden="yes" Text="!(loc.VerifyReadyDlgInstallText)">
-                    <Condition Action="show">NOT Installed</Condition>
+                    <Condition Action="show">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Condition>
+                </Control>
+                <Control Id="UpgradeTitle" Type="Text" X="15" Y="15" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Hidden="yes" Text="Ready to upgrade [ProductName]">
+                    <Condition Action="show">WIX_UPGRADE_DETECTED</Condition>
+                </Control>
+                <Control Id="UpgradeText" Type="Text" X="25" Y="70" Width="320" Height="80" Hidden="yes" Text="Click Upgrade to begin the upgrade. Click Cancel to exit the wizard. ">
+                    <Condition Action="show">WIX_UPGRADE_DETECTED</Condition>
                 </Control>
                 <Control Id="ChangeTitle" Type="Text" X="15" Y="15" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Hidden="yes" Text="!(loc.VerifyReadyDlgChangeTitle)">
                     <Condition Action="show">WixUI_InstallMode = "Change"</Condition>
