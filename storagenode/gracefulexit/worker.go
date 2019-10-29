@@ -92,7 +92,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 		case *pb.SatelliteMessage_DeletePiece:
 			pieceID := msg.DeletePiece.OriginalPieceId
-			err := worker.deletePieces(ctx, pieceID)
+			err := worker.deletePieces(ctx, &pieceID)
 			if err != nil {
 				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 			}
@@ -113,7 +113,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				return errs.Wrap(err)
 			}
 			// delete all remaining pieces
-			err = worker.deletePieces(ctx, storj.PieceID{})
+			err = worker.deletePieces(ctx, nil)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -207,7 +207,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 }
 
 // deletePieces delete pieces stored for a satellite. When no piece ID are specified, all pieces stored by a satellite will be deleted.
-func (worker *Worker) deletePieces(ctx context.Context, pieceID storj.PieceID) error {
+func (worker *Worker) deletePieces(ctx context.Context, pieceID *storj.PieceID) error {
 	// get piece size
 	pieceMap := make(map[pb.PieceID]int64)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -216,12 +216,12 @@ func (worker *Worker) deletePieces(ctx context.Context, pieceID storj.PieceID) e
 		if err != nil {
 			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 		}
-		if pieceID.IsZero() {
+		if pieceID == nil {
 			pieceMap[piece.PieceID()] = size
 			return nil
 		}
-		if piece.PieceID() == pieceID {
-			pieceMap[pieceID] = size
+		if piece.PieceID() == *pieceID {
+			pieceMap[*pieceID] = size
 			cancel()
 		}
 		return nil
