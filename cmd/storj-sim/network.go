@@ -243,6 +243,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
+		process.Delay = 10 * time.Second //HACKFIX to ensure satellite-peer manages to setup the database
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
