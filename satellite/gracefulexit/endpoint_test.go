@@ -199,8 +199,13 @@ func TestConcurrentConnections(t *testing.T) {
 		// this connection will immediately return since graceful exit has not been initiated yet
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
-		_, err = c.Recv()
+		response, err := c.Recv()
 		require.NoError(t, err)
+		switch response.GetMessage().(type) {
+		case *pb.SatelliteMessage_NotReady:
+		default:
+			t.FailNow()
+		}
 
 		// wait for initial loop to start so we have pieces to transfer
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
