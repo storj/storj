@@ -122,15 +122,14 @@ type connectionsTracker struct {
 
 // newConnectionsTracker creates a new connectionsTracker and instantiates the map.
 func newConnectionsTracker() *connectionsTracker {
-	newData := make(map[storj.NodeID]struct{})
 	return &connectionsTracker{
-		data: newData,
+		data: make(map[storj.NodeID]struct{}),
 	}
 }
 
-// putIfAvailable adds to the map if the node ID is not already connected
-// it returns true if succeeded and false if the connection is already open.
-func (pm *connectionsTracker) putIfAvailable(nodeID storj.NodeID) bool {
+// tryAdd adds to the map if the node ID is not already added
+// it returns true if succeeded and false if already added.
+func (pm *connectionsTracker) tryAdd(nodeID storj.NodeID) bool {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -196,7 +195,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
 
 	// ensure that only one connection can be opened for a single node at a time
-	if !endpoint.connections.putIfAvailable(nodeID) {
+	if !endpoint.connections.tryAdd(nodeID) {
 		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
 	}
 	defer func() {
