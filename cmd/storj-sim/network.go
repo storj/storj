@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis/redisnamespace"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 const (
@@ -60,6 +59,7 @@ const (
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
+	redisPort   = 4
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -70,10 +70,7 @@ func port(peerclass, index, endpoint int) string {
 }
 
 func networkExec(flags *Flags, args []string, command string) error {
-	processes, cleanup, err := newNetwork(flags)
-	if cleanup != nil {
-		defer cleanup()
-	}
+	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
 	}
@@ -106,10 +103,7 @@ func networkExec(flags *Flags, args []string, command string) error {
 func networkEnv(flags *Flags, args []string) error {
 	flags.OnlyEnv = true
 
-	processes, cleanup, err := newNetwork(flags)
-	if cleanup != nil {
-		defer cleanup()
-	}
+	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
 	}
@@ -144,10 +138,7 @@ func networkEnv(flags *Flags, args []string) error {
 }
 
 func networkTest(flags *Flags, command string, args []string) error {
-	processes, cleanup, err := newNetwork(flags)
-	if cleanup != nil {
-		defer cleanup()
-	}
+	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
 	}
@@ -171,7 +162,6 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
-	time.Sleep(6 * time.Second) //hack: this is so the contact chore can send the satellite the capacity info on its second iteration after 5s
 	errRun := cmd.Run()
 
 	cancel()
@@ -189,10 +179,10 @@ func networkDestroy(flags *Flags, args []string) error {
 }
 
 // newNetwork creates a default network
-func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) {
+func newNetwork(flags *Flags) (processes *Processes, err error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return nil, nil, errs.New("no caller information")
+		return nil, errs.New("no caller information")
 	}
 	storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
@@ -231,19 +221,50 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 	}
 	// gateway must wait for the versioncontrol to start up
 
-	// start a test redis server
-	rootpath := flags.Redis
-	if flags.Redis == "testServer" {
-		address, cleanup, err := redisserver.Start()
-		if err != nil {
-			return nil, cleanup, err
-		}
-		rootpath = "redis://" + address
-	}
-
 	// Create satellites
 	if flags.SatelliteCount > maxInstanceCount {
-		return nil, cleanup, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
+	}
+
+	// set up redis servers
+	var redisServers []*Process
+	// If empty string, use default
+	p := redisPort
+	if flags.Redis != "" {
+		p, err = strconv.Atoi(flags.Redis)
+		if err != nil {
+			return nil, err
+		}
+	}
+	redisDBs := redisnamespace.GetAll()
+	for i := 0; i < flags.SatelliteCount; i++ {
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("redis/%d", i),
+			Executable: "redis",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, redisPort)),
+		})
+		redisServers = append(redisServers, process)
+
+		filename := process.Directory + "sim.rdb"
+		process.ExecBefore["setup"] = func(process *Process) error {
+			// TODO write the config file to process.Directory/redis.conf
+			// write a configuration file, because redis doesn't support flags
+			confpath := filepath.Join(process.Directory, "redis.conf")
+			arguments := []string{
+				"daemonize no",
+				"bind 127.0.0.1",
+				"port " + strconv.Itoa(p),
+				"timeout 0",
+				"databases" + strconv.Itoa(len(redisDBs)),
+				"dbfilename" + filename,
+				"dir " + process.Directory,
+			}
+			return nil
+		}
+		process.Arguments = Arguments{
+			"run": {},
+		}
 	}
 
 	var satellites []*Process
@@ -289,20 +310,10 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
+		for _, db := range redisDBs {
 
-		if flags.Redis != "" {
-			dbs := redisnamespace.GetAll()
-			dbCount := len(dbs)
-			for key, val := range dbs {
-				flag := "--" + key
-				dbVal := val + (dbCount * i)
-				url := redisnamespace.CreatePath(rootpath, dbVal)
-				process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
-			}
 		}
-		process.ExecBefore["run"] = func(process *Process) error {
-			return readConfigString(&process.Address, process.Directory, "server.address")
-		}
+		process.WaitForStart(redisServers[i])
 	}
 
 	// Create the API process for each satellite
@@ -326,7 +337,6 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 				"--debug.addr", net.JoinHostPort(host, port(satelliteAPI, i, debugHTTP)),
 			},
 		})
-
 		process.WaitForStart(satellite)
 	}
 
@@ -347,7 +357,7 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 			EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
 		}).Serialize()
 		if err != nil {
-			return nil, cleanup, err
+			return nil, err
 		}
 
 		// gateway must wait for the corresponding satellite to start up
@@ -451,7 +461,7 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 
 	// Create storage nodes
 	if flags.StorageNodeCount > maxStoragenodeCount {
-		return nil, cleanup, fmt.Errorf("exceeded the max instance count of %d with Storage Node count of %d", maxStoragenodeCount, flags.StorageNodeCount)
+		return nil, fmt.Errorf("exceeded the max instance count of %d with Storage Node count of %d", maxStoragenodeCount, flags.StorageNodeCount)
 	}
 	for i := 0; i < flags.StorageNodeCount; i++ {
 		process := processes.New(Info{
@@ -526,18 +536,18 @@ func newNetwork(flags *Flags) (processes *Processes, cleanup func(), err error) 
 				list = append(list, executable)
 			}
 			sort.Strings(list)
-			return nil, cleanup, fmt.Errorf("some executables cannot be found: %v", list)
+			return nil, fmt.Errorf("some executables cannot be found: %v", list)
 		}
 	}
 
 	// Create directories for all processes
 	for _, process := range processes.List {
 		if err := os.MkdirAll(process.Directory, folderPermissions); err != nil {
-			return nil, cleanup, err
+			return nil, err
 		}
 	}
 
-	return processes, cleanup, nil
+	return processes, nil
 }
 
 func identitySetup(network *Processes) (*Processes, error) {

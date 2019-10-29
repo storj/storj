@@ -15,6 +15,11 @@ func GetAll() map[string]int {
 	return dbs
 }
 
+// GetDB returns the db value given the key
+func GetDB(key string) int {
+	return dbs[key]
+}
+
 // CreatePath generates a redis path for the db provided
 func CreatePath(main string, db int) string {
 	return main + "?db=" + strconv.Itoa(db)
