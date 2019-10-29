@@ -17,6 +17,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -41,8 +42,8 @@ type Service struct {
 	customers      CustomersDB
 	transactionsDB TransactionsDB
 	invoicesDB     InvoicesDB
-	projects       Projects
-	accounting     accounting.ProjectAccounting
+	projectsDB     console.Projects
+	accountingDB   accounting.ProjectAccounting
 	stripeClient   *client.API
 	coinPayments   *coinpayments.Client
 }
@@ -220,6 +221,59 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 	return err
 }
 
+func (service *Service) PrepareProjectInvoicesItems(ctx context.Context, period time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+
+	now := time.Now().UTC()
+	utc := period.UTC()
+
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	before := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+	if before.After(now) {
+		return Error.New("prepare is for past periods only")
+	}
+
+	projsPage, err := service.projectsDB.List2(ctx, 0, limit, before)
+	if err != nil {
+		return err
+	}
+
+	for _, project := range projsPage.Projects {
+		// mb check row?
+
+		// ms separate
+		summ, err := service.accountingDB.ProjectSummary(ctx, project.ID, start, before)
+		if err != nil {
+			return err
+		}
+
+
+	}
+
+	for projsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		projsPage, err = service.projectsDB.List2(ctx, 0, limit, before)
+		if err != nil {
+			return err
+		}
+
+
+	}
+
+	return nil
+}
+
+func (service *Service) createProjectInvoiceItems(ctx context.Context, projects []console.Projects) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil
+}
+
 // CreateInvoices creates invoices for all accounts for specified billing period.
 func (service *Service) PopulateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -279,52 +333,110 @@ func (service *Service) PopulateInvoices(ctx context.Context, period time.Time) 
 func (service *Service) customerPopulateInvoice(ctx context.Context, customer Customer, start, before time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projs, err := service.projects.List(ctx, customer.UserID, before)
+	const limit = 25
+
+	projsPage, err := service.projectsDB.List(ctx, customer.UserID, 0, limit, before)
 	if err != nil {
 		return err
 	}
 
-	for _, proj := range projs {
-		if err = service.invoicesDB.CheckProjectInvoicing(ctx, proj.ID, start, before); err != nil {
-			if err == ErrInvoiceRecordExists {
-				service.log.Info(fmt.Sprintf("populate invoice found record for %s, period: %s-%s, skipping",
-					proj.ID, start, before))
+	for _, proj := range projsPage.Projects {
+		if err = ctx.Err(); err != nil {
+			return ctx.Err()
+		}
 
-				continue
+		if err = service.projectPopulateInvoice(ctx, customer, proj, start, before); err != nil {
+			return err
+		}
+	}
+
+	for projsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		projsPage, err = service.projectsDB.List(ctx, customer.UserID, 0, limit, before)
+		if err != nil {
+			return err
+		}
+
+		for _, proj := range projsPage.Projects {
+			if err = ctx.Err(); err != nil {
+				return ctx.Err()
 			}
 
-			return err
+			if err = service.projectPopulateInvoice(ctx, customer, proj, start, before); err != nil {
+				return err
+			}
 		}
+	}
 
-		summ, err := service.accounting.ProjectSummary(ctx, proj.ID, start, before)
-		if err != nil {
-			return err
-		}
+	return nil
+}
 
-		desc := fmt.Sprintf("project %s: storage %f, egress %f, objects %d",
-			proj.Name,
-			memory.Size(summ.Storage).TB,
-			memory.Size(summ.Egress).TB(),
-			summ.Objects)
+func (service *Service) projectPopulateInvoice(ctx context.Context, cus Customer, proj console.Project, start, before time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-		params := &stripe.InvoiceItemParams{
-			Amount:      stripe.Int64(0),
-			Currency:    stripe.String(string(stripe.CurrencyUSD)),
-			Customer:    stripe.String(customer.ID),
-			Description: stripe.String(desc),
-			Period: &stripe.InvoiceItemPeriodParams{
-				End:   stripe.Int64(before.Unix()),
-				Start: stripe.Int64(start.Unix()),
-			},
-		}
+	if err = service.invoicesDB.CheckProjectInvoicing(ctx, proj.ID, start, before); err != nil {
+		return err
+	}
 
-		params.AddMetadata("projectID", proj.ID.String())
-		//params.AddMetadata("type", "storage")
+	summ, err := service.accountingDB.ProjectSummary(ctx, proj.ID, start, before)
+	if err != nil {
+		return err
+	}
 
-		_, err = service.stripeClient.InvoiceItems.New(params)
-		if err != nil {
-			return err
-		}
+	storageItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(0),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(cus.ID),
+		Description: stripe.String(fmt.Sprintf("project %s, storage %f", proj.Name, memory.Size(summ.Storage).TB())),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(before.Unix()),
+			Start: stripe.Int64(start.Unix()),
+		},
+	}
+	egressItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(0),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(cus.ID),
+		Description: stripe.String(fmt.Sprintf("project %s, egress %f", proj.Name, memory.Size(summ.Egress).TB())),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(before.Unix()),
+			Start: stripe.Int64(start.Unix()),
+		},
+	}
+	objectsItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(0),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(cus.ID),
+		Description: stripe.String(fmt.Sprintf("project %s, objects %d", proj.Name, summ.Objects)),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(before.Unix()),
+			Start: stripe.Int64(start.Unix()),
+		},
+	}
+
+	storageItem.AddMetadata("projectID", proj.ID.String())
+	storageItem.AddMetadata("type", "storage")
+
+	egressItem.AddMetadata("projectID", proj.ID.String())
+	egressItem.AddMetadata("type", "egress")
+
+	objectsItem.AddMetadata("projectID", proj.ID.String())
+	objectsItem.AddMetadata("type", "objects")
+
+	_, err = service.stripeClient.InvoiceItems.New(storageItem)
+	if err != nil {
+		return err
+	}
+	_, err = service.stripeClient.InvoiceItems.New(egressItem)
+	if err != nil {
+		return err
+	}
+	_, err = service.stripeClient.InvoiceItems.New(objectsItem)
+	if err != nil {
+		return err
 	}
 
 	return nil
