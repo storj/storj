@@ -185,27 +185,17 @@ namespace Storj
         }
 
         [CustomAction]
-        public static ActionResult BackupConfigFile(Session session)
+        public static ActionResult ExtractInstallDir(Session session)
         {
-            string line = session["INSTALLDIR"];
-            session.Log($"BackupConfigFile registry value: {line}");
+            string line = session["STORJ_SERVICE_COMMAND"];
+            session.Log($"ExtractInstallDir registry value: {line}");
+
             Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
             Match match = pattern.Match(line);
             string path = match.Groups["installDir"].Value;
-            session.Log($"BackupConfigFile extracted path: {path}");
-            File.Move($"{path}config.yaml", $"{path}config.yaml.back");
-            return ActionResult.Success;
-        }
+            session.Log($"ExtractInstallDir extracted path: {path}");
 
-        [CustomAction]
-        public static ActionResult RestoreConfigFile(Session session)
-        {
-            CustomActionData data = session.CustomActionData;
-            string line = data["Path"];
-            session.Log($"RestoreConfigFile registry value: {line}");
-            String path = line.Substring(0, line.IndexOf("storagenode"));
-            session.Log($"RestoreConfigFile extracted path: {path}");
-            File.Move($"{path}config.yaml.back", $"{path}config.yaml");
+            session["STORJ_INSTALLDIR"] = path;
             return ActionResult.Success;
         }
     }
