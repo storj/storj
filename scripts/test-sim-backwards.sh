@@ -49,6 +49,7 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network tes
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_API_0_DIR`/config.yaml
+sed -i -e 's#127.0.0.1:100#127.0.0.1:140#g' `storj-sim network env SATELLITE_PEER_0_DIR`/config.yaml
 
 ## Ensure that partially upgraded network works
 
