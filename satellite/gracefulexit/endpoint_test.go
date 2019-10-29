@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -161,11 +162,12 @@ func TestConcurrentConnections(t *testing.T) {
 		exitingNode, err := findNodeToExit(ctx, planet, 2)
 		require.NoError(t, err)
 
-		waitChan := make(chan struct{})
 		var group errgroup.Group
 		concurrentCalls := 4
+		var wg sync.WaitGroup
+		wg.Add(1)
 		for i := 0; i < concurrentCalls; i++ {
-			group.Go(func() error {
+			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
 				conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 				require.NoError(t, err)
@@ -176,7 +178,7 @@ func TestConcurrentConnections(t *testing.T) {
 				client := conn.SatelliteGracefulExitClient()
 
 				// wait for "main" call to begin
-				<-waitChan
+				wg.Wait()
 
 				c, err := client.Process(ctx)
 				require.NoError(t, err)
@@ -218,7 +220,7 @@ func TestConcurrentConnections(t *testing.T) {
 		require.NoError(t, err)
 
 		// start receiving from concurrent connections
-		close(waitChan)
+		wg.Done()
 
 		err = group.Wait()
 		require.NoError(t, err)
