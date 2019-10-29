@@ -158,48 +158,43 @@ func (s *segmentStore) Ranger(
 ) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx, info, limits, objectRS)(&err)
 
-	switch {
 	// no order limits also means its inline segment
-	case len(info.EncryptedInlineData) != 0 || len(limits) == 0:
+	if len(info.EncryptedInlineData) != 0 || len(limits) == 0 {
 		return ranger.ByteRanger(info.EncryptedInlineData), nil
-	default:
-		needed := CalcNeededNodes(objectRS)
-		selected := make([]*pb.AddressedOrderLimit, len(limits))
-		s.rngMu.Lock()
-		perm := s.rng.Perm(len(limits))
-		s.rngMu.Unlock()
-
-		for _, i := range perm {
-			limit := limits[i]
-			if limit == nil {
-				continue
-			}
-
-			selected[i] = limit
-
-			needed--
-			if needed <= 0 {
-				break
-			}
-		}
-
-		fc, err := infectious.NewFEC(int(objectRS.RequiredShares), int(objectRS.TotalShares))
-		if err != nil {
-			return nil, err
-		}
-		es := eestream.NewRSScheme(fc, int(objectRS.ShareSize))
-		redundancy, err := eestream.NewRedundancyStrategy(es, int(objectRS.RepairShares), int(objectRS.OptimalShares))
-		if err != nil {
-			return nil, err
-		}
-
-		rr, err = s.ec.Get(ctx, selected, info.PiecePrivateKey, redundancy, info.Size)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		return rr, nil
 	}
+
+	needed := CalcNeededNodes(objectRS)
+	selected := make([]*pb.AddressedOrderLimit, len(limits))
+	s.rngMu.Lock()
+	perm := s.rng.Perm(len(limits))
+	s.rngMu.Unlock()
+
+	for _, i := range perm {
+		limit := limits[i]
+		if limit == nil {
+			continue
+		}
+
+		selected[i] = limit
+
+		needed--
+		if needed <= 0 {
+			break
+		}
+	}
+
+	fc, err := infectious.NewFEC(int(objectRS.RequiredShares), int(objectRS.TotalShares))
+	if err != nil {
+		return nil, err
+	}
+	es := eestream.NewRSScheme(fc, int(objectRS.ShareSize))
+	redundancy, err := eestream.NewRedundancyStrategy(es, int(objectRS.RepairShares), int(objectRS.OptimalShares))
+	if err != nil {
+		return nil, err
+	}
+
+	rr, err = s.ec.Get(ctx, selected, info.PiecePrivateKey, redundancy, info.Size)
+	return rr, Error.Wrap(err)
 }
 
 // Delete requests the satellite to delete a segment and tells storage nodes
