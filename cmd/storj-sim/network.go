@@ -293,7 +293,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		satellitePeers = append(satellitePeers, process)
 
 		process.Arguments = withCommon(process.Directory, Arguments{
-			"run": {},
+			"run": {
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+			},
 		})
 	}
 
