@@ -35,7 +35,7 @@ type Client interface {
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) error
 	WithForceErrorDetection(force bool) Client
 	// PutPiece is not intended to be used by normal uplinks directly, but is exported to support storagenode graceful exit transfers.
-	PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, id *identity.PeerIdentity, err error)
+	PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, id *identity.PeerIdentity, err error)
 }
 
 type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, error)
@@ -108,7 +108,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, _, err := ec.PutPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
+			hash, _, err := ec.PutPiece(psCtx, ctx, addressedLimit, privateKey, readers[i])
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -178,7 +178,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, peerID *identity.PeerIdentity, err error) {
+func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, peerID *identity.PeerIdentity, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
