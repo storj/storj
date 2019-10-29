@@ -216,7 +216,7 @@ func (worker *Worker) deletePieces(ctx context.Context, pieceIDs []pb.PieceID) e
 	err := worker.store.WalkSatellitePieces(ctxWithCancel, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
 		size, err := piece.ContentSize(ctx)
 		if err != nil {
-			return err
+			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 		}
 		if pieceIDs == nil || len(pieceIDs) <= 0 {
 			pieceMap[piece.PieceID()] = size
@@ -234,11 +234,14 @@ func (worker *Worker) deletePieces(ctx context.Context, pieceIDs []pb.PieceID) e
 	})
 
 	if err != nil && !errs.Is(err, ctxWithCancel.Err()) {
-		worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID))
+		worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 	}
 
 	var totalDeleted int64
 	for id, size := range pieceMap {
+		if size == 0 {
+			continue
+		}
 		err := worker.store.Delete(ctx, worker.satelliteID, id)
 		if err != nil {
 			worker.log.Debug("failed to delete a piece", zap.Stringer("Satellite ID", worker.satelliteID), zap.Stringer("Piece ID", id), zap.Error(err))
