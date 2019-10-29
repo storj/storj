@@ -73,5 +73,6 @@ func (clearing *Clearing) Close() (err error) {
 	defer mon.Task()(nil)(&err)
 
 	clearing.TransactionCycle.Close()
+	clearing.AccountBalanceCycle.Close()
 	return nil
 }
