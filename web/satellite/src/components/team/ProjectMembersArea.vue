@@ -47,7 +47,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     FETCH,
@@ -138,7 +138,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, index);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
     }
 
@@ -148,7 +148,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         this.resetPaginator();

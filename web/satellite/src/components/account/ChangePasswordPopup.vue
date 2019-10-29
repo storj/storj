@@ -72,7 +72,7 @@ import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/c
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { AuthApi } from '@/api/auth';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { validatePassword } from '@/utils/validation';
 
 @Component({
@@ -137,12 +137,12 @@ export default class ChangePasswordPopup extends Vue {
         try {
             await this.auth.changePassword(this.oldPassword, this.newPassword);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
+        await this.$notify.success('Password successfully changed!');
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
     }
 

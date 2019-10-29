@@ -25,7 +25,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
 import { CreditUsage } from '@/types/credits';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 class CreditDescription {
     public title: string;
@@ -61,7 +60,7 @@ export default class ReferralStats extends Vue {
         try {
             await this.$store.dispatch(CREDIT_USAGE_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch credit usage: ' + error.message);
+            await this.$notify.error('Unable to fetch credit usage: ' + error.message);
         }
     }
 

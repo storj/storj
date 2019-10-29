@@ -66,7 +66,7 @@ import EditIcon from '@/../static/images/project/edit.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -85,7 +85,7 @@ export default class ProjectDetailsArea extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
     }
 
@@ -118,13 +118,13 @@ export default class ProjectDetailsArea extends Vue {
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to update project description. ${error.message}`);
+            await this.$notify.error(`Unable to update project description. ${error.message}`);
 
             return;
         }
 
         this.toggleEditing();
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
+        await this.$notify.success('Project updated successfully!');
     }
 
     public toggleDeleteDialog(): void {
@@ -261,6 +261,7 @@ export default class ProjectDetailsArea extends Vue {
 
             .project-details-svg {
                 cursor: pointer;
+                min-width: 40px;
 
                 &:hover {
 
