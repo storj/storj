@@ -2,6 +2,7 @@ using Microsoft.Deployment.WindowsInstaller;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Storj
 {
@@ -180,6 +181,21 @@ namespace Storj
 
             // Allocated Bandwidth value is valid
             session["STORJ_BANDWIDTH_VALID"] = "1";
+            return ActionResult.Success;
+        }
+
+        [CustomAction]
+        public static ActionResult ExtractInstallDir(Session session)
+        {
+            string line = session["STORJ_SERVICE_COMMAND"];
+            session.Log($"ExtractInstallDir registry value: {line}");
+
+            Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
+            Match match = pattern.Match(line);
+            string path = match.Groups["installDir"].Value;
+            session.Log($"ExtractInstallDir extracted path: {path}");
+
+            session["STORJ_INSTALLDIR"] = path;
             return ActionResult.Success;
         }
     }
