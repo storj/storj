@@ -63,8 +63,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-
-		chore.log.Info("running graceful exit chore.")
+		chore.log.Debug("checking pending graceful exits")
 
 		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
 		if err != nil {
@@ -73,7 +72,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		if len(satellites) == 0 {
-			chore.log.Debug("no satellites found.")
+			chore.log.Debug("no satellites found")
 			return nil
 		}
 
