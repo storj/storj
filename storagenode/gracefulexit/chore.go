@@ -42,7 +42,7 @@ type Chore struct {
 type Config struct {
 	ChoreInterval      time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
 	NumWorkers         int           `help:"number of workers to handle satellite exits" default:"3"`
-	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that an exiting node can transfer per second to the new node" default:"128B"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a piece from storage nodes before timing out" default:"2m"`
 }
 
