@@ -298,15 +298,52 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	object, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
-		Bucket:        []byte(path.Bucket()),
-		EncryptedPath: []byte(encPath.Raw()),
-	})
+	resps, err := s.metainfo.Batch(ctx,
+		&metainfo.GetObjectParams{
+			Bucket:        []byte(path.Bucket()),
+			EncryptedPath: []byte(encPath.Raw()),
+		},
+		&metainfo.DownloadSegmentParams{
+			Position: storj.SegmentPosition{
+				Index: -1, // Request the last segment
+			},
+		},
+	)
 	if err != nil {
 		return nil, Meta{}, err
 	}
 
-	lastSegmentRanger, _, err := s.segments.Get(ctx, object.StreamID, -1, object.RedundancyScheme)
+	if len(resps) != 2 {
+		return nil, Meta{}, errs.New(
+			"metainfo.Batch request returned an unexpected number of responses. Want: 2, got: %d", len(resps),
+		)
+	}
+
+	var object storj.ObjectInfo
+	{
+		resp, err := resps[0].GetObject()
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		object = resp.Info
+	}
+
+	var (
+		info   storj.SegmentDownloadInfo
+		limits []*pb.AddressedOrderLimit
+	)
+	{
+		resp, err := resps[1].DownloadSegment()
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		info = resp.Info
+		limits = resp.Limits
+	}
+
+	lastSegmentRanger, err := s.segments.Ranger(ctx, info, limits, object.RedundancyScheme)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -336,11 +373,11 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		}
 
 		rangers = append(rangers, &lazySegmentRanger{
+			metainfo:      s.metainfo,
 			segments:      s.segments,
 			streamID:      object.StreamID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
-			m:             streamMeta.LastSegmentMeta,
 			size:          stream.SegmentsSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
@@ -575,11 +612,11 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 
 type lazySegmentRanger struct {
 	ranger        ranger.Ranger
+	metainfo      *metainfo.Client
 	segments      segments.Store
 	streamID      storj.StreamID
 	segmentIndex  int32
 	rs            storj.RedundancyScheme
-	m             *pb.SegmentMeta
 	size          int64
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
@@ -587,21 +624,31 @@ type lazySegmentRanger struct {
 	cipher        storj.CipherSuite
 }
 
-// Size implements Ranger.Size
+// Size implements Ranger.Size.
 func (lr *lazySegmentRanger) Size() int64 {
 	return lr.size
 }
 
-// Range implements Ranger.Range to be lazily connected
+// Range implements Ranger.Range to be lazily connected.
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if lr.ranger == nil {
-		rr, encryption, err := lr.segments.Get(ctx, lr.streamID, lr.segmentIndex, lr.rs)
+		info, limits, err := lr.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+			StreamID: lr.streamID,
+			Position: storj.SegmentPosition{
+				Index: lr.segmentIndex,
+			},
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		encryptedKey, keyNonce := encryption.EncryptedKey, encryption.EncryptedKeyNonce
+		rr, err := lr.segments.Ranger(ctx, info, limits, lr.rs)
+		if err != nil {
+			return nil, err
+		}
+
+		encryptedKey, keyNonce := info.SegmentEncryption.EncryptedKey, info.SegmentEncryption.EncryptedKeyNonce
 		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.cipher, lr.derivedKey, encryptedKey, &keyNonce, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
@@ -610,7 +657,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (_
 	return lr.ranger.Range(ctx, offset, length)
 }
 
-// decryptRanger returns a decrypted ranger of the given rr ranger
+// decryptRanger returns a decrypted ranger of the given rr ranger.
 func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.CipherSuite, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (decrypted ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, encryptedKeyNonce)

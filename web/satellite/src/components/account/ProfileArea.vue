@@ -116,15 +116,15 @@ export default class ProfileArea extends Vue {
     .profile-container {
         position: relative;
         margin-top: 83px;
-        font-family: 'font_regular';
-        
+        font-family: 'font_regular', sans-serif;
+
         &__navigation {
             position: absolute;
             right: 55px;
             top: 44px;
             z-index: 99;
         }
-        
+
         &__edit-profile {
             height: 66px;
             width: calc(100% - 80px);
@@ -136,14 +136,14 @@ export default class ProfileArea extends Vue {
             padding: 37px 40px;
             margin-top: 40px;
             background-color: #fff;
-            
+
             &__row {
                 display: flex;
                 flex-direction: row;
                 justify-content: flex-start;
                 align-items: center;
             }
-            
+
             &__avatar {
                 width: 60px;
                 height: 60px;
@@ -151,25 +151,25 @@ export default class ProfileArea extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: #E8EAF2;
+                background: #e8eaf2;
                 margin-right: 32px;
-            
+
                 &__letter {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
                 }
             }
         }
-        
+
         &__secondary-container {
             display: flex;
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
             margin-top: 40px;
-            
+
             &__change-password {
                 height: 66px;
                 border-radius: 6px;
@@ -180,12 +180,12 @@ export default class ProfileArea extends Vue {
                 padding: 37px 40px;
                 background-color: #fff;
                 width: calc(48% - 80px);
-                
+
                 &__text-container {
                     margin-left: 32px;
                 }
             }
-            
+
             &__email-container {
                 height: 66px;
                 border-radius: 6px;
@@ -196,30 +196,30 @@ export default class ProfileArea extends Vue {
                 padding: 37px 40px;
                 background-color: #fff;
                 width: calc(48% - 80px);
-                
+
                 &__text-container {
                     margin-left: 32px;
                 }
             }
-            
+
             &__img {
                 min-width: 60px;
                 min-height: 60px;
             }
         }
     }
-    
+
     .no-margin {
         margin-top: 0;
     }
-    
+
     .edit-svg {
         cursor: pointer;
-    
+
         &:hover {
 
             .edit-svg__rect {
-                fill: #2683FF;
+                fill: #2683ff;
             }
 
             .edit-svg__path {
@@ -227,14 +227,14 @@ export default class ProfileArea extends Vue {
             }
         }
     }
-    
+
     .input-container.full-input,
     .input-wrap.full-input {
         width: 100%;
     }
 
     .profile-bold-text {
-        font-family: 'font_bold';
+        font-family: 'font_bold', sans-serif;
         color: #354049;
         margin-block-start: 0.5em;
         margin-block-end: 0.5em;
@@ -248,22 +248,23 @@ export default class ProfileArea extends Vue {
     .profile-regular-text {
         margin-block-start: 0.5em;
         margin-block-end: 0.5em;
-        color: #AFB7C1;
+        color: #afb7c1;
         font-size: 16px;
         line-height: 21px;
     }
 
     @media screen and (max-width: 1300px) {
+
         .profile-container {
-        
+
             &__secondary-container {
                 flex-direction: column;
                 justify-content: center;
-                
+
                 &__change-password {
                     width: calc(100% - 80px);
                 }
-                
+
                 &__email-container {
                     margin-top: 40px;
                     width: calc(100% - 80px);
@@ -271,31 +272,33 @@ export default class ProfileArea extends Vue {
             }
         }
     }
-    
+
     @media screen and (max-height: 825px) {
+
         .profile-container {
 
             &__secondary-container {
                 margin-top: 20px;
-                
+
                 &__email-container {
                     margin-top: 20px;
                 }
             }
-            
+
             &__button-area {
                 margin-top: 20px;
             }
-            
+
             margin-top: 70px;
         }
     }
-    
+
     @media screen and (max-height: 790px) {
+
         .profile-container {
             height: 535px;
             overflow-y: scroll;
-            
+
             &::-webkit-scrollbar,
             &::-webkit-scrollbar-track,
             &::-webkit-scrollbar-thumb {
@@ -303,26 +306,30 @@ export default class ProfileArea extends Vue {
             }
         }
     }
-    
+
     @media screen and (max-height: 770px) {
+
         .profile-container {
             height: 515px;
         }
     }
-    
+
     @media screen and (max-height: 750px) {
+
         .profile-container {
             height: 495px;
         }
     }
-    
+
     @media screen and (max-height: 730px) {
+
         .profile-container {
             height: 475px;
         }
     }
-    
+
     @media screen and (max-height: 710px) {
+
         .profile-container {
             height: 455px;
         }

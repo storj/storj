@@ -4,7 +4,6 @@
 package contact
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/overlay"
 )
@@ -36,16 +36,14 @@ type Service struct {
 	mu   sync.Mutex
 	self *overlay.NodeDossier
 
-	gotSelfData bool
-	dataWaiter  chan struct{}
+	initialized sync2.Fence
 }
 
 // NewService creates a new contact service
 func NewService(log *zap.Logger, self *overlay.NodeDossier) *Service {
 	return &Service{
-		log:        log,
-		self:       self,
-		dataWaiter: make(chan struct{}),
+		log:  log,
+		self: self,
 	}
 }
 
@@ -63,20 +61,6 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	if capacity != nil {
 		service.self.Capacity = *capacity
 	}
-	if !service.gotSelfData {
-		service.gotSelfData = true
-		close(service.dataWaiter)
-	}
-}
 
-// waitForSelfData waits for any incoming call to the .UpdateSelf() method on this
-// contact.Service instance, then returns. If the given context is canceled first,
-// the relevant error is returned instead.
-func (service *Service) waitForSelfData(ctx context.Context) error {
-	select {
-	case <-service.dataWaiter:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	service.initialized.Release()
 }

@@ -91,7 +91,7 @@ export default class BillingArea extends Vue {
                 margin-bottom: 32px;
 
                 &__text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     margin: 0 17px;
                     font-size: 14px;
                     font-weight: 500;
@@ -100,11 +100,11 @@ export default class BillingArea extends Vue {
             }
 
             &__negative-balance {
-                background-color: #FFD4D2;
+                background-color: #ffd4d2;
             }
 
             &__low-balance {
-                background-color: #FCF8E3;
+                background-color: #fcf8e3;
             }
         }
     }

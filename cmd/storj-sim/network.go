@@ -146,7 +146,10 @@ func networkTest(flags *Flags, command string, args []string) error {
 	processes.Start(ctx, &group, "run")
 
 	for _, process := range processes.List {
-		process.Status.Started.Wait()
+		process.Status.Started.Wait(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	cmd := exec.CommandContext(ctx, command, args...)

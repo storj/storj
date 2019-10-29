@@ -82,11 +82,11 @@ export default class ProjectCreationSuccessPopup extends Vue {
         justify-content: center;
         align-items: center;
     }
-    
+
     .project-creation-success-popup {
         width: 100%;
         max-width: 845px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -94,7 +94,7 @@ export default class ProjectCreationSuccessPopup extends Vue {
         position: relative;
         justify-content: center;
         padding: 80px 100px 80px 50px;
-        
+
         &__info-panel-container {
             display: flex;
             flex-direction: column;
@@ -103,20 +103,20 @@ export default class ProjectCreationSuccessPopup extends Vue {
             margin-right: 100px;
             margin-top: 20px;
         }
-        
+
         &__form-container {
             width: 100%;
             max-width: 440px;
             margin-top: 10px;
-            
+
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin: 0;
             }
-            
+
             &__button-container {
                 width: 100%;
                 display: flex;
@@ -127,7 +127,7 @@ export default class ProjectCreationSuccessPopup extends Vue {
             }
 
             &__confirmation-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
@@ -135,12 +135,12 @@ export default class ProjectCreationSuccessPopup extends Vue {
                 margin: 0;
 
                 &__link {
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     color: #2683ff;
                 }
             }
         }
-        
+
         &__close-cross-container {
             display: flex;
             justify-content: center;
@@ -151,22 +151,23 @@ export default class ProjectCreationSuccessPopup extends Vue {
             height: 24px;
             width: 24px;
             cursor: pointer;
-            
+
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
-    
+
     @media screen and (max-width: 720px) {
+
         .project-creation-success-popup {
-        
+
             &__info-panel-container {
                 display: none;
             }
-            
+
             &__form-container {
-                
+
                 &__button-container {
                     width: 100%;
                 }
