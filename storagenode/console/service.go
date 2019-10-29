@@ -133,7 +133,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
-	data.UpToDate = s.version.IsAllowed()
+	data.UpToDate = s.version.IsAllowed(ctx)
 	data.StartedAt = s.startedAt
 
 	data.LastPinged = s.pingStats.WhenLastPinged()
