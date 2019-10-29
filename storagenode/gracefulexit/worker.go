@@ -218,7 +218,7 @@ func (worker *Worker) deletePieces(ctx context.Context, pieceIDs []pb.PieceID) e
 		if err != nil {
 			return err
 		}
-		if pieceIDs == nil {
+		if pieceIDs == nil || len(pieceIDs) <= 0 {
 			pieceMap[piece.PieceID()] = size
 			return nil
 		}
