@@ -351,6 +351,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		timer := time.NewTimer(endpoint.recvTimeout)
 		select {
+		case <-ctx.Done():
+			return rpcstatus.Error(rpcstatus.Internal, Error.New("context canceled while waiting to receive message from storagenode").Error())
 		case <-timer.C:
 			return rpcstatus.Error(rpcstatus.DeadlineExceeded, Error.New("timeout while waiting to receive message from storagenode").Error())
 		case <-done:
