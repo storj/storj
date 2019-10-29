@@ -44,83 +44,36 @@ type ListItem struct {
 type Store interface {
 	// Ranger creates a ranger for downloading erasure codes from piece store nodes.
 	Ranger(ctx context.Context, info storj.SegmentDownloadInfo, limits []*pb.AddressedOrderLimit, objectRS storj.RedundancyScheme) (ranger.Ranger, error)
-	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ []*pb.SegmentPieceUploadResult, size int64, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 }
 
 type segmentStore struct {
-	metainfo                *metainfo.Client
-	ec                      ecclient.Client
-	rs                      eestream.RedundancyStrategy
-	thresholdSize           int
-	maxEncryptedSegmentSize int64
-	rngMu                   sync.Mutex
-	rng                     *rand.Rand
+	metainfo *metainfo.Client
+	ec       ecclient.Client
+	rs       eestream.RedundancyStrategy
+	rngMu    sync.Mutex
+	rng      *rand.Rand
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy) Store {
 	return &segmentStore{
-		metainfo:                metainfo,
-		ec:                      ec,
-		rs:                      rs,
-		thresholdSize:           threshold,
-		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		rng:                     rand.New(rand.NewSource(time.Now().UnixNano())),
+		metainfo: metainfo,
+		ec:       ec,
+		rs:       rs,
+		rng:      rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ []*pb.SegmentPieceUploadResult, size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	peekReader := NewPeekThresholdReader(data)
-	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	if !remoteSized {
-		segmentIndex, encryption, err := segmentInfo()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-
-		err = s.metainfo.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-			StreamID: streamID,
-			Position: storj.SegmentPosition{
-				Index: int32(segmentIndex),
-			},
-			Encryption:          encryption,
-			EncryptedInlineData: peekReader.thresholdBuf,
-		})
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		return Meta{}, nil
-	}
-
-	segmentIndex, encryption, err := segmentInfo()
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	segmentID, limits, piecePrivateKey, err := s.metainfo.BeginSegment(ctx, metainfo.BeginSegmentParams{
-		StreamID:      streamID,
-		MaxOrderLimit: s.maxEncryptedSegmentSize,
-		Position: storj.SegmentPosition{
-			Index: int32(segmentIndex),
-		},
-	})
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	sizedReader := SizeReader(peekReader)
-
+	sizedReader := SizeReader(NewPeekThresholdReader(data))
 	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
 	if err != nil {
-		return Meta{}, Error.Wrap(err)
+		return nil, size, Error.Wrap(err)
 	}
 
 	uploadResults := make([]*pb.SegmentPieceUploadResult, 0, len(successfulNodes))
@@ -136,20 +89,10 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	}
 
 	if l := len(uploadResults); l < s.rs.OptimalThreshold() {
-		return Meta{}, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
+		return nil, size, Error.New("uploaded results (%d) are below the optimal threshold (%d)", l, s.rs.OptimalThreshold())
 	}
 
-	err = s.metainfo.CommitSegment(ctx, metainfo.CommitSegmentParams{
-		SegmentID:         segmentID,
-		SizeEncryptedData: sizedReader.Size(),
-		Encryption:        encryption,
-		UploadResult:      uploadResults,
-	})
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	return Meta{}, nil
+	return uploadResults, sizedReader.Size(), nil
 }
 
 // Ranger creates a ranger for downloading erasure codes from piece store nodes.

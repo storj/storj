@@ -8,13 +8,13 @@ import (
 	"context"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
@@ -54,6 +54,7 @@ type Endpoint struct {
 	overlay        *overlay.Service
 	metainfo       *metainfo.Service
 	orders         *orders.Service
+	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
 	config         Config
 }
@@ -113,6 +114,40 @@ func (pm *pendingMap) delete(pieceID storj.PieceID) {
 	delete(pm.data, pieceID)
 }
 
+// connectionsTracker for tracking ongoing connections on this api server
+type connectionsTracker struct {
+	mu   sync.RWMutex
+	data map[storj.NodeID]struct{}
+}
+
+// newConnectionsTracker creates a new connectionsTracker and instantiates the map.
+func newConnectionsTracker() *connectionsTracker {
+	return &connectionsTracker{
+		data: make(map[storj.NodeID]struct{}),
+	}
+}
+
+// tryAdd adds to the map if the node ID is not already added
+// it returns true if succeeded and false if already added.
+func (pm *connectionsTracker) tryAdd(nodeID storj.NodeID) bool {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if _, ok := pm.data[nodeID]; ok {
+		return false
+	}
+	pm.data[nodeID] = struct{}{}
+	return true
+}
+
+// delete deletes a node ID from the map.
+func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	delete(pm.data, nodeID)
+}
+
 // DRPC returns a DRPC form of the endpoint.
 func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 	return &drpcEndpoint{Endpoint: endpoint}
@@ -130,13 +165,14 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		overlay:        overlay,
 		metainfo:       metainfo,
 		orders:         orders,
+		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
 		config:         config,
 	}
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) error {
+func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) (err error) {
 	return endpoint.doProcess(stream)
 }
 
@@ -157,6 +193,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	nodeID := peer.ID
 	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+
+	// ensure that only one connection can be opened for a single node at a time
+	if !endpoint.connections.tryAdd(nodeID) {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
+	}
+	defer func() {
+		endpoint.connections.delete(nodeID)
+	}()
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
@@ -215,9 +259,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	pending := newPendingMap()
 
-	var morePiecesFlag int32 = 1
+	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
+	morePiecesFlag := true
+	loopRunningFlag := true
 	errChan := make(chan error, 1)
-	processChan := make(chan bool, 1)
+	processMu := &sync.Mutex{}
+	processCond := sync.NewCond(processMu)
 
 	handleError := func(err error) error {
 		errChan <- err
@@ -227,21 +274,16 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		ticker := time.NewTicker(endpoint.interval)
-		defer ticker.Stop()
+		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			processChan <- true
-			close(processChan)
+			processMu.Lock()
+			loopRunningFlag = false
+			processCond.Broadcast()
+			processMu.Unlock()
 		}()
 
-		for range ticker.C {
-			// exit if context canceled
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
+		ctx, cancel := context.WithCancel(ctx)
+		return incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
@@ -257,8 +299,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
-					atomic.StoreInt32(&morePiecesFlag, 0)
-					break
+					processMu.Lock()
+					morePiecesFlag = false
+					processMu.Unlock()
+					cancel()
+					return nil
 				}
 
 				for _, inc := range incomplete {
@@ -267,10 +312,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
-				processChan <- true
+				if pending.length() > 0 {
+					processCond.Broadcast()
+				}
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 
 	for {
@@ -282,17 +329,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		pendingCount := pending.length()
 
-		// wait if there are none pending
-		if pendingCount == 0 {
-			select {
-			case <-processChan:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-
+		processMu.Lock()
 		// if there are no more transfers and the pending queue is empty, send complete
-		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
+		if !morePiecesFlag && pendingCount == 0 {
+			processMu.Unlock()
+
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
 				ExitFinishedAt: time.Now().UTC(),
@@ -337,7 +378,24 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
+		} else if pendingCount == 0 {
+			// otherwise, wait for incomplete loop
+			processCond.Wait()
+			select {
+			case <-ctx.Done():
+				processMu.Unlock()
+				return ctx.Err()
+			default:
+			}
+
+			pendingCount = pending.length()
+			// if pending count is still 0 and the loop has exited, return
+			if pendingCount == 0 && !loopRunningFlag {
+				processMu.Unlock()
+				continue
+			}
 		}
+		processMu.Unlock()
 
 		request, err := stream.Recv()
 		if err != nil {
@@ -392,7 +450,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	if err := group.Wait(); err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		if !errs.Is(err, context.Canceled) {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+
+		}
 	}
 
 	return nil
