@@ -233,7 +233,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
+			Address:    "",
 		})
 		satellites = append(satellites, process)
 
@@ -242,15 +242,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
 				"--marketing.base-url", "",
-				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
 				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
