@@ -16,12 +16,8 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
@@ -66,31 +62,14 @@ func TestWorkerTimeout(t *testing.T) {
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
 		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		storageNodeDB := exitingNode.DB.(*testblobs.SlowDB)
-
-		// make uploads on storage node slower than the timeout for transferring bytes to another node
-		delay := 200 * time.Millisecond
-		storageNodeDB.SetLatency(delay)
-
-		exitStatus := overlay.ExitStatusRequest{
+		exitStatusReq := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
 			ExitInitiatedAt: time.Now(),
 		}
-
-		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
 		require.NoError(t, err)
-
-		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), 10000)
-		require.NoError(t, err)
-
-		// check that the storage node is exiting
-		exitProgress, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
-		require.NoError(t, err)
-		require.Len(t, exitProgress, 1)
-
-		// initiate graceful exit on satellite side by running the SN chore.
-		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 
 		// run the satellite chore to build the transfer queue.
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
@@ -102,40 +81,15 @@ func TestWorkerTimeout(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 
-		nodePieceCounts, err := getNodePieceCounts(ctx, planet)
-		require.NoError(t, err)
-
-		var newNodeID storj.NodeID
-		for nodeID, pieceCount := range nodePieceCounts {
-			if pieceCount == 1 {
-				newNodeID = nodeID
-			}
-		}
-
-		var newNode *storagenode.Peer
-		for _, node := range planet.StorageNodes {
-			if newNodeID == node.ID() {
-				newNode = node
-				break
-			}
-		}
-
-		blobs, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
-		require.NoError(t, err)
-		defer ctx.Check(blobs.Close)
-
+		storageNodeDB := exitingNode.DB.(*testblobs.SlowDB)
+		// make uploads on storage node slower than the timeout for transferring bytes to another node
+		delay := 200 * time.Millisecond
+		storageNodeDB.SetLatency(delay)
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
-
-		tlsOptions, err := tlsopts.NewOptions(newNode.Identity, tlsopts.Config{
-			PeerIDVersions: "*",
-		}, nil)
-		require.NoError(t, err)
-
-		dialer := rpc.NewDefaultDialer(tlsOptions)
 
 		config := gracefulexit.Config{
 			// defaultInterval is 15 seconds in testplanet
@@ -147,8 +101,18 @@ func TestWorkerTimeout(t *testing.T) {
 
 		// run the SN chore again to start processing transfers.
 		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), dialer, satellite.ID(), satellite.Addr(), config)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), config)
 		err = worker.Run(ctx, func() {})
 		require.NoError(t, err)
+
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, progress.PiecesFailed, 1)
+		require.EqualValues(t, progress.PiecesTransferred, 0)
+
+		exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.False(t, exitStatus.ExitSuccess)
 	})
 }
