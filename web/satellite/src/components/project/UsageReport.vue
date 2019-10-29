@@ -22,7 +22,7 @@
                 />
                 <DatePickerIcon
                     class="usage-report-container__options-area__option__image"
-                    @click.prevent.self="onCustomDateClick"
+                    @click.prevent="onCustomDateClick"
                 />
             </div>
         </div>
