@@ -162,8 +162,9 @@ func cmdRecover(cmd *cobra.Command, args []string) (err error) {
 
 	badExec := strings.Replace(os.Args[0], ".backup", "", 1)
 	log.Printf("deleting bad updater binary: %s\n", badExec)
-	if err := os.Remove(badExec); err != nil {
-		return errs.Wrap(err)
+	err = os.Remove(badExec)
+	if err != nil && !os.IsNotExist(err) {
+		log.Println("")
 	}
 
 	log.Printf("restoring backup binary from: %s\n", os.Args[0])
@@ -173,7 +174,7 @@ func cmdRecover(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func update(ctx context.Context, binPath, serviceName string, rename renameFunc) (err error) {
+func update(ctx context.Context, binPath, serviceName string, renameBinary renameFunc) (err error) {
 	if nodeID.IsZero() {
 		log.Fatal("empty node ID")
 	}
@@ -212,7 +213,7 @@ func update(ctx context.Context, binPath, serviceName string, rename renameFunc)
 			}
 			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
 
-			err = rename(currentVersion)
+			err = renameBinary(currentVersion)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -250,10 +251,6 @@ func update(ctx context.Context, binPath, serviceName string, rename renameFunc)
 
 func renameStoragenode(currentVersion version.SemVer) error {
 	extension := filepath.Ext(runCfg.BinaryLocation)
-	if extension != "" {
-		extension = "." + extension
-	}
-
 	dir := filepath.Dir(runCfg.BinaryLocation)
 	backupExec := filepath.Join(dir, runCfg.ServiceName+".old."+currentVersion.String()+extension)
 
@@ -264,16 +261,14 @@ func renameStoragenode(currentVersion version.SemVer) error {
 }
 
 func renameUpdater(_ version.SemVer) error {
-	extension := filepath.Ext(os.Args[0])
-	if extension != "" {
-		extension = "." + extension
-	}
+	updaterBinPath := os.Args[0]
+	extension := filepath.Ext(updaterBinPath)
+	dir := filepath.Dir(updaterBinPath)
+	base := filepath.Base(updaterBinPath)
+	base = base[:len(base)-len(extension)]
+	backupExec := filepath.Join(dir, base+".backup"+extension)
 
-	dir := filepath.Dir(os.Args[0])
-	base := filepath.Base(os.Args[0])[:len(extension)]
-	backupExec := filepath.Join(dir, base+".backup."+extension)
-
-	if err := os.Rename(os.Args[0], backupExec); err != nil {
+	if err := os.Rename(updaterBinPath, backupExec); err != nil {
 		return errs.Wrap(err)
 	}
 	return nil
