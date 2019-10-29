@@ -182,5 +182,38 @@ namespace Storj
             session["STORJ_BANDWIDTH_VALID"] = "1";
             return ActionResult.Success;
         }
+
+        [CustomAction]
+        public static ActionResult BackupConfigFile(Session session)
+        {
+            CustomActionData data = session.CustomActionData;
+            string line = data["Path"].ToString();
+            session.Log($"BackupConfigFile registry value: {line}");
+            String path = Util.extractPath($"{line}");
+            session.Log($"BackupConfigFile extracted path: {path}");
+            File.Move($"{path}config.yaml", $"{path}config.yaml.back");
+            return ActionResult.Success;
+        }
+
+        [CustomAction]
+        public static ActionResult RestoreConfigFile(Session session)
+        {
+            CustomActionData data = session.CustomActionData;
+            string line = data["Path"].ToString();
+            session.Log($"RestoreConfigFile registry value: {line}");
+            String path = Util.extractPath($"{line}");
+            session.Log($"RestoreConfigFile extracted path: {path}");
+            File.Move($"{path}config.yaml.back", $"{path}config.yaml");
+            return ActionResult.Success;
+        }
+    }
+
+    class Util
+    {
+        public static string extractPath(string line)
+        {
+            int start = line.IndexOf("storagenode");
+            return line.Substring(0, start);
+        }
     }
 }

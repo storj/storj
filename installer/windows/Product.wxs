@@ -79,11 +79,14 @@
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
+      <Property Id="STORJ_INSTALLDIR"></Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
-
     <Property Id="STORJ_DEFAULTIDENTITYDIR">
         <DirectorySearch Id='search1' Path='[PersonalFolder]' />
         <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
+    </Property>
+    <Property Id="INSTALLDIR">
+    <RegistrySearch Id="InstallDir" Root="HKLM" Key="SYSTEM\ControlSet001\Services\storagenode" Name="ImagePath" Type="raw" />
     </Property>
     <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
 
@@ -100,20 +103,22 @@
     <Property Id="WixShellExecTarget" Value='http://localhost:14002' />
     <CustomAction Id="LaunchSNOBoard" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
 
+ 
+    <CustomAction Id="BackupConfigFile" BinaryKey="StorjDLL" DllEntry="BackupConfigFile" Execute="deferred" Return="check" Impersonate="no" />
+ 
+    <Property Id="BackupConfigFile" Value="Path=[INSTALLDIR]" />
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
+
+   <CustomAction Id="RestoreConfigFile" BinaryKey="StorjDLL" DllEntry="RestoreConfigFile" Execute="deferred" Return="check" Impersonate="no" />
+ 
+    <Property Id="RestoreConfigFile" Value="Path=[INSTALLDIR]" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
                   ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;"
     />
 
-    <CustomAction Id="DeleteConfigFile" Directory="INSTALLFOLDER"
+    <CustomAction Id="DeleteConfigFile" Property="STORJ_INSTALLDIR"
                   ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
-
-    <CustomAction Id="BackupConfigFile" Directory="INSTALLFOLDER"
-                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.back&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
-
-    <CustomAction Id="RestoreConfigFile" Directory="INSTALLFOLDER"
-                  ExeCommand="cmd /C &quot;move config.yaml.back config.yaml&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
 
       <InstallExecuteSequence>
           <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
