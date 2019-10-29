@@ -147,7 +147,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Update updates user's full name and short name.
+// UpdateAccount updates user's full name and short name.
 func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -170,7 +170,7 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Get gets authorized user and take it's params.
+// GetAccount gets authorized user and take it's params.
 func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -203,7 +203,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Delete - authorizes user and deletes account by password.
+// DeleteAccount - authorizes user and deletes account by password.
 func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
