@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -216,10 +215,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	pending := newPendingMap()
 
-	var morePiecesFlag int32 = 1
-	var loopRunningFlag int32 = 1
+	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode recieve loop)
+	morePiecesFlag := true
+	loopRunningFlag := true
 	errChan := make(chan error, 1)
-	processCond := sync.NewCond(&sync.Mutex{})
+	processMu := &sync.Mutex{}
+	processCond := sync.NewCond(processMu)
 
 	handleError := func(err error) error {
 		errChan <- err
@@ -231,8 +232,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			atomic.StoreInt32(&loopRunningFlag, 0)
+			processMu.Lock()
+			loopRunningFlag = false
 			processCond.Broadcast()
+			processMu.Unlock()
 		}()
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -252,7 +255,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
-					atomic.StoreInt32(&morePiecesFlag, 0)
+					processMu.Lock()
+					morePiecesFlag = false
+					processMu.Unlock()
 					cancel()
 					return nil
 				}
@@ -278,8 +283,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		pendingCount := pending.length()
 
+		processMu.Lock()
 		// if there are no more transfers and the pending queue is empty, send complete
-		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
+		if !morePiecesFlag && pendingCount == 0 {
+			processMu.Unlock()
+
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
 				ExitFinishedAt: time.Now().UTC(),
@@ -326,26 +334,28 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			break
 		} else if pendingCount == 0 {
 			// if incomplete loop has exited, return
-			if atomic.LoadInt32(&loopRunningFlag) == 0 {
+			if !loopRunningFlag {
+				processMu.Unlock()
 				return nil
 			}
 
 			// otherwise, wait for incomplete loop
-			processCond.L.Lock()
 			processCond.Wait()
-			processCond.L.Unlock()
 			select {
 			case <-ctx.Done():
+				processMu.Unlock()
 				return ctx.Err()
 			default:
 			}
 
 			pendingCount = pending.length()
 			// if pending count is still 0 and the loop has exited, return
-			if pendingCount == 0 && atomic.LoadInt32(&loopRunningFlag) == 0 {
+			if pendingCount == 0 && !loopRunningFlag {
+				processMu.Unlock()
 				return nil
 			}
 		}
+		processMu.Unlock()
 
 		request, err := stream.Recv()
 		if err != nil {
