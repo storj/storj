@@ -15,12 +15,10 @@
 package main
 
 import (
-	"context"
 	"os"
-	"time"
+	//"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -45,12 +43,11 @@ func init() {
 	}
 
 	// Initialize the Windows Service handler
-	err = svc.Run("storagenode", &service{})
+	// TODO: this should be dynamic; use -ldflags -X
+	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
 		zap.S().Fatalf("Service failed: %v", err)
 	}
-	// avoid starting main() when service was stopped
-	os.Exit(0)
 }
 
 type service struct{}
@@ -59,37 +56,27 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 
 	changes <- svc.Status{State: svc.StartPending}
-
-	var group errgroup.Group
-	group.Go(func() error {
-		time.Sleep(5 * time.Second)
-		return nil
-	})
-
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				zap.S().Info("Interrogate request received.")
-				changes <- c.CurrentStatus
-				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-				time.Sleep(100 * time.Millisecond)
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				zap.S().Info("Stop/Shutdown request received.")
-				changes <- svc.Status{State: svc.StopPending}
-				// Cancel the command's root context to cleanup resources
-				_, cancel := context.WithCancel(ctx)
-				cancel()
-				_ = group.Wait() // process.Exec does not return an error
-				// After returning the Windows Service is stopped and the process terminates
-				return
-			default:
-				zap.S().Infof("Unexpected control request: %d\n", c)
-			}
-		}
-	}
+	return ssec, 1
+	//for {
+	//	select {
+	//	case c := <-r:
+	//		switch c.Cmd {
+	//		case svc.Interrogate:
+	//			zap.S().Info("Interrogate request received.")
+	//			changes <- c.CurrentStatus
+	//			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+	//			time.Sleep(100 * time.Millisecond)
+	//			changes <- c.CurrentStatus
+	//		case svc.Stop, svc.Shutdown:
+	//			zap.S().Info("Stop/Shutdown request received.")
+	//			changes <- svc.Status{State: svc.StopPending}
+	//			// After returning the Windows Service is stopped and the process terminates
+	//			return
+	//		default:
+	//			zap.S().Infof("Unexpected control request: %d\n", c)
+	//		}
+	//	}
+	//}
 }

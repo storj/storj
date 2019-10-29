@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -71,11 +72,18 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
-		// NB: can't use `log.output` because windows service command args containing "." are bugged.
 		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
-	confDir     string
+	recoverCfg struct {
+		Log string `help:"path to log file, if empty standard output will be used" default:""`
+	}
+
+	// NB: can't use `log.output` because windows service command args containing "." are bugged.
+	//Log string `help:"path to log file, if empty standard output will be used" default:""`
+	//logFlag = flag.String("log", "", "path to log file, if empty standard output will be used")
+
+confDir     string
 	identityDir string
 )
 
@@ -93,6 +101,7 @@ func init() {
 	rootCmd.AddCommand(recoverCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(recoverCmd, &recoverCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -131,8 +140,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		if err := update(ctx, os.Args[0], updaterServiceName, renameUpdater); err != nil {
+			// TODO: remove
+			log.Printf("updating storagenode-updater at \"%s\"", os.Args[0])
 			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
+			// TODO: log.Println(err)
+			log.Printf("%+v", err)
 		}
 		return nil
 	}
@@ -179,9 +191,22 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 		log.Fatal("empty node ID")
 	}
 
-	currentVersion, err := binaryVersion(binPath)
-	if err != nil {
-		return errs.Wrap(err)
+	var currentVersion version.SemVer
+	// TODO: remove
+	log.Printf("checking version of %s", binPath)
+	// TODO: remove
+	log.Printf("serviceName: %s", serviceName)
+	if serviceName == updaterServiceName {
+		// TODO: remove
+		log.Println("using version.Build.Version")
+		currentVersion = version.Build.Version
+	} else {
+		// TODO: remove
+		log.Println("using binaryVersion(binPath)")
+		currentVersion, err = binaryVersion(binPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
 	}
 
 	client := checker.New(runCfg.ClientConfig)
@@ -245,7 +270,6 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 			log.Printf("%s version is up to date\n", serviceName)
 		}
 	}
-
 	return nil
 }
 
@@ -281,8 +305,11 @@ func parseDownloadURL(template string) string {
 }
 
 func binaryVersion(location string) (version.SemVer, error) {
-	out, err := exec.Command(location, "version").Output()
+	// TODO: remove
+	log.Printf("executing command %s", location+" version")
+	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
+		log.Printf("out %s", string(out))
 		return version.SemVer{}, err
 	}
 
@@ -349,13 +376,23 @@ func unpackBinary(ctx context.Context, archive, target string) (err error) {
 func restartService(name string) error {
 	switch runtime.GOOS {
 	case "windows":
-		// TODO how run this as one command `net stop servicename && net start servicename`?
 		// TODO: combine stdout with err if err
-		_, err := exec.Command("net", "stop", name).CombinedOutput()
+		restartSvcBatPath := filepath.Join(os.TempDir(), "restartservice.bat")
+		restartSvcBat, err := os.Create(restartSvcBatPath)
 		if err != nil {
 			return err
 		}
-		_, err = exec.Command("net", "start", name).CombinedOutput()
+
+		restartStr := fmt.Sprintf("net stop %s && net start %s", name, name)
+		_, err = restartSvcBat.WriteString(restartStr)
+		if err != nil {
+			return err
+		}
+		if err := restartSvcBat.Close(); err != nil {
+			return err
+		}
+
+		_, err = exec.Command(restartSvcBat.Name()).CombinedOutput()
 		if err != nil {
 			return err
 		}

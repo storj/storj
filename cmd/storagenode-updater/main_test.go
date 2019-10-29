@@ -74,6 +74,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 	oldRealUpdater := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
 	logPath := ctx.File("storagenode-updater.log")
 
+	t.Logf("HELLO: %s", versionControlPeer.Addr())
 	// run updater (update)
 	args := []string{"run"}
 	args = append(args, "--config-dir", ctx.Dir())
@@ -174,7 +175,9 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 	ts := httptest.NewServer(&mux)
 
 	config := &versioncontrol.Config{
-		Address: "127.0.0.1:0",
+		// TODO: add STORJ_VERSION_SERVER_ADDR property to Product.wxs for testing
+		// TODO: set address back to `127.0.0.1:0`
+		Address: "127.0.0.1:10000",
 		// NB: this config field is required for versioncontrol to run.
 		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
@@ -242,7 +245,7 @@ func zipBin(t *testing.T, dst, src string) {
 
 func compileFakeBin(ctx *testcontext.Context, version, exitCode string) string {
 	return ctx.CompileWithLDFlagsX("storj.io/storj/cmd/storagenode-updater/testdata/servicebuilder", map[string]string{
-		"main.version": version,
+		"main.version":  version,
 		"main.exitCode": exitCode,
 	})
 }

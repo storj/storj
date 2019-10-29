@@ -4,11 +4,13 @@
 package main_test
 
 import (
+	"bufio"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,10 +53,6 @@ func TestRecovery(t *testing.T) {
 	}
 	oldRealUpdater := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", info)
 
-	// modify Product.wxs
-	restoreProductWix := modifyProductWix()
-	defer ctx.Check(restoreProductWix)
-
 	installerDir, err := filepath.Abs(filepath.Join("..", "..", "installer", "windows"))
 	require.NoError(t, err)
 
@@ -96,6 +94,10 @@ func TestRecovery(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
+	/* TODO: add optional, additional property args to installBat
+	   - STORJ_VERSION_SERVER_ADDR
+	   - STORJ_UPDATER_LOG_PATH
+	*/
 	installOut, err := exec.Command(installBat, msiPath).CombinedOutput()
 	if !assert.NoError(t, err) {
 		installLogData, err := ioutil.ReadFile(installLog)
@@ -106,9 +108,8 @@ func TestRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// TODO: better way to do this?
+	// TODO: add STORJ_UPDATER_LOG_PATH prroperty to Product.wxs for testing
 	//installDir := `C:\Program Files\Storj\Storage Node\`
-	//storagenodeLog := installDir + "storagenode.log"
 	//updaterLog := installDir + "storagenode-updater.log"
 
 	//// run updater recovery
@@ -140,10 +141,78 @@ func TestRecovery(t *testing.T) {
 	//}
 }
 
-func modifyProductWix() func() error {
-	// scan through file
-	// write each line to new file
-	// check for `Id="Storagenodeupdater"` and set flag true
-	// if flag true when `Arguments=...` encountered, write string replacement
-	return func() error {return nil}
+func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error) {
+	t.Helper()
+
+	noop := func() error {return nil}
+
+	originalPath := filepath.Join("..", "..", "installer", "windows", "Product.wxs")
+	backupPath := strings.Replace(originalPath, ".wxs", ".backup.wxs", 1)
+	removeAndRestore := func() error {
+		_, err := os.Stat(backupPath)
+		if !assert.NoError(t, err) {
+			return err
+		}
+
+		err = os.Remove(originalPath)
+		if !assert.NoError(t, err) {
+			return err
+		}
+
+		err = os.Rename(backupPath, originalPath)
+		if !assert.NoError(t, err) {
+			return err
+		}
+		return nil
+	}
+	restore := func() error {
+		_, err := os.Stat(backupPath)
+		if !assert.NoError(t, err) {
+			return err
+		}
+
+		err = os.Rename(backupPath, originalPath)
+		if !assert.NoError(t, err) {
+			return err
+		}
+		return nil
+	}
+
+	// backup Product.wxs
+	err := os.Rename(originalPath, backupPath)
+	if !assert.NoError(t, err) {
+		return err, noop
+	}
+
+	originalProductWix, err := os.Open(backupPath)
+	if !assert.NoError(t, err) {
+		return err, restore
+	}
+
+	modifiedProductWix, err := os.Create(originalPath)
+	if !assert.NoError(t, err) {
+		return err, restore
+	}
+
+	modifyNextArguments := false
+	scanner := bufio.NewScanner(originalProductWix)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, `Id="StoragenodeUpdaterService"`) {
+			modifyNextArguments = true
+		}
+		if modifyNextArguments && strings.Contains(line, "Arguments=") {
+			newArgs := strings.Join(args, " ")
+			modifiedLine := strings.Replace(line, "run", "run "+newArgs, 1)
+			if _, err := modifiedProductWix.WriteString(modifiedLine+"\n"); err != nil {
+				return err, removeAndRestore
+			}
+			modifyNextArguments = false
+			continue
+		}
+		if _, err := modifiedProductWix.WriteString(line+"\n"); err != nil {
+			return err, removeAndRestore
+		}
+	}
+	return nil, removeAndRestore
 }
