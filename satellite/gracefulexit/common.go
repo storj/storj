@@ -31,5 +31,5 @@ type Config struct {
 	// TODO: what's the default number?
 	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"10"`
 	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"500h"`
-	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"1m"`
+	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"2m"`
 }
