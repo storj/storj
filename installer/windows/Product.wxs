@@ -112,9 +112,9 @@
 
     <CustomAction Id="ExtractInstallDir" BinaryKey="StorjDLL" DllEntry="ExtractInstallDir" Execute="immediate" Return="check" />
     <CustomAction Id="BackupConfigFile" Property="STORJ_INSTALLDIR"
-                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
+                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="check" HideTarget="no" Impersonate="no" />
     <CustomAction Id="RestoreConfigFile" Property="STORJ_INSTALLDIR"
-                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="ignore" HideTarget="no" Impersonate="no" />
+                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="check" HideTarget="no" Impersonate="no" />
 
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
