@@ -2,6 +2,7 @@ using Microsoft.Deployment.WindowsInstaller;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Storj
 {
@@ -186,25 +187,11 @@ namespace Storj
         [CustomAction]
         public static ActionResult BackupConfigFile(Session session)
         {
-            CustomActionData data = session.CustomActionData;
-            string line = data["Path"];
-            // thing I don't understand:
+            string line = session["INSTALLDIR"];
             session.Log($"BackupConfigFile registry value: {line}");
-            string substringExample = line.Substring(0, 12);
-            session.Log($"Substring 1: {substringExample}"); 
-            substringExample = line.Substring(0, 5);
-            session.Log($"Substring 2: {substringExample}");
-            substringExample = line.Substring(0, 11);
-            session.Log($"Substring 3: {substringExample}");
-            substringExample = line.Substring(0, 14);
-            session.Log($"Substring 4: {substringExample}");
-            /* output: 
-             * Substring 1: "C:\Program Files\Storj\Storage Node2\storagenode.exe" run --config-dir "C:\Program Files\Storj\Storage Node2\\"
-                Substring 2: [INST
-            Substring 3: [INSTALLDIR 
-             System.ArgumentOutOfRangeException: Index and length must refer to a location within the string.
-            */
-            string path = substringExample.Substring(0, line.IndexOf("storagenode"));
+            Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
+            Match match = pattern.Match(line);
+            string path = match.Groups["installDir"].Value;
             session.Log($"BackupConfigFile extracted path: {path}");
             File.Move($"{path}config.yaml", $"{path}config.yaml.back");
             return ActionResult.Success;
