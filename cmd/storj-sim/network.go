@@ -51,7 +51,6 @@ const (
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
-	repairPeer         = 5
 
 	// Endpoint
 	publicGRPC  = 0
@@ -59,6 +58,8 @@ const (
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
+	// satellite specific constants
+	debugRepairerHTTP = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -313,7 +314,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"repair",
-				"--debug.addr", net.JoinHostPort(host, port(repairPeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
 
