@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -33,21 +34,22 @@ const (
 	newVersion = "v0.19.5"
 )
 
-func TestAutoUpdater(t *testing.T) {
+func TestAutoUpdater_unix(t *testing.T) {
+	// TODO: add windows version of this test; requires installing service
+	if runtime.GOOS == "windows" {
+		t.SkipNow()
+	}
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	// build fake binary with old version for use as old storagenode binary
-	fakeOldBin := ctx.CompileWithLDFlagsX("./testdata/binbuilder", map[string]string{
-		"main.version": oldVersion,
-	})
+	fakeOldBin := compileFakeBin(ctx, oldVersion, "0")
 	fakeStoragenode := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, fakeStoragenode, fakeOldBin)
 
 	// build fake binary with new version for use as updated storagenode and updater binaries
-	fakeNewBin := ctx.CompileWithLDFlagsX("./testdata/binbuilder", map[string]string{
-		"main.version": newVersion,
-	})
+	fakeNewBin := compileFakeBin(ctx, newVersion, "0")
 	updateBins := map[string]string{
 		"storagenode":         fakeNewBin,
 		"storagenode-updater": fakeNewBin,
@@ -237,4 +239,11 @@ func zipBin(t *testing.T, dst, src string) {
 
 	err = writer.Close()
 	require.NoError(t, err)
+}
+
+func compileFakeBin(ctx *testcontext.Context, version, exitCode string) string {
+	return ctx.CompileWithLDFlagsX("storj.io/storj/cmd/storagenode-updater/testdata/servicebuilder", map[string]string{
+		"main.version": version,
+		"main.exitCode": exitCode,
+	})
 }
