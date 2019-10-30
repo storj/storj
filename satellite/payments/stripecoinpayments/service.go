@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,10 +24,11 @@ var Error = errs.Class("stripecoinpayments service error")
 
 // Config stores needed information for payment service initialization.
 type Config struct {
-	StripeSecretKey           string        `help:"stripe API secret key" default:""`
-	CoinpaymentsPublicKey     string        `help:"coinpayments API public key" default:""`
-	CoinpaymentsPrivateKey    string        `help:"coinpayments API preivate key key" default:""`
-	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	StripeSecretKey              string        `help:"stripe API secret key" default:""`
+	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
+	CoinpaymentsPrivateKey       string        `help:"coinpayments API preivate key key" default:""`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -67,10 +69,7 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const (
-		limit = 25
-	)
-
+	const limit = 25
 	before := time.Now()
 
 	txsPage, err := service.transactionsDB.ListPending(ctx, 0, limit, before)
@@ -83,10 +82,8 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 	}
 
 	for txsPage.Next {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 
 		txsPage, err = service.transactionsDB.ListPending(ctx, txsPage.NextOffset, limit, before)
@@ -117,6 +114,8 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 	}
 
 	var updates []TransactionUpdate
+	var applies coinpayments.TransactionIDList
+
 	for id, info := range infos {
 		updates = append(updates,
 			TransactionUpdate{
@@ -126,8 +125,90 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 			},
 		)
 
-		// TODO: update stripe customer balance
+		// moment of transition to received state, which indicates
+		// that customer funds were accepted, so we can apply this
+		// amount to customer balance. So we create intent to update
+		// customer balance in the future.
+		if info.Status == coinpayments.StatusReceived {
+			applies = append(applies, id)
+		}
 	}
 
-	return service.transactionsDB.Update(ctx, updates)
+	return service.transactionsDB.Update(ctx, updates, applies)
+}
+
+// applyAccountBalanceLoop fetches all unapplied transaction in a loop, applying transaction
+// received amount to stripe customer balance.
+func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	txsPage, err := service.transactionsDB.ListUnapplied(ctx, 0, limit, before)
+	if err != nil {
+		return err
+	}
+
+	for _, tx := range txsPage.Transactions {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.applyTransactionBalance(ctx, tx); err != nil {
+			return err
+		}
+	}
+
+	for txsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		txsPage, err := service.transactionsDB.ListUnapplied(ctx, txsPage.NextOffset, limit, before)
+		if err != nil {
+			return err
+		}
+
+		for _, tx := range txsPage.Transactions {
+			if err = ctx.Err(); err != nil {
+				return err
+			}
+
+			if err = service.applyTransactionBalance(ctx, tx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// applyTransactionBalance applies transaction received amount to stripe customer balance.
+func (service *Service) applyTransactionBalance(ctx context.Context, tx Transaction) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cusID, err := service.customers.GetCustomerID(ctx, tx.AccountID)
+	if err != nil {
+		return err
+	}
+
+	if err = service.transactionsDB.Consume(ctx, tx.ID); err != nil {
+		return err
+	}
+
+	// TODO: add conversion logic
+	amount, _ := tx.Received.Int64()
+
+	params := &stripe.CustomerBalanceTransactionParams{
+		Amount:      stripe.Int64(amount),
+		Customer:    stripe.String(cusID),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Description: stripe.String("storj token deposit"),
+	}
+
+	params.AddMetadata("txID", tx.ID.String())
+
+	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
+	return err
 }

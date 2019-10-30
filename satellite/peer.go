@@ -597,13 +597,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.DB.Customers(),
 			peer.DB.CoinpaymentsTransactions())
 
-		clearing := stripecoinpayments.NewClearing(
+		peer.Payments.Accounts = service.Accounts()
+		peer.Payments.Clearing = stripecoinpayments.NewChore(
 			peer.Log.Named("stripecoinpayments clearing loop"),
 			service,
-			config.StripeCoinPayments.TransactionUpdateInterval)
-
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = clearing
+			config.StripeCoinPayments.TransactionUpdateInterval,
+			config.StripeCoinPayments.AccountBalanceUpdateInterval)
 	}
 
 	{ // setup console
@@ -677,7 +676,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		log.Debug("Setting up graceful")
 		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
 
-		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(peer.Log.Named("gracefulexit:endpoint"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Overlay.Service, peer.Metainfo.Service, peer.Orders.Service, peer.DB.PeerIdentities(), config.GracefulExit)
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.GracefulExit(),
+			peer.Overlay.DB,
+			peer.Overlay.Service,
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.DB.PeerIdentities(),
+			config.GracefulExit)
 
 		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())

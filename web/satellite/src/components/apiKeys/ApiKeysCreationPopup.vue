@@ -34,7 +34,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { ApiKey } from '@/types/apiKeys';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
 const CREATE = API_KEYS_ACTIONS.CREATE;
 
@@ -84,21 +84,21 @@ export default class ApiKeysCreationPopup extends Vue {
         try {
             createdApiKey = await this.$store.dispatch(CREATE, this.name);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.isLoading = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
+        await this.$notify.success('Successfully created new api key');
         this.key = createdApiKey.secret;
         this.isLoading = false;
         this.name = '';
 
         try {
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
 
         this.$emit('closePopup');
@@ -110,7 +110,7 @@ export default class ApiKeysCreationPopup extends Vue {
 <style scoped lang="scss">
     .new-api-key {
         padding: 32px 58px 41px 40px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 24px;
         margin-top: 29px;
         max-width: 93.5%;
@@ -118,7 +118,7 @@ export default class ApiKeysCreationPopup extends Vue {
         position: relative;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 24px;
             line-height: 29px;
             margin-bottom: 26px;
@@ -140,7 +140,7 @@ export default class ApiKeysCreationPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
 
@@ -148,7 +148,7 @@ export default class ApiKeysCreationPopup extends Vue {
             position: absolute;
             top: 100%;
             left: 0;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             width: 100%;
             height: 70vh;
             z-index: 100;
