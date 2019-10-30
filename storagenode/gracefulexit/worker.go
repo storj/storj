@@ -156,8 +156,6 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		return err
 	}
 
-	putCtx := ctx
-
 	if worker.minBytesPerSecond == 0 {
 		// set minBytesPerSecond to default 128B if set to 0
 		worker.minBytesPerSecond = 128 * memory.B
@@ -167,7 +165,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		maxTransferTime = worker.minDownloadTimeout
 	}
 	var cancel func()
-	putCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
+	putCtx, cancel := context.WithTimeout(ctx, maxTransferTime)
 	defer cancel()
 
 	// TODO what's the typical expiration setting?
