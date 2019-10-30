@@ -653,6 +653,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
 			peer.DB.Rewards(),
+			nil,
 			peer.Marketing.Listener,
 		)
 		if err != nil {

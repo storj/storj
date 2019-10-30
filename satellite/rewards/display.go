@@ -115,12 +115,3 @@ func organizePartnerData(offers Offers) PartnerSet {
 	partnerData := matchOffersToPartnerSet(offers, createPartnerSet())
 	return partnerData
 }
-
-// getTardigradeDomains returns domain names for tardigrade satellites
-func getTardigradeDomains() []string {
-	return []string{
-		"https://us-central-1.tardigrade.io/",
-		"https://asia-east-1.tardigrade.io/",
-		"https://europe-west-1.tardigrade.io/",
-	}
-}
