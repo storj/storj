@@ -16,7 +16,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/windows/svc"
@@ -58,25 +57,25 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	changes <- svc.Status{State: svc.StartPending}
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	//return ssec, 1
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				zap.S().Info("Interrogate request received.")
-				changes <- c.CurrentStatus
-				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-				time.Sleep(100 * time.Millisecond)
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				zap.S().Info("Stop/Shutdown request received.")
-				changes <- svc.Status{State: svc.StopPending}
-				// After returning the Windows Service is stopped and the process terminates
-				return
-			default:
-				zap.S().Infof("Unexpected control request: %d\n", c)
-			}
-		}
-	}
+	return ssec, 1
+	// for {
+	// 	select {
+	// 	case c := <-r:
+	// 		switch c.Cmd {
+	// 		case svc.Interrogate:
+	// 			zap.S().Info("Interrogate request received.")
+	// 			changes <- c.CurrentStatus
+	// 			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+	// 			time.Sleep(100 * time.Millisecond)
+	// 			changes <- c.CurrentStatus
+	// 		case svc.Stop, svc.Shutdown:
+	// 			zap.S().Info("Stop/Shutdown request received.")
+	// 			changes <- svc.Status{State: svc.StopPending}
+	// 			// After returning the Windows Service is stopped and the process terminates
+	// 			return
+	// 		default:
+	// 			zap.S().Infof("Unexpected control request: %d\n", c)
+	// 		}
+	// 	}
+	// }
 }

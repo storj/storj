@@ -5,7 +5,6 @@ package main_test
 
 import (
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -20,7 +19,7 @@ import (
 )
 
 func TestRecovery(t *testing.T) {
-	t.Skip("test is not finished, skip it")
+	// t.Skip("test is not finished, skip it")
 
 	if runtime.GOOS != "windows" {
 		t.SkipNow()
@@ -59,7 +58,7 @@ func TestRecovery(t *testing.T) {
 	installBat := filepath.Join(installerDir, "install.bat")
 
 	updaterToInstall := filepath.Join(installerDir, "storagenode-updater.exe")
-	storagenodeToInstall := filepath.Join(installerDir, "storagenode.exe")
+	// storagenodeToInstall := filepath.Join(installerDir, "storagenode.exe")
 
 	msiDir := filepath.Join(installerDir, "bin", "Release")
 	msiPath := filepath.Join(msiDir, "storagenode.msi")
@@ -69,14 +68,14 @@ func TestRecovery(t *testing.T) {
 	copyBin(ctx, t, updaterToInstall, oldRealUpdater)
 
 	// build fake updater with new version
-	fakeNewBin := compileFakeBin(ctx, newVersion, "0")
-	copyBin(ctx, t, storagenodeToInstall, fakeNewBin)
+	// fakeNewBin := compileFakeBin(ctx, newVersion, "0")
+	// copyBin(ctx, t, storagenodeToInstall, fakeNewBin)
 	defer func() {
-		err := os.Remove(updaterToInstall)
-		assert.NoError(t, err)
+		// err := os.Remove(updaterToInstall)
+		// assert.NoError(t, err)
 
-		err = os.Remove(storagenodeToInstall)
-		assert.NoError(t, err)
+		// err = os.Remove(storagenodeToInstall)
+		// assert.NoError(t, err)
 	}()
 
 	args := []string{
@@ -89,10 +88,10 @@ func TestRecovery(t *testing.T) {
 		t.Log(string(msbuildOut))
 		t.Fatal(err)
 	}
-	defer func() {
-		err := os.Remove(msiPath)
-		assert.NoError(t, err)
-	}()
+	// defer func() {
+	// 	err := os.Remove(msiPath)
+	// 	assert.NoError(t, err)
+	// }()
 
 	/* TODO: add optional, additional property args to installBat
 	   - STORJ_VERSION_SERVER_ADDR

@@ -235,13 +235,16 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 				return errs.Wrap(err)
 			}
 
-			downloadedVersion, err := binaryVersion(binPath)
-			if err != nil {
-				return errs.Wrap(err)
-			}
+			// TODO add here recovery even before starting service (if version command cannot be executed)
+			if serviceName != updaterServiceName {
+				downloadedVersion, err := binaryVersion(binPath)
+				if err != nil {
+					return errs.Wrap(err)
+				}
 
-			if suggestedVersion.Compare(downloadedVersion) != 0 {
-				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+				if suggestedVersion.Compare(downloadedVersion) != 0 {
+					return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+				}
 			}
 
 			log.Println("restarting service", serviceName)
