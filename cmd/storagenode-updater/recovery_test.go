@@ -22,7 +22,7 @@ import (
 )
 
 func TestRecovery(t *testing.T) {
-	t.Skip("test is nto finished, skip it")
+	t.Skip("test is not finished, skip it")
 
 	if runtime.GOOS != "windows" {
 		t.SkipNow()
@@ -143,7 +143,7 @@ func TestRecovery(t *testing.T) {
 	//}
 }
 
-func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error) {
+func modifyUpdaterServiceArgs(t *testing.T, args ...string) (cleanup func() error, err error) {
 	t.Helper()
 
 	noop := func() error { return nil }
@@ -181,19 +181,19 @@ func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error
 	}
 
 	// backup Product.wxs
-	err := os.Rename(originalPath, backupPath)
+	err = os.Rename(originalPath, backupPath)
 	if !assert.NoError(t, err) {
-		return err, noop
+		return noop, err
 	}
 
 	originalProductWix, err := os.Open(backupPath)
 	if !assert.NoError(t, err) {
-		return err, restore
+		return restore, err
 	}
 
 	modifiedProductWix, err := os.Create(originalPath)
 	if !assert.NoError(t, err) {
-		return err, restore
+		return restore, err
 	}
 
 	modifyNextArguments := false
@@ -207,14 +207,14 @@ func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error
 			newArgs := strings.Join(args, " ")
 			modifiedLine := strings.Replace(line, "run", "run "+newArgs, 1)
 			if _, err := modifiedProductWix.WriteString(modifiedLine + "\n"); err != nil {
-				return err, removeAndRestore
+				return removeAndRestore, err
 			}
 			modifyNextArguments = false
 			continue
 		}
 		if _, err := modifiedProductWix.WriteString(line + "\n"); err != nil {
-			return err, removeAndRestore
+			return removeAndRestore, err
 		}
 	}
-	return nil, removeAndRestore
+	return removeAndRestore, nil
 }
