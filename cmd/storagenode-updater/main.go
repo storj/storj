@@ -72,16 +72,13 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
-		Log            string `help:"path to log file, if empty standard output will be used" default:""`
+		// NB: can't use `log.output` because windows service command args containing "." are bugged.
+		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
 	recoverCfg struct {
 		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
-
-	// NB: can't use `log.output` because windows service command args containing "." are bugged.
-	//Log string `help:"path to log file, if empty standard output will be used" default:""`
-	//logFlag = flag.String("log", "", "path to log file, if empty standard output will be used")
 
 	confDir     string
 	identityDir string
@@ -141,7 +138,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 		if err := update(ctx, os.Args[0], updaterServiceName, renameUpdater); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			// TODO: log.Println(err)
 			log.Printf("%+v", err)
 		}
 		return nil
