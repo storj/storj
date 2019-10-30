@@ -88,7 +88,6 @@ func TestAutoUpdater_unix(t *testing.T) {
 	// NB: updater currently uses `log.SetOutput` so all output after that call
 	// only goes to the log file.
 	out, err := exec.Command(oldRealUpdater, args...).CombinedOutput()
-	outStr := string(out)
 	logData, logErr := ioutil.ReadFile(logPath)
 	if assert.NoError(t, logErr) {
 		logStr := string(logData)
@@ -100,7 +99,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 			t.Log(logStr)
 		}
 	} else {
-		t.Log(outStr)
+		t.Log(string(out))
 	}
 	if !assert.NoError(t, err) {
 		t.FailNow()
