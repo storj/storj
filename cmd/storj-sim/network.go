@@ -233,7 +233,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-api/%d", i),
+			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
@@ -290,7 +290,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
-				"--server.address", process.Address,
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
