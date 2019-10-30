@@ -218,7 +218,10 @@ func TestDeleteWhileReading(t *testing.T) {
 	require.Equal(t, data, result)
 
 	// collect trash
-	_ = store.GarbageCollect(ctx)
+	gStore := store.(interface {
+		GarbageCollect(ctx context.Context) error
+	})
+	_ = gStore.GarbageCollect(ctx)
 
 	// flaky test, for checking whether files have been actually deleted from disk
 	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, err error) error {

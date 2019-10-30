@@ -65,6 +65,11 @@ func (slow *SlowBlobs) Create(ctx context.Context, ref storage.BlobRef, size int
 	return slow.blobs.Create(ctx, ref, size)
 }
 
+// Close closes the blob store and any resources associated with it.
+func (slow *SlowBlobs) Close() error {
+	return slow.blobs.Close()
+}
+
 // Open opens a reader with the specified namespace and key.
 func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
 	slow.sleep()
