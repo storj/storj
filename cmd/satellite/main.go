@@ -200,11 +200,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CreateTables()
-	if err != nil {
-		return errs.New("Error creating tables for master database on satellite: %+v", err)
-	}
-
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 	return errs.Combine(runError, closeError)
