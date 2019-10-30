@@ -51,7 +51,9 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverride int, satelliteSignee signing.Signee,
+	excessOptimalThreshold float64, repairOverride int,
+	downloadTimeout time.Duration,
+	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -63,7 +65,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverride:             repairOverride,
