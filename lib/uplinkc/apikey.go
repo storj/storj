@@ -38,7 +38,7 @@ func serialize_api_key(apikeyHandle C.APIKeyRef, cerr **C.char) *C.char {
 	return C.CString(apikey.Serialize())
 }
 
-// export restrict_api_key
+//export restrict_api_key
 // restrict_api_key generates a new APIKey with the provided Caveat attached.
 func restrict_api_key(apikeyRef C.APIKeyRef, cCaveat C.Caveat, cerr **C.char) C.APIKeyRef {
 	apikey, ok := universe.Get(apikeyRef._handle).(libuplink.APIKey)
