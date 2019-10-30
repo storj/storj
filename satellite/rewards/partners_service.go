@@ -60,7 +60,12 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 		return nil, Error.Wrap(err)
 	}
 
-	referralInfo := &referralInfo{UserID: "", PartnerID: partner.ID}
+	type info struct {
+		UserID    string
+		PartnerID string
+	}
+
+	referralInfo := &info{UserID: "", PartnerID: partner.ID}
 	refJSON, err := json.Marshal(referralInfo)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -74,4 +79,9 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 	}
 
 	return links, nil
+}
+
+// All returns all partners.
+func (service *PartnersService) All(ctx context.Context) ([]PartnerInfo, error) {
+	return service.db.All(ctx)
 }
