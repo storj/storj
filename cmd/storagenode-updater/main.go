@@ -72,7 +72,7 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
-		Log string `help:"path to log file, if empty standard output will be used" default:""`
+		Log            string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
 	recoverCfg struct {
@@ -83,7 +83,7 @@ var (
 	//Log string `help:"path to log file, if empty standard output will be used" default:""`
 	//logFlag = flag.String("log", "", "path to log file, if empty standard output will be used")
 
-confDir     string
+	confDir     string
 	identityDir string
 )
 
@@ -266,10 +266,11 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 			log.Println("service", serviceName, "restarted successfully")
 
 			// TODO remove old binary ??
-		} else {
-			log.Printf("%s version is up to date\n", serviceName)
+			return nil
 		}
 	}
+
+	log.Printf("%s version is up to date\n", runCfg.ServiceName)
 	return nil
 }
 
@@ -417,7 +418,7 @@ func main() {
 // TODO: improve logging; other commands use zap but due to an apparent
 // windows bug we're unable to use the existing process logging infrastructure.
 func openLog() (error, func() error) {
-	noop := func() error {return nil}
+	noop := func() error { return nil }
 
 	if runCfg.Log != "" {
 		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
