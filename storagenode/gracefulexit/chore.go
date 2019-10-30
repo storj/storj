@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/storagenode/pieces"
@@ -39,8 +40,10 @@ type Chore struct {
 
 // Config for the chore
 type Config struct {
-	ChoreInterval time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
-	NumWorkers    int           `help:"number of workers to handle satellite exits" default:"3"`
+	ChoreInterval      time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
+	NumWorkers         int           `help:"number of workers to handle satellite exits" default:"3"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that an exiting node can transfer per second to the new node" default:"128B"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a piece from storage nodes before timing out" default:"2m"`
 }
 
 // NewChore instantiates Chore.
@@ -87,7 +90,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				continue
 			}
 
-			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr)
+			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr, chore.config)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
 				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("satellite ID", satelliteID))

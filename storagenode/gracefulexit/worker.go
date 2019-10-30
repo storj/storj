@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
@@ -25,25 +26,29 @@ import (
 
 // Worker is responsible for completing the graceful exit for a given satellite.
 type Worker struct {
-	log           *zap.Logger
-	store         *pieces.Store
-	satelliteDB   satellites.DB
-	dialer        rpc.Dialer
-	satelliteID   storj.NodeID
-	satelliteAddr string
-	ecclient      ecclient.Client
+	log                *zap.Logger
+	store              *pieces.Store
+	satelliteDB        satellites.DB
+	dialer             rpc.Dialer
+	satelliteID        storj.NodeID
+	satelliteAddr      string
+	ecclient           ecclient.Client
+	minBytesPerSecond  memory.Size
+	minDownloadTimeout time.Duration
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteID storj.NodeID, satelliteAddr string) *Worker {
+func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteID storj.NodeID, satelliteAddr string, choreConfig Config) *Worker {
 	return &Worker{
-		log:           log,
-		store:         store,
-		satelliteDB:   satelliteDB,
-		dialer:        dialer,
-		satelliteID:   satelliteID,
-		satelliteAddr: satelliteAddr,
-		ecclient:      ecclient.NewClient(log, dialer, 0),
+		log:                log,
+		store:              store,
+		satelliteDB:        satelliteDB,
+		dialer:             dialer,
+		satelliteID:        satelliteID,
+		satelliteAddr:      satelliteAddr,
+		ecclient:           ecclient.NewClient(log, dialer, 0),
+		minBytesPerSecond:  choreConfig.MinBytesPerSecond,
+		minDownloadTimeout: choreConfig.MinDownloadTimeout,
 	}
 }
 
@@ -157,7 +162,15 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		return err
 	}
 
-	putCtx, cancel := context.WithCancel(ctx)
+	if worker.minBytesPerSecond == 0 {
+		// set minBytesPerSecond to default 128B if set to 0
+		worker.minBytesPerSecond = 128 * memory.B
+	}
+	maxTransferTime := time.Duration(int64(time.Second) * originalHash.PieceSize / worker.minBytesPerSecond.Int64())
+	if maxTransferTime < worker.minDownloadTimeout {
+		maxTransferTime = worker.minDownloadTimeout
+	}
+	putCtx, cancel := context.WithTimeout(ctx, maxTransferTime)
 	defer cancel()
 
 	pieceHash, peerID, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader)
