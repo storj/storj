@@ -128,10 +128,10 @@ contact.external-address: ""
 # graceful-exit.overall-max-failures-percentage: 10
 
 # path to the certificate chain for this identity
-identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
+identity.cert-path: /Users/yingrongzhao/Library/Application Support/Storj/Identity/Satellite/identity.cert
 
 # path to the private key for this identity
-identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+identity.key-path: /Users/yingrongzhao/Library/Application Support/Storj/Identity/Satellite/identity.key
 
 # what to use for storing real-time accounting data
 # live-accounting.storage-backend: memory
@@ -324,6 +324,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
+
+# time limit for downloading pieces from a node for repair
+# repairer.download-timeout: 5m0s
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
