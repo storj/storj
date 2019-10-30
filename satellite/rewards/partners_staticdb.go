@@ -12,21 +12,21 @@ import (
 
 // PartnersStaticDB implements partner lookup based on a static definition.
 type PartnersStaticDB struct {
-	list        *List
-	byName      map[string]Partner
-	byID        map[string]Partner
-	byUserAgent map[string]Partner
+	list        *PartnerList
+	byName      map[string]PartnerInfo
+	byID        map[string]PartnerInfo
+	byUserAgent map[string]PartnerInfo
 }
 
-var _ DB = (*PartnersStaticDB)(nil)
+var _ PartnersDB = (*PartnersStaticDB)(nil)
 
 // NewPartnersStaticDB creates a new PartnersStaticDB.
-func NewPartnersStaticDB(list *List) (*PartnersStaticDB, error) {
+func NewPartnersStaticDB(list *PartnerList) (*PartnersStaticDB, error) {
 	db := &PartnersStaticDB{
 		list:        list,
-		byName:      map[string]Partner{},
-		byID:        map[string]Partner{},
-		byUserAgent: map[string]Partner{},
+		byName:      map[string]PartnerInfo{},
+		byID:        map[string]PartnerInfo{},
+		byUserAgent: map[string]PartnerInfo{},
 	}
 
 	sort.Slice(list.Partners, func(i, k int) bool {
@@ -59,33 +59,33 @@ func NewPartnersStaticDB(list *List) (*PartnersStaticDB, error) {
 }
 
 // All returns all partners.
-func (db *PartnersStaticDB) All(ctx context.Context) ([]Partner, error) {
-	return append([]Partner{}, db.list.Partners...), nil
+func (db *PartnersStaticDB) All(ctx context.Context) ([]PartnerInfo, error) {
+	return append([]PartnerInfo{}, db.list.Partners...), nil
 }
 
 // ByName returns partner definitions for a given name.
-func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (Partner, error) {
+func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInfo, error) {
 	partner, ok := db.byName[name]
 	if !ok {
-		return Partner{}, ErrNotExist.New("%q", name)
+		return PartnerInfo{}, ErrNotExist.New("%q", name)
 	}
 	return partner, nil
 }
 
 // ByID returns partner definition corresponding to an id.
-func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (Partner, error) {
+func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (PartnerInfo, error) {
 	partner, ok := db.byID[id]
 	if !ok {
-		return Partner{}, ErrNotExist.New("%q", id)
+		return PartnerInfo{}, ErrNotExist.New("%q", id)
 	}
 	return partner, nil
 }
 
 // ByUserAgent returns partner definition corresponding to an user agent product string.
-func (db *PartnersStaticDB) ByUserAgent(ctx context.Context, agent string) (Partner, error) {
+func (db *PartnersStaticDB) ByUserAgent(ctx context.Context, agent string) (PartnerInfo, error) {
 	partner, ok := db.byUserAgent[CanonicalUserAgentProduct(agent)]
 	if !ok {
-		return Partner{}, ErrNotExist.New("%q", agent)
+		return PartnerInfo{}, ErrNotExist.New("%q", agent)
 	}
 	return partner, nil
 }

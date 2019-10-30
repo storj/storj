@@ -16,18 +16,18 @@ func TestStaticDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	world := rewards.Partner{
+	world := rewards.PartnerInfo{
 		Name: "World",
 		ID:   "WORLD0",
 	}
 
-	hello := rewards.Partner{
+	hello := rewards.PartnerInfo{
 		Name: "Hello",
 		ID:   "11111111-1111-1111-1111-111111111111",
 	}
 
-	db, err := rewards.NewPartnersStaticDB(&rewards.List{
-		Partners: []rewards.Partner{world, hello},
+	db, err := rewards.NewPartnersStaticDB(&rewards.PartnerList{
+		Partners: []rewards.PartnerInfo{world, hello},
 	})
 	require.NotNil(t, db)
 	require.NoError(t, err)
@@ -46,5 +46,5 @@ func TestStaticDB(t *testing.T) {
 
 	all, err := db.All(ctx)
 	require.NoError(t, err)
-	require.EqualValues(t, []rewards.Partner{hello, world}, all)
+	require.EqualValues(t, []rewards.PartnerInfo{hello, world}, all)
 }

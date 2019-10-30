@@ -6,7 +6,7 @@ package rewards
 // DefaultPartnersDB is current default settings.
 var DefaultPartnersDB = func() PartnersDB {
 	list := DefaultPartners()
-	db, err := NewStaticDB(&list)
+	db, err := NewPartnersStaticDB(&list)
 	if err != nil {
 		panic(err)
 	}
@@ -14,9 +14,9 @@ var DefaultPartnersDB = func() PartnersDB {
 }()
 
 // DefaultPartners lists Storj default open-source partners.
-func DefaultPartners() List {
-	return List{
-		Partners: []Partner{{
+func DefaultPartners() PartnerList {
+	return PartnerList{
+		Partners: []PartnerInfo{{
 			Name: "Blocknify",
 			ID:   "120bf202-8252-437e-ac12-0e364bee852e",
 		}, {

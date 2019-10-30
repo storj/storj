@@ -16,7 +16,7 @@ type OrganizedOffers struct {
 
 // OpenSourcePartner contains all data for an Open Source Partner.
 type OpenSourcePartner struct {
-	Partner
+	PartnerInfo
 	PartnerOffers OrganizedOffers
 }
 
@@ -85,7 +85,7 @@ func createPartnerSet() PartnerSet {
 	var ps PartnerSet
 	for _, partner := range all {
 		ps = append(ps, OpenSourcePartner{
-			Partner: partner,
+			PartnerInfo: partner,
 		})
 	}
 	return ps
@@ -97,7 +97,7 @@ func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
 		var partnerOffersByName Offers
 
 		for _, o := range offers {
-			if o.Name == partnerSet[i].Partner.Name {
+			if o.Name == partnerSet[i].PartnerInfo.Name {
 				partnerOffersByName = append(partnerOffersByName, o)
 			}
 		}
