@@ -8,13 +8,13 @@ import (
 	"context"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
@@ -234,7 +234,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	if exitStatus.ExitInitiatedAt == nil {
 		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
-		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, request)
+		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
@@ -242,6 +242,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
+
+		// graceful exit initiation metrics
+		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount)
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
+
 		err = stream.Send(&pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}})
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
@@ -259,9 +267,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	pending := newPendingMap()
 
-	var morePiecesFlag int32 = 1
+	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
+	morePiecesFlag := true
+	loopRunningFlag := true
 	errChan := make(chan error, 1)
-	processChan := make(chan bool, 1)
+	processMu := &sync.Mutex{}
+	processCond := sync.NewCond(processMu)
 
 	handleError := func(err error) error {
 		errChan <- err
@@ -271,21 +282,16 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		ticker := time.NewTicker(endpoint.interval)
-		defer ticker.Stop()
+		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			processChan <- true
-			close(processChan)
+			processMu.Lock()
+			loopRunningFlag = false
+			processCond.Broadcast()
+			processMu.Unlock()
 		}()
 
-		for range ticker.C {
-			// exit if context canceled
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
+		ctx, cancel := context.WithCancel(ctx)
+		return incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
@@ -301,8 +307,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
-					atomic.StoreInt32(&morePiecesFlag, 0)
-					break
+					processMu.Lock()
+					morePiecesFlag = false
+					processMu.Unlock()
+					cancel()
+					return nil
 				}
 
 				for _, inc := range incomplete {
@@ -311,10 +320,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return handleError(err)
 					}
 				}
-				processChan <- true
+				if pending.length() > 0 {
+					processCond.Broadcast()
+				}
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 
 	for {
@@ -326,17 +337,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		pendingCount := pending.length()
 
-		// wait if there are none pending
-		if pendingCount == 0 {
-			select {
-			case <-processChan:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-
+		processMu.Lock()
 		// if there are no more transfers and the pending queue is empty, send complete
-		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
+		if !morePiecesFlag && pendingCount == 0 {
+			processMu.Unlock()
+
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
 				ExitFinishedAt: time.Now().UTC(),
@@ -348,7 +353,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			var transferMsg *pb.SatelliteMessage
+			mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
+			mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
+			mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred)
+
 			processed := progress.PiecesFailed + progress.PiecesTransferred
+			if processed > 0 {
+				mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed)
+			}
+
 			// check node's exiting progress to see if it has failed passed max failure threshold
 			if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 
@@ -364,7 +377,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					return rpcstatus.Error(rpcstatus.Internal, err.Error())
 				}
 			}
-
+			if exitStatusRequest.ExitSuccess {
+				mon.Meter("graceful_exit_success").Mark(1)
+			} else {
+				mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1)
+			}
 			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -381,7 +398,24 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
+		} else if pendingCount == 0 {
+			// otherwise, wait for incomplete loop
+			processCond.Wait()
+			select {
+			case <-ctx.Done():
+				processMu.Unlock()
+				return ctx.Err()
+			default:
+			}
+
+			pendingCount = pending.length()
+			// if pending count is still 0 and the loop has exited, return
+			if pendingCount == 0 && !loopRunningFlag {
+				processMu.Unlock()
+				continue
+			}
 		}
+		processMu.Unlock()
 
 		request, err := stream.Recv()
 		if err != nil {
@@ -405,6 +439,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
+					mon.Meter("graceful_exit_fail_validation").Mark(1)
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -436,7 +471,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	if err := group.Wait(); err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		if !errs.Is(err, context.Canceled) {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+
+		}
 	}
 
 	return nil
@@ -672,12 +710,15 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	mon.Meter("graceful_exit_transfer_piece_success").Mark(1)
 	return nil
 }
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
