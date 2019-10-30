@@ -255,8 +255,6 @@ func TestRecvTimeout(t *testing.T) {
 				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
 				geConfig = config.GracefulExit
 			},
 		},

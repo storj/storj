@@ -164,7 +164,6 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	if maxTransferTime < worker.minDownloadTimeout {
 		maxTransferTime = worker.minDownloadTimeout
 	}
-	var cancel func()
 	putCtx, cancel := context.WithTimeout(ctx, maxTransferTime)
 	defer cancel()
 
