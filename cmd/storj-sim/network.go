@@ -58,6 +58,8 @@ const (
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
+	// satellite specific constants
+	debugRepairerHTTP = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -301,6 +303,24 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 	}
 
+	// Create the repairer process for each satellite
+	for i, satellite := range satellites {
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-repairer/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"repair",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
+			},
+		})
+
+		process.WaitForStart(satellite)
+	}
+
 	// Create gateways for each satellite
 	for i, satellite := range satelliteAPIs {
 		satellite := satellite
@@ -522,6 +542,10 @@ func identitySetup(network *Processes) (*Processes, error) {
 
 		if strings.Contains(process.Name, "satellite-api") {
 			// satellite-api uses the same identity as the satellite
+			continue
+		}
+		if strings.Contains(process.Name, "satellite-repair") {
+			// satellite-repair uses the same identity as the satellite
 			continue
 		}
 

@@ -33,7 +33,7 @@ func SetupProject(m *metainfo.Client) (*Project, error) {
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
 	maxBucketMetaSize := 10 * memory.MiB
-	segment := segments.NewSegmentStore(m, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+	segment := segments.NewSegmentStore(m, nil, rs)
 
 	// volatile warning: we're setting an encryption key of all zeros for bucket
 	// metadata, when really the bucket metadata should be stored in a different
@@ -41,7 +41,7 @@ func SetupProject(m *metainfo.Client) (*Project, error) {
 	// TODO: https://storjlabs.atlassian.net/browse/V3-1967
 	encStore := encryption.NewStore()
 	encStore.SetDefaultKey(new(storj.Key))
-	strms, err := streams.NewStreamStore(m, segment, maxBucketMetaSize.Int64(), encStore, memory.KiB.Int(), storj.EncAESGCM, maxBucketMetaSize.Int())
+	strms, err := streams.NewStreamStore(m, segment, maxBucketMetaSize.Int64(), encStore, memory.KiB.Int(), storj.EncAESGCM, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
 	if err != nil {
 		return nil, Error.New("failed to create streams: %v", err)
 	}
