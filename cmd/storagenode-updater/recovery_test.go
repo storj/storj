@@ -4,13 +4,11 @@
 package main_test
 
 import (
-	"bufio"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -143,78 +141,78 @@ func TestRecovery(t *testing.T) {
 	//}
 }
 
-func modifyUpdaterServiceArgs(t *testing.T, args ...string) (cleanup func() error, err error) {
-	t.Helper()
+// func modifyUpdaterServiceArgs(t *testing.T, args ...string) (cleanup func() error, err error) {
+// 	t.Helper()
 
-	noop := func() error { return nil }
+// 	noop := func() error { return nil }
 
-	originalPath := filepath.Join("..", "..", "installer", "windows", "Product.wxs")
-	backupPath := strings.Replace(originalPath, ".wxs", ".backup.wxs", 1)
-	removeAndRestore := func() error {
-		_, err := os.Stat(backupPath)
-		if !assert.NoError(t, err) {
-			return err
-		}
+// 	originalPath := filepath.Join("..", "..", "installer", "windows", "Product.wxs")
+// 	backupPath := strings.Replace(originalPath, ".wxs", ".backup.wxs", 1)
+// 	removeAndRestore := func() error {
+// 		_, err := os.Stat(backupPath)
+// 		if !assert.NoError(t, err) {
+// 			return err
+// 		}
 
-		err = os.Remove(originalPath)
-		if !assert.NoError(t, err) {
-			return err
-		}
+// 		err = os.Remove(originalPath)
+// 		if !assert.NoError(t, err) {
+// 			return err
+// 		}
 
-		err = os.Rename(backupPath, originalPath)
-		if !assert.NoError(t, err) {
-			return err
-		}
-		return nil
-	}
-	restore := func() error {
-		_, err := os.Stat(backupPath)
-		if !assert.NoError(t, err) {
-			return err
-		}
+// 		err = os.Rename(backupPath, originalPath)
+// 		if !assert.NoError(t, err) {
+// 			return err
+// 		}
+// 		return nil
+// 	}
+// 	restore := func() error {
+// 		_, err := os.Stat(backupPath)
+// 		if !assert.NoError(t, err) {
+// 			return err
+// 		}
 
-		err = os.Rename(backupPath, originalPath)
-		if !assert.NoError(t, err) {
-			return err
-		}
-		return nil
-	}
+// 		err = os.Rename(backupPath, originalPath)
+// 		if !assert.NoError(t, err) {
+// 			return err
+// 		}
+// 		return nil
+// 	}
 
-	// backup Product.wxs
-	err = os.Rename(originalPath, backupPath)
-	if !assert.NoError(t, err) {
-		return noop, err
-	}
+// 	// backup Product.wxs
+// 	err = os.Rename(originalPath, backupPath)
+// 	if !assert.NoError(t, err) {
+// 		return noop, err
+// 	}
 
-	originalProductWix, err := os.Open(backupPath)
-	if !assert.NoError(t, err) {
-		return restore, err
-	}
+// 	originalProductWix, err := os.Open(backupPath)
+// 	if !assert.NoError(t, err) {
+// 		return restore, err
+// 	}
 
-	modifiedProductWix, err := os.Create(originalPath)
-	if !assert.NoError(t, err) {
-		return restore, err
-	}
+// 	modifiedProductWix, err := os.Create(originalPath)
+// 	if !assert.NoError(t, err) {
+// 		return restore, err
+// 	}
 
-	modifyNextArguments := false
-	scanner := bufio.NewScanner(originalProductWix)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, `Id="StoragenodeUpdaterService"`) {
-			modifyNextArguments = true
-		}
-		if modifyNextArguments && strings.Contains(line, "Arguments=") {
-			newArgs := strings.Join(args, " ")
-			modifiedLine := strings.Replace(line, "run", "run "+newArgs, 1)
-			if _, err := modifiedProductWix.WriteString(modifiedLine + "\n"); err != nil {
-				return removeAndRestore, err
-			}
-			modifyNextArguments = false
-			continue
-		}
-		if _, err := modifiedProductWix.WriteString(line + "\n"); err != nil {
-			return removeAndRestore, err
-		}
-	}
-	return removeAndRestore, nil
-}
+// 	modifyNextArguments := false
+// 	scanner := bufio.NewScanner(originalProductWix)
+// 	for scanner.Scan() {
+// 		line := scanner.Text()
+// 		if strings.Contains(line, `Id="StoragenodeUpdaterService"`) {
+// 			modifyNextArguments = true
+// 		}
+// 		if modifyNextArguments && strings.Contains(line, "Arguments=") {
+// 			newArgs := strings.Join(args, " ")
+// 			modifiedLine := strings.Replace(line, "run", "run "+newArgs, 1)
+// 			if _, err := modifiedProductWix.WriteString(modifiedLine + "\n"); err != nil {
+// 				return removeAndRestore, err
+// 			}
+// 			modifyNextArguments = false
+// 			continue
+// 		}
+// 		if _, err := modifiedProductWix.WriteString(line + "\n"); err != nil {
+// 			return removeAndRestore, err
+// 		}
+// 	}
+// 	return removeAndRestore, nil
+// }
