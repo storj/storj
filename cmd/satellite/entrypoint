@@ -29,4 +29,8 @@ if [ "${SATELLITE_API:-}" = "true" ]; then
   exec ./satellite run api $RUN_PARAMS "$@"
 fi
 
+if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
+  exec ./satellite run repair $RUN_PARAMS "$@"
+fi
+
 exec ./satellite run $RUN_PARAMS "$@"

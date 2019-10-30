@@ -54,6 +54,9 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	var sendError error
 	for _, link := range links {
 		response, err := http.Get(link)
+		if err != nil {
+			continue
+		}
 		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 

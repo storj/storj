@@ -20,11 +20,11 @@ export default class BillingItem extends Vue {}
 
 <style scoped lang="scss">
     .download-link {
-        color: #2683FF;
-        font-family: 'font_bold';
+        color: #2683ff;
+        font-family: 'font_bold', sans-serif;
 
         &:hover {
-            color: #0059D0;
+            color: #0059d0;
         }
     }
 
@@ -34,14 +34,14 @@ export default class BillingItem extends Vue {}
         align-items: center;
         width: calc(100% - 60px);
         border-top: 1px solid rgba(169, 181, 193, 0.3);
-    
+
         &__item {
             width: 35%;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             text-align: left;
             margin-right: 10px;
-            color: #61666B;
+            color: #61666b;
         }
     }
 

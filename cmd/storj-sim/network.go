@@ -58,6 +58,8 @@ const (
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
+	// satellite specific constants
+	debugRepairerHTTP = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -146,7 +148,10 @@ func networkTest(flags *Flags, command string, args []string) error {
 	processes.Start(ctx, &group, "run")
 
 	for _, process := range processes.List {
-		process.Status.Started.Wait()
+		process.Status.Started.Wait(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	cmd := exec.CommandContext(ctx, command, args...)
@@ -292,6 +297,24 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satelliteAPI, i, privateGRPC)),
 				"--debug.addr", net.JoinHostPort(host, port(satelliteAPI, i, debugHTTP)),
+			},
+		})
+
+		process.WaitForStart(satellite)
+	}
+
+	// Create the repairer process for each satellite
+	for i, satellite := range satellites {
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-repairer/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"repair",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
 
@@ -519,6 +542,10 @@ func identitySetup(network *Processes) (*Processes, error) {
 
 		if strings.Contains(process.Name, "satellite-api") {
 			// satellite-api uses the same identity as the satellite
+			continue
+		}
+		if strings.Contains(process.Name, "satellite-repair") {
+			// satellite-repair uses the same identity as the satellite
 			continue
 		}
 
