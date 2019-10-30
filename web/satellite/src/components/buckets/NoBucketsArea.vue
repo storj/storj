@@ -44,7 +44,7 @@
                 <ButtonArrowIcon/>
                 <p class="no-buckets-area__footer__button__label">Create My First Bucket</p>
             </a>
-            <a class="no-buckets-area__footer__help">Why can't I upload from the browser?</a>
+            <a class="no-buckets-area__footer__help" href="https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-" target="_blank">Why can't I upload from the browser?</a>
         </div>
     </div>
 </template>
@@ -54,12 +54,12 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
-import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
-import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
-import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
-import UsageIcon from '@/../static/images/buckets/noBucketState/usage.svg';
-import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
 import ButtonArrowIcon from '@/../static/images/buckets/noBucketState/button.svg';
+import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
+import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
+import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
+import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
+import UsageIcon from '@/../static/images/buckets/noBucketState/usage.svg';
 
 @Component({
     components: {
@@ -100,7 +100,7 @@ export default class NoBucketArea extends Vue {}
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin-bottom: 24px;
             }
 
@@ -152,7 +152,7 @@ export default class NoBucketArea extends Vue {}
                     padding: 25px;
                     background-color: #fff;
                     border-radius: 11px;
-                    border: 1px solid #EDEDED;
+                    border: 1px solid #ededed;
 
                     &__address-info,
                     &__api-key-info,
@@ -203,7 +203,7 @@ export default class NoBucketArea extends Vue {}
                 }
 
                 &:hover {
-                    background-color: #0059D0;
+                    background-color: #0059d0;
                 }
             }
 
@@ -219,7 +219,7 @@ export default class NoBucketArea extends Vue {}
 
     .buckets-divider {
         width: calc(46% + 2px);
-        border: 1px solid #CFD5DA;
+        border: 1px solid #cfd5da;
     }
 
     .dots-icon {
@@ -227,18 +227,21 @@ export default class NoBucketArea extends Vue {}
     }
 
     @media screen and (max-width: 1800px) {
+
         .no-buckets-area {
             padding: 40px 140px 120px 140px;
         }
     }
 
     @media screen and (max-width: 1750px) {
+
         .no-buckets-area {
             padding: 40px 100px 120px 100px;
         }
     }
 
     @media screen and (max-width: 1680px) {
+
         .no-buckets-area {
             padding: 40px 150px 120px 150px;
 
@@ -276,30 +279,35 @@ export default class NoBucketArea extends Vue {}
     }
 
     @media screen and (max-width: 1630px) {
+
         .no-buckets-area {
             padding: 40px 120px 120px 120px;
         }
     }
 
     @media screen and (max-width: 1570px) {
+
         .no-buckets-area {
             padding: 40px 100px 120px 100px;
         }
     }
 
     @media screen and (max-width: 1520px) {
+
         .no-buckets-area {
             padding: 40px 80px 120px 80px;
         }
     }
 
     @media screen and (max-width: 1470px) {
+
         .no-buckets-area {
             padding: 40px 65px 120px 65px;
         }
     }
 
     @media screen and (max-width: 1440px) {
+
         .no-buckets-area {
             padding: 40px 60px 120px 60px;
 
@@ -343,12 +351,14 @@ export default class NoBucketArea extends Vue {}
     }
 
     @media screen and (max-width: 1320px) {
+
         .no-buckets-area {
             padding: 40px 50px 120px 50px;
         }
     }
 
     @media screen and (max-width: 1280px) {
+
         .no-buckets-area {
             padding: 40px 40px 120px 40px;
         }
