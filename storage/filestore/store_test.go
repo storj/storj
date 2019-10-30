@@ -352,7 +352,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	assert.Nil(t, reader)
 }
 
-// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.Store
+// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.blobStore
 // work as expected.
 func TestStoreSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
