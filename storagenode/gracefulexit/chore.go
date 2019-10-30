@@ -66,8 +66,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-
-		chore.log.Info("running graceful exit chore.")
+		chore.log.Debug("checking pending exits")
 
 		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
 		if err != nil {
@@ -76,7 +75,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		if len(satellites) == 0 {
-			chore.log.Debug("no satellites found.")
+			chore.log.Debug("no satellites found")
 			return nil
 		}
 
@@ -94,17 +93,17 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr, chore.config)
 			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
 				// already running a worker for this satellite
-				chore.log.Debug("skipping graceful exit for satellite. worker already exists.", zap.Stringer("satellite ID", satelliteID))
+				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("satellite ID", satelliteID))
 				continue
 			}
 
 			chore.limiter.Go(ctx, func() {
 				err := worker.Run(ctx, func() {
-					chore.log.Debug("finished graceful exit for satellite.", zap.Stringer("satellite ID", satelliteID))
+					chore.log.Debug("finished for satellite.", zap.Stringer("satellite ID", satelliteID))
 					chore.exitingMap.Delete(satelliteID)
 				})
 				if err != nil {
-					chore.log.Error("worker failed.", zap.Error(err))
+					chore.log.Error("worker failed", zap.Error(err))
 				}
 			})
 		}

@@ -46,8 +46,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-
-		chore.log.Info("running graceful exit chore.")
+		chore.log.Debug("checking pending exits")
 
 		exitingNodes, err := chore.overlay.GetExitingNodes(ctx)
 		if err != nil {
@@ -56,7 +55,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		nodeCount := len(exitingNodes)
-		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", nodeCount))
+		chore.log.Debug("graceful exit", zap.Int("exitingNodes", nodeCount))
 		if nodeCount == 0 {
 			return nil
 		}
