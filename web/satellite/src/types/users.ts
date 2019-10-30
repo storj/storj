@@ -30,13 +30,15 @@ export class User {
     public shortName: string;
     public email: string;
     public partnerId: string;
+    public password: string;
 
-    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partnerId: string = '') {
+    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partnerId: string = '', password: string = '') {
         this.id = id;
         this.fullName = fullName;
         this.shortName = shortName;
         this.email = email;
         this.partnerId = partnerId;
+        this.password = password;
     }
 
     public getFullName(): string {
