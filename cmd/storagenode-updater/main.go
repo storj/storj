@@ -140,8 +140,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		if err := update(ctx, os.Args[0], updaterServiceName, renameUpdater); err != nil {
-			// TODO: remove
-			log.Printf("updating storagenode-updater at \"%s\"", os.Args[0])
 			// don't finish loop in case of error just wait for another execution
 			// TODO: log.Println(err)
 			log.Printf("%+v", err)
@@ -192,17 +190,10 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 	}
 
 	var currentVersion version.SemVer
-	// TODO: remove
-	log.Printf("checking version of %s", binPath)
-	// TODO: remove
-	log.Printf("serviceName: %s", serviceName)
 	if serviceName == updaterServiceName {
-		// TODO: remove
-		log.Println("using version.Build.Version")
+		// TODO: find better way to check this binary version
 		currentVersion = version.Build.Version
 	} else {
-		// TODO: remove
-		log.Println("using binaryVersion(binPath)")
 		currentVersion, err = binaryVersion(binPath)
 		if err != nil {
 			return errs.Wrap(err)
@@ -306,8 +297,6 @@ func parseDownloadURL(template string) string {
 }
 
 func binaryVersion(location string) (version.SemVer, error) {
-	// TODO: remove
-	log.Printf("executing command %s", location+" version")
 	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
 		log.Printf("out %s", string(out))
