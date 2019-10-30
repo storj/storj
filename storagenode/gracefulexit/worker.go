@@ -206,7 +206,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	return c.Send(success)
 }
 
-// deletePieces delete pieces stored for a satellite. When no piece ID are specified, all pieces stored by a satellite will be deleted.
+// deleteOnePieceOrAll deletes pieces stored for a satellite. When no piece ID are specified, all pieces stored by a satellite will be deleted.
 func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.PieceID) error {
 	// get piece size
 	pieceMap := make(map[pb.PieceID]int64)
