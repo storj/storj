@@ -22,6 +22,8 @@ import (
 )
 
 func TestRecovery(t *testing.T) {
+	t.Skip("test is nto finished, skip it")
+
 	if runtime.GOOS != "windows" {
 		t.SkipNow()
 	}
@@ -144,7 +146,7 @@ func TestRecovery(t *testing.T) {
 func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error) {
 	t.Helper()
 
-	noop := func() error {return nil}
+	noop := func() error { return nil }
 
 	originalPath := filepath.Join("..", "..", "installer", "windows", "Product.wxs")
 	backupPath := strings.Replace(originalPath, ".wxs", ".backup.wxs", 1)
@@ -204,13 +206,13 @@ func modifyUpdaterServiceArgs(t *testing.T, args ...string) (error, func() error
 		if modifyNextArguments && strings.Contains(line, "Arguments=") {
 			newArgs := strings.Join(args, " ")
 			modifiedLine := strings.Replace(line, "run", "run "+newArgs, 1)
-			if _, err := modifiedProductWix.WriteString(modifiedLine+"\n"); err != nil {
+			if _, err := modifiedProductWix.WriteString(modifiedLine + "\n"); err != nil {
 				return err, removeAndRestore
 			}
 			modifyNextArguments = false
 			continue
 		}
-		if _, err := modifiedProductWix.WriteString(line+"\n"); err != nil {
+		if _, err := modifiedProductWix.WriteString(line + "\n"); err != nil {
 			return err, removeAndRestore
 		}
 	}

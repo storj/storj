@@ -71,7 +71,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Version:    oldSemVer,
 		Release:    false,
 	}
-	oldRealUpdater := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
+	oldRealUpdater := ctx.CompileWithVersion("", oldInfo)
 	logPath := ctx.File("storagenode-updater.log")
 
 	t.Logf("HELLO: %s", versionControlPeer.Addr())
@@ -112,7 +112,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 	require.NotNil(t, oldStoragenodeInfo)
 	require.NotZero(t, oldStoragenodeInfo.Size())
 
-	backupUpdater := ctx.File("build", "storagenode-updater.backup.exe")
+	backupUpdater := ctx.File("build", "storagenode-updater.old.exe")
 	backupUpdaterInfo, err := os.Stat(backupUpdater)
 	require.NoError(t, err)
 	require.NotNil(t, backupUpdaterInfo)
@@ -156,13 +156,13 @@ func testIdentityFiles(ctx *testcontext.Context, t *testing.T) identity.Config {
 	return identConfig
 }
 
-func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updateBins map[string]string) (*versioncontrol.Peer, func()) {
+func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updateBins map[string]string) (peer *versioncontrol.Peer, cleanup func()) {
 	t.Helper()
 
 	var mux http.ServeMux
 	for name, src := range updateBins {
 		dst := ctx.File("updates", name+".zip")
-		zipBin(t, dst, src)
+		zipBin(ctx, t, dst, src)
 		zipData, err := ioutil.ReadFile(dst)
 		require.NoError(t, err)
 
@@ -220,7 +220,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 	}
 }
 
-func zipBin(t *testing.T, dst, src string) {
+func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 	t.Helper()
 
 	zipFile, err := os.Create(dst)
@@ -239,8 +239,7 @@ func zipBin(t *testing.T, dst, src string) {
 	_, err = contents.Write(data)
 	require.NoError(t, err)
 
-	err = writer.Close()
-	require.NoError(t, err)
+	ctx.Check(writer.Close)
 }
 
 func compileFakeBin(ctx *testcontext.Context, version, exitCode string) string {

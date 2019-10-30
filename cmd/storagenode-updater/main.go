@@ -105,7 +105,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	err, closeLog := openLog()
+	closeLog, err := openLog()
 	defer func() { err = errs.Combine(err, closeLog()) }()
 
 	if !fileExists(runCfg.BinaryLocation) {
@@ -167,12 +167,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRecover(cmd *cobra.Command, args []string) (err error) {
-	err, closeLog := openLog()
+	closeLog, err := openLog()
 	defer func() { err = errs.Combine(err, closeLog()) }()
 
 	log.Println("storagenode updater recovering!")
 
-	badExec := strings.Replace(os.Args[0], ".backup", "", 1)
+	badExec := strings.Replace(os.Args[0], ".old", "", 1)
 	log.Printf("deleting bad updater binary: %s\n", badExec)
 	err = os.Remove(badExec)
 	if err != nil && !os.IsNotExist(err) {
@@ -291,7 +291,7 @@ func renameUpdater(_ version.SemVer) error {
 	dir := filepath.Dir(updaterBinPath)
 	base := filepath.Base(updaterBinPath)
 	base = base[:len(base)-len(extension)]
-	backupExec := filepath.Join(dir, base+".backup"+extension)
+	backupExec := filepath.Join(dir, base+".old"+extension)
 
 	if err := os.Rename(updaterBinPath, backupExec); err != nil {
 		return errs.Wrap(err)
@@ -417,18 +417,18 @@ func main() {
 
 // TODO: improve logging; other commands use zap but due to an apparent
 // windows bug we're unable to use the existing process logging infrastructure.
-func openLog() (error, func() error) {
-	noop := func() error { return nil }
+func openLog() (closeFunc func() error, err error) {
+	closeFunc = func() error { return nil }
 
 	if runCfg.Log != "" {
 		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Printf("error opening log file: %s", err)
-			return err, noop
+			return closeFunc, err
 		}
 		log.Printf("writing all further log output to %s", runCfg.Log)
 		log.SetOutput(logFile)
-		return nil, logFile.Close
+		return logFile.Close, nil
 	}
-	return nil, noop
+	return closeFunc, nil
 }
