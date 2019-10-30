@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package partners
+package rewards
 
 import (
 	"encoding/json"
@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// List defines a json struct for defining partners.
-type List struct {
+// PartnersList defines a json struct for defining partners.
+type PartnersList struct {
 	Partners []Partner
 }
 
@@ -28,8 +28,8 @@ func (p *Partner) UserAgent() string { return p.Name }
 // CanonicalUserAgentProduct returns canonicalizes the user agent product, which is suitable for lookups.
 func CanonicalUserAgentProduct(product string) string { return strings.ToLower(product) }
 
-// ListFromJSONFile loads a json definition of partners.
-func ListFromJSONFile(path string) (*List, error) {
+// PartnersListFromJSONFile loads a json definition of partners.
+func PartnersListFromJSONFile(path string) (*PartnersList, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -38,7 +38,7 @@ func ListFromJSONFile(path string) (*List, error) {
 		err = errs.Combine(err, Error.Wrap(file.Close()))
 	}()
 
-	var list List
+	var list PartnersList
 	err = json.NewDecoder(file).Decode(&list)
 	return &list, Error.Wrap(err)
 }

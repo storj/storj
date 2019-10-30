@@ -1,8 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package partners implements partners management for attributions.
-package partners
+package rewards
 
 import (
 	"context"
@@ -19,10 +18,10 @@ var (
 	ErrNotExist = errs.Class("partner does not exist")
 )
 
-// DB allows access to partners database.
+// PartnersDB allows access to partners database.
 //
 // architecture: Database
-type DB interface {
+type PartnersDB interface {
 	// All returns all partners.
 	All(ctx context.Context) ([]Partner, error)
 	// ByName returns partner definitions for a given name.
@@ -33,17 +32,17 @@ type DB interface {
 	ByUserAgent(ctx context.Context, agent string) (Partner, error)
 }
 
-// Service allows manipulating and accessing partner information.
+// PartnersService allows manipulating and accessing partner information.
 //
 // architecture: Service
-type Service struct {
+type PartnersService struct {
 	log *zap.Logger
-	db  DB
+	db  PartnersDB
 }
 
-// NewService returns a service for handling partner information.
-func NewService(log *zap.Logger, db DB) *Service {
-	return &Service{
+// NewPartnersService returns a service for handling partner information.
+func NewPartnersService(log *zap.Logger, db PartnersDB) *PartnersService {
+	return &PartnersService{
 		log: log,
 		db:  db,
 	}

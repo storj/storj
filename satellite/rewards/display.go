@@ -5,8 +5,6 @@ package rewards
 
 import (
 	"context"
-
-	"storj.io/storj/satellite/partners"
 )
 
 // OrganizedOffers contains a list of offers organized by status.
@@ -18,7 +16,7 @@ type OrganizedOffers struct {
 
 // OpenSourcePartner contains all data for an Open Source Partner.
 type OpenSourcePartner struct {
-	partners.Partner
+	Partner
 	PartnerOffers OrganizedOffers
 }
 
@@ -82,7 +80,7 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 // createPartnerSet generates a PartnerSet from the config file.
 func createPartnerSet() PartnerSet {
-	all, _ := partners.DefaultDB.All(context.TODO()) // TODO: don't ignore error
+	all, _ := DefaultPartnersDB.All(context.TODO()) // TODO: don't ignore error
 
 	var ps PartnerSet
 	for _, partner := range all {

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package partners_test
+package rewards_test
 
 import (
 	"testing"
@@ -9,25 +9,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/satellite/partners"
+	"storj.io/storj/satellite/rewards"
 )
 
 func TestStaticDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	world := partners.Partner{
+	world := rewards.Partner{
 		Name: "World",
 		ID:   "WORLD0",
 	}
 
-	hello := partners.Partner{
+	hello := rewards.Partner{
 		Name: "Hello",
 		ID:   "11111111-1111-1111-1111-111111111111",
 	}
 
-	db, err := partners.NewStaticDB(&partners.List{
-		Partners: []partners.Partner{world, hello},
+	db, err := rewards.NewPartnersStaticDB(&rewards.List{
+		Partners: []rewards.Partner{world, hello},
 	})
 	require.NotNil(t, db)
 	require.NoError(t, err)
@@ -46,5 +46,5 @@ func TestStaticDB(t *testing.T) {
 
 	all, err := db.All(ctx)
 	require.NoError(t, err)
-	require.EqualValues(t, []partners.Partner{hello, world}, all)
+	require.EqualValues(t, []rewards.Partner{hello, world}, all)
 }

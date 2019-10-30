@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/currency"
-	"storj.io/storj/satellite/partners"
 )
 
 var (
@@ -131,7 +130,7 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 		if partnerID == "" {
 			return nil, errs.New("partner ID is empty")
 		}
-		partnerInfo, err := partners.DefaultDB.ByID(context.TODO(), partnerID)
+		partnerInfo, err := DefaultPartnersDB.ByID(context.TODO(), partnerID)
 		if err != nil {
 			return nil, NoMatchPartnerIDErr.Wrap(err)
 		}
