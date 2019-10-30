@@ -5,11 +5,17 @@ package satellitedb
 
 import (
 	"context"
+	"time"
+
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensure that customers implements stripecoinpayments.CustomersDB
+var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.
 type customers struct {
@@ -39,4 +45,51 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 	}
 
 	return idRow.CustomerId, nil
+}
+
+// List returns paginated customers id list, with customers created before specified date.
+func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CustomerPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var page stripecoinpayments.CustomerPage
+
+	dbxCustomers, err := customers.db.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx,
+		dbx.StripeCustomer_CreatedAt(before),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return stripecoinpayments.CustomerPage{}, err
+	}
+
+	if len(dbxCustomers) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit) + 1
+
+		dbxCustomers = dbxCustomers[:len(dbxCustomers)-1]
+	}
+
+	for _, dbxCustomer := range dbxCustomers {
+		cus, err := fromDBXCustomer(dbxCustomer)
+		if err != nil {
+			return stripecoinpayments.CustomerPage{}, err
+		}
+
+		page.Customers = append(page.Customers, *cus)
+	}
+
+	return page, nil
+}
+
+// fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
+func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
+	userID, err := bytesToUUID(dbxCustomer.UserId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stripecoinpayments.Customer{
+		ID:     dbxCustomer.CustomerId,
+		UserID: userID,
+	}, nil
 }

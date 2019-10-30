@@ -15,7 +15,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// ensure that coinpaymentsTransaction implements stripecoinpayments.TransactionsDB.
+// ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
 var _ stripecoinpayments.TransactionsDB = (*coinpaymentsTransactions)(nil)
 
 // applyBalanceIntentState defines states of the apply balance intents.
@@ -33,7 +33,7 @@ func (intent applyBalanceIntentState) Int() int {
 	return int(intent)
 }
 
-// coinpaymentsTransactions is Coinpayments transactions DB.
+// coinpaymentsTransactions is CoinPayments transactions DB.
 //
 // architecture: Database
 type coinpaymentsTransactions struct {

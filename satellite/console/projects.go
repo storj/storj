@@ -29,8 +29,7 @@ type Projects interface {
 	// Update is a method for updating project entity.
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
-	List(ctx context.Context, userID uuid.UUID, offset int64, limit int, before time.Time) (ProjectsPage, error)
-	List2(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
+	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
 }
 
 // Project is a database object that describes Project entity
