@@ -80,7 +80,7 @@ export default class NotificationItem extends Vue {
             }
 
             &__message {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 14px;
                 height: auto;
                 width: 270px;
@@ -91,7 +91,7 @@ export default class NotificationItem extends Vue {
 
         &__buttons-group {
             display: flex;
-            
+
             &__close {
                 width: 32px;
                 height: 32px;

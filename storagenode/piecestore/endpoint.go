@@ -57,7 +57,7 @@ type OldConfig struct {
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 
@@ -75,8 +75,9 @@ type pingStatsSource interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log    *zap.Logger
-	config Config
+	log          *zap.Logger
+	config       Config
+	grpcReqLimit int
 
 	signer    signing.Signer
 	trust     *trust.Pool
@@ -89,10 +90,11 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
-	// liveGRPCRequests is a limit to the number of allowed concurrent GRPC
-	// requests. Concurrent DRPC requests count toward the limit, but DRPC
-	// requests are accepted regardless of the current level.
-	liveGRPCRequests int32
+	// liveRequests tracks the total number of incoming rpc requests. For gRPC
+	// requests only, this number is compared to config.MaxConcurrentRequests
+	// and limits the number of gRPC requests. dRPC requests are tracked but
+	// not limited.
+	liveRequests int32
 }
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -103,9 +105,17 @@ func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{
 
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
+	// However, if it is 0 (unlimited) we force a limit.
+	grpcReqLimit := config.MaxConcurrentRequests
+	if grpcReqLimit <= 0 {
+		grpcReqLimit = 7
+	}
+
 	return &Endpoint{
-		log:    log,
-		config: config,
+		log:          log,
+		config:       config,
+		grpcReqLimit: grpcReqLimit,
 
 		signer:    signer,
 		trust:     trust,
@@ -118,7 +128,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		usage:       usage,
 		usedSerials: usedSerials,
 
-		liveGRPCRequests: 0,
+		liveRequests: 0,
 	}, nil
 }
 
@@ -129,8 +139,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
-	atomic.AddInt32(&endpoint.liveGRPCRequests, 1)
-	defer atomic.AddInt32(&endpoint.liveGRPCRequests, -1)
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	endpoint.pingStats.WasPinged(time.Now())
 
@@ -158,12 +168,12 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream, true)
+	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
 }
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream, false)
+	return endpoint.doUpload(stream, endpoint.config.MaxConcurrentRequests)
 }
 
 // uploadStream is the minimum interface required to perform settlements.
@@ -174,18 +184,18 @@ type uploadStream interface {
 }
 
 // doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream, limitRequests bool) (err error) {
+func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
-	liveGRPCRequests := atomic.AddInt32(&endpoint.liveGRPCRequests, 1)
-	defer atomic.AddInt32(&endpoint.liveGRPCRequests, -1)
+	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	endpoint.pingStats.WasPinged(time.Now())
 
-	if limitRequests && int(liveGRPCRequests) > endpoint.config.MaxConcurrentRequests {
-		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveGRPCRequests))
+	if requestLimit > 0 && int(liveRequests) > requestLimit {
+		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
 		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
 	}
 
@@ -399,8 +409,8 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
-	atomic.AddInt32(&endpoint.liveGRPCRequests, 1)
-	defer atomic.AddInt32(&endpoint.liveGRPCRequests, -1)
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	startTime := time.Now().UTC()
 
@@ -688,7 +698,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 // TestLiveRequestCount returns the current number of live requests.
 func (endpoint *Endpoint) TestLiveRequestCount() int32 {
-	return atomic.LoadInt32(&endpoint.liveGRPCRequests)
+	return atomic.LoadInt32(&endpoint.liveRequests)
 }
 
 // min finds the min of two values

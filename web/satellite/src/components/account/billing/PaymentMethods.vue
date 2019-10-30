@@ -12,13 +12,16 @@
                         label="Add STORJ"
                         width="123px"
                         height="48px"
-                        :on-press="onAddSTORJ"/>
+                        :on-press="onAddSTORJ"
+                    />
                     <VButton
                         class="button"
                         label="Add Card"
                         width="123px"
                         height="48px"
-                        :on-press="onAddCard"/>
+                        :on-press="onAddCard"
+                        :is-disabled="true"
+                    />
                 </div>
                 <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
                     <p class="payment-methods-area__button-area__cancel__text">Cancel</p>
@@ -34,19 +37,29 @@
                 label="Continue to Coin Payments"
                 width="251px"
                 height="48px"
-                :on-press="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddSTORJ"
+            />
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput />
+            <StripeInput
+                class="payment-methods-area__adding-container__stripe"
+                ref="stripeInput"
+                :on-stripe-response-callback="addCard"
+            />
             <VButton
                 label="Add card"
                 width="123px"
                 height="48px"
-                :on-press="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddStripe"
+            />
         </div>
         <div class="payment-methods-area__existing-cards-container">
-            <CardComponent />
+            <CardComponent
+                v-for="card in creditCards"
+                :key="card.id"
+                :credit-card="card"
+            />
         </div>
     </div>
 </template>
@@ -59,7 +72,19 @@ import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+
+const {
+    ADD_CREDIT_CARD,
+    GET_CREDIT_CARDS,
+} = PAYMENTS_ACTIONS;
+
+interface StripeForm {
+    onSubmit(): Promise<void>;
+}
 
 @Component({
     components: {
@@ -71,6 +96,22 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+
+    public async mounted() {
+        try {
+            // await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
+    public $refs!: {
+        stripeInput: StripeInput & StripeForm;
+    };
+
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
 
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
@@ -99,7 +140,23 @@ export default class PaymentMethods extends Vue {
     }
 
     public onConfirmAddSTORJ(): void {
-        return;
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+    }
+
+    public async onConfirmAddStripe(): Promise<void> {
+        await this.$refs.stripeInput.onSubmit();
+    }
+
+    public async addCard(token: string) {
+        try {
+            // await this.$store.dispatch(ADD_CREDIT_CARD, token);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+
+            return;
+        }
+
+        // await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
     }
 }
 </script>
@@ -121,7 +178,7 @@ export default class PaymentMethods extends Vue {
         }
 
         &:hover {
-            background-color: #0059D0;
+            background-color: #0059d0;
             box-shadow: none;
         }
     }
@@ -129,19 +186,18 @@ export default class PaymentMethods extends Vue {
     .payment-methods-area {
         padding: 40px;
         margin-bottom: 47px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__top-container {
-            display: flex;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
         }
@@ -158,7 +214,7 @@ export default class PaymentMethods extends Vue {
             &__cancel {
 
                 &__text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     text-decoration: underline;
                     color: #354049;
@@ -176,8 +232,13 @@ export default class PaymentMethods extends Vue {
             align-items: center;
 
             &__label {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 21px;
+            }
+
+            &__stripe {
+                width: 60%;
+                min-width: 400px;
             }
         }
 

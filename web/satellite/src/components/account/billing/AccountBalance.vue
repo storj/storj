@@ -15,7 +15,15 @@
             </VInfo>
         </div>
         <div class="account-balance-area__balance-area">
-            <span class="account-balance-area__balance-area__balance">Balance <b class="account-balance-area__balance-area__balance__bold-text">$25.00</b></span>
+            <span class="account-balance-area__balance-area__balance">
+                Balance
+                <b
+                    class="account-balance-area__balance-area__balance__bold-text"
+                    :style="balanceStyle"
+                >
+                    {{balance}}
+                </b>
+            </span>
             <VButton
                 class="button"
                 label="Earn Credits"
@@ -33,6 +41,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+const {
+    GET_BALANCE,
+} = PAYMENTS_ACTIONS;
+
 @Component({
     components: {
         VInfo,
@@ -40,6 +55,32 @@ import VInfo from '@/components/common/VInfo.vue';
     },
 })
 export default class AccountBalance extends Vue {
+    public async mounted() {
+        try {
+            // await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+    }
+
+    public get balance(): string {
+        return `$${this.$store.state.paymentsModule.balance / 100}`;
+    }
+
+    public get balanceStyle() {
+        let color: string = '#DBF1D3';
+
+        if (this.$store.state.paymentsModule.balance < 0) {
+            color = '#FF0000';
+        }
+
+        if (this.$store.state.paymentsModule.balance === 0) {
+            color = '#000';
+        }
+
+        return { color };
+    }
+
     public onEarnCredits(): void {
         return;
     }
@@ -56,7 +97,7 @@ export default class AccountBalance extends Vue {
     .button {
 
         &:hover {
-            background-color: #0059D0;
+            background-color: #0059d0;
             box-shadow: none;
         }
     }
@@ -67,16 +108,16 @@ export default class AccountBalance extends Vue {
         justify-content: space-between;
         padding: 40px;
         margin-bottom: 32px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__title-area {
             display: flex;
             align-items: center;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
@@ -90,11 +131,11 @@ export default class AccountBalance extends Vue {
                 &:hover {
 
                     .account-balance-svg-path {
-                        fill: #FFFFFF;
+                        fill: #fff;
                     }
 
                     .account-balance-svg-rect {
-                        fill: #2683FF;
+                        fill: #2683ff;
                     }
                 }
             }
@@ -132,7 +173,7 @@ export default class AccountBalance extends Vue {
             margin-top: 20px;
 
             &__bold-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 color: #354049;
             }
         }

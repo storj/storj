@@ -6,7 +6,7 @@
         <div class="current-month-area__header">
             <div class="current-month-area__header__month-info">
                 <h1 class="current-month-area__header__month-info__title">Current Month</h1>
-                <h2 class="current-month-area__header__month-info__title-info">August 1 - 15 2019</h2>
+                <h2 class="current-month-area__header__month-info__title-info">{{currentPeriod}}</h2>
             </div>
             <div class="current-month-area__header__usage-info" v-if="false">
                 <span class="current-month-area__header__usage-info__data">Usage <b class="current-month-area__header__usage-info__data__bold-text">$12.44</b></span>
@@ -85,6 +85,20 @@ export default class MonthlyBillingSummary extends Vue {
     private areUsageChargesShown: boolean = false;
     private areReferralCreditsShown: boolean = false;
 
+    public get currentPeriod(): string {
+        const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const now: Date = new Date();
+        const monthNumber = now.getMonth();
+        const date = now.getDate();
+        const year = now.getFullYear();
+
+        if (date === 1) {
+            return `${months[monthNumber]} 1 ${year}`;
+        }
+
+        return `${months[monthNumber]} 1 - ${date} ${year}`;
+    }
+
     public toggleUsageChargesPopup(): void {
         this.areUsageChargesShown = !this.areUsageChargesShown;
     }
@@ -107,9 +121,9 @@ export default class MonthlyBillingSummary extends Vue {
     .current-month-area {
         margin-bottom: 32px;
         padding: 40px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             display: flex;
@@ -119,7 +133,7 @@ export default class MonthlyBillingSummary extends Vue {
             &__month-info {
 
                 &__title {
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     font-size: 32px;
                     line-height: 48px;
                 }
@@ -151,13 +165,13 @@ export default class MonthlyBillingSummary extends Vue {
             &__title {
                 font-size: 14px;
                 line-height: 21px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
 
             &__usage-charges {
                 margin: 18px 0 0 0;
                 padding: 20px 20px 20px 20px;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
 
@@ -184,7 +198,7 @@ export default class MonthlyBillingSummary extends Vue {
             &__referral-credits {
                 margin: 18px 0 12px 0;
                 padding: 20px 20px 20px 20px;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
 
