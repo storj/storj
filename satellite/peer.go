@@ -305,6 +305,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Checker.RepairOverride,
+			config.Repairer.DownloadTimeout,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 

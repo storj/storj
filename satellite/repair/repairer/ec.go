@@ -36,14 +36,16 @@ type ECRepairer struct {
 	log             *zap.Logger
 	dialer          rpc.Dialer
 	satelliteSignee signing.Signee
+	downloadTimeout time.Duration
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee) *ECRepairer {
+func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, downloadTimeout time.Duration) *ECRepairer {
 	return &ECRepairer{
 		log:             log,
 		dialer:          dialer,
 		satelliteSignee: satelliteSignee,
+		downloadTimeout: downloadTimeout,
 	}
 }
 
@@ -162,7 +164,10 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
 func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
 	// contact node
-	ps, err := ec.dialPiecestore(ctx, &pb.Node{
+	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
+	defer cancel()
+
+	ps, err := ec.dialPiecestore(downloadCtx, &pb.Node{
 		Id:      limit.GetLimit().StorageNodeId,
 		Address: limit.GetStorageNodeAddress(),
 	})
@@ -171,7 +176,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
-	downloader, err := ps.Download(ctx, limit.GetLimit(), privateKey, 0, pieceSize)
+	downloader, err := ps.Download(downloadCtx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {
 		return nil, err
 	}

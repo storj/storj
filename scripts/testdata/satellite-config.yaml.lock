@@ -328,6 +328,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# time limit for downloading pieces from a node for repair
+# repairer.download-timeout: 5m0s
+
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 
