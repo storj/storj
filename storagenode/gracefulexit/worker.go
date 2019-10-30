@@ -92,10 +92,11 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 		case *pb.SatelliteMessage_DeletePiece:
 			pieceID := msg.DeletePiece.OriginalPieceId
-			err := worker.store.Delete(ctx, worker.satelliteID, pieceID)
+			err := worker.deleteOnePieceOrAll(ctx, &pieceID)
 			if err != nil {
 				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
 			}
+
 		case *pb.SatelliteMessage_ExitFailed:
 			worker.log.Error("graceful exit failed.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("reason", msg.ExitFailed.Reason))
 
@@ -108,6 +109,11 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			worker.log.Info("graceful exit completed.", zap.Stringer("satellite ID", worker.satelliteID))
 
 			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitSucceeded, msg.ExitCompleted.GetExitCompleteSignature())
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			// delete all remaining pieces
+			err = worker.deleteOnePieceOrAll(ctx, nil)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -198,6 +204,56 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		},
 	}
 	return c.Send(success)
+}
+
+// deleteOnePieceOrAll deletes pieces stored for a satellite. When no piece ID are specified, all pieces stored by a satellite will be deleted.
+func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.PieceID) error {
+	// get piece size
+	pieceMap := make(map[pb.PieceID]int64)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	err := worker.store.WalkSatellitePieces(ctxWithCancel, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
+		size, err := piece.ContentSize(ctxWithCancel)
+		if err != nil {
+			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
+		}
+		if pieceID == nil {
+			pieceMap[piece.PieceID()] = size
+			return nil
+		}
+		if piece.PieceID() == *pieceID {
+			pieceMap[*pieceID] = size
+			cancel()
+		}
+		return nil
+	})
+
+	if err != nil && !errs.Is(err, context.Canceled) {
+		worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
+	}
+
+	var totalDeleted int64
+	for id, size := range pieceMap {
+		if size == 0 {
+			continue
+		}
+		err := worker.store.Delete(ctx, worker.satelliteID, id)
+		if err != nil {
+			worker.log.Debug("failed to delete a piece", zap.Stringer("Satellite ID", worker.satelliteID), zap.Stringer("Piece ID", id), zap.Error(err))
+			err = worker.store.DeleteFailed(ctx, pieces.ExpiredInfo{
+				SatelliteID: worker.satelliteID,
+				PieceID:     id,
+				InPieceInfo: true,
+			}, time.Now().UTC())
+			if err != nil {
+				worker.log.Debug("failed to mark a deletion failure for a piece", zap.Stringer("Satellite ID", worker.satelliteID), zap.Stringer("Piece ID", id), zap.Error(err))
+			}
+			continue
+		}
+		totalDeleted += size
+	}
+
+	// update transfer progress
+	return worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, totalDeleted)
 }
 
 func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, send func(*pb.StorageNodeMessage) error) {
