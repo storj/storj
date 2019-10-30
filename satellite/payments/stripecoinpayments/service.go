@@ -221,7 +221,9 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 	return err
 }
 
-func (service *Service) PrepareProjectInvoicesItems(ctx context.Context, period time.Time) (err error) {
+// PrepareProjectInvoicesRollups iterates through all projects and creates invoice rollups if
+// none exists.
+func (service *Service) PrepareProjectInvoicesRollups(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const limit = 25
@@ -238,192 +240,177 @@ func (service *Service) PrepareProjectInvoicesItems(ctx context.Context, period 
 
 	projsPage, err := service.projectsDB.List2(ctx, 0, limit, before)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	for _, project := range projsPage.Projects {
-		// mb check row?
+	if err = service.createProjectInvoiceRollups(ctx, projsPage.Projects, start, before); err != nil {
+		return Error.Wrap(err)
+	}
 
-		// ms separate
+	for projsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		projsPage, err = service.projectsDB.List2(ctx, 0, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.createProjectInvoiceRollups(ctx, projsPage.Projects, start, before); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// createProjectInvoiceRollups creates invoice for projects if none exists.
+func (service *Service) createProjectInvoiceRollups(ctx context.Context, projects []console.Project, start, before time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rollups []InvoiceRollup
+	for _, project := range projects {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.invoicesDB.CheckRollup(ctx, project.ID, start, before); err != nil {
+			if err == ErrInvoiceRollupExists {
+				continue
+			}
+
+			return err
+		}
+
 		summ, err := service.accountingDB.ProjectSummary(ctx, project.ID, start, before)
 		if err != nil {
 			return err
 		}
 
-
+		rollups = append(rollups,
+			InvoiceRollup{
+				ProjectID: project.ID,
+				Storage:   summ.Storage,
+				Egress:    summ.Egress,
+				Objects:   summ.Objects,
+			},
+		)
 	}
 
-	for projsPage.Next {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		projsPage, err = service.projectsDB.List2(ctx, 0, limit, before)
-		if err != nil {
-			return err
-		}
-
-
-	}
-
-	return nil
+	return service.invoicesDB.InvoiceRollup(ctx, rollups, start, before)
 }
 
-func (service *Service) createProjectInvoiceItems(ctx context.Context, projects []console.Projects) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return nil
-}
-
-// CreateInvoices creates invoices for all accounts for specified billing period.
-func (service *Service) PopulateInvoices(ctx context.Context, period time.Time) (err error) {
+// InvoiceApplyRollups iterates through unapplied invoice intents and creates invoice line items
+// for stripe customer.
+func (service *Service) InvoiceApplyRollups(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const limit = 25
+	before := time.Now()
 
-	now := time.Now().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	before := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-
-	if before.After(now) {
-		return Error.New("can not create invoices for future periods")
-	}
-
-	cusPage, err := service.customers.List(ctx, 0, limit, before)
+	intentsPage, err := service.invoicesDB.ListUnappliedIntents(ctx, 0, limit, before)
 	if err != nil {
 		return err
 	}
 
-	for _, cus := range cusPage.Customers {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		if err = service.customerPopulateInvoice(ctx, cus, start, before); err != nil {
-			return err
-		}
+	if err = service.applyInvoiceIntents(ctx, intentsPage.Intents); err != nil {
+		return err
 	}
 
-	for cusPage.Next {
+	for intentsPage.Next {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
 
-		cusPage, err = service.customers.List(ctx, cusPage.NextOffset, limit, before)
+		intentsPage, err = service.invoicesDB.ListUnappliedIntents(ctx, 0, limit, before)
 		if err != nil {
 			return err
 		}
 
-		for _, cus := range cusPage.Customers {
-			if err = ctx.Err(); err != nil {
-				return err
-			}
-
-			if err = service.customerPopulateInvoice(ctx, cus, start, before); err != nil {
-				return err
-			}
+		if err = service.applyInvoiceIntents(ctx, intentsPage.Intents); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// customerPopulateInvoice populates invoice with project usage for specific customer.
-func (service *Service) customerPopulateInvoice(ctx context.Context, customer Customer, start, before time.Time) (err error) {
+// applyInvoiceIntents applies invoice intents as invoice line items to stripe customer.
+func (service *Service) applyInvoiceIntents(ctx context.Context, intents []InvoiceIntent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
-
-	projsPage, err := service.projectsDB.List(ctx, customer.UserID, 0, limit, before)
-	if err != nil {
-		return err
-	}
-
-	for _, proj := range projsPage.Projects {
-		if err = ctx.Err(); err != nil {
-			return ctx.Err()
-		}
-
-		if err = service.projectPopulateInvoice(ctx, customer, proj, start, before); err != nil {
-			return err
-		}
-	}
-
-	for projsPage.Next {
+	for _, intent := range intents {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, customer.UserID, 0, limit, before)
+		proj, err := service.projectsDB.Get(ctx, intent.ProjectID)
 		if err != nil {
 			return err
 		}
 
-		for _, proj := range projsPage.Projects {
-			if err = ctx.Err(); err != nil {
-				return ctx.Err()
-			}
+		cusID, err := service.customers.GetCustomerID(ctx, proj.OwnerID)
+		if err != nil {
+			// TODO: add error to distinguish not set up account.
+			// if account is not set up leave intent for future invoice
+			continue
+		}
 
-			if err = service.projectPopulateInvoice(ctx, customer, proj, start, before); err != nil {
-				return err
-			}
+		if err = service.createInvoiceItems(ctx, cusID, proj.Name, intent); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (service *Service) projectPopulateInvoice(ctx context.Context, cus Customer, proj console.Project, start, before time.Time) (err error) {
+// createInvoiceItems consumes invoice intent and creates invoice line items for stripe customer.
+func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, intent InvoiceIntent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = service.invoicesDB.CheckProjectInvoicing(ctx, proj.ID, start, before); err != nil {
-		return err
-	}
-
-	summ, err := service.accountingDB.ProjectSummary(ctx, proj.ID, start, before)
-	if err != nil {
+	if err = service.invoicesDB.ConsumeIntent(ctx, intent.ProjectID, intent.Start, intent.Before); err != nil {
 		return err
 	}
 
 	storageItem := &stripe.InvoiceItemParams{
 		Amount:      stripe.Int64(0),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cus.ID),
-		Description: stripe.String(fmt.Sprintf("project %s, storage %f", proj.Name, memory.Size(summ.Storage).TB())),
+		Customer:    stripe.String(cusID),
+		Description: stripe.String(fmt.Sprintf("project %s, storage %f", projName, memory.Size(intent.Storage).TB())),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(before.Unix()),
-			Start: stripe.Int64(start.Unix()),
+			End:   stripe.Int64(intent.Before.Unix()),
+			Start: stripe.Int64(intent.Start.Unix()),
 		},
 	}
 	egressItem := &stripe.InvoiceItemParams{
 		Amount:      stripe.Int64(0),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cus.ID),
-		Description: stripe.String(fmt.Sprintf("project %s, egress %f", proj.Name, memory.Size(summ.Egress).TB())),
+		Customer:    stripe.String(cusID),
+		Description: stripe.String(fmt.Sprintf("project %s, egress %f", projName, memory.Size(intent.Egress).TB())),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(before.Unix()),
-			Start: stripe.Int64(start.Unix()),
+			End:   stripe.Int64(intent.Before.Unix()),
+			Start: stripe.Int64(intent.Start.Unix()),
 		},
 	}
 	objectsItem := &stripe.InvoiceItemParams{
 		Amount:      stripe.Int64(0),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cus.ID),
-		Description: stripe.String(fmt.Sprintf("project %s, objects %d", proj.Name, summ.Objects)),
+		Customer:    stripe.String(cusID),
+		Description: stripe.String(fmt.Sprintf("project %s, objects %d", projName, intent.Objects)),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(before.Unix()),
-			Start: stripe.Int64(start.Unix()),
+			End:   stripe.Int64(intent.Before.Unix()),
+			Start: stripe.Int64(intent.Start.Unix()),
 		},
 	}
 
-	storageItem.AddMetadata("projectID", proj.ID.String())
+	storageItem.AddMetadata("projectID", intent.ProjectID.String())
 	storageItem.AddMetadata("type", "storage")
 
-	egressItem.AddMetadata("projectID", proj.ID.String())
+	egressItem.AddMetadata("projectID", intent.ProjectID.String())
 	egressItem.AddMetadata("type", "egress")
 
-	objectsItem.AddMetadata("projectID", proj.ID.String())
+	objectsItem.AddMetadata("projectID", intent.ProjectID.String())
 	objectsItem.AddMetadata("type", "objects")
 
 	_, err = service.stripeClient.InvoiceItems.New(storageItem)
@@ -437,6 +424,78 @@ func (service *Service) projectPopulateInvoice(ctx context.Context, cus Customer
 	_, err = service.stripeClient.InvoiceItems.New(objectsItem)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// CreateInvoices lists through all customers and creates invoices.
+func (service *Service) CreateInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	cusPage, err := service.customers.List(ctx, 0, limit, before)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, cusID := range cusPage.Customers {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.createInvoice(ctx, cusID); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	for cusPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		cusPage, err = service.customers.List(ctx, 0, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		for _, cusID := range cusPage.Customers {
+			if err = ctx.Err(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if err = service.createInvoice(ctx, cusID); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// createInvoice creates invoice for stripe customer. Returns nil error if there are no
+// pending invoice line items for customer.
+func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = service.stripeClient.Invoices.New(
+		&stripe.InvoiceParams{
+			Customer:    stripe.String(cusID),
+			AutoAdvance: stripe.Bool(true),
+		},
+	)
+
+	if err != nil {
+		if stripeErr, ok := err.(*stripe.Error); ok {
+			switch stripeErr.Code {
+			case stripe.ErrorCodeInvoiceNoCustomerLineItems:
+				return nil
+			default:
+				return err
+			}
+		}
 	}
 
 	return nil

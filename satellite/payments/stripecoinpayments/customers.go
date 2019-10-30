@@ -17,22 +17,15 @@ type CustomersDB interface {
 
 	// GetCustomerID return stripe customers id.
 	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
-	// List returns page with customers created before specified date.
-	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
+	// List returns page with customers ids created before specified date.
+	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomerPage, error)
 }
 
-// Customer holds stripe customer id
-// and corresponding satellite user id.
-type Customer struct {
-	ID     string
-	UserID uuid.UUID
-}
-
-// CustomersPage holds customers and
+// CustomersPage holds customer ids and
 // indicates if there is more data available
 // and provides next offset.
-type CustomersPage struct {
-	Customers  []Customer
+type CustomerPage struct {
+	Customers  []string
 	Next       bool
 	NextOffset int64
 }
