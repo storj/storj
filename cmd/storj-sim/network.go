@@ -534,8 +534,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 			continue
 		}
 
-		if strings.Contains(process.Name, "satellite-api") {
-			// satellite-api uses the same identity as the satellite
+		if strings.Contains(process.Name, "satellite-peer") {
+			// satellite-peer uses the same identity as the satellite
 			continue
 		}
 		if strings.Contains(process.Name, "satellite-repair") {
