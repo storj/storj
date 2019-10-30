@@ -27,8 +27,8 @@ type Config struct {
 
 	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"100"`
 
-	MaxFailuresPerPiece int `help:"maximum number of transfer failures per piece." default:"3"`
-	// TODO: what's the default number?
+	MaxFailuresPerPiece          int           `help:"maximum number of transfer failures per piece." default:"3"`
 	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"10"`
 	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"500h"`
+	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"10m"`
 }

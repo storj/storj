@@ -127,6 +127,9 @@ contact.external-address: ""
 # maximum percentage of transfer failures per node.
 # graceful-exit.overall-max-failures-percentage: 10
 
+# the minimum duration for receiving a stream from a storage node before timing out
+# graceful-exit.recv-timeout: 10m0s
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
