@@ -240,6 +240,7 @@ func TestConcurrentConnections(t *testing.T) {
 }
 
 func TestRecvTimeout(t *testing.T) {
+	var geConfig gracefulexit.Config
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 9,
@@ -248,15 +249,15 @@ func TestRecvTimeout(t *testing.T) {
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.MinDownloadTimeout = 50 * time.Millisecond
-			},
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
 				// This config value will create a very short timeframe allowed for receiving
 				// data from storage nodes. This will cause context to cancel with timeout.
 				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				geConfig = config.GracefulExit
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -306,17 +307,9 @@ func TestRecvTimeout(t *testing.T) {
 		storageNodeDB.SetLatency(delay)
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
 
-		config := gracefulexit.Config{
-			// defaultInterval is 15 seconds in testplanet
-			ChoreInterval:      15 * time.Second,
-			NumWorkers:         1,
-			MinBytesPerSecond:  10 * memory.MiB,
-			MinDownloadTimeout: 2 * time.Millisecond,
-		}
-
 		// run the SN chore again to start processing transfers.
 		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), config)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
 		err = worker.Run(ctx, func() {})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))

@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
@@ -106,11 +105,6 @@ func TestWorkerTimeout(t *testing.T) {
 				// This config value will create a very short timeframe allowed for receiving
 				// data from storage nodes. This will cause context to cancel with timeout.
 				config.GracefulExit.MinDownloadTimeout = 10 * time.Millisecond
-			},
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.RecvTimeout = 1 * time.Minute
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
