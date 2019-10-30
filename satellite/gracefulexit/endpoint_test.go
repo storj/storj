@@ -306,7 +306,6 @@ func TestRecvTimeout(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
 
 		// run the SN chore again to start processing transfers.
-		//exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
 		err = worker.Run(ctx, func() {})
 		require.Error(t, err)
