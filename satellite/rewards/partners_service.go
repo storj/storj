@@ -5,6 +5,9 @@ package rewards
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"path"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -36,14 +39,39 @@ type PartnersDB interface {
 //
 // architecture: Service
 type PartnersService struct {
-	log *zap.Logger
-	db  PartnersDB
+	log     *zap.Logger
+	db      PartnersDB
+	domains []string
 }
 
 // NewPartnersService returns a service for handling partner information.
-func NewPartnersService(log *zap.Logger, db PartnersDB) *PartnersService {
+func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *PartnersService {
 	return &PartnersService{
-		log: log,
-		db:  db,
+		log:     log,
+		db:      db,
+		domains: domains,
 	}
+}
+
+// GeneratePartnerLink returns base64 encoded partner referral link.
+func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerName string) ([]string, error) {
+	partner, err := service.db.ByName(ctx, offerName)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	referralInfo := &referralInfo{UserID: "", PartnerID: partner.ID}
+	refJSON, err := json.Marshal(referralInfo)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	// TODO: why is this using base64?
+	encoded := base64.StdEncoding.EncodeToString(refJSON)
+
+	var links []string
+	for _, domain := range service.domains {
+		links = append(links, path.Join(domain, "ref", encoded))
+	}
+
+	return links, nil
 }
