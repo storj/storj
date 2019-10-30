@@ -63,7 +63,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/cards`;
         const response = await this.client.post(path, token);
 
-        if (!response.ok) {
+        if (response.ok) {
             return;
         }
 

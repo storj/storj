@@ -17,9 +17,10 @@ body {
     display: flex;
     justify-content: flex-start;
     flex-direction: column;
-    align-items: flex-start; padding: 60px 0 0 104px;
-    background-color: #F5F6FA;
-    font-family: 'font_regular';
+    align-items: flex-start;
+    padding: 60px 0 0 104px;
+    background-color: #f5f6fa;
+    font-family: 'font_regular', sans-serif;
 
     .register-input {
         position: relative;
@@ -57,13 +58,13 @@ body {
         justify-content: center;
         background-color: transparent;
         border-radius: 6px;
-        border: 1px solid #AFB7C1;
+        border: 1px solid #afb7c1;
         cursor: pointer;
         width: 160px;
         height: 48px;
 
         &__label {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 14px;
             line-height: 19px;
             margin-block-start: 0;
@@ -72,8 +73,8 @@ body {
         }
 
         &:hover {
-            background-color: #2683FF;
-            border: 1px solid #2683FF;
+            background-color: #2683ff;
+            border: 1px solid #2683ff;
 
             .register-container__register-button__label {
                 color: white;
@@ -110,9 +111,9 @@ body {
         width: 100%;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 22px;
-            color: #384B65;
+            color: #384b65;
             line-height: 27px;
             margin-block-start: 0;
             margin-block-end: 0;
@@ -142,12 +143,12 @@ body {
                 line-height: 20px;
                 margin-top: 14px;
                 margin-left: 10px;
-                color: #384B65;
+                color: #384b65;
             }
 
             &__link {
-                color: #2683FF;
-                font-family: 'font_bold';
+                color: #2683ff;
+                font-family: 'font_bold', sans-serif;
 
                 &:hover {
                     text-decoration: underline;
@@ -183,7 +184,7 @@ body {
                 left: 0;
                 height: 25px;
                 width: 25px;
-                border: 2px solid #384B65;
+                border: 2px solid #384b65;
                 border-radius: 4px;
             }
 
@@ -192,12 +193,12 @@ body {
             }
 
             .container input:checked ~ .checkmark {
-                border: 2px solid #384B65;
+                border: 2px solid #384b65;
                 background-color: transparent;
             }
 
             .checkmark:after {
-                content: "";
+                content: '';
                 position: absolute;
                 display: none;
             }
@@ -206,20 +207,20 @@ body {
                 border-color: red;
             }
 
-            .container input:checked ~ .checkmark:after {
-                display: block;
-            }
-
             .container .checkmark:after {
                 left: 9px;
                 top: 5px;
                 width: 5px;
                 height: 10px;
-                border: solid #384B65;
+                border: solid #384b65;
                 border-width: 0 3px 3px 0;
                 -webkit-transform: rotate(45deg);
                 -ms-transform: rotate(45deg);
                 transform: rotate(45deg);
+            }
+
+            .container input:checked ~ .checkmark:after {
+                display: block;
             }
         }
 
@@ -227,7 +228,7 @@ body {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #2683FF;
+            background-color: #2683ff;
             border-radius: 6px;
             cursor: pointer;
             width: 160px;
@@ -235,7 +236,7 @@ body {
             box-shadow: none;
 
             &__label {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 14px;
                 line-height: 19px;
                 margin-block-start: 0;
@@ -244,7 +245,7 @@ body {
             }
 
             &:hover {
-                background-color: #0059D0;
+                background-color: #0059d0;
             }
         }
     }
@@ -289,18 +290,19 @@ body {
     bottom: 0;
     height: 100vh;
 
-    .st1{fill:#2683FF;}
-    .st2{fill:#007AFF;}
-    .st3{fill:#0062FF;}
-    .st4{fill:#FFFFFF;}
-    .st5{fill:#6CB9FF;}
-    .st6{fill:#499FFC;}
-    .st7{fill:#F7F9F9;}
-    .st8{fill:#0F002D;}
-    .st9{fill:#DEDEFC;}
+    .st1 { fill: #2683ff; }
+    .st2 { fill: #007aff; }
+    .st3 { fill: #0062ff; }
+    .st4 { fill: #fff; }
+    .st5 { fill: #6cb9ff; }
+    .st6 { fill: #499ffc; }
+    .st7 { fill: #f7f9f9; }
+    .st8 { fill: #0f002d; }
+    .st9 { fill: #dedefc; }
 }
 
 @media screen and (max-width: 1500px) {
+
     .register-container {
 
         &__wrapper {
@@ -308,7 +310,9 @@ body {
         }
     }
 }
+
 @media screen and (max-width: 1300px) {
+
     .register-container {
 
         &__wrapper {
@@ -320,7 +324,9 @@ body {
         display: none;
     }
 }
+
 @media screen and (max-height: 840px) {
+
     .register-container {
         overflow: hidden;
 
@@ -338,7 +344,9 @@ body {
         }
     }
 }
+
 @media screen and (max-height: 810px) {
+
     .register-container {
 
         &__wrapper {
@@ -350,14 +358,18 @@ body {
         margin-bottom: 25px;
     }
 }
+
 @media screen and (max-width: 800px) {
+
     .register-container {
         padding: 0;
         align-items: center;
         justify-content: center;
     }
 }
+
 @media screen and (max-width: 650px) {
+
     .register-container {
 
         &__wrapper {
@@ -365,7 +377,9 @@ body {
         }
     }
 }
+
 @media screen and (max-width: 520px) {
+
     .register-container {
 
         &__wrapper {
@@ -373,7 +387,9 @@ body {
         }
     }
 }
+
 @media screen and (max-width: 420px) {
+
     .register-container {
 
         &__wrapper {
@@ -381,7 +397,9 @@ body {
         }
     }
 }
+
 @media screen and (max-width: 320px) {
+
     .register-container {
 
         &__wrapper {
@@ -397,6 +415,7 @@ body {
             height: 42px;
         }
     }
+
     .register-area {
 
         &__title-container {
