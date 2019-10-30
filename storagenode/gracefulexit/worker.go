@@ -160,8 +160,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	putCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// TODO what's the typical expiration setting?
-	pieceHash, peerID, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader, time.Now().Add(time.Second*600))
+	pieceHash, peerID, err := worker.ecclient.PutPiece(putCtx, ctx, addrLimit, pk, reader)
 	if err != nil {
 		if piecestore.ErrVerifyUntrusted.Has(err) {
 			worker.log.Error("failed hash verification.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
