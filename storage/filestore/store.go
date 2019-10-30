@@ -172,19 +172,13 @@ func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, wal
 	return store.dir.WalkNamespace(ctx, namespace, walkFunc)
 }
 
-// StoreForTest is a wrapper for blobStore that also allows writing new V0 blobs (in order to test
-// situations involving those)
-type StoreForTest struct {
-	*blobStore
-}
-
 // TestCreateV0 creates a new V0 blob that can be written. This is ONLY appropriate in test situations.
-func (testStore *StoreForTest) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
+func (store *blobStore) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := testStore.dir.CreateTemporaryFile(ctx, -1)
+	file, err := store.dir.CreateTemporaryFile(ctx, -1)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, testStore.blobStore, FormatV0, file), nil
+	return newBlobWriter(ref, store, FormatV0, file), nil
 }
