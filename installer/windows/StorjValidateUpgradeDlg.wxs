@@ -5,10 +5,10 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <UI>
-            <Dialog Id="StorjValidateUpgradeDlg" Width="370" Height="270" Title="!(loc.VerifyReadyDlg_Title)" TrackDiskSpace="yes">
-                <Control Id="UpgradeTitle" Type="Text" X="15" Y="15" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Ready to upgrade [ProductName]" />
-                <Control Id="UpgradeDescription" Type="Text" X="25" Y="70" Width="320" Height="100"  Text="The Setup Wizard will upgrade your the Storj V3 Storage Node installation. This operation will not modify your storage node's configuration." />
-                <Control Id="ButtonsDescription" Type="Text" X="25" Y="100" Width="320" Height="80" Text="Click Upgrade to continue or Cancel to exit the wizard. " />
+            <Dialog Id="StorjValidateUpgradeDlg" Width="370" Height="270" Title="Ready to upgrade [ProductName]" TrackDiskSpace="yes">
+                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Ready to upgrade [ProductName]" />
+                <Control Id="UpgradeDescription" Type="Text" X="135" Y="70" Width="220" Height="100" Transparent="yes"  Text="The Setup Wizard will upgrade your Storj V3 Storage Node to version !(bind.FileVersion.Storagenodeexe). This operation will not modify your storage node's configuration." />
+                <Control Id="ButtonsDescription" Type="Text" X="135" Y="120" Width="220" Height="80" Transparent="yes" Text="Click Upgrade to continue or Cancel to exit the wizard. " />
 
                 <Control Id="Upgrade" Type="PushButton" ElevationShield="yes" X="212" Y="243" Width="80" Height="17" Text="Upgrade">
                     <Condition Action="show">ALLUSERS</Condition>
@@ -34,8 +34,7 @@
                 <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
                     <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
                 </Control>
-                <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.VerifyReadyDlgBannerBitmap)" />
-                <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+                <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
                 <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
             </Dialog>
             <InstallUISequence>
