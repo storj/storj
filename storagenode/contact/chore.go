@@ -79,12 +79,15 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 			}
 			defer func() { err = errs.Combine(err, conn.Close()) }()
 
-			_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
+			resp, err := conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 				Address:  self.Address.GetAddress(),
 				Version:  &self.Version,
 				Capacity: &self.Capacity,
 				Operator: &self.Operator,
 			})
+			if !resp.PingNodeSuccess {
+				chore.log.Error("Check-In with satellite failed due to failed ping back", zap.String("satellite ID", satellite.String()), zap.String("satellite addr", addr), zap.String("ping back error message", resp.GetPingErrorMessage()))
+			}
 
 			return err
 		})
