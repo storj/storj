@@ -180,7 +180,7 @@ func networkDestroy(flags *Flags, args []string) error {
 }
 
 // newNetwork creates a default network
-func newNetwork(flags *Flags) (processes *Processes, err error) {
+func newNetwork(flags *Flags) (*Processes, error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		return nil, errs.New("no caller information")
@@ -199,7 +199,7 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 		return all
 	}
 
-	processes = NewProcesses(flags.Directory)
+	processes := NewProcesses(flags.Directory)
 
 	var host = flags.Host
 	versioncontrol := processes.New(Info{
@@ -241,7 +241,7 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 		})
 		redisServers = append(redisServers, process)
 
-		filename := process.Directory + "sim.rdb"
+		filename := filepath.Join(process.Directory, "sim.rdb")
 		process.ExecBefore["setup"] = func(process *Process) error {
 			confpath := filepath.Join(process.Directory, "redis.conf")
 			arguments := []string{
@@ -254,11 +254,8 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 				"dir " + process.Directory,
 			}
 			conf := strings.Join(arguments, "\n") + "\n"
-			err = ioutil.WriteFile(confpath, []byte(conf), 0755)
-			if err != nil {
-				return err
-			}
-			return nil
+			err := ioutil.WriteFile(confpath, []byte(conf), 0755)
+			return err
 		}
 		process.Arguments = Arguments{
 			"run": []string{filepath.Join(process.Directory, "redis.conf")},
