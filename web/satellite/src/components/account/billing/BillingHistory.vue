@@ -72,8 +72,8 @@ export default class BillingHistory extends Vue {
 
     .billing-history-area {
         margin-top: 83px;
-        background-color: #F5F6FA;
-        font-family: 'font_regular';
+        background-color: #f5f6fa;
+        font-family: 'font_regular', sans-serif;
 
         &__title-area {
             display: flex;
@@ -86,7 +86,7 @@ export default class BillingHistory extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #FFFFFF;
+                background-color: #fff;
                 width: 40px;
                 height: 40px;
                 border-radius: 78px;
@@ -94,7 +94,7 @@ export default class BillingHistory extends Vue {
             }
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-weight: 500;
                 font-size: 16px;
                 line-height: 21px;
@@ -105,25 +105,25 @@ export default class BillingHistory extends Vue {
             &:hover {
 
                 .billing-history-area__title-area__back-button {
-                    background-color: #2683FF;
+                    background-color: #2683ff;
 
                     .billing-history-svg-path {
-                        fill: #FFFFFF;
+                        fill: #fff;
                     }
                 }
             }
         }
 
         &__content {
-            background-color: #FFFFFF;
+            background-color: #fff;
             padding: 32px 44px 34px 36px;
             border-radius: 8px;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin-bottom: 32px;
             }
         }
@@ -136,6 +136,7 @@ export default class BillingHistory extends Vue {
     }
 
     @media (max-height: 1000px) and (max-width: 1230px) {
+
         .billing-history-area {
             overflow-y: scroll;
             height: 65vh;

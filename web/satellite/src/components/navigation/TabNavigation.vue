@@ -29,25 +29,25 @@ export default class TabNavigation extends Vue {
     .tab-navigation-container {
         width: auto;
         display: flex;
-        border-bottom: 1px solid #AFB7C1;
-        
+        border-bottom: 1px solid #afb7c1;
+
         &__item {
             width: 150px;
             height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            
+
             &__name {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 14px;
                 line-height: 20px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
-            
+
             &.router-link-exact-active,
             &:hover {
-                border-bottom: 3px solid #2683FF;
+                border-bottom: 3px solid #2683ff;
 
                 .tab-navigation-container__item__name {
                     color: #354049;
