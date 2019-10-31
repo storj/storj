@@ -223,11 +223,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segment size
 # metainfo.rs.max-segment-size: 64.0 MiB
 
-# the largest amount of pieces to encode to. n.
-# metainfo.rs.max-threshold: 130
+# the largest amount of pieces to encode to. n (upper bound for validation).
+# metainfo.rs.max-total-threshold: 130
 
 # the minimum pieces required to recover a segment. k.
 # metainfo.rs.min-threshold: 29
+
+# the largest amount of pieces to encode to. n (lower bound for validation).
+# metainfo.rs.min-total-threshold: 95
 
 # the minimum safe pieces before a repair is triggered. m.
 # metainfo.rs.repair-threshold: 35
