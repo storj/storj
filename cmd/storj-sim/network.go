@@ -232,11 +232,7 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 	var redisPort string
 	redisDBs := redisnamespace.GetAll()
 	for i := 0; i < flags.SatelliteCount; i++ {
-		if flags.Redis != "" {
-			redisPort = flags.Redis
-		} else {
-			redisPort = port(satellitePeer, i, redisEndpoint)
-		}
+		redisPort = port(satellitePeer, i, redisEndpoint)
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
 			Executable: "redis-server",
