@@ -119,35 +119,6 @@ func (o Offer) IsEmpty() bool {
 	return o.Name == ""
 }
 
-// GetActiveOffer returns an offer that is active based on its type
-func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
-	if len(offers) < 1 {
-		return nil, NoCurrentOfferErr.New("no active offers")
-	}
-	switch offerType {
-	case Partner:
-		if partnerID == "" {
-			return nil, errs.New("partner ID is empty")
-		}
-		partnerInfo, err := DefaultPartnersDB.ByID(context.TODO(), partnerID)
-		if err != nil {
-			return nil, NoMatchPartnerIDErr.Wrap(err)
-		}
-		for i := range offers {
-			if offers[i].Name == partnerInfo.Name {
-				offer = &offers[i]
-			}
-		}
-	default:
-		if len(offers) > 1 {
-			return nil, errs.New("multiple active offers found")
-		}
-		offer = &offers[0]
-	}
-
-	return offer, nil
-}
-
 // IsDefault checks if a offer's status is default
 func (status OfferStatus) IsDefault() bool {
 	return status == Default
