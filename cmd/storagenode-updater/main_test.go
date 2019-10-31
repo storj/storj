@@ -6,7 +6,6 @@ package main_test
 import (
 	"archive/zip"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -60,11 +59,11 @@ func TestAutoUpdater_unix(t *testing.T) {
 	// build real storagenode and updater with old version
 	oldStoragenodeBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode/", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
-	copyBin(ctx, t, storagenodePath, oldStoragenodeBin)
+	move(t, storagenodePath, oldStoragenodeBin)
 
 	oldUpdaterBin := ctx.CompileWithVersion("", oldInfo)
 	updaterPath := ctx.File("fake", "storagenode-updater.exe")
-	copyBin(ctx, t, updaterPath, oldUpdaterBin)
+	move(t, updaterPath, oldUpdaterBin)
 
 	// build real storagenode and updater with new version
 	newInfo := version.Info{
@@ -130,16 +129,8 @@ func TestAutoUpdater_unix(t *testing.T) {
 	require.NotZero(t, backupUpdaterInfo.Size())
 }
 
-func copyBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
-	s, err := os.Open(src)
-	require.NoError(t, err)
-	defer ctx.Check(s.Close)
-
-	d, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0755)
-	require.NoError(t, err)
-	defer ctx.Check(d.Close)
-
-	_, err = io.Copy(d, s)
+func move(t *testing.T, dst, src string) {
+	err := os.Rename(src, dst)
 	require.NoError(t, err)
 }
 
