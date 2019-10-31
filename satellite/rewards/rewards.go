@@ -17,6 +17,8 @@ var (
 	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
 	// NoCurrentOfferErr is the error class used when no current offer is set
 	NoCurrentOfferErr = errs.Class("no current offer")
+	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
+	NoMatchPartnerIDErr = errs.Class("partner not exist")
 )
 
 // DB holds information about offer
@@ -83,13 +85,10 @@ const (
 type OfferStatus int
 
 const (
-
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
-
 	// Default is the status of an offer when there is no active offer.
 	Default
-
 	// Active is the status of an offer that is currently in use.
 	Active
 )
