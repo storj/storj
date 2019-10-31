@@ -61,7 +61,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
-	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", "testServer", "connection string for redis (defaults to testServer)")
+	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", "", "redis-server port (defaults to 6379)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
