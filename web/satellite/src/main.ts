@@ -7,12 +7,19 @@ import { DirectiveBinding } from 'vue/types/options';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
 import App from './App.vue';
+
+import Analytics from './plugins/analytics';
 import { router } from './router';
 import { store } from './store';
 
 Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
+
+Vue.use(Analytics, {
+    id: process.env.VUE_APP_SEGMENTID,
+    router,
+});
 
 const notificator = new NotificatorPlugin();
 

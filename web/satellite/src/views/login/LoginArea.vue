@@ -19,6 +19,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import EVENTS from '../../utils/constants/analyticsEventNames';
+
 
 @Component({
     components: {
@@ -69,6 +71,9 @@ export default class Login extends Vue {
 
         const self = this;
 
+        this.$segment.track(EVENTS.CLICKED_LOGIN);
+
+
         if (!self.validateFields()) {
             this.isLoading = false;
 
@@ -93,6 +98,8 @@ export default class Login extends Vue {
             this.isLoading = false;
             this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
         }, 2000);
+
+
     }
 
     private validateFields(): boolean {
