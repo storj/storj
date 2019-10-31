@@ -233,8 +233,8 @@ func PercentageToCursor(pct int) RolloutBytes {
 	return cursor
 }
 
-// ShouldRollout checks if for the the given rollout state, a user with the given nodeID should update.
-func ShouldRollout(rollout Rollout, nodeID storj.NodeID) bool {
+// ShouldUpdate checks if for the the given rollout state, a user with the given nodeID should update.
+func ShouldUpdate(rollout Rollout, nodeID storj.NodeID) bool {
 	hash := hmac.New(sha256.New, rollout.Seed[:])
 	_, err := hash.Write(nodeID[:])
 	if err != nil {

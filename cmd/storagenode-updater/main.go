@@ -167,7 +167,7 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 
 	client := checker.New(runCfg.ClientConfig)
 	log.Println("downloading versions from", runCfg.ServerAddress)
-	shouldRollout, newVersion, err := client.ShouldRollout(ctx, serviceName, nodeID)
+	shouldRollout, newVersion, err := client.ShouldUpdate(ctx, serviceName, nodeID)
 	if err != nil {
 		return errs.Wrap(err)
 	}

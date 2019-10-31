@@ -124,9 +124,9 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
-// ShouldRollout downloads the rollout state from the versioncontrol server and
+// ShouldUpdate downloads the rollout state from the versioncontrol server and
 // checks if a user with the given nodeID should update, and if so, to what version.
-func (client *Client) ShouldRollout(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
+func (client *Client) ShouldUpdate(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
 	defer mon.Task()(&ctx, processName)(&err)
 
 	process, err := client.Process(ctx, processName)
@@ -134,7 +134,7 @@ func (client *Client) ShouldRollout(ctx context.Context, processName string, nod
 		return false, version.Version{}, Error.Wrap(err)
 	}
 
-	shouldUpdate := version.ShouldRollout(process.Rollout, nodeID)
+	shouldUpdate := version.ShouldUpdate(process.Rollout, nodeID)
 	if shouldUpdate {
 		return true, process.Suggested, nil
 	}
