@@ -141,7 +141,7 @@ func (s *Server) parseTemplates() (err error) {
 
 	s.templates.home, err = template.New("home-page").Funcs(template.FuncMap{
 		"BaseURL":      s.GetBaseURL,
-		"ReferralLink": s.partners.GeneratePartnerLink,
+		"ReferralLink": s.generatePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
