@@ -80,6 +80,10 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 
 	return links, nil
 }
+// PartnerByName looks up partner by name.
+func (service *PartnersService) PartnerByName(ctx context.Context, name string) (PartnerInfo, error) {
+	return service.db.ByName(ctx, name)
+}
 
 // All returns all partners.
 func (service *PartnersService) All(ctx context.Context) ([]PartnerInfo, error) {
