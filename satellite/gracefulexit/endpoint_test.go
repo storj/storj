@@ -820,7 +820,8 @@ func TestExitDisabled(t *testing.T) {
 		}
 		_, err := satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)
 		require.NoError(t, err)
-		satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		require.NoError(t, err)
 
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
