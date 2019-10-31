@@ -75,7 +75,7 @@ func TestOffer_Database(t *testing.T) {
 				require.NoError(t, err)
 				pID = partner.ID
 			}
-			c, err := offers.GetActiveOffer(new.Type, pID)
+			c, err := planet.Satellites[0].API.Marketing.PartnersService.GetActiveOffer(ctx, offers, new.Type, pID)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 

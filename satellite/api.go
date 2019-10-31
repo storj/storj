@@ -381,37 +381,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			config.StripeCoinPayments.AccountBalanceUpdateInterval)
 	}
 
-	{ // setup console
-		log.Debug("Satellite API Process setting up console")
-		consoleConfig := config.Console
-		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		if consoleConfig.AuthTokenSecret == "" {
-			return nil, errs.New("Auth token secret required")
-		}
-
-		peer.Console.Service, err = console.NewService(
-			peer.Log.Named("console:service"),
-			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
-			peer.DB.Console(),
-			peer.DB.Rewards(),
-			peer.Payments.Accounts,
-			consoleConfig.PasswordCost,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Console.Endpoint = consoleweb.NewServer(
-			peer.Log.Named("console:endpoint"),
-			consoleConfig,
-			peer.Console.Service,
-			peer.Mail.Service,
-			peer.Console.Listener,
-		)
-	}
-
 	{ // setup marketing portal
 		log.Debug("Satellite API Process setting up marketing server")
 
@@ -440,6 +409,38 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup console
+		log.Debug("Satellite API Process setting up console")
+		consoleConfig := config.Console
+		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if consoleConfig.AuthTokenSecret == "" {
+			return nil, errs.New("Auth token secret required")
+		}
+
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
+			peer.DB.Console(),
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Payments.Accounts,
+			consoleConfig.PasswordCost,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Console.Endpoint = consoleweb.NewServer(
+			peer.Log.Named("console:endpoint"),
+			consoleConfig,
+			peer.Console.Service,
+			peer.Mail.Service,
+			peer.Console.Listener,
+		)
 	}
 
 	{ // setup node stats endpoint
