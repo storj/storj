@@ -444,8 +444,27 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			if err != nil {
 				if metainfo.NodeAlreadyExitsError.Has(err) {
 					// this will get re-tried
-					endpoint.log.Debug("node already exists in pointer.", zap.Error(err))
+					endpoint.log.Warn("node already exists in pointer.", zap.Error(err))
 
+					// need to check if the process that sends the transfer messages has completed. if so, we need to send a new request
+					processMu.Lock()
+					if !morePiecesFlag {
+						if transfer, ok := pending.get(m.Succeeded.OriginalPieceId); ok {
+							endpoint.log.Debug("retrying peice b/c the replacement node already had a piece for the segment.", zap.Stringer("nodeID", nodeID), zap.ByteString("path", transfer.path), zap.Int32("pieceNum", transfer.pieceNum))
+							incomplete, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+							if err != nil {
+								processMu.Unlock()
+								return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+							}
+							err = endpoint.processIncomplete(ctx, stream, pending, incomplete)
+							if err != nil {
+								processMu.Unlock()
+								return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+							}
+						}
+
+					}
+					processMu.Unlock()
 					continue
 				}
 				if ErrInvalidArgument.Has(err) {
@@ -700,9 +719,6 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
-		// delete from queue so it gets retried
-		pending.delete(originalPieceID)
-
 		return Error.Wrap(err)
 	}
 
