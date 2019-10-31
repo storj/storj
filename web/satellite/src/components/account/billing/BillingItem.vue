@@ -3,19 +3,24 @@
 
 <template>
     <div class="container">
-        <p class="container__item">4/20/18 - 5/20/18</p>
-        <p class="container__item">STORJ Token Deposit</p>
-        <p class="container__item status">Added</p>
-        <p class="container__item amount"><b>$25.00</b></p>
-        <p class="container__item download">Download <a class="download-link">PDF</a></p>
+        <p class="container__item">{{billingItem.date()}}</p>
+        <p class="container__item">{{billingItem.description}}</p>
+        <p class="container__item status">{{billingItem.status}}</p>
+        <p class="container__item amount"><b>{{billingItem.amountDollars()}}</b></p>
+        <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { BillingHistoryItem } from '@/types/payments';
 
 @Component
-export default class BillingItem extends Vue {}
+export default class BillingItem extends Vue {
+    @Prop({default: new BillingHistoryItem()})
+    private readonly billingItem: BillingHistoryItem;
+}
 </script>
 
 <style scoped lang="scss">
