@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="!(bind.FileVersion.Storagenodeexe)" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute"/>
@@ -57,8 +57,16 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
-          />
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
+            <util:ServiceConfig
+              ServiceName="storagenode-updater"
+              RestartServiceDelayInSeconds="5"
+              FirstFailureActionType="restart"
+              SecondFailureActionType="restart"
+              ThirdFailureActionType="runCommand"
+              ProgramCommandLine="&quot;[INSTALLFOLDER]storagenode-updater.backup.exe&quot; recover --config-dir &quot;[INSTALLFOLDER]\&quot; --log &quot;[INSTALLFOLDER]storagenode-updater.log&quot;"
+            />
+          </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
       </Component>
       

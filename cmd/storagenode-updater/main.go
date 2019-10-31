@@ -59,6 +59,13 @@ var (
 		RunE:  cmdRun,
 	}
 
+	recoverCmd = &cobra.Command{
+		Use:   "recover",
+		Short: "Recover the storagenode-updater binary from a bad update using an old binary",
+		Args:  cobra.OnlyValidArgs,
+		RunE:  cmdRecover,
+	}
+
 	runCfg struct {
 		// TODO: check interval default has changed from 6 hours to 15 min.
 		checker.Config
@@ -67,6 +74,10 @@ var (
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		// NB: can't use `log.output` because windows service command args containing "." are bugged.
+		Log string `help:"path to log file, if empty standard output will be used" default:""`
+	}
+
+	recoverCfg struct {
 		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
@@ -85,8 +96,10 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(recoverCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(recoverCmd, &recoverCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -194,25 +207,30 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 			}
 			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
 
-			err = renameBinary(currentVersion)
+			tempBinPath := filepath.Join(os.TempDir(), serviceName)
+			err = unpackBinary(ctx, tempArchive.Name(), tempBinPath)
 			if err != nil {
 				return errs.Wrap(err)
 			}
 
-			err = unpackBinary(ctx, tempArchive.Name(), binPath)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			// TODO add here recovery even before starting service (if version command cannot be executed)
-
-			downloadedVersion, err := binaryVersion(binPath)
+			downloadedVersion, err := binaryVersion(tempBinPath)
 			if err != nil {
 				return errs.Wrap(err)
 			}
 
 			if suggestedVersion.Compare(downloadedVersion) != 0 {
 				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+			}
+
+			err = renameBinary(currentVersion)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			// move update old binary only if version of new binary is checked
+			err = os.Rename(tempBinPath, binPath)
+			if err != nil {
+				return errs.Wrap(err)
 			}
 
 			log.Println("restarting service", serviceName)
@@ -367,8 +385,20 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
-func main() {
-	process.Exec(rootCmd)
+func cmdRecover(cmd *cobra.Command, args []string) (err error) {
+	closeLog, err := openLog()
+	defer func() { err = errs.Combine(err, closeLog()) }()
+
+	log.Println("storagenode-updater recovering!")
+
+	updaterBinName := os.Args[0]
+	badExec := strings.Replace(updaterBinName, ".old", "", 1)
+
+	log.Printf("restoring backup binary from: %s\n", updaterBinName)
+	if err := os.Rename(updaterBinName, badExec); err != nil {
+		return errs.Wrap(err)
+	}
+	return nil
 }
 
 // TODO: improve logging; other commands use zap but due to an apparent
@@ -386,4 +416,8 @@ func openLog() (closeFunc func() error, err error) {
 		return logFile.Close, nil
 	}
 	return closeFunc, nil
+}
+
+func main() {
+	process.Exec(rootCmd)
 }
