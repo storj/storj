@@ -205,9 +205,7 @@ func TestConcurrentConnections(t *testing.T) {
 		// connect to satellite so we initiate the exit ("main" call)
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 		// this connection will immediately return since graceful exit has not been initiated yet
@@ -818,9 +816,7 @@ func TestExitDisabled(t *testing.T) {
 
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 		processClient, err := client.Process(ctx)
@@ -873,9 +869,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite so we initiate the exit.
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 
@@ -910,9 +904,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite again to start receiving transfers
 		c, err = client.Process(ctx)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, c.CloseSend())
-		}()
+		defer ctx.Check(c.CloseSend)
 
 		verifier(ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
 	})
