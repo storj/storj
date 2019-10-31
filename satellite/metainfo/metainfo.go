@@ -44,6 +44,8 @@ var (
 	mon = monkit.Package()
 	// Error general metainfo error
 	Error = errs.Class("metainfo error")
+	// NodeAlreadyExitsError pointer alredy has a piece for a node err
+	NodeAlreadyExitsError = errs.Class("metainfo error")
 )
 
 // APIKeys is api keys store methods used by endpoint
