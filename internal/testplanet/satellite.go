@@ -315,6 +315,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxRepair:                     10,
 				Interval:                      time.Hour,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				DownloadTimeout:               1 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
 				MaxExcessRateOptimalThreshold: 0.05,
 			},
@@ -371,6 +372,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxFailuresPerPiece:          5,
 				MaxInactiveTimeFrame:         time.Second * 10,
 				OverallMaxFailuresPercentage: 10,
+				RecvTimeout:                  time.Minute * 1,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
