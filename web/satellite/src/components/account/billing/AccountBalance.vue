@@ -55,11 +55,11 @@ const {
     },
 })
 export default class AccountBalance extends Vue {
-    public async mounted() {
+    public mounted() {
         try {
-            // await this.$store.dispatch(GET_BALANCE);
+            // this.$store.dispatch(GET_BALANCE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
     }
 
