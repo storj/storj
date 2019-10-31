@@ -6,6 +6,7 @@ package main_test
 import (
 	"archive/zip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -56,14 +57,13 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Release:    false,
 	}
 
-	// build real storagenode and updater with old version
-	oldStoragenodeBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode/", oldInfo)
+	// build real bin with old version, will be used for both storagenode and updater
+	oldBin := ctx.CompileWithVersion("", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
-	move(t, storagenodePath, oldStoragenodeBin)
+	copy(ctx, t, oldBin, storagenodePath)
 
-	oldUpdaterBin := ctx.CompileWithVersion("", oldInfo)
 	updaterPath := ctx.File("fake", "storagenode-updater.exe")
-	move(t, updaterPath, oldUpdaterBin)
+	move(t, oldBin, updaterPath)
 
 	// build real storagenode and updater with new version
 	newInfo := version.Info{
@@ -72,11 +72,10 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newStoragenodeBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode/", newInfo)
-	newUpdaterBin := ctx.CompileWithVersion("", newInfo)
+	newBin := ctx.CompileWithVersion("", newInfo)
 	updateBins := map[string]string{
-		"storagenode":         newStoragenodeBin,
-		"storagenode-updater": newUpdaterBin,
+		"storagenode":         newBin,
+		"storagenode-updater": newBin,
 	}
 
 	// run versioncontrol and update zips http servers
@@ -131,8 +130,21 @@ func TestAutoUpdater_unix(t *testing.T) {
 	require.NotZero(t, backupUpdaterInfo.Size())
 }
 
-func move(t *testing.T, dst, src string) {
+func move(t *testing.T, src, dst string) {
 	err := os.Rename(src, dst)
+	require.NoError(t, err)
+}
+
+func copy(ctx *testcontext.Context, t *testing.T, src, dst string) {
+	s, err := os.Open(src)
+	require.NoError(t, err)
+	defer ctx.Check(s.Close)
+
+	d, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0755)
+	require.NoError(t, err)
+	defer ctx.Check(d.Close)
+
+	_, err = io.Copy(d, s)
 	require.NoError(t, err)
 }
 
@@ -235,6 +247,8 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 	base = base[:len(base)-len(".zip")]
 
 	writer := zip.NewWriter(zipFile)
+	defer ctx.Check(writer.Close)
+
 	contents, err := writer.Create(base)
 	require.NoError(t, err)
 
@@ -243,6 +257,4 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 
 	_, err = contents.Write(data)
 	require.NoError(t, err)
-
-	ctx.Check(writer.Close)
 }
