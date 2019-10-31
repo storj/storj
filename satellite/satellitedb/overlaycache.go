@@ -937,7 +937,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.
-func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := request.NodeID
@@ -958,7 +958,12 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	err = tx.Commit()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return convertDBNode(ctx, dbNode)
 }
 
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
