@@ -83,10 +83,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	return false, limit, nil
 }
 
-// ExceedsStorageUsage returns true if the storage usage limits have been exceeded
-// for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
-// expansion factor, so that the uplinks have a raw limit.
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+// ExceedsStorageUsage returns true if the storage usage for a project is currently over that project's limit.
 func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -110,8 +107,7 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if totalUsed >= maxUsage {
+	if totalUsed >= limit.Int64() {
 		return true, limit, nil
 	}
 
@@ -122,15 +118,9 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
-	if err != nil {
-		return 0, ErrProjectUsage.Wrap(err)
-	}
-	cachedTotal, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
-	if err != nil {
-		return 0, ErrProjectUsage.Wrap(err)
-	}
-	return lastCountInline + lastCountRemote + cachedTotal, nil
+	total, err = usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+
+	return total, ErrProjectUsage.Wrap(err)
 }
 
 // GetProjectBandwidthTotals returns total amount of allocated bandwidth used for past 30 days.
@@ -181,9 +171,9 @@ func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UU
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added inlineSpaceUsed bytes of inline space usage
-// and remoteSpaceUsed bytes of remote space usage.
-func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
+// project has just added spaceUsed bytes of storage (from the user's
+// perspective; i.e. segment size).
+func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
 }

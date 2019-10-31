@@ -4,20 +4,26 @@
 package accounting_test
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -40,45 +46,74 @@ func TestProjectUsageStorage(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Rollup.MaxAlphaUsage = 2 * memory.MB
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
-		saDB := planet.Satellites[0].DB
-		acctDB := saDB.ProjectAccounting()
+		var uploaded uint32
 
-		// Setup: create a new project to use the projectID
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
+		checkctx, checkcancel := context.WithCancel(ctx)
+		defer checkcancel()
 
-		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+		var group errgroup.Group
+		group.Go(func() error {
+			// wait things to be uploaded
+			for atomic.LoadUint32(&uploaded) == 0 {
+				if !sync2.Sleep(checkctx, time.Microsecond) {
+					return nil
+				}
+			}
+
+			for {
+				if !sync2.Sleep(checkctx, time.Microsecond) {
+					return nil
+				}
+
+				total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				if total == 0 {
+					return errs.New("got 0 from GetProjectStorageTotals")
+				}
+			}
+		})
 
 		for _, ttc := range cases {
 			testCase := ttc
 			t.Run(testCase.name, func(t *testing.T) {
+				// Setup: create some bytes for the uplink to upload
+				expectedData := testrand.Bytes(1 * memory.MB)
 
-				// Setup: create BucketStorageTally records to test exceeding storage project limit
+				// Setup: upload data to test exceeding storage project limit
 				if testCase.expectedResource == "storage" {
-					now := time.Now()
-					err := setUpStorageTallies(ctx, projectID, acctDB, 25, now)
+					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", expectedData)
+					atomic.StoreUint32(&uploaded, 1)
 					require.NoError(t, err)
+					// by triggering tally we ensure that this segment is 100% accounted for
+					planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 				}
 
-				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID)
-				require.NoError(t, err)
-				require.Equal(t, testCase.expectedExceeded, actualExceeded)
-
-				// Setup: create some bytes for the uplink to upload
-				expectedData := testrand.Bytes(50 * memory.KiB)
-
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
-				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
+				atomic.StoreUint32(&uploaded, 1)
 				if testCase.expectedResource == "storage" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
 					require.NoError(t, actualErr)
 				}
+
+				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 			})
+		}
+
+		checkcancel()
+		if err := group.Wait(); err != nil {
+			t.Fatal(err)
 		}
 	})
 }
@@ -100,7 +135,6 @@ func TestProjectUsageBandwidth(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-				planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
@@ -149,28 +183,6 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	entries = append(entries, projectID.String())
 	entries = append(entries, string(bucket))
 	return []byte(storj.JoinPaths(entries...))
-}
-
-func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.ProjectAccounting, numberOfGB int, time time.Time) error {
-
-	// Create many records that sum greater than project usage limit of 25GB
-	for i := 0; i < numberOfGB; i++ {
-		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		tally := accounting.BucketStorageTally{
-			BucketName:    bucketName,
-			ProjectID:     projectID,
-			IntervalStart: time,
-
-			// In order to exceed the project limits, create storage tally records
-			// that sum greater than the maxAlphaUsage * expansionFactor
-			RemoteBytes: memory.GB.Int64() * accounting.ExpansionFactor,
-		}
-		err := acctDB.CreateStorageTally(ctx, tally)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
@@ -274,9 +286,8 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
-		// Setup: create BucketStorageTally records to test exceeding storage project limit
-		now := time.Now()
-		err = setUpStorageTallies(ctx, project.ID, acctDB, 11, now)
+		// Setup: add data to live accounting to exceed new limit
+		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
 		require.NoError(t, err)
 
 		actualExceeded, limit, err := projectUsage.ExceedsStorageUsage(ctx, project.ID)

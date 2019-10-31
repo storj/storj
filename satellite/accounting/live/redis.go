@@ -47,23 +47,36 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added inlineSpaceUsed bytes of inline space usage
-// and remoteSpaceUsed bytes of remote space usage.
-func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
-	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
-		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
-	}
-	return cache.client.IncrBy(ctx, projectID[:], inlineSpaceUsed+remoteSpaceUsed)
+// project has just added spaceUsed bytes of storage (from the user's
+// perspective; i.e. segment size).
+func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
+	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
+	return cache.client.IncrBy(ctx, projectID[:], spaceUsed)
 }
 
-// ResetTotals reset all space-used totals for all projects back to zero. This
-// would normally be done in concert with calculating new tally counts in the
-// accountingDB.
-func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) (err error) {
+// GetAllProjectTotals iterates through the live accounting DB and returns a map of project IDs and totals.
+func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ map[uuid.UUID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	cache.log.Debug("Resetting real-time accounting data")
-	return cache.client.FlushDB()
+
+	projects := make(map[uuid.UUID]int64)
+
+	err = cache.client.Iterate(ctx, storage.IterateOptions{Recurse: true}, func(ctx context.Context, it storage.Iterator) error {
+		var item storage.ListItem
+		for it.Next(ctx, &item) {
+			if item.Key == nil {
+				return Error.New("nil key")
+			}
+			id := new(uuid.UUID)
+			copy(id[:], item.Key[:])
+			intval, err := strconv.Atoi(string(item.Value))
+			if err != nil {
+				return Error.New("could not get total for project %s", id.String())
+			}
+			projects[*id] = int64(intval)
+		}
+		return nil
+	})
+	return projects, err
 }
 
 // Close the DB connection.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -78,14 +79,7 @@ func (service *Service) Close() error {
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// The live accounting store will only keep a delta to space used relative
-	// to the latest tally. Since a new tally is beginning, we will zero it out
-	// now. There is a window between this call and the point where the tally DB
-	// transaction starts, during which some changes in space usage may be
-	// double-counted (counted in the tally and also counted as a delta to
-	// the tally). If that happens, it will be fixed at the time of the next
-	// tally run.
-	err = service.liveAccounting.ResetTotals(ctx)
+	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -123,9 +117,24 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	if len(observer.Bucket) > 0 {
+		// record bucket tallies to DB
 		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
 		if err != nil {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
+		}
+
+		// update live accounting totals
+		tallyProjectTotals := projectTotalsFromBuckets(observer.Bucket)
+		latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for projectID, latest := range latestLiveTotals {
+			delta := latest - initialLiveTotals[projectID]
+			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latest+tallyProjectTotals[projectID]+(delta/2))
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 
@@ -232,6 +241,14 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 		observer.Node[piece.NodeId] += pieceSize
 	}
 	return nil
+}
+
+func projectTotalsFromBuckets(buckets map[string]*accounting.BucketTally) map[uuid.UUID]int64 {
+	projectTallyTotals := make(map[uuid.UUID]int64)
+	for _, bucket := range buckets {
+		projectTallyTotals[bucket.ProjectID] += (bucket.InlineBytes + bucket.RemoteBytes)
+	}
+	return projectTallyTotals
 }
 
 // using custom name to avoid breaking monitoring

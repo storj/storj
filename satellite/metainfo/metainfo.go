@@ -215,12 +215,13 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 	return &pb.SegmentWriteResponseOld{AddressedLimits: addressedLimits, RootPieceId: rootPieceID, PrivateKey: piecePrivateKey}, nil
 }
 
-func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
+func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
 	inline := ptr.GetInlineSegment()
 	if inline != nil {
-		return int64(len(inline)), 0
+		inlineSize := int64(len(inline))
+		return inlineSize, inlineSize
 	}
-	segmentSize := ptr.GetSegmentSize()
+	segmentSize = ptr.GetSegmentSize()
 	remote := ptr.GetRemote()
 	if remote == nil {
 		return 0, 0
@@ -228,7 +229,7 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 	minReq := remote.GetRedundancy().GetMinReq()
 	pieceSize := segmentSize / int64(minReq)
 	pieces := remote.GetRemotePieces()
-	return 0, pieceSize * int64(len(pieces))
+	return segmentSize, pieceSize * int64(len(pieces))
 }
 
 // CommitSegmentOld commits segment metadata
@@ -282,19 +283,19 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	}
 	req.Pointer.PieceHashesVerified = true
 
-	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
+	segmentSize, totalStored := calculateSpaceUsed(req.Pointer)
 
 	// ToDo: Replace with hash & signature validation
 	// Ensure neither uplink or storage nodes are cheating on us
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
-		if float64(remoteUsed) > (float64(req.Pointer.SegmentSize)/float64(req.Pointer.Remote.Redundancy.MinReq))*float64(req.Pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", req.Pointer.SegmentSize, remoteUsed, req.Pointer.Remote.Redundancy.MinReq, req.Pointer.Remote.Redundancy.Total)
+		if float64(totalStored) > (float64(req.Pointer.SegmentSize)/float64(req.Pointer.Remote.Redundancy.MinReq))*float64(req.Pointer.Remote.Redundancy.Total) {
+			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", req.Pointer.SegmentSize, totalStored, req.Pointer.Remote.Redundancy.MinReq, req.Pointer.Remote.Redundancy.Total)
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
 
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %q: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
@@ -1638,16 +1639,16 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		piece.Hash = nil
 	}
 
-	inlineUsed, remoteUsed := calculateSpaceUsed(pointer)
+	segmentSize, totalStored := calculateSpaceUsed(pointer)
 
 	// ToDo: Replace with hash & signature validation
 	// Ensure neither uplink or storage nodes are cheating on us
 	if pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
-		if float64(remoteUsed) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
+		if float64(totalStored) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
 			endpoint.log.Debug("data size mismatch",
 				zap.Int64("segment", pointer.SegmentSize),
-				zap.Int64("pieces", remoteUsed),
+				zap.Int64("pieces", totalStored),
 				zap.Int32("redundancy minimum requested", pointer.Remote.Redundancy.MinReq),
 				zap.Int32("redundancy total", pointer.Remote.Redundancy.Total),
 			)
@@ -1655,7 +1656,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
 		endpoint.log.Error("Could not track new storage usage by project",
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
@@ -1715,7 +1716,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
 
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, 0); err != nil {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
