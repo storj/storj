@@ -124,9 +124,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			log.Println(err)
 		}
 
-		if err := update(ctx, os.Args[0], updaterServiceName, renameUpdater); err != nil {
+		updaterBinName := os.Args[0]
+		if err := update(ctx, updaterBinName, updaterServiceName, renameUpdater); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			log.Printf("%+v", err)
+			log.Println(err)
 		}
 		return nil
 	}
@@ -243,14 +244,14 @@ func renameStoragenode(currentVersion version.SemVer) error {
 }
 
 func renameUpdater(_ version.SemVer) error {
-	updaterBinPath := os.Args[0]
-	extension := filepath.Ext(updaterBinPath)
-	dir := filepath.Dir(updaterBinPath)
-	base := filepath.Base(updaterBinPath)
+	updaterBinName := os.Args[0]
+	extension := filepath.Ext(updaterBinName)
+	dir := filepath.Dir(updaterBinName)
+	base := filepath.Base(updaterBinName)
 	base = base[:len(base)-len(extension)]
 	backupExec := filepath.Join(dir, base+".old"+extension)
 
-	if err := os.Rename(updaterBinPath, backupExec); err != nil {
+	if err := os.Rename(updaterBinName, backupExec); err != nil {
 		return errs.Wrap(err)
 	}
 	return nil
