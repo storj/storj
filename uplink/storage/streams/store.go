@@ -119,15 +119,15 @@ func (s *streamStore) Put(ctx context.Context, path Path, pathCipher storj.Ciphe
 	return m, err
 }
 
-func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, streamID storj.StreamID, err error) {
+func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (_ Meta, lastSegment int64, _ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
-		return Meta{}, 0, streamID, err
+		return Meta{}, 0, storj.StreamID{}, err
 	}
 	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
-		return Meta{}, 0, streamID, err
+		return Meta{}, 0, storj.StreamID{}, err
 	}
 
 	beginObjectReq := &metainfo.BeginObjectParams{
@@ -137,10 +137,13 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	if err != nil {
-		return Meta{}, 0, streamID, err
+		return Meta{}, 0, storj.StreamID{}, err
 	}
 
-	var currentSegment int64
+	var (
+		streamID       storj.StreamID
+		currentSegment int64
+	)
 	defer func() {
 		select {
 		case <-ctx.Done():
