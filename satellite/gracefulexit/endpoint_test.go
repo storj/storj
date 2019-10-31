@@ -813,15 +813,8 @@ func TestExitDisabled(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
 
-		exitStatusRequest := overlay.ExitStatusRequest{
-			NodeID:              exitingNode.ID(),
-			ExitInitiatedAt:     time.Now().UTC(),
-			ExitLoopCompletedAt: time.Now().UTC(),
-		}
-		_, err := satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)
-		require.NoError(t, err)
-		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
-		require.NoError(t, err)
+		require.Nil(t, satellite.GracefulExit.Chore)
+		require.Nil(t, satellite.GracefulExit.Endpoint)
 
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
@@ -835,7 +828,7 @@ func TestExitDisabled(t *testing.T) {
 
 		// Process endpoint should return immediately if GE is disabled
 		response, err := processClient.Recv()
-		require.True(t, errs.Is(err, io.EOF))
+		require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
 		require.Nil(t, response)
 	})
 }

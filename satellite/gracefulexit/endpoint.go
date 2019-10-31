@@ -187,10 +187,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	if !endpoint.config.Enabled {
-		return nil
-	}
-
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())

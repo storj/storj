@@ -45,10 +45,6 @@ func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metainfo.Loo
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !chore.config.Enabled {
-		return nil
-	}
-
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		chore.log.Debug("checking pending exits")
