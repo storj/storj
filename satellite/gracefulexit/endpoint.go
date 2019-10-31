@@ -57,6 +57,7 @@ type Endpoint struct {
 	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
 	config         Config
+	recvTimeout    time.Duration
 }
 
 type pendingTransfer struct {
@@ -168,6 +169,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
 		config:         config,
+		recvTimeout:    config.RecvTimeout,
 	}
 }
 
@@ -417,9 +419,24 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 		processMu.Unlock()
 
-		request, err := stream.Recv()
-		if err != nil {
-			return eofHandler(err)
+		done := make(chan struct{})
+		var request *pb.StorageNodeMessage
+		var recvErr error
+		go func() {
+			request, recvErr = stream.Recv()
+			close(done)
+		}()
+
+		timer := time.NewTimer(endpoint.recvTimeout)
+		select {
+		case <-ctx.Done():
+			return rpcstatus.Error(rpcstatus.Internal, Error.New("context canceled while waiting to receive message from storagenode").Error())
+		case <-timer.C:
+			return rpcstatus.Error(rpcstatus.DeadlineExceeded, Error.New("timeout while waiting to receive message from storagenode").Error())
+		case <-done:
+		}
+		if recvErr != nil {
+			return eofHandler(recvErr)
 		}
 
 		switch m := request.GetMessage().(type) {
