@@ -64,7 +64,7 @@
               FirstFailureActionType="restart"
               SecondFailureActionType="restart"
               ThirdFailureActionType="runCommand"
-              ProgramCommandLine="&quot;[INSTALLFOLDER]storagenode-updater.backup.exe&quot; recover --config-dir &quot;[INSTALLFOLDER]\&quot; --log &quot;[INSTALLFOLDER]storagenode-updater.log&quot;"
+              ProgramCommandLine="&quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; recover --config-dir &quot;[INSTALLFOLDER]\&quot; --log &quot;[INSTALLFOLDER]storagenode-updater.log&quot;"
             />
           </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
