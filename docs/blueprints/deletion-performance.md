@@ -20,7 +20,7 @@ TODO: where exactly are deletes spending time.
 
 First we can do reduce timeouts for delete requests. Undeleted pieces will eventually get garbage collected, so we can allow some of them to get lost.
 
-The uplink should be able to issue the request without having to wait for the deletion to happen. Currently deletions is implemented as an RPC, instead, use a call without waiting for a response.
+The uplink should be able to issue the request without having to wait for the deletion to happen. Currently deletions is implemented as an RPC, instead, use a call without waiting for a response. For example, node could internally delete things async; alternatively we could use UDP for delete requests.
 
 Ensure we delete segments in parallel as much as possible.
 
@@ -34,6 +34,6 @@ Ensure we delete segments in parallel as much as possible.
 
 ## Open issues (if applicable)
 
-We could probablistically skip deleting pieces. This would minimize the requests that the uplink has to make, at the same time not leaking too much pieces.
+We could probablistically skip deleting pieces. This would minimize the requests that the uplink has to make, at the same time not leaking too much pieces. For example we could only send the deletion requests to only 50%, leaking half of the data, but making half the requests.
 
 We could track how much each storage node is storing extra due not sending deletes. This would allow paying the storage nodes. However, this would still mean that garbage is being kept in the network.
