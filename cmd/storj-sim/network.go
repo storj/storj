@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -240,7 +241,7 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 	for i := 0; i < flags.SatelliteCount; i++ {
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
-			Executable: "redis",
+			Executable: "redis-server",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, redisPort)),
 		})
@@ -248,8 +249,6 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 
 		filename := process.Directory + "sim.rdb"
 		process.ExecBefore["setup"] = func(process *Process) error {
-			// TODO write the config file to process.Directory/redis.conf
-			// write a configuration file, because redis doesn't support flags
 			confpath := filepath.Join(process.Directory, "redis.conf")
 			arguments := []string{
 				"daemonize no",
@@ -260,10 +259,15 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 				"dbfilename" + filename,
 				"dir " + process.Directory,
 			}
+			conf := strings.Join(arguments, "\n") + "\n"
+			err = ioutil.WriteFile(confpath, []byte(conf), 0755)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		process.Arguments = Arguments{
-			"run": {},
+			"run": []string{filepath.Join(process.Directory, "redis.conf")},
 		}
 	}
 
@@ -310,8 +314,11 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		for _, db := range redisDBs {
-
+		for name, db := range redisDBs {
+			flag := "--" + name
+			rootpath := "redis://127.0.0.1:" + strconv.Itoa(p)
+			url := redisnamespace.CreatePath(rootpath, db)
+			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])
 	}
