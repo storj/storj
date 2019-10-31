@@ -49,11 +49,12 @@ type OldVersionConfig struct {
 
 // ProcessesConfig represents versions configuration for all processes.
 type ProcessesConfig struct {
-	Satellite   ProcessConfig
-	Storagenode ProcessConfig
-	Uplink      ProcessConfig
-	Gateway     ProcessConfig
-	Identity    ProcessConfig
+	Satellite          ProcessConfig
+	Storagenode        ProcessConfig
+	StoragenodeUpdater ProcessConfig
+	Uplink             ProcessConfig
+	Gateway            ProcessConfig
+	Identity           ProcessConfig
 }
 
 // ProcessConfig represents versions configuration for a single process.
@@ -157,6 +158,11 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes.Storagenode, err = configToProcess(config.Binary.Storagenode)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.StoragenodeUpdater, err = configToProcess(config.Binary.StoragenodeUpdater)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)
 	}
