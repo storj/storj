@@ -6,8 +6,8 @@ package redisnamespace
 import "strconv"
 
 var dbs = map[string]int{
-	"live-accounting.db":      0,
-	"server.revocation-dburl": 1,
+	"live-accounting.StorageBackend": 0,
+	"server.revocation-dburl":        1,
 }
 
 // GetAll returns entire db map
@@ -21,6 +21,6 @@ func GetDB(key string) int {
 }
 
 // CreatePath generates a redis path for the db provided
-func CreatePath(main string, db int) string {
-	return main + "?db=" + strconv.Itoa(db)
+func CreatePath(hostPort string, db int) string {
+	return "redis://" + hostPort + "?db=" + strconv.Itoa(db)
 }

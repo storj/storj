@@ -55,12 +55,12 @@ const (
 	storagenodePeer    = 3
 
 	// Endpoint
-	publicGRPC  = 0
-	privateGRPC = 1
-	publicHTTP  = 2
-	privateHTTP = 3
-	debugHTTP   = 9
-	redisPort   = 4
+	publicGRPC    = 0
+	privateGRPC   = 1
+	publicHTTP    = 2
+	privateHTTP   = 3
+	debugHTTP     = 9
+	redisEndpoint = 4
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -229,21 +229,19 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	// If empty string, use default
-	p := redisPort
-	if flags.Redis != "" {
-		p, err = strconv.Atoi(flags.Redis)
-		if err != nil {
-			return nil, err
-		}
-	}
+	var redisPort string
 	redisDBs := redisnamespace.GetAll()
 	for i := 0; i < flags.SatelliteCount; i++ {
+		if flags.Redis != "" {
+			redisPort = flags.Redis
+		} else {
+			redisPort = port(satellitePeer, i, redisEndpoint)
+		}
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
 			Executable: "redis-server",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
-			Address:    net.JoinHostPort(host, port(satellitePeer, i, redisPort)),
+			Address:    net.JoinHostPort(host, redisPort),
 		})
 		redisServers = append(redisServers, process)
 
@@ -252,8 +250,8 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 			confpath := filepath.Join(process.Directory, "redis.conf")
 			arguments := []string{
 				"daemonize no",
-				"bind 127.0.0.1",
-				"port " + strconv.Itoa(p),
+				"bind" + host,
+				"port " + redisPort,
 				"timeout 0",
 				"databases" + strconv.Itoa(len(redisDBs)),
 				"dbfilename" + filename,
@@ -316,8 +314,7 @@ func newNetwork(flags *Flags) (processes *Processes, err error) {
 		}
 		for name, db := range redisDBs {
 			flag := "--" + name
-			rootpath := "redis://127.0.0.1:" + strconv.Itoa(p)
-			url := redisnamespace.CreatePath(rootpath, db)
+			url := redisnamespace.CreatePath(net.JoinHostPort(host, redisPort), db)
 			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])
