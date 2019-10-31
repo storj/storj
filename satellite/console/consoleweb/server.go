@@ -85,12 +85,13 @@ type Server struct {
 
 	schema    graphql.Schema
 	templates struct {
-		index         *template.Template
-		pageNotFound  *template.Template
-		usageReport   *template.Template
-		resetPassword *template.Template
-		success       *template.Template
-		activated     *template.Template
+		index               *template.Template
+		pageNotFound        *template.Template
+		internalServerError *template.Template
+		usageReport         *template.Template
+		resetPassword       *template.Template
+		success             *template.Template
+		activated           *template.Template
 	}
 }
 
@@ -211,7 +212,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 }
@@ -420,14 +421,19 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 }
 
 func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
-	// TODO: show different error pages depend on status
-	// F.e. switch(status)
-	//      case http.StatusNotFound: server.executeTemplate(w, r, notFound, nil)
-	//      case http.StatusInternalServerError: server.executeTemplate(w, r, internalError, nil)
 	w.WriteHeader(status)
 
-	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
-		server.log.Error("error occurred in console/server", zap.Error(err))
+	switch status {
+	case http.StatusNotFound:
+		err := server.templates.pageNotFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("page not found", zap.Error(err))
+		}
+	case http.StatusInternalServerError:
+		err := server.templates.internalServerError.Execute(w, nil)
+		if err != nil {
+			server.log.Error("error on the web server", zap.Error(err))
+		}
 	}
 }
 
@@ -594,6 +600,11 @@ func (server *Server) initializeTemplates() (err error) {
 	}
 
 	server.templates.pageNotFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.internalServerError, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "500.html"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
