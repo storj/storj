@@ -1,6 +1,14 @@
 /* Copyright (C) 2019 Storj Labs, Inc. */
 /* See LICENSE for copying information. */
 
+img,
+a {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+}
+
 .error-container {
     position: fixed;
     top: 0;
@@ -19,21 +27,12 @@
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-}
 
-h1 {
-    font-family: 'font', sans-serif;
-    margin-bottom: 60px;
-    font-size: 32px;
-}
-
-img,
-a {
-    -webkit-user-drag: none;
-    -khtml-user-drag: none;
-    -moz-user-drag: none;
-    -o-user-drag: none;
-    user-drag: none;
+    &__title {
+        font-family: 'font', sans-serif;
+        margin-bottom: 60px;
+        font-size: 32px;
+    }
 }
 
 .logo {
