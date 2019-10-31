@@ -46,7 +46,11 @@ export class AuthHttpApi {
             return await response.json();
         }
 
-        throw new Error('can not receive authentication token');
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('your email or password was incorrect, please try again');
     }
 
     /**
@@ -122,7 +126,7 @@ export class AuthHttpApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('can not change password');
+        throw new Error('old password is incorrect, please try again');
     }
 
     /**
@@ -172,7 +176,7 @@ export class AuthHttpApi {
 
         const response = await this.http.post(path, JSON.stringify(body), false);
         if (!response.ok) {
-            throw new Error('can not register user');
+            throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
         }
 
         return await response.json();
