@@ -113,6 +113,8 @@ func TestAutoUpdater_unix(t *testing.T) {
 		}
 	} else {
 		t.Log(string(out))
+	}
+	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
