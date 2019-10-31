@@ -190,6 +190,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
+		// TODO use random seed
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
