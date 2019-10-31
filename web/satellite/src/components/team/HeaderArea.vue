@@ -100,6 +100,10 @@ export default class HeaderArea extends Vue {
         headerComponent: VHeader & ClearSearch;
     };
 
+    public beforeDestroy(): void {
+        this.onClearSelection();
+    }
+
     public get userCountTitle(): string {
         if (this.selectedProjectMembersCount === 1) {
             return 'user';

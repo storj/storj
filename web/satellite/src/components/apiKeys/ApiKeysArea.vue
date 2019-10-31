@@ -182,7 +182,8 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(CLEAR);
+        this.onClearSelection();
+        await this.$store.dispatch(SET_SEARCH_QUERY, '');
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
