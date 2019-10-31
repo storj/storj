@@ -799,6 +799,46 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 	})
 }
 
+func TestExitDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.Enabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		exitStatusRequest := overlay.ExitStatusRequest{
+			NodeID:              exitingNode.ID(),
+			ExitInitiatedAt:     time.Now().UTC(),
+			ExitLoopCompletedAt: time.Now().UTC(),
+		}
+		_, err := satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)
+		require.NoError(t, err)
+		satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer func() {
+			err = errs.Combine(err, conn.Close())
+		}()
+
+		client := conn.SatelliteGracefulExitClient()
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if GE is disabled
+		response, err := processClient.Recv()
+		require.True(t, errs.Is(err, io.EOF))
+		require.Nil(t, response)
+	})
+}
+
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
