@@ -17,7 +17,7 @@ import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { RouteConfig } from '@/router';
 import { validateEmail } from '@/utils/validation';
-import EVENTS from '@/utils/constants/analyticsEventNames';
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
 
 
 @Component({

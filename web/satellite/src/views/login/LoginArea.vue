@@ -19,7 +19,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
-import EVENTS from '../../utils/constants/analyticsEventNames';
+import { EVENTS } from '../../utils/constants/analyticsEventNames';
 
 
 @Component({
