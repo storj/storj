@@ -7,8 +7,7 @@ import { DirectiveBinding } from 'vue/types/options';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
 import App from './App.vue';
-
-import Analytics from './plugins/analytics';
+import { Analytics } from './plugins/analytics';
 import { router } from './router';
 import { store } from './store';
 
