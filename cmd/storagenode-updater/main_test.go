@@ -74,7 +74,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Release:    false,
 	}
 	newStoragenodeBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode/", newInfo)
-	newUpdaterBin := ctx.CompileWithVersion("", oldInfo)
+	newUpdaterBin := ctx.CompileWithVersion("", newInfo)
 	updateBins := map[string]string{
 		"storagenode":         newStoragenodeBin,
 		"storagenode-updater": newUpdaterBin,
