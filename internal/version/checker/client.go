@@ -110,7 +110,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	}
 
 	processesValue := reflect.ValueOf(versions.Processes)
-	field := processesValue.FieldByName(strings.Title(processName))
+	field := processesValue.FieldByName(kebabToPascal(processName))
 
 	processNameErr := Error.New("invalid process name: %s\n", processName)
 	if field == (reflect.Value{}) {
@@ -124,9 +124,9 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
-// ShouldUpdate downloads the rollout state from the versioncontrol server and
+// ShouldRollout downloads the rollout state from the versioncontrol server and
 // checks if a user with the given nodeID should update, and if so, to what version.
-func (client *Client) ShouldUpdate(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
+func (client *Client) ShouldRollout(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
 	defer mon.Task()(&ctx, processName)(&err)
 
 	process, err := client.Process(ctx, processName)
@@ -134,9 +134,13 @@ func (client *Client) ShouldUpdate(ctx context.Context, processName string, node
 		return false, version.Version{}, Error.Wrap(err)
 	}
 
-	shouldUpdate := version.ShouldUpdate(process.Rollout, nodeID)
+	shouldUpdate := version.ShouldRollout(process.Rollout, nodeID)
 	if shouldUpdate {
 		return true, process.Suggested, nil
 	}
 	return false, version.Version{}, nil
+}
+
+func kebabToPascal(str string) string {
+	return strings.ReplaceAll(strings.Title(str), "-", "")
 }
