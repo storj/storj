@@ -266,7 +266,7 @@ func parseDownloadURL(template string) string {
 func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
-		log.Printf("out %s", string(out))
+		log.Printf("command output: %s", out)
 		return version.SemVer{}, err
 	}
 
@@ -382,7 +382,6 @@ func openLog() (closeFunc func() error, err error) {
 			log.Printf("error opening log file: %s", err)
 			return closeFunc, err
 		}
-		log.Printf("writing all further log output to %s", runCfg.Log)
 		log.SetOutput(logFile)
 		return logFile.Close, nil
 	}
