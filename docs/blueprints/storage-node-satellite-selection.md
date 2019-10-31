@@ -183,6 +183,7 @@ brevity sake, the full ID of each URL is being shortened (real configurations
 ```
 3@f.foo.test:7777
 3@bar.test:7777
+3@baz.test:7777
 3@buz.test:7777
 3@quz.test:7777
 ```
@@ -190,6 +191,7 @@ brevity sake, the full ID of each URL is being shortened (real configurations
 * `https://baz.test/trusted-satellites`
 
 ```
+4@baz.test:7777
 4@qiz.test:7777
 4@subdomain.quz.test:7777
 ```
@@ -217,11 +219,13 @@ After expanding each entry, we have the following unaggregated `trusted` list:
 5@ohno.test:7777
 3@f.foo.test:7777
 3@bar.test:7777                   (authoritative due to bar.test domain)
+3@baz.test:7777
 3@buz.test:7777
 3@quz.test:7777
+4@baz.test:7777                   (authoritative due to baz.test domain)
 4@qiz.test:7777
 4@subdomain.quz.test:7777
-0@f.foo.test:7777
+0@f.foo.test:7777                 (authoritative due to explicit configuration)
 ```
 
 And the following `untrusted` list:
@@ -240,9 +244,11 @@ The `trusted` list is pruned with the `untrusted` list, leaving the following `t
 2@buz.test:7777
 3@f.foo.test:7777
 3@bar.test:7777                   (authoritative due to bar.test domain)
+3@baz.test:7777
 3@buz.test:7777
-0@f.foo.test:7777
+4@baz.test:7777                   (authoritative due to baz.test domain)
 4@qiz.test:7777
+0@f.foo.test:7777                 (authoritative due to explicit configuration)
 ```
 
 We aggregate from top to bottom (i.e. in the order they were specified/fetched)
@@ -252,6 +258,7 @@ and are left with the following:
 1@bar.test:7777
 2@f.foo.test:7777
 2@buz.test:7777
+4@baz.test:7777
 4@qiz.test:7777
 ```
 
@@ -259,6 +266,8 @@ and are left with the following:
   authoritative, `1@bar.test:7777` came first.
 * `2@f.foo.test:7777` was selected because it was authoritative over
   `3@f.foo.test:7777` and came before `0@f.foo.test`.
+* `2@buz.test:7777` was selected because it came before `3@buz.test:7777` (neither was authoritative)
+* `4@baz.test:7777` was selected it was authoritative over `3@baz.test:7777`, even though the latter came first.
 * `4@qiz.test:7777` was selected because it was the only URL for `qiz.test:7777`
 
 ### Rebuilding the List of Trusted Satellite URLs
