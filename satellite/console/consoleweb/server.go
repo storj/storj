@@ -86,7 +86,7 @@ type Server struct {
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
-		pageNotFound        *template.Template
+		notFound            *template.Template
 		internalServerError *template.Template
 		usageReport         *template.Template
 		resetPassword       *template.Template
@@ -354,7 +354,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("satellite/console/server: account activated template could not be executed", zap.Error(err))
+		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
@@ -392,13 +392,13 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		}
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
-			server.log.Error("satellite/console/server: success reset password template could not be executed", zap.Error(err))
+			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
-			server.log.Error("satellite/console/server: reset password template could not be executed", zap.Error(err))
+			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			server.serveError(w, http.StatusNotFound)
 			return
 		}
@@ -430,7 +430,7 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
 		}
 	default:
-		err := server.templates.pageNotFound.Execute(w, nil)
+		err := server.templates.notFound.Execute(w, nil)
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
@@ -599,7 +599,7 @@ func (server *Server) initializeTemplates() (err error) {
 		return Error.Wrap(err)
 	}
 
-	server.templates.pageNotFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	server.templates.notFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
