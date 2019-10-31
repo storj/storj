@@ -46,10 +46,6 @@ export class AuthHttpApi {
             return await response.json();
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('your email or password was incorrect, please try again');
     }
 
