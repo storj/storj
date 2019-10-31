@@ -81,6 +81,9 @@ type DB interface {
 	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
+
+	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
+	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -101,6 +104,7 @@ type FindStorageNodesRequest struct {
 	FreeBandwidth        int64
 	FreeDisk             int64
 	ExcludedNodes        []storj.NodeID
+	ExcludedIPs          []string
 	MinimumVersion       string // semver or empty
 }
 
@@ -434,6 +438,12 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 		}
 	}
 	return missingPieces, nil
+}
+
+// GetNodeIPs returns a list of node IP addresses.
+func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs storj.NodeIDList) (nodeIPs []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.GetNodeIPs(ctx, nodeIDs)
 }
 
 func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
