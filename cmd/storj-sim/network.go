@@ -545,7 +545,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			process.Arguments["setup"] = append(process.Arguments["setup"],
-				"--storage.whitelisted-satellites", strings.Join(whitelisted, ","),
+				"--storage2.trust.list", strings.Join(whitelisted, ","),
 			)
 			return nil
 		}

@@ -199,7 +199,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup trust pool
-		peer.Storage2.Trust, err = trust.NewPool(peer.Dialer, config.Storage.WhitelistedSatellites)
+		peer.Storage2.Trust, err = trust.NewPool(log.Named("trust"), trust.DialingIdentityResolver(peer.Dialer), config.Storage2.Trust)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -414,6 +414,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Refresh the trust pool first. It will be updated periodically via
+	// Run() below.
+	if err := peer.Storage2.Trust.Refresh(ctx); err != nil {
+		return err
+	}
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -439,6 +445,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Trust.Run(ctx))
 	})
 
 	group.Go(func() error {

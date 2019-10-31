@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/trust"
 )
 
 // newStorageNodes initializes storage nodes
@@ -42,6 +43,25 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
+
+	var sources []trust.Source
+	for _, u := range whitelistedSatellites {
+		source, err := trust.NewFixedSource(u.String())
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
+	if len(sources) == 0 {
+		// If the test does not configure at least one satellite then set the
+		// trust list to a fixed, non existent satellite since Storage Nodes
+		// require at least one trust source.
+		source, err := trust.NewFixedSource("12ugxzSYW7UA1n7jfVyJHV2zL5TL1x5fSYZb48y7jZ1r3bLhbfo@127.0.0.1:12345")
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
 
 	for i := 0; i < count; i++ {
 		prefix := "storage" + strconv.Itoa(i)
@@ -82,7 +102,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: defaultInterval,
-				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
 				Interval: defaultInterval,
@@ -110,6 +129,13 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
+				},
+				Trust: trust.Config{
+					List: trust.ListConfig{
+						Sources: sources,
+						Filter:  trust.NewFilter(),
+					},
+					CachePath: filepath.Join(storageDir, "trust-cache.json"),
 				},
 			},
 			Retain: retain.Config{
