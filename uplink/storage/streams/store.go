@@ -165,6 +165,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	eofReader := NewEOFReader(data)
 	for !eofReader.isEOF() && !eofReader.hasError() {
 		// generate random key for encrypting the segment's content
+		contentKey = storj.Key{}
 		_, err := rand.Read(contentKey[:])
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
@@ -173,12 +174,14 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		// Initialize the content nonce with the segment's index incremented by 1.
 		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 		// which is encrypted with the zero nonce.
+		contentNonce = storj.Nonce{}
 		_, err = encryption.Increment(&contentNonce, currentSegment+1)
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
 		}
 
 		// generate random nonce for encrypting the content key
+		keyNonce = storj.Nonce{}
 		_, err = rand.Read(keyNonce[:])
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
