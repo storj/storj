@@ -304,6 +304,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 			dir.mu.Lock()
 			dir.deleteQueue = append(dir.deleteQueue, trashPath)
 			dir.mu.Unlock()
+			mon.Event("delete_deferred_to_queue")
 		}
 
 		// ignore is-busy errors, they are still in the queue
