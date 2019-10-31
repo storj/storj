@@ -130,7 +130,7 @@ func TestShouldUpdate(t *testing.T) {
 			_, err := rand.Read(nodeID[:])
 			require.NoError(t, err)
 
-			if version.ShouldRollout(rollout, nodeID) {
+			if version.ShouldUpdate(rollout, nodeID) {
 				rollouts++
 			}
 		}
