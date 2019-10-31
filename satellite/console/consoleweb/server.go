@@ -212,7 +212,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -245,13 +245,13 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	tokenCookie, err := r.Cookie("_tokenKey")
 	if err != nil {
-		server.serveError(w, r, http.StatusUnauthorized)
+		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		server.serveError(w, r, http.StatusUnauthorized)
+		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
@@ -260,17 +260,17 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	// parse query params
 	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 
@@ -285,7 +285,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -349,13 +349,13 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.Error(err))
 
 		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
 		server.log.Error("satellite/console/server: account activated template could not be executed", zap.Error(err))
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -366,7 +366,7 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 
 	recoveryToken := r.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
@@ -374,36 +374,36 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 	case http.MethodPost:
 		err := r.ParseForm()
 		if err != nil {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		password := r.FormValue("password")
 		passwordRepeat := r.FormValue("passwordRepeat")
 		if strings.Compare(password, passwordRepeat) != 0 {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		err = server.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
 			server.log.Error("satellite/console/server: success reset password template could not be executed", zap.Error(err))
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
 			server.log.Error("satellite/console/server: reset password template could not be executed", zap.Error(err))
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	default:
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -420,19 +420,19 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
+func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
 	switch status {
-	case http.StatusNotFound:
-		err := server.templates.pageNotFound.Execute(w, nil)
-		if err != nil {
-			server.log.Error("page not found", zap.Error(err))
-		}
 	case http.StatusInternalServerError:
 		err := server.templates.internalServerError.Execute(w, nil)
 		if err != nil {
-			server.log.Error("error on the web server", zap.Error(err))
+			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+		}
+	default:
+		err := server.templates.pageNotFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
 	}
 }

@@ -38,7 +38,6 @@ func (c Currency) String() string {
 }
 
 // Status is a type wrapper for transaction statuses.
-
 type Status int
 
 const (
