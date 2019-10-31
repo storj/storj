@@ -107,6 +107,8 @@ type DB interface {
 	Customers() stripecoinpayments.CustomersDB
 	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
 	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
+	// ProjectRecords returns database that stores invoice project records.
+	ProjectRecords() stripecoinpayments.ProjectRecordsDB
 }
 
 // Config is the global config satellite
@@ -595,7 +597,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Log.Named("stripecoinpayments service"),
 			config.StripeCoinPayments,
 			peer.DB.Customers(),
-			peer.DB.CoinpaymentsTransactions())
+			peer.DB.CoinpaymentsTransactions(),
+			peer.DB.ProjectRecords(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting())
 
 		peer.Payments.Accounts = service.Accounts()
 		peer.Payments.Clearing = stripecoinpayments.NewChore(

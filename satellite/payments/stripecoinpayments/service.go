@@ -47,7 +47,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB) *Service {
+func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB, projectRecordsDB ProjectRecordsDB, projectsDB console.Projects, accountingDB accounting.ProjectAccounting) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -58,11 +58,14 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 	)
 
 	return &Service{
-		log:            log,
-		customers:      customers,
-		transactionsDB: transactionsDB,
-		stripeClient:   stripeClient,
-		coinPayments:   coinPaymentsClient,
+		log:              log,
+		customers:        customers,
+		projectsDB:       projectsDB,
+		accountingDB:     accountingDB,
+		transactionsDB:   transactionsDB,
+		projectRecordsDB: projectRecordsDB,
+		stripeClient:     stripeClient,
+		coinPayments:     coinPaymentsClient,
 	}
 }
 
@@ -401,12 +404,12 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	for _, cusID := range cusPage.Customers {
+	for _, cus := range cusPage.Customers {
 		if err = ctx.Err(); err != nil {
 			return Error.Wrap(err)
 		}
 
-		if err = service.createInvoice(ctx, cusID); err != nil {
+		if err = service.createInvoice(ctx, cus.ID); err != nil {
 			return Error.Wrap(err)
 		}
 	}
@@ -421,12 +424,12 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		for _, cusID := range cusPage.Customers {
+		for _, cus := range cusPage.Customers {
 			if err = ctx.Err(); err != nil {
 				return Error.Wrap(err)
 			}
 
-			if err = service.createInvoice(ctx, cusID); err != nil {
+			if err = service.createInvoice(ctx, cus.ID); err != nil {
 				return Error.Wrap(err)
 			}
 		}

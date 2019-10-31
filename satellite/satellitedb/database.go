@@ -153,3 +153,8 @@ func (db *DB) Customers() stripecoinpayments.CustomersDB {
 func (db *DB) CoinpaymentsTransactions() stripecoinpayments.TransactionsDB {
 	return &coinpaymentsTransactions{db: db.db}
 }
+
+// ProjectRecords returns database that stores invoice project records.
+func (db *DB) ProjectRecords() stripecoinpayments.ProjectRecordsDB {
+	return &invoiceProjectRecords{db: db.db}
+}
