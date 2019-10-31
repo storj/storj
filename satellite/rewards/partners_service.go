@@ -80,6 +80,36 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 
 	return links, nil
 }
+
+// GetActiveOffer returns an offer that is active based on its type
+func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offers, offerType OfferType, partnerID string) (offer *Offer, err error) {
+	if len(offers) < 1 {
+		return nil, NoCurrentOfferErr.New("no active offers")
+	}
+	switch offerType {
+	case Partner:
+		if partnerID == "" {
+			return nil, errs.New("partner ID is empty")
+		}
+		partnerInfo, err := service.db.ByID(ctx, partnerID)
+		if err != nil {
+			return nil, NoMatchPartnerIDErr.Wrap(err)
+		}
+		for i := range offers {
+			if offers[i].Name == partnerInfo.Name {
+				offer = &offers[i]
+			}
+		}
+	default:
+		if len(offers) > 1 {
+			return nil, errs.New("multiple active offers found")
+		}
+		offer = &offers[0]
+	}
+
+	return offer, nil
+}
+
 // PartnerByName looks up partner by name.
 func (service *PartnersService) PartnerByName(ctx context.Context, name string) (PartnerInfo, error) {
 	return service.db.ByName(ctx, name)
