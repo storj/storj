@@ -176,7 +176,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	// wait for dependencies to start
 	for _, fence := range process.Wait {
-		fence.Wait()
+		if !fence.Wait(ctx) {
+			return ctx.Err()
+		}
 	}
 
 	// in case we have an explicit delay then sleep
@@ -198,6 +200,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	localExecutable := filepath.Join(process.Directory, executable)
 	if _, err := os.Lstat(localExecutable); !os.IsNotExist(err) {
 		executable = localExecutable
+	}
+
+	if _, ok := process.Arguments[command]; !ok {
+		fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
+		return
 	}
 
 	cmd := exec.CommandContext(ctx, executable, process.Arguments[command]...)

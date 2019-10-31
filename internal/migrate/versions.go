@@ -117,12 +117,6 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			return Error.Wrap(err)
 		}
 
-		if version >= 0 {
-			log.Info("Latest Version", zap.Int("version", version))
-		} else {
-			log.Info("No Version")
-		}
-
 		if step.Version <= version {
 			continue
 		}
@@ -150,6 +144,13 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		}
 	}
 
+	if len(migration.Steps) > 0 {
+		last := migration.Steps[len(migration.Steps)-1]
+		log.Info("Database Version", zap.Int("version", last.Version))
+	} else {
+		log.Info("No Versions")
+	}
+
 	return nil
 }
 
@@ -160,7 +161,7 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)`)) //nolint:misspell
+	_, err = tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 	if err != nil {
 		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -176,7 +177,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 	}
 
 	var version sql.NullInt64
-	err = tx.QueryRow(db.Rebind(`SELECT MAX(version) FROM ` + migration.Table)).Scan(&version)
+	err = tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 	if err == sql.ErrNoRows || !version.Valid {
 		return -1, Error.Wrap(tx.Commit())
 	}
@@ -189,7 +190,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
-	_, err := tx.Exec(db.Rebind(`
+	_, err := tx.Exec(rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
@@ -202,7 +203,7 @@ type SQL []string
 // Run runs the SQL statements
 func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
 	for _, query := range sql {
-		_, err := tx.Exec(db.Rebind(query))
+		_, err := tx.Exec(rebind(db, query))
 		if err != nil {
 			return err
 		}

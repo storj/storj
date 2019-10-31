@@ -22,7 +22,7 @@ export const PROJECTS_MUTATIONS = {
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
 };
 
-const defaultSelectedProject = new Project('', '', '', '', true);
+const defaultSelectedProject = new Project('', '', '', '', '', true);
 
 class ProjectsState {
     public projects: Project[] = [];
@@ -95,10 +95,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 selected.description = updateProjectModel.description;
             },
             [REMOVE](state: any, projectID: string): void {
-                state.projects = state.projects.filter(proj => proj.id !== projectID);
+                state.projects = state.projects.filter(project => project.id !== projectID);
 
                 if (state.selectedProject.id === projectID) {
-                    state.selectedProject = new Project('', '', '', '');
+                    state.selectedProject = new Project();
                 }
             },
             [CLEAR_PROJECTS](state: ProjectsState): void {
@@ -136,7 +136,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             [CLEAR]: function({commit}: any): void {
                 commit(CLEAR_PROJECTS);
-            }
+            },
         },
         getters: {
             projects: (state: any): Project[] => {

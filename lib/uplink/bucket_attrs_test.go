@@ -36,7 +36,7 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		satellite := planet.Satellites[0]
 		cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-		apiKey, err := uplink.ParseAPIKey(testUplink.APIKey[satellite.ID()])
+		apiKey, err := uplink.ParseAPIKey(testUplink.APIKey[satellite.ID()].Serialize())
 		if err != nil {
 			t.Fatalf("could not parse API key from testplanet: %v", err)
 		}
@@ -66,7 +66,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()])
+		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()].Serialize())
 		require.NoError(t, err)
 
 		partnerID := testrand.UUID()

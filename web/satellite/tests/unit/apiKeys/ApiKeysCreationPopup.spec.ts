@@ -13,10 +13,13 @@ import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+const notificationPlugin = new NotificatorPlugin();
+localVue.use(notificationPlugin);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const projectsApi = new ProjectsApiGql();
@@ -37,7 +40,7 @@ describe('ApiKeysCreationPopup', () => {
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -95,7 +98,7 @@ describe('ApiKeysCreationPopup', () => {
         wrapper.vm.$data.isLoading = false;
         wrapper.vm.$data.name = 'testName';
 
-        wrapper.vm.onNextClick();
+        await wrapper.vm.onNextClick();
 
         const result = await store.dispatch(CREATE, 'testName');
 

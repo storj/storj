@@ -92,9 +92,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 				continue
 			}
 			existing := pieceMap[piece.PieceNum]
-			if existing != nil &&
-				existing.NodeId == piece.NodeId &&
-				existing.Hash == piece.Hash {
+			if existing != nil && existing.NodeId == piece.NodeId {
 				delete(pieceMap, piece.PieceNum)
 			}
 		}
@@ -114,9 +112,14 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 		// copy the pieces from the map back to the pointer
 		var pieces []*pb.RemotePiece
 		for _, piece := range pieceMap {
+			// clear hashes so we don't store them
+			piece.Hash = nil
 			pieces = append(pieces, piece)
 		}
 		pointer.GetRemote().RemotePieces = pieces
+
+		pointer.LastRepaired = ref.LastRepaired
+		pointer.RepairCount = ref.RepairCount
 
 		// marshal the pointer
 		newPointerBytes, err := proto.Marshal(pointer)
@@ -239,18 +242,6 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 func (s *Service) Delete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.DB.Delete(ctx, []byte(path))
-}
-
-// Iterate iterates over items in db
-func (s *Service) Iterate(ctx context.Context, prefix string, first string, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	opts := storage.IterateOptions{
-		Prefix:  storage.Key(prefix),
-		First:   storage.Key(first),
-		Recurse: recurse,
-		Reverse: reverse,
-	}
-	return s.DB.Iterate(ctx, opts, f)
 }
 
 // CreateBucket creates a new bucket in the buckets db

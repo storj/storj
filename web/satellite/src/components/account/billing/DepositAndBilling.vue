@@ -7,10 +7,10 @@
             <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
             <div class="button" @click="onViewAllClick">View All</div>
         </div>
-        <SortingHeader />
-        <BillingItem />
-        <BillingItem />
-        <BillingItem />
+        <SortingHeader/>
+        <BillingItem/>
+        <BillingItem/>
+        <BillingItem/>
     </div>
 </template>
 
@@ -26,7 +26,7 @@ import { RouteConfig } from '@/router';
     components: {
         BillingItem,
         SortingHeader,
-    }
+    },
 })
 export default class DepositAndBilling extends Vue {
     public onViewAllClick(): void {
@@ -43,18 +43,18 @@ export default class DepositAndBilling extends Vue {
     }
 
     .deposit-and-billing-area {
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         padding: 40px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 40px;
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
 
             &__title {
                 font-size: 32px;
@@ -65,7 +65,7 @@ export default class DepositAndBilling extends Vue {
                 display: flex;
                 width: 120px;
                 height: 48px;
-                border: 1px solid #AFB7C1;
+                border: 1px solid #afb7c1;
                 border-radius: 8px;
                 align-items: center;
                 justify-content: center;
@@ -74,8 +74,8 @@ export default class DepositAndBilling extends Vue {
                 cursor: pointer;
 
                 &:hover {
-                    background-color: #2683FF;
-                    color: #FFFFFF;
+                    background-color: #2683ff;
+                    color: #fff;
                 }
             }
         }

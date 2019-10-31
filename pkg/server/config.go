@@ -26,18 +26,17 @@ type Config struct {
 func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, revDB extensions.RevocationDB, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Ensure revDB is not nil, since we call Close() below we do not want a
-	// panic
+	// Ensure revDB is not nil, since we call Close() below we do not want a panic
 	if revDB == nil {
 		return Error.New("revDB cannot be nil in call to Run")
 	}
 
-	opts, err := tlsopts.NewOptions(identity, sc.Config, revDB)
+	tlsOptions, err := tlsopts.NewOptions(identity, sc.Config, revDB)
 	if err != nil {
 		return err
 	}
 
-	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}

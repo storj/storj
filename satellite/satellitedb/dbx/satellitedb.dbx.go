@@ -17,9 +17,6 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-
-	"github.com/mattn/go-sqlite3"
-	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -144,8 +141,6 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "postgres":
 		sql_db, err = openpostgres(source)
-	case "sqlite3":
-		sql_db, err = opensqlite3(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -170,8 +165,6 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "postgres":
 		db.dbMethods = newpostgres(db)
-	case "sqlite3":
-		db.dbMethods = newsqlite3(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -327,6 +320,38 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coinpayments_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	address text NOT NULL,
+	amount bytea NOT NULL,
+	received bytea NOT NULL,
+	status integer NOT NULL,
+	key text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE graceful_exit_progress (
+	node_id bytea NOT NULL,
+	bytes_transferred bigint NOT NULL,
+	pieces_transferred bigint NOT NULL,
+	pieces_failed bigint NOT NULL,
+	updated_at timestamp NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id bytea NOT NULL,
+	path bytea NOT NULL,
+	piece_num integer NOT NULL,
+	durability_ratio double precision NOT NULL,
+	queued_at timestamp NOT NULL,
+	requested_at timestamp,
+	last_failed_at timestamp,
+	last_failed_code integer,
+	failed_count integer,
+	finished_at timestamp,
+	PRIMARY KEY ( node_id, path, piece_num )
+);
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
@@ -373,6 +398,10 @@ CREATE TABLE nodes (
 	audit_reputation_beta double precision NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
+	exit_initiated_at timestamp,
+	exit_loop_completed_at timestamp,
+	exit_finished_at timestamp,
+	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -455,6 +484,13 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id bytea NOT NULL,
+	customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -520,6 +556,12 @@ CREATE TABLE project_members (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
@@ -534,22 +576,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id bytea NOT NULL,
-	is_default boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -578,357 +604,6 @@ type postgresTx struct {
 }
 
 func postgresLogStmt(stmt string, args ...interface{}) {
-	// TODO: render placeholders
-	if Logger != nil {
-		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
-		Logger(out)
-	}
-}
-
-type sqlite3Impl struct {
-	db      *DB
-	dialect __sqlbundle_sqlite3
-	driver  driver
-}
-
-func (obj *sqlite3Impl) Rebind(s string) string {
-	return obj.dialect.Rebind(s)
-}
-
-func (obj *sqlite3Impl) logStmt(stmt string, args ...interface{}) {
-	sqlite3LogStmt(stmt, args...)
-}
-
-func (obj *sqlite3Impl) makeErr(err error) error {
-	constraint, ok := obj.isConstraintError(err)
-	if ok {
-		return constraintViolation(err, constraint)
-	}
-	return makeErr(err)
-}
-
-type sqlite3DB struct {
-	db *DB
-	*sqlite3Impl
-}
-
-func newsqlite3(db *DB) *sqlite3DB {
-	return &sqlite3DB{
-		db: db,
-		sqlite3Impl: &sqlite3Impl{
-			db:     db,
-			driver: db.DB,
-		},
-	}
-}
-
-func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
-	id INTEGER NOT NULL,
-	node_id BLOB NOT NULL,
-	start_time TIMESTAMP NOT NULL,
-	put_total INTEGER NOT NULL,
-	get_total INTEGER NOT NULL,
-	get_audit_total INTEGER NOT NULL,
-	get_repair_total INTEGER NOT NULL,
-	put_repair_total INTEGER NOT NULL,
-	at_rest_total REAL NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE accounting_timestamps (
-	name TEXT NOT NULL,
-	value TIMESTAMP NOT NULL,
-	PRIMARY KEY ( name )
-);
-CREATE TABLE bucket_bandwidth_rollups (
-	bucket_name BLOB NOT NULL,
-	project_id BLOB NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
-	action INTEGER NOT NULL,
-	inline INTEGER NOT NULL,
-	allocated INTEGER NOT NULL,
-	settled INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-);
-CREATE TABLE bucket_storage_tallies (
-	bucket_name BLOB NOT NULL,
-	project_id BLOB NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	inline INTEGER NOT NULL,
-	remote INTEGER NOT NULL,
-	remote_segments_count INTEGER NOT NULL,
-	inline_segments_count INTEGER NOT NULL,
-	object_count INTEGER NOT NULL,
-	metadata_size INTEGER NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start )
-);
-CREATE TABLE bucket_usages (
-	id BLOB NOT NULL,
-	bucket_id BLOB NOT NULL,
-	rollup_end_time TIMESTAMP NOT NULL,
-	remote_stored_data INTEGER NOT NULL,
-	inline_stored_data INTEGER NOT NULL,
-	remote_segments INTEGER NOT NULL,
-	inline_segments INTEGER NOT NULL,
-	objects INTEGER NOT NULL,
-	metadata_size INTEGER NOT NULL,
-	repair_egress INTEGER NOT NULL,
-	get_egress INTEGER NOT NULL,
-	audit_egress INTEGER NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE injuredsegments (
-	path BLOB NOT NULL,
-	data BLOB NOT NULL,
-	attempted TIMESTAMP,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath BLOB NOT NULL,
-	segmentdetail BLOB NOT NULL,
-	pieces_lost_count INTEGER NOT NULL,
-	seg_damaged_unix_sec INTEGER NOT NULL,
-	repair_attempt_count INTEGER NOT NULL,
-	PRIMARY KEY ( segmentpath )
-);
-CREATE TABLE nodes (
-	id BLOB NOT NULL,
-	address TEXT NOT NULL,
-	last_net TEXT NOT NULL,
-	protocol INTEGER NOT NULL,
-	type INTEGER NOT NULL,
-	email TEXT NOT NULL,
-	wallet TEXT NOT NULL,
-	free_bandwidth INTEGER NOT NULL,
-	free_disk INTEGER NOT NULL,
-	piece_count INTEGER NOT NULL,
-	major INTEGER NOT NULL,
-	minor INTEGER NOT NULL,
-	patch INTEGER NOT NULL,
-	hash TEXT NOT NULL,
-	timestamp TIMESTAMP NOT NULL,
-	release INTEGER NOT NULL,
-	latency_90 INTEGER NOT NULL,
-	audit_success_count INTEGER NOT NULL,
-	total_audit_count INTEGER NOT NULL,
-	uptime_success_count INTEGER NOT NULL,
-	total_uptime_count INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
-	last_contact_success TIMESTAMP NOT NULL,
-	last_contact_failure TIMESTAMP NOT NULL,
-	contained INTEGER NOT NULL,
-	disqualified TIMESTAMP,
-	audit_reputation_alpha REAL NOT NULL,
-	audit_reputation_beta REAL NOT NULL,
-	uptime_reputation_alpha REAL NOT NULL,
-	uptime_reputation_beta REAL NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE offers (
-	id INTEGER NOT NULL,
-	name TEXT NOT NULL,
-	description TEXT NOT NULL,
-	award_credit_in_cents INTEGER NOT NULL,
-	invitee_credit_in_cents INTEGER NOT NULL,
-	award_credit_duration_days INTEGER,
-	invitee_credit_duration_days INTEGER,
-	redeemable_cap INTEGER,
-	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	status INTEGER NOT NULL,
-	type INTEGER NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE peer_identities (
-	node_id BLOB NOT NULL,
-	leaf_serial_number BLOB NOT NULL,
-	chain BLOB NOT NULL,
-	updated_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE pending_audits (
-	node_id BLOB NOT NULL,
-	piece_id BLOB NOT NULL,
-	stripe_index INTEGER NOT NULL,
-	share_size INTEGER NOT NULL,
-	expected_share_hash BLOB NOT NULL,
-	reverify_count INTEGER NOT NULL,
-	path BLOB NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE projects (
-	id BLOB NOT NULL,
-	name TEXT NOT NULL,
-	description TEXT NOT NULL,
-	usage_limit INTEGER NOT NULL,
-	partner_id BLOB,
-	owner_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE registration_tokens (
-	secret BLOB NOT NULL,
-	owner_id BLOB,
-	project_limit INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( secret ),
-	UNIQUE ( owner_id )
-);
-CREATE TABLE reset_password_tokens (
-	secret BLOB NOT NULL,
-	owner_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( secret ),
-	UNIQUE ( owner_id )
-);
-CREATE TABLE serial_numbers (
-	id INTEGER NOT NULL,
-	serial_number BLOB NOT NULL,
-	bucket_id BLOB NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE storagenode_bandwidth_rollups (
-	storagenode_id BLOB NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INTEGER NOT NULL,
-	action INTEGER NOT NULL,
-	allocated INTEGER NOT NULL,
-	settled INTEGER NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_storage_tallies (
-	id INTEGER NOT NULL,
-	node_id BLOB NOT NULL,
-	interval_end_time TIMESTAMP NOT NULL,
-	data_total REAL NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE users (
-	id BLOB NOT NULL,
-	email TEXT NOT NULL,
-	normalized_email TEXT NOT NULL,
-	full_name TEXT NOT NULL,
-	short_name TEXT,
-	password_hash BLOB NOT NULL,
-	status INTEGER NOT NULL,
-	partner_id BLOB,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE value_attributions (
-	project_id BLOB NOT NULL,
-	bucket_name BLOB NOT NULL,
-	partner_id BLOB NOT NULL,
-	last_updated TIMESTAMP NOT NULL,
-	PRIMARY KEY ( project_id, bucket_name )
-);
-CREATE TABLE api_keys (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	head BLOB NOT NULL,
-	name TEXT NOT NULL,
-	secret BLOB NOT NULL,
-	partner_id BLOB,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( head ),
-	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_metainfos (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ),
-	name BLOB NOT NULL,
-	partner_id BLOB,
-	path_cipher INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	default_segment_size INTEGER NOT NULL,
-	default_encryption_cipher_suite INTEGER NOT NULL,
-	default_encryption_block_size INTEGER NOT NULL,
-	default_redundancy_algorithm INTEGER NOT NULL,
-	default_redundancy_share_size INTEGER NOT NULL,
-	default_redundancy_required_shares INTEGER NOT NULL,
-	default_redundancy_repair_shares INTEGER NOT NULL,
-	default_redundancy_optimal_shares INTEGER NOT NULL,
-	default_redundancy_total_shares INTEGER NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( name, project_id )
-);
-CREATE TABLE project_invoice_stamps (
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	invoice_id BLOB NOT NULL,
-	start_date TIMESTAMP NOT NULL,
-	end_date TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( project_id, start_date, end_date ),
-	UNIQUE ( invoice_id )
-);
-CREATE TABLE project_members (
-	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( member_id, project_id )
-);
-CREATE TABLE used_serials (
-	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-	storage_node_id BLOB NOT NULL,
-	PRIMARY KEY ( serial_number_id, storage_node_id )
-);
-CREATE TABLE user_credits (
-	id INTEGER NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	offer_id INTEGER NOT NULL REFERENCES offers( id ),
-	referred_by BLOB REFERENCES users( id ) ON DELETE SET NULL,
-	type TEXT NOT NULL,
-	credits_earned_in_cents INTEGER NOT NULL,
-	credits_used_in_cents INTEGER NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id BLOB NOT NULL,
-	is_default INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
-CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
-}
-
-func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
-	return &sqlite3Tx{
-		dialectTx: dialectTx{tx: tx},
-		sqlite3Impl: &sqlite3Impl{
-			db:     obj.db,
-			driver: tx,
-		},
-	}
-}
-
-type sqlite3Tx struct {
-	dialectTx
-	*sqlite3Impl
-}
-
-func sqlite3LogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -1819,6 +1494,589 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
+type CoinpaymentsTransaction struct {
+	Id        string
+	UserId    []byte
+	Address   string
+	Amount    []byte
+	Received  []byte
+	Status    int
+	Key       string
+	CreatedAt time.Time
+}
+
+func (CoinpaymentsTransaction) _Table() string { return "coinpayments_transactions" }
+
+type CoinpaymentsTransaction_Update_Fields struct {
+	Received CoinpaymentsTransaction_Received_Field
+	Status   CoinpaymentsTransaction_Status_Field
+}
+
+type CoinpaymentsTransaction_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Id(v string) CoinpaymentsTransaction_Id_Field {
+	return CoinpaymentsTransaction_Id_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Id_Field) _Column() string { return "id" }
+
+type CoinpaymentsTransaction_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_UserId(v []byte) CoinpaymentsTransaction_UserId_Field {
+	return CoinpaymentsTransaction_UserId_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_UserId_Field) _Column() string { return "user_id" }
+
+type CoinpaymentsTransaction_Address_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Address(v string) CoinpaymentsTransaction_Address_Field {
+	return CoinpaymentsTransaction_Address_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Address_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Address_Field) _Column() string { return "address" }
+
+type CoinpaymentsTransaction_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_Amount(v []byte) CoinpaymentsTransaction_Amount_Field {
+	return CoinpaymentsTransaction_Amount_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Amount_Field) _Column() string { return "amount" }
+
+type CoinpaymentsTransaction_Received_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CoinpaymentsTransaction_Received(v []byte) CoinpaymentsTransaction_Received_Field {
+	return CoinpaymentsTransaction_Received_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Received_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Received_Field) _Column() string { return "received" }
+
+type CoinpaymentsTransaction_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func CoinpaymentsTransaction_Status(v int) CoinpaymentsTransaction_Status_Field {
+	return CoinpaymentsTransaction_Status_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Status_Field) _Column() string { return "status" }
+
+type CoinpaymentsTransaction_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CoinpaymentsTransaction_Key(v string) CoinpaymentsTransaction_Key_Field {
+	return CoinpaymentsTransaction_Key_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Key_Field) _Column() string { return "key" }
+
+type CoinpaymentsTransaction_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CoinpaymentsTransaction_CreatedAt(v time.Time) CoinpaymentsTransaction_CreatedAt_Field {
+	return CoinpaymentsTransaction_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type GracefulExitProgress struct {
+	NodeId            []byte
+	BytesTransferred  int64
+	PiecesTransferred int64
+	PiecesFailed      int64
+	UpdatedAt         time.Time
+}
+
+func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
+
+type GracefulExitProgress_Update_Fields struct {
+	BytesTransferred  GracefulExitProgress_BytesTransferred_Field
+	PiecesTransferred GracefulExitProgress_PiecesTransferred_Field
+	PiecesFailed      GracefulExitProgress_PiecesFailed_Field
+}
+
+type GracefulExitProgress_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitProgress_NodeId(v []byte) GracefulExitProgress_NodeId_Field {
+	return GracefulExitProgress_NodeId_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_NodeId_Field) _Column() string { return "node_id" }
+
+type GracefulExitProgress_BytesTransferred_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_BytesTransferred(v int64) GracefulExitProgress_BytesTransferred_Field {
+	return GracefulExitProgress_BytesTransferred_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_BytesTransferred_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_BytesTransferred_Field) _Column() string { return "bytes_transferred" }
+
+type GracefulExitProgress_PiecesTransferred_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_PiecesTransferred(v int64) GracefulExitProgress_PiecesTransferred_Field {
+	return GracefulExitProgress_PiecesTransferred_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_PiecesTransferred_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_PiecesTransferred_Field) _Column() string { return "pieces_transferred" }
+
+type GracefulExitProgress_PiecesFailed_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_PiecesFailed(v int64) GracefulExitProgress_PiecesFailed_Field {
+	return GracefulExitProgress_PiecesFailed_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_PiecesFailed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_PiecesFailed_Field) _Column() string { return "pieces_failed" }
+
+type GracefulExitProgress_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
+	v = toUTC(v)
+	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type GracefulExitTransferQueue struct {
+	NodeId          []byte
+	Path            []byte
+	PieceNum        int
+	DurabilityRatio float64
+	QueuedAt        time.Time
+	RequestedAt     *time.Time
+	LastFailedAt    *time.Time
+	LastFailedCode  *int
+	FailedCount     *int
+	FinishedAt      *time.Time
+}
+
+func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
+
+type GracefulExitTransferQueue_Create_Fields struct {
+	RequestedAt    GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt   GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount    GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt     GracefulExitTransferQueue_FinishedAt_Field
+}
+
+type GracefulExitTransferQueue_Update_Fields struct {
+	DurabilityRatio GracefulExitTransferQueue_DurabilityRatio_Field
+	RequestedAt     GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt    GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode  GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount     GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt      GracefulExitTransferQueue_FinishedAt_Field
+}
+
+type GracefulExitTransferQueue_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitTransferQueue_NodeId(v []byte) GracefulExitTransferQueue_NodeId_Field {
+	return GracefulExitTransferQueue_NodeId_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_NodeId_Field) _Column() string { return "node_id" }
+
+type GracefulExitTransferQueue_Path_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitTransferQueue_Path(v []byte) GracefulExitTransferQueue_Path_Field {
+	return GracefulExitTransferQueue_Path_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_Path_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_Path_Field) _Column() string { return "path" }
+
+type GracefulExitTransferQueue_PieceNum_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func GracefulExitTransferQueue_PieceNum(v int) GracefulExitTransferQueue_PieceNum_Field {
+	return GracefulExitTransferQueue_PieceNum_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_PieceNum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_PieceNum_Field) _Column() string { return "piece_num" }
+
+type GracefulExitTransferQueue_DurabilityRatio_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func GracefulExitTransferQueue_DurabilityRatio(v float64) GracefulExitTransferQueue_DurabilityRatio_Field {
+	return GracefulExitTransferQueue_DurabilityRatio_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_DurabilityRatio_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
+
+type GracefulExitTransferQueue_QueuedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
+	v = toUTC(v)
+	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_QueuedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_QueuedAt_Field) _Column() string { return "queued_at" }
+
+type GracefulExitTransferQueue_RequestedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	v = toUTC(v)
+	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_RequestedAt_Raw(v *time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_RequestedAt_Null()
+	}
+	return GracefulExitTransferQueue_RequestedAt(*v)
+}
+
+func GracefulExitTransferQueue_RequestedAt_Null() GracefulExitTransferQueue_RequestedAt_Field {
+	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_RequestedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_RequestedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_RequestedAt_Field) _Column() string { return "requested_at" }
+
+type GracefulExitTransferQueue_LastFailedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	v = toUTC(v)
+	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_LastFailedAt_Raw(v *time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_LastFailedAt_Null()
+	}
+	return GracefulExitTransferQueue_LastFailedAt(*v)
+}
+
+func GracefulExitTransferQueue_LastFailedAt_Null() GracefulExitTransferQueue_LastFailedAt_Field {
+	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_LastFailedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_LastFailedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_LastFailedAt_Field) _Column() string { return "last_failed_at" }
+
+type GracefulExitTransferQueue_LastFailedCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func GracefulExitTransferQueue_LastFailedCode(v int) GracefulExitTransferQueue_LastFailedCode_Field {
+	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_LastFailedCode_Raw(v *int) GracefulExitTransferQueue_LastFailedCode_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_LastFailedCode_Null()
+	}
+	return GracefulExitTransferQueue_LastFailedCode(*v)
+}
+
+func GracefulExitTransferQueue_LastFailedCode_Null() GracefulExitTransferQueue_LastFailedCode_Field {
+	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_LastFailedCode_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_LastFailedCode_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_LastFailedCode_Field) _Column() string { return "last_failed_code" }
+
+type GracefulExitTransferQueue_FailedCount_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func GracefulExitTransferQueue_FailedCount(v int) GracefulExitTransferQueue_FailedCount_Field {
+	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_FailedCount_Raw(v *int) GracefulExitTransferQueue_FailedCount_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_FailedCount_Null()
+	}
+	return GracefulExitTransferQueue_FailedCount(*v)
+}
+
+func GracefulExitTransferQueue_FailedCount_Null() GracefulExitTransferQueue_FailedCount_Field {
+	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_FailedCount_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_FailedCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_FailedCount_Field) _Column() string { return "failed_count" }
+
+type GracefulExitTransferQueue_FinishedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	v = toUTC(v)
+	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_FinishedAt_Raw(v *time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_FinishedAt_Null()
+	}
+	return GracefulExitTransferQueue_FinishedAt(*v)
+}
+
+func GracefulExitTransferQueue_FinishedAt_Null() GracefulExitTransferQueue_FinishedAt_Field {
+	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_FinishedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_FinishedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_FinishedAt_Field) _Column() string { return "finished_at" }
+
 type Injuredsegment struct {
 	Path      []byte
 	Data      []byte
@@ -2050,12 +2308,19 @@ type Node struct {
 	AuditReputationBeta   float64
 	UptimeReputationAlpha float64
 	UptimeReputationBeta  float64
+	ExitInitiatedAt       *time.Time
+	ExitLoopCompletedAt   *time.Time
+	ExitFinishedAt        *time.Time
+	ExitSuccess           bool
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Create_Fields struct {
-	Disqualified Node_Disqualified_Field
+	Disqualified        Node_Disqualified_Field
+	ExitInitiatedAt     Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt      Node_ExitFinishedAt_Field
 }
 
 type Node_Update_Fields struct {
@@ -2087,6 +2352,10 @@ type Node_Update_Fields struct {
 	AuditReputationBeta   Node_AuditReputationBeta_Field
 	UptimeReputationAlpha Node_UptimeReputationAlpha_Field
 	UptimeReputationBeta  Node_UptimeReputationBeta_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
+	ExitSuccess           Node_ExitSuccess_Field
 }
 
 type Node_Id_Field struct {
@@ -2690,6 +2959,124 @@ func (f Node_UptimeReputationBeta_Field) value() interface{} {
 }
 
 func (Node_UptimeReputationBeta_Field) _Column() string { return "uptime_reputation_beta" }
+
+type Node_ExitInitiatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitInitiatedAt(v time.Time) Node_ExitInitiatedAt_Field {
+	v = toUTC(v)
+	return Node_ExitInitiatedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitInitiatedAt_Raw(v *time.Time) Node_ExitInitiatedAt_Field {
+	if v == nil {
+		return Node_ExitInitiatedAt_Null()
+	}
+	return Node_ExitInitiatedAt(*v)
+}
+
+func Node_ExitInitiatedAt_Null() Node_ExitInitiatedAt_Field {
+	return Node_ExitInitiatedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitInitiatedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitInitiatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitInitiatedAt_Field) _Column() string { return "exit_initiated_at" }
+
+type Node_ExitLoopCompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitLoopCompletedAt(v time.Time) Node_ExitLoopCompletedAt_Field {
+	v = toUTC(v)
+	return Node_ExitLoopCompletedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitLoopCompletedAt_Raw(v *time.Time) Node_ExitLoopCompletedAt_Field {
+	if v == nil {
+		return Node_ExitLoopCompletedAt_Null()
+	}
+	return Node_ExitLoopCompletedAt(*v)
+}
+
+func Node_ExitLoopCompletedAt_Null() Node_ExitLoopCompletedAt_Field {
+	return Node_ExitLoopCompletedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitLoopCompletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitLoopCompletedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitLoopCompletedAt_Field) _Column() string { return "exit_loop_completed_at" }
+
+type Node_ExitFinishedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitFinishedAt(v time.Time) Node_ExitFinishedAt_Field {
+	v = toUTC(v)
+	return Node_ExitFinishedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitFinishedAt_Raw(v *time.Time) Node_ExitFinishedAt_Field {
+	if v == nil {
+		return Node_ExitFinishedAt_Null()
+	}
+	return Node_ExitFinishedAt(*v)
+}
+
+func Node_ExitFinishedAt_Null() Node_ExitFinishedAt_Field {
+	return Node_ExitFinishedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitFinishedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitFinishedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitFinishedAt_Field) _Column() string { return "exit_finished_at" }
+
+type Node_ExitSuccess_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Node_ExitSuccess(v bool) Node_ExitSuccess_Field {
+	return Node_ExitSuccess_Field{_set: true, _value: v}
+}
+
+func (f Node_ExitSuccess_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitSuccess_Field) _Column() string { return "exit_success" }
 
 type Offer struct {
 	Id                        int
@@ -3887,6 +4274,74 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
+type StripeCustomer struct {
+	UserId     []byte
+	CustomerId string
+	CreatedAt  time.Time
+}
+
+func (StripeCustomer) _Table() string { return "stripe_customers" }
+
+type StripeCustomer_Update_Fields struct {
+}
+
+type StripeCustomer_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripeCustomer_UserId(v []byte) StripeCustomer_UserId_Field {
+	return StripeCustomer_UserId_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomer_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomer_UserId_Field) _Column() string { return "user_id" }
+
+type StripeCustomer_CustomerId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripeCustomer_CustomerId(v string) StripeCustomer_CustomerId_Field {
+	return StripeCustomer_CustomerId_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomer_CustomerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomer_CustomerId_Field) _Column() string { return "customer_id" }
+
+type StripeCustomer_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripeCustomer_CreatedAt(v time.Time) StripeCustomer_CreatedAt_Field {
+	return StripeCustomer_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomer_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomer_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id              []byte
 	Email           string
@@ -4894,6 +5349,77 @@ func (f ProjectMember_CreatedAt_Field) value() interface{} {
 
 func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
 
+type StripecoinpaymentsApplyBalanceIntent struct {
+	TxId      string
+	State     int
+	CreatedAt time.Time
+}
+
+func (StripecoinpaymentsApplyBalanceIntent) _Table() string {
+	return "stripecoinpayments_apply_balance_intents"
+}
+
+type StripecoinpaymentsApplyBalanceIntent_Update_Fields struct {
+	State StripecoinpaymentsApplyBalanceIntent_State_Field
+}
+
+type StripecoinpaymentsApplyBalanceIntent_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripecoinpaymentsApplyBalanceIntent_TxId(v string) StripecoinpaymentsApplyBalanceIntent_TxId_Field {
+	return StripecoinpaymentsApplyBalanceIntent_TxId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_TxId_Field) _Column() string { return "tx_id" }
+
+type StripecoinpaymentsApplyBalanceIntent_State_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsApplyBalanceIntent_State(v int) StripecoinpaymentsApplyBalanceIntent_State_Field {
+	return StripecoinpaymentsApplyBalanceIntent_State_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_State_Field) _Column() string { return "state" }
+
+type StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsApplyBalanceIntent_CreatedAt(v time.Time) StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field {
+	return StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) _Column() string { return "created_at" }
+
 type UsedSerial struct {
 	SerialNumberId int
 	StorageNodeId  []byte
@@ -5149,203 +5675,6 @@ func (f UserCredit_CreatedAt_Field) value() interface{} {
 
 func (UserCredit_CreatedAt_Field) _Column() string { return "created_at" }
 
-type UserPayment struct {
-	UserId     []byte
-	CustomerId []byte
-	CreatedAt  time.Time
-}
-
-func (UserPayment) _Table() string { return "user_payments" }
-
-type UserPayment_Update_Fields struct {
-}
-
-type UserPayment_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func UserPayment_UserId(v []byte) UserPayment_UserId_Field {
-	return UserPayment_UserId_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_UserId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_UserId_Field) _Column() string { return "user_id" }
-
-type UserPayment_CustomerId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func UserPayment_CustomerId(v []byte) UserPayment_CustomerId_Field {
-	return UserPayment_CustomerId_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_CustomerId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_CustomerId_Field) _Column() string { return "customer_id" }
-
-type UserPayment_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func UserPayment_CreatedAt(v time.Time) UserPayment_CreatedAt_Field {
-	return UserPayment_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_CreatedAt_Field) _Column() string { return "created_at" }
-
-type ProjectPayment struct {
-	Id              []byte
-	ProjectId       []byte
-	PayerId         []byte
-	PaymentMethodId []byte
-	IsDefault       bool
-	CreatedAt       time.Time
-}
-
-func (ProjectPayment) _Table() string { return "project_payments" }
-
-type ProjectPayment_Update_Fields struct {
-	IsDefault ProjectPayment_IsDefault_Field
-}
-
-type ProjectPayment_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_Id(v []byte) ProjectPayment_Id_Field {
-	return ProjectPayment_Id_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_Id_Field) _Column() string { return "id" }
-
-type ProjectPayment_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_ProjectId(v []byte) ProjectPayment_ProjectId_Field {
-	return ProjectPayment_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_ProjectId_Field) _Column() string { return "project_id" }
-
-type ProjectPayment_PayerId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_PayerId(v []byte) ProjectPayment_PayerId_Field {
-	return ProjectPayment_PayerId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_PayerId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_PayerId_Field) _Column() string { return "payer_id" }
-
-type ProjectPayment_PaymentMethodId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_PaymentMethodId(v []byte) ProjectPayment_PaymentMethodId_Field {
-	return ProjectPayment_PaymentMethodId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_PaymentMethodId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_PaymentMethodId_Field) _Column() string { return "payment_method_id" }
-
-type ProjectPayment_IsDefault_Field struct {
-	_set   bool
-	_null  bool
-	_value bool
-}
-
-func ProjectPayment_IsDefault(v bool) ProjectPayment_IsDefault_Field {
-	return ProjectPayment_IsDefault_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_IsDefault_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_IsDefault_Field) _Column() string { return "is_default" }
-
-type ProjectPayment_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func ProjectPayment_CreatedAt(v time.Time) ProjectPayment_CreatedAt_Field {
-	return ProjectPayment_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_CreatedAt_Field) _Column() string { return "created_at" }
-
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
 }
@@ -5560,6 +5889,10 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+type CustomerId_Row struct {
+	CustomerId string
+}
+
 type Id_LastNet_Address_Protocol_Row struct {
 	Id       []byte
 	LastNet  string
@@ -5641,55 +5974,53 @@ func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	irreparabledb *Irreparabledb, err error) {
+	err error) {
 	__segmentpath_val := irreparabledb_segmentpath.value()
 	__segmentdetail_val := irreparabledb_segmentdetail.value()
 	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
 	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
 	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? ) RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 
-	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	_, err = obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return irreparabledb, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_AccountingTimestamps(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	__name_val := accounting_timestamps_name.value()
 	__value_val := accounting_timestamps_value.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? ) RETURNING accounting_timestamps.name, accounting_timestamps.value")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __name_val, __value_val)
 
-	accounting_timestamps = &AccountingTimestamps{}
-	err = obj.driver.QueryRow(__stmt, __name_val, __value_val).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
+	_, err = obj.driver.Exec(__stmt, __name_val, __value_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_timestamps, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -5698,7 +6029,7 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
+	err error) {
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
 	__put_total_val := accounting_rollup_put_total.value()
@@ -5708,21 +6039,20 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	__put_repair_total_val := accounting_rollup_put_repair_total.value()
 	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_rollup, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_Node(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_address Node_Address_Field,
 	node_last_net Node_LastNet_Field,
@@ -5750,8 +6080,9 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_audit_reputation_beta Node_AuditReputationBeta_Field,
 	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
 	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+	node_exit_success Node_ExitSuccess_Field,
 	optional Node_Create_Fields) (
-	node *Node, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
@@ -5785,18 +6116,21 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__audit_reputation_beta_val := node_audit_reputation_beta.value()
 	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
 	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
+	__exit_success_val := node_exit_success.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return node, nil
+	return nil
 
 }
 
@@ -5834,30 +6168,6 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := user_payment_user_id.value()
-	__customer_id_val := user_payment_customer_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_payments ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING user_payments.user_id, user_payments.customer_id, user_payments.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -5887,36 +6197,6 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project, nil
-
-}
-
-func (obj *postgresImpl) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
-	__payer_id_val := project_payment_payer_id.value()
-	__payment_method_id_val := project_payment_payment_method_id.value()
-	__is_default_val := project_payment_is_default.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
 
 }
 
@@ -6044,51 +6324,49 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_SerialNumber(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
 	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
+	err error) {
 	__serial_number_val := serial_number_serial_number.value()
 	__bucket_id_val := serial_number_bucket_id.value()
 	__expires_at_val := serial_number_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? ) RETURNING serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 
-	serial_number = &SerialNumber{}
-	err = obj.driver.QueryRow(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	_, err = obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return serial_number, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
+	err error) {
 	__serial_number_id_val := used_serial_serial_number_id.value()
 	__storage_node_id_val := used_serial_storage_node_id.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	used_serial = &UsedSerial{}
-	err = obj.driver.QueryRow(__stmt, __serial_number_id_val, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	_, err = obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return used_serial, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
@@ -6098,7 +6376,7 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
 	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
+	err error) {
 	__bucket_name_val := bucket_storage_tally_bucket_name.value()
 	__project_id_val := bucket_storage_tally_project_id.value()
 	__interval_start_val := bucket_storage_tally_interval_start.value()
@@ -6109,48 +6387,46 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	__object_count_val := bucket_storage_tally_object_count.value()
 	__metadata_size_val := bucket_storage_tally_metadata_size.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	bucket_storage_tally = &BucketStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	_, err = obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return bucket_storage_tally, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
 	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
 	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
 	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	err error) {
 	__node_id_val := storagenode_storage_tally_node_id.value()
 	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
 	__data_total_val := storagenode_storage_tally_data_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? ) RETURNING storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 
-	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return storagenode_storage_tally, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
@@ -6158,17 +6434,16 @@ func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
 	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return peer_identity, nil
+	return nil
 
 }
 
@@ -6338,6 +6613,146 @@ func (obj *postgresImpl) Create_BucketMetainfo(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return bucket_metainfo, nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_progress_node_id.value()
+	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
+	__pieces_transferred_val := int64(0)
+	__pieces_failed_val := int64(0)
+	__updated_at_val := __now.UTC()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_transfer_queue_node_id.value()
+	__path_val := graceful_exit_transfer_queue_path.value()
+	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
+	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
+	__queued_at_val := __now.UTC()
+	__requested_at_val := optional.RequestedAt.value()
+	__last_failed_at_val := optional.LastFailedAt.value()
+	__last_failed_code_val := optional.LastFailedCode.value()
+	__failed_count_val := optional.FailedCount.value()
+	__finished_at_val := optional.FinishedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer *StripeCustomer, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := stripe_customer_user_id.value()
+	__customer_id_val := stripe_customer_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
+
+	stripe_customer = &StripeCustomer{}
+	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customer, nil
+
+}
+
+func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coinpayments_transaction_id.value()
+	__user_id_val := coinpayments_transaction_user_id.value()
+	__address_val := coinpayments_transaction_address.value()
+	__amount_val := coinpayments_transaction_amount.value()
+	__received_val := coinpayments_transaction_received.value()
+	__status_val := coinpayments_transaction_status.value()
+	__key_val := coinpayments_transaction_key.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+
+}
+
+func (obj *postgresImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := stripecoinpayments_apply_balance_intent_tx_id.value()
+	__state_val := stripecoinpayments_apply_balance_intent_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_apply_balance_intents.tx_id, stripecoinpayments_apply_balance_intents.state, stripecoinpayments_apply_balance_intents.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __tx_id_val, __state_val, __created_at_val)
+
+	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
+	err = obj.driver.QueryRow(__stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_apply_balance_intent, nil
 
 }
 
@@ -6523,7 +6938,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -6532,7 +6947,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6577,7 +6992,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	limit int, offset int64) (
 	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -6595,7 +7010,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -6740,27 +7155,6 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE user_payments.user_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_payment_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -6872,136 +7266,6 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-
-}
-
-func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = true LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_payment, nil
-
-}
-
-func (obj *postgresImpl) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -7185,6 +7449,28 @@ func (obj *postgresImpl) Get_ApiKey_By_Head(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	api_key *ApiKey, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_name.value(), api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7430,6 +7716,38 @@ func (obj *postgresImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_Inte
 	}
 
 	return bucket_storage_tally, nil
+
+}
+
+func (obj *postgresImpl) All_BucketStorageTally(ctx context.Context) (
+	rows []*BucketStorageTally, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bucket_storage_tally := &BucketStorageTally{}
+		err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bucket_storage_tally)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -7958,6 +8276,108 @@ func (obj *postgresImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Or
 
 }
 
+func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_progress = &GracefulExitProgress{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_progress, nil
+
+}
+
+func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_transfer_queue, nil
+
+}
+
+func (obj *postgresImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *CustomerId_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CustomerId_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.CustomerId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	limit int, offset int64) (
+	rows []*CoinpaymentsTransaction, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.created_at <= ? AND coinpayments_transactions.status = ? ORDER BY coinpayments_transactions.created_at DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, coinpayments_transaction_created_at_less_or_equal.value(), coinpayments_transaction_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		coinpayments_transaction := &CoinpaymentsTransaction{}
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, coinpayments_transaction)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -7998,13 +8418,13 @@ func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	return pending_audits, nil
 }
 
-func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
-	irreparabledb *Irreparabledb, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ? RETURNING irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8031,7 +8451,7 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, irreparabledb_segmentpath.value())
@@ -8042,24 +8462,20 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return irreparabledb, nil
+	return nil
 }
 
-func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ? RETURNING accounting_timestamps.name, accounting_timestamps.value")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8071,7 +8487,7 @@ func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, accounting_timestamps_name.value())
@@ -8082,15 +8498,11 @@ func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	accounting_timestamps = &AccountingTimestamps{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_timestamps, nil
+	return nil
 }
 
 func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
@@ -8099,7 +8511,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8245,6 +8657,26 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -8259,7 +8691,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8267,6 +8699,198 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return node, nil
+}
+
+func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.FreeBandwidth._set {
+		__values = append(__values, update.FreeBandwidth.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.UptimeSuccessCount._set {
+		__values = append(__values, update.UptimeSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
+	}
+
+	if update.TotalUptimeCount._set {
+		__values = append(__values, update.TotalUptimeCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_uptime_count = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UptimeReputationAlpha._set {
+		__values = append(__values, update.UptimeReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_alpha = ?"))
+	}
+
+	if update.UptimeReputationBeta._set {
+		__values = append(__values, update.UptimeReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 }
 
 func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
@@ -8379,53 +9003,13 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
-func (obj *postgresImpl) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ? RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.IsDefault._set {
-		__values = append(__values, update.IsDefault.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_payment_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-}
-
-func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
-	api_key *ApiKey, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8437,7 +9021,7 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, api_key_id.value())
@@ -8448,24 +9032,20 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return api_key, nil
+	return nil
 }
 
-func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8494,15 +9074,11 @@ func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return peer_identity, nil
+	return nil
 }
 
 func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -8545,13 +9121,13 @@ func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return registration_token, nil
 }
 
-func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_Offer_By_Id(ctx context.Context,
 	offer_id Offer_Id_Field,
 	update Offer_Update_Fields) (
-	offer *Offer, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ? RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8608,7 +9184,7 @@ func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, offer_id.value())
@@ -8619,15 +9195,11 @@ func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return offer, nil
+	return nil
 }
 
 func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -8714,6 +9286,201 @@ func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context
 		return nil, obj.makeErr(err)
 	}
 	return bucket_metainfo, nil
+}
+
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.BytesTransferred._set {
+		__values = append(__values, update.BytesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
+	}
+
+	if update.PiecesTransferred._set {
+		__values = append(__values, update.PiecesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_transferred = ?"))
+	}
+
+	if update.PiecesFailed._set {
+		__values = append(__values, update.PiecesFailed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_failed = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now.UTC())
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, graceful_exit_progress_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
+	if update.RequestedAt._set {
+		__values = append(__values, update.RequestedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
+	}
+
+	if update.LastFailedAt._set {
+		__values = append(__values, update.LastFailedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
+	}
+
+	if update.FinishedAt._set {
+		__values = append(__values, update.FinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *postgresImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	update CoinpaymentsTransaction_Update_Fields) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Received._set {
+		__values = append(__values, update.Received.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("received = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, coinpayments_transaction_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+}
+
+func (obj *postgresImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_apply_balance_intents SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_apply_balance_intents.tx_id = ? RETURNING stripecoinpayments_apply_balance_intents.tx_id, stripecoinpayments_apply_balance_intents.state, stripecoinpayments_apply_balance_intents.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_apply_balance_intent_tx_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_apply_balance_intent, nil
 }
 
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -8881,32 +9648,6 @@ func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *postgresImpl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9109,3914 +9850,40 @@ func (obj *postgresImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context
 
 }
 
-func (impl postgresImpl) isConstraintError(err error) (
-	constraint string, ok bool) {
-	if e, ok := err.(*pq.Error); ok {
-		if e.Code.Class() == "23" {
-			return e.Constraint, true
-		}
-	}
-	return "", false
-}
-
-func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
-	var __res sql.Result
-	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM project_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM user_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_members;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_invoice_stamps;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_metainfos;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM value_attributions;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM users;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM reset_password_tokens;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM projects;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM peer_identities;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM offers;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_timestamps;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_rollups;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-
-	return count, nil
-
-}
-
-func (obj *sqlite3Impl) Create_ValueAttribution(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field) (
-	value_attribution *ValueAttribution, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__project_id_val := value_attribution_project_id.value()
-	__bucket_name_val := value_attribution_bucket_name.value()
-	__partner_id_val := value_attribution_partner_id.value()
-	__last_updated_val := __now.UTC()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, last_updated ) VALUES ( ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val)
-
-	__res, err := obj.driver.Exec(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastValueAttribution(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_PendingAudits(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field,
-	pending_audits_piece_id PendingAudits_PieceId_Field,
-	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
-	pending_audits_share_size PendingAudits_ShareSize_Field,
-	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
-	pending_audits_reverify_count PendingAudits_ReverifyCount_Field,
-	pending_audits_path PendingAudits_Path_Field) (
-	pending_audits *PendingAudits, err error) {
-	__node_id_val := pending_audits_node_id.value()
-	__piece_id_val := pending_audits_piece_id.value()
-	__stripe_index_val := pending_audits_stripe_index.value()
-	__share_size_val := pending_audits_share_size.value()
-	__expected_share_hash_val := pending_audits_expected_share_hash.value()
-	__reverify_count_val := pending_audits_reverify_count.value()
-	__path_val := pending_audits_path.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastPendingAudits(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	__segmentpath_val := irreparabledb_segmentpath.value()
-	__segmentdetail_val := irreparabledb_segmentdetail.value()
-	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
-	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
-	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-
-	__res, err := obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastIrreparabledb(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_AccountingTimestamps(ctx context.Context,
-	accounting_timestamps_name AccountingTimestamps_Name_Field,
-	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
-	__name_val := accounting_timestamps_name.value()
-	__value_val := accounting_timestamps_value.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __name_val, __value_val)
-
-	__res, err := obj.driver.Exec(__stmt, __name_val, __value_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastAccountingTimestamps(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
-	accounting_rollup_node_id AccountingRollup_NodeId_Field,
-	accounting_rollup_start_time AccountingRollup_StartTime_Field,
-	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
-	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
-	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
-	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
-	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
-	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
-	__node_id_val := accounting_rollup_node_id.value()
-	__start_time_val := accounting_rollup_start_time.value()
-	__put_total_val := accounting_rollup_put_total.value()
-	__get_total_val := accounting_rollup_get_total.value()
-	__get_audit_total_val := accounting_rollup_get_audit_total.value()
-	__get_repair_total_val := accounting_rollup_get_repair_total.value()
-	__put_repair_total_val := accounting_rollup_put_repair_total.value()
-	__at_rest_total_val := accounting_rollup_at_rest_total.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastAccountingRollup(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_Node(ctx context.Context,
-	node_id Node_Id_Field,
-	node_address Node_Address_Field,
-	node_last_net Node_LastNet_Field,
-	node_protocol Node_Protocol_Field,
-	node_type Node_Type_Field,
-	node_email Node_Email_Field,
-	node_wallet Node_Wallet_Field,
-	node_free_bandwidth Node_FreeBandwidth_Field,
-	node_free_disk Node_FreeDisk_Field,
-	node_major Node_Major_Field,
-	node_minor Node_Minor_Field,
-	node_patch Node_Patch_Field,
-	node_hash Node_Hash_Field,
-	node_timestamp Node_Timestamp_Field,
-	node_release Node_Release_Field,
-	node_latency_90 Node_Latency90_Field,
-	node_audit_success_count Node_AuditSuccessCount_Field,
-	node_total_audit_count Node_TotalAuditCount_Field,
-	node_uptime_success_count Node_UptimeSuccessCount_Field,
-	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_last_contact_success Node_LastContactSuccess_Field,
-	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field,
-	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-	node_audit_reputation_beta Node_AuditReputationBeta_Field,
-	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-	optional Node_Create_Fields) (
-	node *Node, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := node_id.value()
-	__address_val := node_address.value()
-	__last_net_val := node_last_net.value()
-	__protocol_val := node_protocol.value()
-	__type_val := node_type.value()
-	__email_val := node_email.value()
-	__wallet_val := node_wallet.value()
-	__free_bandwidth_val := node_free_bandwidth.value()
-	__free_disk_val := node_free_disk.value()
-	__piece_count_val := int64(0)
-	__major_val := node_major.value()
-	__minor_val := node_minor.value()
-	__patch_val := node_patch.value()
-	__hash_val := node_hash.value()
-	__timestamp_val := node_timestamp.value()
-	__release_val := node_release.value()
-	__latency_90_val := node_latency_90.value()
-	__audit_success_count_val := node_audit_success_count.value()
-	__total_audit_count_val := node_total_audit_count.value()
-	__uptime_success_count_val := node_uptime_success_count.value()
-	__total_uptime_count_val := node_total_uptime_count.value()
-	__created_at_val := __now
-	__updated_at_val := __now
-	__last_contact_success_val := node_last_contact_success.value()
-	__last_contact_failure_val := node_last_contact_failure.value()
-	__contained_val := node_contained.value()
-	__disqualified_val := optional.Disqualified.value()
-	__audit_reputation_alpha_val := node_audit_reputation_alpha.value()
-	__audit_reputation_beta_val := node_audit_reputation_beta.value()
-	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
-	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastNode(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_User(ctx context.Context,
-	user_id User_Id_Field,
-	user_email User_Email_Field,
-	user_normalized_email User_NormalizedEmail_Field,
-	user_full_name User_FullName_Field,
-	user_password_hash User_PasswordHash_Field,
-	optional User_Create_Fields) (
-	user *User, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := user_id.value()
-	__email_val := user_email.value()
-	__normalized_email_val := user_normalized_email.value()
-	__full_name_val := user_full_name.value()
-	__short_name_val := optional.ShortName.value()
-	__password_hash_val := user_password_hash.value()
-	__status_val := int(0)
-	__partner_id_val := optional.PartnerId.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUser(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := user_payment_user_id.value()
-	__customer_id_val := user_payment_customer_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_payments ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUserPayment(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_Project(ctx context.Context,
-	project_id Project_Id_Field,
-	project_name Project_Name_Field,
-	project_description Project_Description_Field,
-	project_usage_limit Project_UsageLimit_Field,
-	project_owner_id Project_OwnerId_Field,
-	optional Project_Create_Fields) (
-	project *Project, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_id.value()
-	__name_val := project_name.value()
-	__description_val := project_description.value()
-	__usage_limit_val := project_usage_limit.value()
-	__partner_id_val := optional.PartnerId.value()
-	__owner_id_val := project_owner_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastProject(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
-	__payer_id_val := project_payment_payer_id.value()
-	__payment_method_id_val := project_payment_payment_method_id.value()
-	__is_default_val := project_payment_is_default.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastProjectPayment(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ProjectInvoiceStamp(ctx context.Context,
-	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
-	project_invoice_stamp_invoice_id ProjectInvoiceStamp_InvoiceId_Field,
-	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field,
-	project_invoice_stamp_end_date ProjectInvoiceStamp_EndDate_Field,
-	project_invoice_stamp_created_at ProjectInvoiceStamp_CreatedAt_Field) (
-	project_invoice_stamp *ProjectInvoiceStamp, err error) {
-	__project_id_val := project_invoice_stamp_project_id.value()
-	__invoice_id_val := project_invoice_stamp_invoice_id.value()
-	__start_date_val := project_invoice_stamp_start_date.value()
-	__end_date_val := project_invoice_stamp_end_date.value()
-	__created_at_val := project_invoice_stamp_created_at.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invoice_stamps ( project_id, invoice_id, start_date, end_date, created_at ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastProjectInvoiceStamp(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field,
-	project_member_project_id ProjectMember_ProjectId_Field) (
-	project_member *ProjectMember, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__member_id_val := project_member_member_id.value()
-	__project_id_val := project_member_project_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __member_id_val, __project_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastProjectMember(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
-	api_key_id ApiKey_Id_Field,
-	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_head ApiKey_Head_Field,
-	api_key_name ApiKey_Name_Field,
-	api_key_secret ApiKey_Secret_Field,
-	optional ApiKey_Create_Fields) (
-	api_key *ApiKey, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := api_key_id.value()
-	__project_id_val := api_key_project_id.value()
-	__head_val := api_key_head.value()
-	__name_val := api_key_name.value()
-	__secret_val := api_key_secret.value()
-	__partner_id_val := optional.PartnerId.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastApiKey(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
-	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
-	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
-	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
-	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
-	bucket_usage_objects BucketUsage_Objects_Field,
-	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
-	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
-	bucket_usage_get_egress BucketUsage_GetEgress_Field,
-	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
-	bucket_usage *BucketUsage, err error) {
-	__id_val := bucket_usage_id.value()
-	__bucket_id_val := bucket_usage_bucket_id.value()
-	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
-	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
-	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
-	__remote_segments_val := bucket_usage_remote_segments.value()
-	__inline_segments_val := bucket_usage_inline_segments.value()
-	__objects_val := bucket_usage_objects.value()
-	__metadata_size_val := bucket_usage_metadata_size.value()
-	__repair_egress_val := bucket_usage_repair_egress.value()
-	__get_egress_val := bucket_usage_get_egress.value()
-	__audit_egress_val := bucket_usage_audit_egress.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastBucketUsage(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_SerialNumber(ctx context.Context,
-	serial_number_serial_number SerialNumber_SerialNumber_Field,
-	serial_number_bucket_id SerialNumber_BucketId_Field,
-	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
-	__serial_number_val := serial_number_serial_number.value()
-	__bucket_id_val := serial_number_bucket_id.value()
-	__expires_at_val := serial_number_expires_at.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastSerialNumber(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
-	__serial_number_id_val := used_serial_serial_number_id.value()
-	__storage_node_id_val := used_serial_storage_node_id.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
-
-	__res, err := obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUsedSerial(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
-
-	__res, err := obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastBucketStorageTally(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
-	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
-	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
-	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
-	__node_id_val := storagenode_storage_tally_node_id.value()
-	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
-	__data_total_val := storagenode_storage_tally_data_total.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastStoragenodeStorageTally(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
-	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__node_id_val := peer_identity_node_id.value()
-	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
-	__chain_val := peer_identity_chain.value()
-	__updated_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastPeerIdentity(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_RegistrationToken(ctx context.Context,
-	registration_token_secret RegistrationToken_Secret_Field,
-	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
-	optional RegistrationToken_Create_Fields) (
-	registration_token *RegistrationToken, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__secret_val := registration_token_secret.value()
-	__owner_id_val := optional.OwnerId.value()
-	__project_limit_val := registration_token_project_limit.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastRegistrationToken(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ResetPasswordToken(ctx context.Context,
-	reset_password_token_secret ResetPasswordToken_Secret_Field,
-	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
-	reset_password_token *ResetPasswordToken, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__secret_val := reset_password_token_secret.value()
-	__owner_id_val := reset_password_token_owner_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __secret_val, __owner_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __secret_val, __owner_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastResetPasswordToken(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
-	offer_name Offer_Name_Field,
-	offer_description Offer_Description_Field,
-	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
-	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
-	offer_expires_at Offer_ExpiresAt_Field,
-	offer_status Offer_Status_Field,
-	offer_type Offer_Type_Field,
-	optional Offer_Create_Fields) (
-	offer *Offer, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__name_val := offer_name.value()
-	__description_val := offer_description.value()
-	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
-	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
-	__award_credit_duration_days_val := optional.AwardCreditDurationDays.value()
-	__invitee_credit_duration_days_val := optional.InviteeCreditDurationDays.value()
-	__redeemable_cap_val := optional.RedeemableCap.value()
-	__expires_at_val := offer_expires_at.value()
-	__created_at_val := __now
-	__status_val := offer_status.value()
-	__type_val := offer_type.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
-
-	__res, err := obj.driver.Exec(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastOffer(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
-	user_credit_user_id UserCredit_UserId_Field,
-	user_credit_offer_id UserCredit_OfferId_Field,
-	user_credit_type UserCredit_Type_Field,
-	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
-	user_credit_expires_at UserCredit_ExpiresAt_Field,
-	optional UserCredit_Create_Fields) (
-	user_credit *UserCredit, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := user_credit_user_id.value()
-	__offer_id_val := user_credit_offer_id.value()
-	__referred_by_val := optional.ReferredBy.value()
-	__type_val := user_credit_type.value()
-	__credits_earned_in_cents_val := user_credit_credits_earned_in_cents.value()
-	__credits_used_in_cents_val := int(0)
-	__expires_at_val := user_credit_expires_at.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, type, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUserCredit(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_BucketMetainfo(ctx context.Context,
-	bucket_metainfo_id BucketMetainfo_Id_Field,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
-	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
-	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
-	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
-	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
-	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
-	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
-	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
-	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
-	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
-	optional BucketMetainfo_Create_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bucket_metainfo_id.value()
-	__project_id_val := bucket_metainfo_project_id.value()
-	__name_val := bucket_metainfo_name.value()
-	__partner_id_val := optional.PartnerId.value()
-	__path_cipher_val := bucket_metainfo_path_cipher.value()
-	__created_at_val := __now
-	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
-	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
-	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
-	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
-	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
-	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
-	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
-	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
-	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metainfos ( id, project_id, name, partner_id, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastBucketMetainfo(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+func (obj *postgresImpl) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+	__values = append(__values, graceful_exit_progress_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	__res, err := obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return false, obj.makeErr(err)
 	}
-	return value_attribution, nil
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
 
 }
 
-func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return pending_audits, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		irreparabledb := &Irreparabledb{}
-		err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, irreparabledb)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
-	accounting_timestamps_name AccountingTimestamps_Name_Field) (
-	row *Value_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_timestamps_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Value_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *sqlite3Impl) Get_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	accounting_rollup *AccountingRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-
-}
-
-func (obj *sqlite3Impl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
-	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
-	rows []*AccountingRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, accounting_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	node *Node, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return node, nil
-
-}
-
-func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
-	rows []*Id_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Id_Row{}
-		err = __rows.Scan(&row.Id)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
-	node_id_greater_or_equal Node_Id_Field,
-	limit int, offset int64) (
-	rows []*Node, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx context.Context,
-	node_id_greater_or_equal Node_Id_Field,
-	limit int, offset int64) (
-	rows []*Id_LastNet_Address_Protocol_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.address, nodes.protocol FROM nodes WHERE nodes.id >= ? AND nodes.disqualified is NULL ORDER BY nodes.id LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Id_LastNet_Address_Protocol_Row{}
-		err = __rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
-	rows []*Id_PieceCount_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Id_PieceCount_Row{}
-		err = __rows.Scan(&row.Id, &row.PieceCount)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
-	user_normalized_email User_NormalizedEmail_Field) (
-	user *User, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, user_normalized_email.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return user, nil
-
-}
-
-func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	user *User, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user, nil
-
-}
-
-func (obj *sqlite3Impl) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE user_payments.user_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_payment_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
-	project_id Project_Id_Field) (
-	project *Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project, nil
-
-}
-
-func (obj *sqlite3Impl) All_Project(ctx context.Context) (
-	rows []*Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
-	project_created_at_less Project_CreatedAt_Field) (
-	rows []*Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
-
-	var __values []interface{}
-	__values = append(__values, project_created_at_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field) (
-	rows []*Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
-
-	var __values []interface{}
-	__values = append(__values, project_member_member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = 1 LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_payment, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Context,
-	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field,
-	project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
-	project_invoice_stamp *ProjectInvoiceStamp, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ? AND project_invoice_stamps.start_date = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_invoice_stamp_project_id.value(), project_invoice_stamp_start_date.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_invoice_stamp = &ProjectInvoiceStamp{}
-	err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectInvoiceStamp_By_ProjectId_And_StartDate")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_invoice_stamp, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectInvoiceStamp_By_ProjectId_OrderBy_Desc_StartDate(ctx context.Context,
-	project_invoice_stamp_project_id ProjectInvoiceStamp_ProjectId_Field) (
-	rows []*ProjectInvoiceStamp, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE project_invoice_stamps.project_id = ? ORDER BY project_invoice_stamps.start_date DESC")
-
-	var __values []interface{}
-	__values = append(__values, project_invoice_stamp_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_invoice_stamp := &ProjectInvoiceStamp{}
-		err = __rows.Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_invoice_stamp)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectMember_By_MemberId(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field) (
-	rows []*ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_member_member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_member := &ProjectMember{}
-		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_member)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
-	project_member_project_id ProjectMember_ProjectId_Field,
-	limit int, offset int64) (
-	rows []*ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.project_id = ? LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, project_member_project_id.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_member := &ProjectMember{}
-		err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_member)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return api_key, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ApiKey_By_Head(ctx context.Context,
-	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_head.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return api_key, nil
-
-}
-
-func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
-	api_key_project_id ApiKey_ProjectId_Field) (
-	rows []*ApiKey, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
-
-	var __values []interface{}
-	__values = append(__values, api_key_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		api_key := &ApiKey{}
-		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, api_key)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	bucket_usage *BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_usage, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_usage)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_usage)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
-	serial_number_serial_number SerialNumber_SerialNumber_Field) (
-	serial_number *SerialNumber, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, serial_number_serial_number.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, nil
-	}
-
-	serial_number = &SerialNumber{}
-	err = __rows.Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("SerialNumber_By_SerialNumber")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return serial_number, nil
-
-}
-
-func (obj *sqlite3Impl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx context.Context,
-	bucket_bandwidth_rollup_bucket_name BucketBandwidthRollup_BucketName_Field,
-	bucket_bandwidth_rollup_project_id BucketBandwidthRollup_ProjectId_Field,
-	bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
-	bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
-	bucket_bandwidth_rollup *BucketBandwidthRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.bucket_name = ? AND bucket_bandwidth_rollups.project_id = ? AND bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_bucket_name.value(), bucket_bandwidth_rollup_project_id.value(), bucket_bandwidth_rollup_interval_start.value(), bucket_bandwidth_rollup_action.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_bandwidth_rollup, nil
-
-}
-
-func (obj *sqlite3Impl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? ORDER BY bucket_storage_tallies.interval_start DESC LIMIT 1 OFFSET 0")
-
-	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, nil
-	}
-
-	bucket_storage_tally = &BucketStorageTally{}
-	err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return bucket_storage_tally, nil
-
-}
-
-func (obj *sqlite3Impl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
-	rows []*BucketStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
-
-	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_storage_tally := &BucketStorageTally{}
-		err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_storage_tally)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
-	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
-	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
-	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action = ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value(), storagenode_bandwidth_rollup_action.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return storagenode_bandwidth_rollup, nil
-
-}
-
-func (obj *sqlite3Impl) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
-	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
-	rows []*StoragenodeBandwidthRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
-		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, storagenode_bandwidth_rollup)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
-	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_storage_tally_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return storagenode_storage_tally, nil
-
-}
-
-func (obj *sqlite3Impl) All_StoragenodeStorageTally(ctx context.Context) (
-	rows []*StoragenodeStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, storagenode_storage_tally)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
-	storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
-	rows []*StoragenodeStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, storagenode_storage_tally)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field) (
-	peer_identity *PeerIdentity, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, peer_identity_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return peer_identity, nil
-
-}
-
-func (obj *sqlite3Impl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field) (
-	row *LeafSerialNumber_Row, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, peer_identity_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &LeafSerialNumber_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *sqlite3Impl) Get_RegistrationToken_By_Secret(ctx context.Context,
-	registration_token_secret RegistrationToken_Secret_Field) (
-	registration_token *RegistrationToken, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
-
-	var __values []interface{}
-	__values = append(__values, registration_token_secret.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return registration_token, nil
-
-}
-
-func (obj *sqlite3Impl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
-	registration_token_owner_id RegistrationToken_OwnerId_Field) (
-	registration_token *RegistrationToken, err error) {
-
-	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
-
-	var __values []interface{}
-	__values = append(__values)
-
-	if !registration_token_owner_id.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, registration_token_owner_id.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return registration_token, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
-	reset_password_token_secret ResetPasswordToken_Secret_Field) (
-	reset_password_token *ResetPasswordToken, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
-
-	var __values []interface{}
-	__values = append(__values, reset_password_token_secret.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return reset_password_token, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
-	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
-	reset_password_token *ResetPasswordToken, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, reset_password_token_owner_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return reset_password_token, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Offer_By_Id(ctx context.Context,
-	offer_id Offer_Id_Field) (
-	offer *Offer, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE offers.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, offer_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return offer, nil
-
-}
-
-func (obj *sqlite3Impl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
-	rows []*Offer, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		offer := &Offer{}
-		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, offer)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
-	user_credit_user_id UserCredit_UserId_Field,
-	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
-	rows []*UserCredit, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
-
-	var __values []interface{}
-	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		user_credit := &UserCredit{}
-		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, user_credit)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Count_UserCredit_By_ReferredBy(ctx context.Context,
-	user_credit_referred_by UserCredit_ReferredBy_Field) (
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
 	count int64, err error) {
 
-	var __cond_0 = &__sqlbundle_Condition{Left: "user_credits.referred_by", Equal: true, Right: "?", Null: true}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM user_credits WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values)
-
-	if !user_credit_referred_by.isnull() {
-		__cond_0.Null = false
-		__values = append(__values, user_credit_referred_by.value())
-	}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *sqlite3Impl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	bucket_metainfo *BucketMetainfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_metainfo := &BucketMetainfo{}
-		err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_metainfo)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_metainfo := &BucketMetainfo{}
-		err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_metainfo)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field,
-	update PendingAudits_Update_Fields) (
-	pending_audits *PendingAudits, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE pending_audits SET "), __sets, __sqlbundle_Literal(" WHERE pending_audits.node_id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.ReverifyCount._set {
-		__values = append(__values, update.ReverifyCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("reverify_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, pending_audits_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	pending_audits = &PendingAudits{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return pending_audits, nil
-}
-
-func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	irreparabledb *Irreparabledb, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Segmentdetail._set {
-		__values = append(__values, update.Segmentdetail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
-	}
-
-	if update.PiecesLostCount._set {
-		__values = append(__values, update.PiecesLostCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
-	}
-
-	if update.SegDamagedUnixSec._set {
-		__values = append(__values, update.SegDamagedUnixSec.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
-	}
-
-	if update.RepairAttemptCount._set {
-		__values = append(__values, update.RepairAttemptCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, irreparabledb_segmentpath.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return irreparabledb, nil
-}
-
-func (obj *sqlite3Impl) Update_AccountingTimestamps_By_Name(ctx context.Context,
-	accounting_timestamps_name AccountingTimestamps_Name_Field,
-	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Value._set {
-		__values = append(__values, update.Value.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, accounting_timestamps_name.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_timestamps = &AccountingTimestamps{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT accounting_timestamps.name, accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_timestamps, nil
-}
-
-func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field,
-	update Node_Update_Fields) (
-	node *Node, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Address._set {
-		__values = append(__values, update.Address.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
-	}
-
-	if update.LastNet._set {
-		__values = append(__values, update.LastNet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
-	}
-
-	if update.Protocol._set {
-		__values = append(__values, update.Protocol.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
-	}
-
-	if update.Type._set {
-		__values = append(__values, update.Type.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
-	}
-
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
-	}
-
-	if update.Wallet._set {
-		__values = append(__values, update.Wallet.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
-	}
-
-	if update.FreeDisk._set {
-		__values = append(__values, update.FreeDisk.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
-	}
-
-	if update.PieceCount._set {
-		__values = append(__values, update.PieceCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
-	}
-
-	if update.Major._set {
-		__values = append(__values, update.Major.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
-	}
-
-	if update.Minor._set {
-		__values = append(__values, update.Minor.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
-	}
-
-	if update.Patch._set {
-		__values = append(__values, update.Patch.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
-	}
-
-	if update.Hash._set {
-		__values = append(__values, update.Hash.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
-	}
-
-	if update.Timestamp._set {
-		__values = append(__values, update.Timestamp.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
-	}
-
-	if update.Release._set {
-		__values = append(__values, update.Release.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
-	}
-
-	if update.Latency90._set {
-		__values = append(__values, update.Latency90.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
-	}
-
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
-	}
-
-	if update.TotalAuditCount._set {
-		__values = append(__values, update.TotalAuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
-	}
-
-	if update.UptimeSuccessCount._set {
-		__values = append(__values, update.UptimeSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_success_count = ?"))
-	}
-
-	if update.TotalUptimeCount._set {
-		__values = append(__values, update.TotalUptimeCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_uptime_count = ?"))
-	}
-
-	if update.LastContactSuccess._set {
-		__values = append(__values, update.LastContactSuccess.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
-	}
-
-	if update.LastContactFailure._set {
-		__values = append(__values, update.LastContactFailure.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
-	}
-
-	if update.Contained._set {
-		__values = append(__values, update.Contained.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
-	}
-
-	if update.Disqualified._set {
-		__values = append(__values, update.Disqualified.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UptimeReputationAlpha._set {
-		__values = append(__values, update.UptimeReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_alpha = ?"))
-	}
-
-	if update.UptimeReputationBeta._set {
-		__values = append(__values, update.UptimeReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
-	}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	node = &Node{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return node, nil
-}
-
-func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
-	user_id User_Id_Field,
-	update User_Update_Fields) (
-	user *User, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
-	}
-
-	if update.NormalizedEmail._set {
-		__values = append(__values, update.NormalizedEmail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
-	}
-
-	if update.FullName._set {
-		__values = append(__values, update.FullName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
-	}
-
-	if update.ShortName._set {
-		__values = append(__values, update.ShortName.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("short_name = ?"))
-	}
-
-	if update.PasswordHash._set {
-		__values = append(__values, update.PasswordHash.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
-	}
-
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, user_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user = &User{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user, nil
-}
-
-func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
-	project_id Project_Id_Field,
-	update Project_Update_Fields) (
-	project *Project, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Description._set {
-		__values = append(__values, update.Description.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
-	}
-
-	if update.UsageLimit._set {
-		__values = append(__values, update.UsageLimit.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project = &Project{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project, nil
-}
-
-func (obj *sqlite3Impl) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.IsDefault._set {
-		__values = append(__values, update.IsDefault.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_payment_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-}
-
-func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field,
-	update ApiKey_Update_Fields) (
-	api_key *ApiKey, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Name._set {
-		__values = append(__values, update.Name.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, api_key_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	api_key = &ApiKey{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return api_key, nil
-}
-
-func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.LeafSerialNumber._set {
-		__values = append(__values, update.LeafSerialNumber.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
-	}
-
-	if update.Chain._set {
-		__values = append(__values, update.Chain.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
-	}
-
-	__now := obj.db.Hooks.Now().UTC()
-
-	__values = append(__values, __now)
-	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
-
-	__args = append(__args, peer_identity_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	peer_identity = &PeerIdentity{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return peer_identity, nil
-}
-
-func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
-	registration_token_secret RegistrationToken_Secret_Field,
-	update RegistrationToken_Update_Fields) (
-	registration_token *RegistrationToken, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.OwnerId._set {
-		__values = append(__values, update.OwnerId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, registration_token_secret.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	registration_token = &RegistrationToken{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return registration_token, nil
-}
-
-func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
-	offer_id Offer_Id_Field,
-	update Offer_Update_Fields) (
-	offer *Offer, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Name._set {
-		__values = append(__values, update.Name.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
-	}
-
-	if update.Description._set {
-		__values = append(__values, update.Description.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
-	}
-
-	if update.AwardCreditInCents._set {
-		__values = append(__values, update.AwardCreditInCents.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_in_cents = ?"))
-	}
-
-	if update.InviteeCreditInCents._set {
-		__values = append(__values, update.InviteeCreditInCents.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_in_cents = ?"))
-	}
-
-	if update.AwardCreditDurationDays._set {
-		__values = append(__values, update.AwardCreditDurationDays.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_duration_days = ?"))
-	}
-
-	if update.InviteeCreditDurationDays._set {
-		__values = append(__values, update.InviteeCreditDurationDays.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_duration_days = ?"))
-	}
-
-	if update.RedeemableCap._set {
-		__values = append(__values, update.RedeemableCap.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redeemable_cap = ?"))
-	}
-
-	if update.ExpiresAt._set {
-		__values = append(__values, update.ExpiresAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
-	}
-
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
-	}
-
-	if update.Type._set {
-		__values = append(__values, update.Type.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, offer_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	offer = &Offer{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE offers.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return offer, nil
-}
-
-func (obj *sqlite3Impl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	update BucketMetainfo_Update_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.PartnerId._set {
-		__values = append(__values, update.PartnerId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
-	}
-
-	if update.DefaultSegmentSize._set {
-		__values = append(__values, update.DefaultSegmentSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
-	}
-
-	if update.DefaultEncryptionCipherSuite._set {
-		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
-	}
-
-	if update.DefaultEncryptionBlockSize._set {
-		__values = append(__values, update.DefaultEncryptionBlockSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
-	}
-
-	if update.DefaultRedundancyAlgorithm._set {
-		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
-	}
-
-	if update.DefaultRedundancyShareSize._set {
-		__values = append(__values, update.DefaultRedundancyShareSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
-	}
-
-	if update.DefaultRedundancyRequiredShares._set {
-		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
-	}
-
-	if update.DefaultRedundancyRepairShares._set {
-		__values = append(__values, update.DefaultRedundancyRepairShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
-	}
-
-	if update.DefaultRedundancyOptimalShares._set {
-		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
-	}
-
-	if update.DefaultRedundancyTotalShares._set {
-		__values = append(__values, update.DefaultRedundancyTotalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-}
-
-func (obj *sqlite3Impl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
-
-	var __values []interface{}
-	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM nodes WHERE nodes.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
-	user_id User_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
-	project_id Project_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
-	project_member_member_id ProjectMember_MemberId_Field,
-	project_member_project_id ProjectMember_ProjectId_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, api_key_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
-	count int64, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM serial_numbers WHERE serial_numbers.expires_at <= ?")
-
-	var __values []interface{}
-	__values = append(__values, serial_number_expires_at_less_or_equal.value())
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13035,14 +9902,16 @@ func (obj *sqlite3Impl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context
 
 }
 
-func (obj *sqlite3Impl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
-	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, storagenode_storage_tally_id.value())
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13061,14 +9930,40 @@ func (obj *sqlite3Impl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context
 
 }
 
-func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
-	reset_password_token_secret ResetPasswordToken_Secret_Field) (
-	deleted bool, err error) {
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
 
 	var __values []interface{}
-	__values = append(__values, reset_password_token_secret.value())
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *postgresImpl) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM stripecoinpayments_apply_balance_intents WHERE stripecoinpayments_apply_balance_intents.tx_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_apply_balance_intent_tx_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13087,503 +9982,19 @@ func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) getLastValueAttribution(ctx context.Context,
-	pk int64) (
-	value_attribution *ValueAttribution, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return value_attribution, nil
-
-}
-
-func (obj *sqlite3Impl) getLastPendingAudits(ctx context.Context,
-	pk int64) (
-	pending_audits *PendingAudits, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return pending_audits, nil
-
-}
-
-func (obj *sqlite3Impl) getLastIrreparabledb(ctx context.Context,
-	pk int64) (
-	irreparabledb *Irreparabledb, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *sqlite3Impl) getLastAccountingTimestamps(ctx context.Context,
-	pk int64) (
-	accounting_timestamps *AccountingTimestamps, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.name, accounting_timestamps.value FROM accounting_timestamps WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	accounting_timestamps = &AccountingTimestamps{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_timestamps, nil
-
-}
-
-func (obj *sqlite3Impl) getLastAccountingRollup(ctx context.Context,
-	pk int64) (
-	accounting_rollup *AccountingRollup, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-
-}
-
-func (obj *sqlite3Impl) getLastNode(ctx context.Context,
-	pk int64) (
-	node *Node, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return node, nil
-
-}
-
-func (obj *sqlite3Impl) getLastUser(ctx context.Context,
-	pk int64) (
-	user *User, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user, nil
-
-}
-
-func (obj *sqlite3Impl) getLastUserPayment(ctx context.Context,
-	pk int64) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
-func (obj *sqlite3Impl) getLastProject(ctx context.Context,
-	pk int64) (
-	project *Project, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project, nil
-
-}
-
-func (obj *sqlite3Impl) getLastProjectPayment(ctx context.Context,
-	pk int64) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-
-}
-
-func (obj *sqlite3Impl) getLastProjectInvoiceStamp(ctx context.Context,
-	pk int64) (
-	project_invoice_stamp *ProjectInvoiceStamp, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_invoice_stamps.project_id, project_invoice_stamps.invoice_id, project_invoice_stamps.start_date, project_invoice_stamps.end_date, project_invoice_stamps.created_at FROM project_invoice_stamps WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	project_invoice_stamp = &ProjectInvoiceStamp{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_invoice_stamp, nil
-
-}
-
-func (obj *sqlite3Impl) getLastProjectMember(ctx context.Context,
-	pk int64) (
-	project_member *ProjectMember, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	project_member = &ProjectMember{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_member, nil
-
-}
-
-func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
-	pk int64) (
-	api_key *ApiKey, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return api_key, nil
-
-}
-
-func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
-	pk int64) (
-	bucket_usage *BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_usage, nil
-
-}
-
-func (obj *sqlite3Impl) getLastSerialNumber(ctx context.Context,
-	pk int64) (
-	serial_number *SerialNumber, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at FROM serial_numbers WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	serial_number = &SerialNumber{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return serial_number, nil
-
-}
-
-func (obj *sqlite3Impl) getLastUsedSerial(ctx context.Context,
-	pk int64) (
-	used_serial *UsedSerial, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT used_serials.serial_number_id, used_serials.storage_node_id FROM used_serials WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	used_serial = &UsedSerial{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return used_serial, nil
-
-}
-
-func (obj *sqlite3Impl) getLastBucketStorageTally(ctx context.Context,
-	pk int64) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	bucket_storage_tally = &BucketStorageTally{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_storage_tally, nil
-
-}
-
-func (obj *sqlite3Impl) getLastStoragenodeStorageTally(ctx context.Context,
-	pk int64) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return storagenode_storage_tally, nil
-
-}
-
-func (obj *sqlite3Impl) getLastPeerIdentity(ctx context.Context,
-	pk int64) (
-	peer_identity *PeerIdentity, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return peer_identity, nil
-
-}
-
-func (obj *sqlite3Impl) getLastRegistrationToken(ctx context.Context,
-	pk int64) (
-	registration_token *RegistrationToken, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return registration_token, nil
-
-}
-
-func (obj *sqlite3Impl) getLastResetPasswordToken(ctx context.Context,
-	pk int64) (
-	reset_password_token *ResetPasswordToken, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return reset_password_token, nil
-
-}
-
-func (obj *sqlite3Impl) getLastOffer(ctx context.Context,
-	pk int64) (
-	offer *Offer, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return offer, nil
-
-}
-
-func (obj *sqlite3Impl) getLastUserCredit(ctx context.Context,
-	pk int64) (
-	user_credit *UserCredit, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	user_credit = &UserCredit{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_credit, nil
-
-}
-
-func (obj *sqlite3Impl) getLastBucketMetainfo(ctx context.Context,
-	pk int64) (
-	bucket_metainfo *BucketMetainfo, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (impl sqlite3Impl) isConstraintError(err error) (
+func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
-	if e, ok := err.(sqlite3.Error); ok {
-		if e.Code == sqlite3.ErrConstraint {
-			msg := err.Error()
-			colon := strings.LastIndex(msg, ":")
-			if colon != -1 {
-				return strings.TrimSpace(msg[colon:]), true
-			}
-			return "", true
+	if e, ok := err.(*pq.Error); ok {
+		if e.Code.Class() == "23" {
+			return e.Constraint, true
 		}
 	}
 	return "", false
 }
 
-func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
+func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM project_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM user_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -13595,6 +10006,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -13655,6 +10076,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -13775,6 +10206,36 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_transfer_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -13901,6 +10362,15 @@ func (rx *Rx) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 	return tx.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, api_key_project_id)
 }
 
+func (rx *Rx) All_BucketStorageTally(ctx context.Context) (
+	rows []*BucketStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BucketStorageTally(ctx)
+}
+
 func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
@@ -13968,26 +10438,6 @@ func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 		return
 	}
 	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
-}
-
-func (rx *Rx) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_ProjectPayment_By_PayerId(ctx, project_payment_payer_id)
-}
-
-func (rx *Rx) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_ProjectPayment_By_ProjectId(ctx, project_payment_project_id)
 }
 
 func (rx *Rx) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
@@ -14060,7 +10510,7 @@ func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	return tx.Count_UserCredit_By_ReferredBy(ctx, user_credit_referred_by)
 }
 
-func (rx *Rx) Create_AccountingRollup(ctx context.Context,
+func (rx *Rx) CreateNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -14069,24 +10519,175 @@ func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
+	return tx.CreateNoReturn_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
 
 }
 
-func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
+func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+	return tx.CreateNoReturn_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+
+}
+
+func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitProgress(ctx, graceful_exit_progress_node_id, graceful_exit_progress_bytes_transferred)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
+
+}
+
+func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
+	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
+	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
+	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
+
+}
+
+func (rx *Rx) CreateNoReturn_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_address Node_Address_Field,
+	node_last_net Node_LastNet_Field,
+	node_protocol Node_Protocol_Field,
+	node_type Node_Type_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	node_free_bandwidth Node_FreeBandwidth_Field,
+	node_free_disk Node_FreeDisk_Field,
+	node_major Node_Major_Field,
+	node_minor Node_Minor_Field,
+	node_patch Node_Patch_Field,
+	node_hash Node_Hash_Field,
+	node_timestamp Node_Timestamp_Field,
+	node_release Node_Release_Field,
+	node_latency_90 Node_Latency90_Field,
+	node_audit_success_count Node_AuditSuccessCount_Field,
+	node_total_audit_count Node_TotalAuditCount_Field,
+	node_uptime_success_count Node_UptimeSuccessCount_Field,
+	node_total_uptime_count Node_TotalUptimeCount_Field,
+	node_last_contact_success Node_LastContactSuccess_Field,
+	node_last_contact_failure Node_LastContactFailure_Field,
+	node_contained Node_Contained_Field,
+	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
+	node_audit_reputation_beta Node_AuditReputationBeta_Field,
+	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+	node_exit_success Node_ExitSuccess_Field,
+	optional Node_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_Node(ctx, node_id, node_address, node_last_net, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_uptime_success_count, node_total_uptime_count, node_last_contact_success, node_last_contact_failure, node_contained, node_audit_reputation_alpha, node_audit_reputation_beta, node_uptime_reputation_alpha, node_uptime_reputation_beta, node_exit_success, optional)
+
+}
+
+func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
+
+}
+
+func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+
+}
+
+func (rx *Rx) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
+
+}
+
+func (rx *Rx) CreateNoReturn_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
 
 }
 
@@ -14130,25 +10731,6 @@ func (rx *Rx) Create_BucketMetainfo(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
-
-}
-
 func (rx *Rx) Create_BucketUsage(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
@@ -14171,56 +10753,20 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	irreparabledb *Irreparabledb, err error) {
+func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
-
-}
-
-func (rx *Rx) Create_Node(ctx context.Context,
-	node_id Node_Id_Field,
-	node_address Node_Address_Field,
-	node_last_net Node_LastNet_Field,
-	node_protocol Node_Protocol_Field,
-	node_type Node_Type_Field,
-	node_email Node_Email_Field,
-	node_wallet Node_Wallet_Field,
-	node_free_bandwidth Node_FreeBandwidth_Field,
-	node_free_disk Node_FreeDisk_Field,
-	node_major Node_Major_Field,
-	node_minor Node_Minor_Field,
-	node_patch Node_Patch_Field,
-	node_hash Node_Hash_Field,
-	node_timestamp Node_Timestamp_Field,
-	node_release Node_Release_Field,
-	node_latency_90 Node_Latency90_Field,
-	node_audit_success_count Node_AuditSuccessCount_Field,
-	node_total_audit_count Node_TotalAuditCount_Field,
-	node_uptime_success_count Node_UptimeSuccessCount_Field,
-	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_last_contact_success Node_LastContactSuccess_Field,
-	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field,
-	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-	node_audit_reputation_beta Node_AuditReputationBeta_Field,
-	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-	optional Node_Create_Fields) (
-	node *Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_Node(ctx, node_id, node_address, node_last_net, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_uptime_success_count, node_total_uptime_count, node_last_contact_success, node_last_contact_failure, node_contained, node_audit_reputation_alpha, node_audit_reputation_beta, node_uptime_reputation_alpha, node_uptime_reputation_beta, optional)
+	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount, coinpayments_transaction_received, coinpayments_transaction_status, coinpayments_transaction_key)
 
 }
 
@@ -14239,19 +10785,6 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 		return
 	}
 	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_expires_at, offer_status, offer_type, optional)
-
-}
-
-func (rx *Rx) Create_PeerIdentity(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
-	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
 
 }
 
@@ -14315,21 +10848,6 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_ProjectPayment(ctx, project_payment_id, project_payment_project_id, project_payment_payer_id, project_payment_payment_method_id, project_payment_is_default)
-
-}
-
 func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field,
 	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
@@ -14355,41 +10873,27 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_SerialNumber(ctx context.Context,
-	serial_number_serial_number SerialNumber_SerialNumber_Field,
-	serial_number_bucket_id SerialNumber_BucketId_Field,
-	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
+func (rx *Rx) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer *StripeCustomer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+	return tx.Create_StripeCustomer(ctx, stripe_customer_user_id, stripe_customer_customer_id)
 
 }
 
-func (rx *Rx) Create_StoragenodeStorageTally(ctx context.Context,
-	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
-	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
-	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+func (rx *Rx) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
-
-}
-
-func (rx *Rx) Create_UsedSerial(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
+	return tx.Create_StripecoinpaymentsApplyBalanceIntent(ctx, stripecoinpayments_apply_balance_intent_tx_id, stripecoinpayments_apply_balance_intent_state)
 
 }
 
@@ -14422,18 +10926,6 @@ func (rx *Rx) Create_UserCredit(ctx context.Context,
 		return
 	}
 	return tx.Create_UserCredit(ctx, user_credit_user_id, user_credit_offer_id, user_credit_type, user_credit_credits_earned_in_cents, user_credit_expires_at, optional)
-
-}
-
-func (rx *Rx) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_UserPayment(ctx, user_payment_user_id, user_payment_customer_id)
 
 }
 
@@ -14491,6 +10983,50 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
+func (rx *Rx) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
+}
+
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId(ctx, graceful_exit_transfer_queue_node_id)
+
+}
+
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, graceful_exit_transfer_queue_node_id)
+
+}
+
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
+}
+
 func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -14532,16 +11068,6 @@ func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context
 	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
 }
 
-func (rx *Rx) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_ProjectPayment_By_Id(ctx, project_payment_id)
-}
-
 func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -14581,6 +11107,16 @@ func (rx *Rx) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
+}
+
+func (rx *Rx) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id)
 }
 
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
@@ -14689,6 +11225,17 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
+}
+
 func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -14708,6 +11255,28 @@ func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
+}
+
+func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -14781,26 +11350,6 @@ func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Con
 	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
 }
 
-func (rx *Rx) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectPayment_By_Id(ctx, project_payment_id)
-}
-
-func (rx *Rx) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, project_payment_project_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -14861,14 +11410,14 @@ func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
 }
 
-func (rx *Rx) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
+func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *CustomerId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_UserPayment_By_UserId(ctx, user_payment_user_id)
+	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -14952,6 +11501,18 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
+func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	limit int, offset int64) (
+	rows []*CoinpaymentsTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_created_at_less_or_equal, coinpayments_transaction_status, limit, offset)
+}
+
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
@@ -14996,26 +11557,94 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
 }
 
-func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
+func (rx *Rx) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_AccountingTimestamps_By_Name(ctx, accounting_timestamps_name, update)
+	return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx, accounting_timestamps_name, update)
 }
 
-func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
+func (rx *Rx) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
-	api_key *ApiKey, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
+	return tx.UpdateNoReturn_ApiKey_By_Id(ctx, api_key_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, update)
+}
+
+func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+	update Irreparabledb_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
+}
+
+func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Node_By_Id(ctx, node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field,
+	update Offer_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Offer_By_Id(ctx, offer_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
 func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -15030,15 +11659,15 @@ func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	return tx.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name, update)
 }
 
-func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	irreparabledb *Irreparabledb, err error) {
+func (rx *Rx) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	update CoinpaymentsTransaction_Update_Fields) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
+	return tx.Update_CoinpaymentsTransaction_By_Id(ctx, coinpayments_transaction_id, update)
 }
 
 func (rx *Rx) Update_Node_By_Id(ctx context.Context,
@@ -15052,28 +11681,6 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
-func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
-	offer_id Offer_Id_Field,
-	update Offer_Update_Fields) (
-	offer *Offer, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_Offer_By_Id(ctx, offer_id, update)
-}
-
-func (rx *Rx) Update_PeerIdentity_By_NodeId(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
-}
-
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -15083,17 +11690,6 @@ func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 		return
 	}
 	return tx.Update_PendingAudits_By_NodeId(ctx, pending_audits_node_id, update)
-}
-
-func (rx *Rx) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_ProjectPayment_By_Id(ctx, project_payment_id, update)
 }
 
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
@@ -15118,6 +11714,17 @@ func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
 	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
 }
 
+func (rx *Rx) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id, update)
+}
+
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -15137,6 +11744,9 @@ type Methods interface {
 	All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		rows []*ApiKey, err error)
+
+	All_BucketStorageTally(ctx context.Context) (
+		rows []*BucketStorageTally, err error)
 
 	All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -15164,14 +11774,6 @@ type Methods interface {
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
-
-	All_ProjectPayment_By_PayerId(ctx context.Context,
-		project_payment_payer_id ProjectPayment_PayerId_Field) (
-		rows []*ProjectPayment, err error)
-
-	All_ProjectPayment_By_ProjectId(ctx context.Context,
-		project_payment_project_id ProjectPayment_ProjectId_Field) (
-		rows []*ProjectPayment, err error)
 
 	All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field) (
@@ -15201,7 +11803,7 @@ type Methods interface {
 		user_credit_referred_by UserCredit_ReferredBy_Field) (
 		count int64, err error)
 
-	Create_AccountingRollup(ctx context.Context,
+	CreateNoReturn_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
 		accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -15210,40 +11812,14 @@ type Methods interface {
 		accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 		accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 		accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-		accounting_rollup *AccountingRollup, err error)
+		err error)
 
-	Create_AccountingTimestamps(ctx context.Context,
+	CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
-		accounting_timestamps *AccountingTimestamps, err error)
+		err error)
 
-	Create_ApiKey(ctx context.Context,
-		api_key_id ApiKey_Id_Field,
-		api_key_project_id ApiKey_ProjectId_Field,
-		api_key_head ApiKey_Head_Field,
-		api_key_name ApiKey_Name_Field,
-		api_key_secret ApiKey_Secret_Field,
-		optional ApiKey_Create_Fields) (
-		api_key *ApiKey, err error)
-
-	Create_BucketMetainfo(ctx context.Context,
-		bucket_metainfo_id BucketMetainfo_Id_Field,
-		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-		bucket_metainfo_name BucketMetainfo_Name_Field,
-		bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
-		bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
-		bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
-		bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
-		bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
-		bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
-		bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
-		bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
-		bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
-		bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
-		optional BucketMetainfo_Create_Fields) (
-		bucket_metainfo *BucketMetainfo, err error)
-
-	Create_BucketStorageTally(ctx context.Context,
+	CreateNoReturn_BucketStorageTally(ctx context.Context,
 		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
@@ -15253,32 +11829,30 @@ type Methods interface {
 		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
 		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-		bucket_storage_tally *BucketStorageTally, err error)
+		err error)
 
-	Create_BucketUsage(ctx context.Context,
-		bucket_usage_id BucketUsage_Id_Field,
-		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
-		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
-		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
-		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
-		bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
-		bucket_usage_objects BucketUsage_Objects_Field,
-		bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
-		bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
-		bucket_usage_get_egress BucketUsage_GetEgress_Field,
-		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
-		bucket_usage *BucketUsage, err error)
+	CreateNoReturn_GracefulExitProgress(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+		err error)
 
-	Create_Irreparabledb(ctx context.Context,
+	CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+		optional GracefulExitTransferQueue_Create_Fields) (
+		err error)
+
+	CreateNoReturn_Irreparabledb(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
 		irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
 		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-		irreparabledb *Irreparabledb, err error)
+		err error)
 
-	Create_Node(ctx context.Context,
+	CreateNoReturn_Node(ctx context.Context,
 		node_id Node_Id_Field,
 		node_address Node_Address_Field,
 		node_last_net Node_LastNet_Field,
@@ -15306,8 +11880,83 @@ type Methods interface {
 		node_audit_reputation_beta Node_AuditReputationBeta_Field,
 		node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
 		node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+		node_exit_success Node_ExitSuccess_Field,
 		optional Node_Create_Fields) (
-		node *Node, err error)
+		err error)
+
+	CreateNoReturn_PeerIdentity(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+		peer_identity_chain PeerIdentity_Chain_Field) (
+		err error)
+
+	CreateNoReturn_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field,
+		serial_number_bucket_id SerialNumber_BucketId_Field,
+		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+		err error)
+
+	CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+		err error)
+
+	CreateNoReturn_UsedSerial(ctx context.Context,
+		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+		err error)
+
+	Create_ApiKey(ctx context.Context,
+		api_key_id ApiKey_Id_Field,
+		api_key_project_id ApiKey_ProjectId_Field,
+		api_key_head ApiKey_Head_Field,
+		api_key_name ApiKey_Name_Field,
+		api_key_secret ApiKey_Secret_Field,
+		optional ApiKey_Create_Fields) (
+		api_key *ApiKey, err error)
+
+	Create_BucketMetainfo(ctx context.Context,
+		bucket_metainfo_id BucketMetainfo_Id_Field,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field,
+		bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
+		bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
+		bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
+		bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
+		bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
+		bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
+		bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
+		bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
+		bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
+		bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
+		optional BucketMetainfo_Create_Fields) (
+		bucket_metainfo *BucketMetainfo, err error)
+
+	Create_BucketUsage(ctx context.Context,
+		bucket_usage_id BucketUsage_Id_Field,
+		bucket_usage_bucket_id BucketUsage_BucketId_Field,
+		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
+		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
+		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
+		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
+		bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
+		bucket_usage_objects BucketUsage_Objects_Field,
+		bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
+		bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
+		bucket_usage_get_egress BucketUsage_GetEgress_Field,
+		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
+		bucket_usage *BucketUsage, err error)
+
+	Create_CoinpaymentsTransaction(ctx context.Context,
+		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+		coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+		coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
+		coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
+		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
 	Create_Offer(ctx context.Context,
 		offer_name Offer_Name_Field,
@@ -15319,12 +11968,6 @@ type Methods interface {
 		offer_type Offer_Type_Field,
 		optional Offer_Create_Fields) (
 		offer *Offer, err error)
-
-	Create_PeerIdentity(ctx context.Context,
-		peer_identity_node_id PeerIdentity_NodeId_Field,
-		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
-		peer_identity_chain PeerIdentity_Chain_Field) (
-		peer_identity *PeerIdentity, err error)
 
 	Create_PendingAudits(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
@@ -15358,14 +12001,6 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
-	Create_ProjectPayment(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field,
-		project_payment_project_id ProjectPayment_ProjectId_Field,
-		project_payment_payer_id ProjectPayment_PayerId_Field,
-		project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-		project_payment_is_default ProjectPayment_IsDefault_Field) (
-		project_payment *ProjectPayment, err error)
-
 	Create_RegistrationToken(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field,
 		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
@@ -15377,22 +12012,15 @@ type Methods interface {
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
 
-	Create_SerialNumber(ctx context.Context,
-		serial_number_serial_number SerialNumber_SerialNumber_Field,
-		serial_number_bucket_id SerialNumber_BucketId_Field,
-		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-		serial_number *SerialNumber, err error)
+	Create_StripeCustomer(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field,
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		stripe_customer *StripeCustomer, err error)
 
-	Create_StoragenodeStorageTally(ctx context.Context,
-		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
-		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
-		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-		storagenode_storage_tally *StoragenodeStorageTally, err error)
-
-	Create_UsedSerial(ctx context.Context,
-		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-		used_serial *UsedSerial, err error)
+	Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+		stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -15411,11 +12039,6 @@ type Methods interface {
 		user_credit_expires_at UserCredit_ExpiresAt_Field,
 		optional UserCredit_Create_Fields) (
 		user_credit *UserCredit, err error)
-
-	Create_UserPayment(ctx context.Context,
-		user_payment_user_id UserPayment_UserId_Field,
-		user_payment_customer_id UserPayment_CustomerId_Field) (
-		user_payment *UserPayment, err error)
 
 	Create_ValueAttribution(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
@@ -15440,6 +12063,24 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
+	Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+		deleted bool, err error)
+
+	Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+		count int64, err error)
+
+	Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+		count int64, err error)
+
+	Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+		deleted bool, err error)
+
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
@@ -15457,10 +12098,6 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		deleted bool, err error)
 
-	Delete_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field) (
-		deleted bool, err error)
-
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
@@ -15475,6 +12112,10 @@ type Methods interface {
 
 	Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		deleted bool, err error)
+
+	Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
 		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
@@ -15523,6 +12164,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
 
+	Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+		api_key_name ApiKey_Name_Field,
+		api_key_project_id ApiKey_ProjectId_Field) (
+		api_key *ApiKey, err error)
+
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -15531,6 +12177,16 @@ type Methods interface {
 	Get_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
 		bucket_usage *BucketUsage, err error)
+
+	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+		graceful_exit_progress *GracefulExitProgress, err error)
+
+	Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
@@ -15561,14 +12217,6 @@ type Methods interface {
 		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
 		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
-	Get_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field) (
-		project_payment *ProjectPayment, err error)
-
-	Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-		project_payment_project_id ProjectPayment_ProjectId_Field) (
-		project_payment *ProjectPayment, err error)
-
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
@@ -15593,9 +12241,9 @@ type Methods interface {
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
 		storagenode_storage_tally *StoragenodeStorageTally, err error)
 
-	Get_UserPayment_By_UserId(ctx context.Context,
-		user_payment_user_id UserPayment_UserId_Field) (
-		user_payment *UserPayment, err error)
+	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field) (
+		row *CustomerId_Row, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
@@ -15636,6 +12284,12 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
+	Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+		coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
+		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+		limit int, offset int64) (
+		rows []*CoinpaymentsTransaction, err error)
+
 	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 		limit int, offset int64) (
@@ -15656,15 +12310,47 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
 
-	Update_AccountingTimestamps_By_Name(ctx context.Context,
+	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		update AccountingTimestamps_Update_Fields) (
-		accounting_timestamps *AccountingTimestamps, err error)
+		err error)
 
-	Update_ApiKey_By_Id(ctx context.Context,
+	UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
-		api_key *ApiKey, err error)
+		err error)
+
+	UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		update GracefulExitProgress_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+		update GracefulExitTransferQueue_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
+		update Irreparabledb_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field,
+		update Node_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_Offer_By_Id(ctx context.Context,
+		offer_id Offer_Id_Field,
+		update Offer_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		update PeerIdentity_Update_Fields) (
+		err error)
 
 	Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -15672,35 +12358,20 @@ type Methods interface {
 		update BucketMetainfo_Update_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
 
-	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-		update Irreparabledb_Update_Fields) (
-		irreparabledb *Irreparabledb, err error)
+	Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
+		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+		update CoinpaymentsTransaction_Update_Fields) (
+		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
 
-	Update_Offer_By_Id(ctx context.Context,
-		offer_id Offer_Id_Field,
-		update Offer_Update_Fields) (
-		offer *Offer, err error)
-
-	Update_PeerIdentity_By_NodeId(ctx context.Context,
-		peer_identity_node_id PeerIdentity_NodeId_Field,
-		update PeerIdentity_Update_Fields) (
-		peer_identity *PeerIdentity, err error)
-
 	Update_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
 		update PendingAudits_Update_Fields) (
 		pending_audits *PendingAudits, err error)
-
-	Update_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field,
-		update ProjectPayment_Update_Fields) (
-		project_payment *ProjectPayment, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,
@@ -15711,6 +12382,11 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+		update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,
@@ -15749,37 +12425,4 @@ type dbMethods interface {
 
 func openpostgres(source string) (*sql.DB, error) {
 	return sql.Open("postgres", source)
-}
-
-var sqlite3DriverName = func() string {
-	var id [16]byte
-	rand.Read(id[:])
-	return fmt.Sprintf("sqlite3_%x", string(id[:]))
-}()
-
-func init() {
-	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
-		ConnectHook: sqlite3SetupConn,
-	})
-}
-
-// SQLite3JournalMode controls the journal_mode pragma for all new connections.
-// Since it is read without a mutex, it must be changed to the value you want
-// before any Open calls.
-var SQLite3JournalMode = "WAL"
-
-func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
-	_, err = conn.Exec("PRAGMA foreign_keys = ON", nil)
-	if err != nil {
-		return makeErr(err)
-	}
-	_, err = conn.Exec("PRAGMA journal_mode = "+SQLite3JournalMode, nil)
-	if err != nil {
-		return makeErr(err)
-	}
-	return nil
-}
-
-func opensqlite3(source string) (*sql.DB, error) {
-	return sql.Open(sqlite3DriverName, source)
 }

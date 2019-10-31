@@ -684,13 +684,13 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
+	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	// TODO(leak): close m metainfo.Client somehow
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, nil, err
@@ -701,7 +701,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(m, ec, rs)
 
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
@@ -710,7 +710,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold, 8*memory.MiB.Int64())
 	if err != nil {
 		return nil, nil, nil, err
 	}

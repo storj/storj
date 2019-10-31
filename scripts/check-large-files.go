@@ -14,6 +14,7 @@ import (
 )
 
 var ignoreFolder = map[string]bool{
+	".build":       true,
 	".git":         true,
 	"node_modules": true,
 	"coverage":     true,
@@ -21,7 +22,7 @@ var ignoreFolder = map[string]bool{
 }
 
 func main() {
-	const fileSizeLimit = 600 * memory.KB
+	const fileSizeLimit = 650 * memory.KB
 
 	var failed int
 

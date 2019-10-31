@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SearchComponent.vue renders correctly 1`] = `<input placeholder="Search " type="text" autocomplete="off" class="common-search-input" style="width: 56px;">`;

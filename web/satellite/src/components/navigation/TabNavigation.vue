@@ -3,8 +3,12 @@
 
 <template>
     <div class="tab-navigation-container">
-        <router-link :to="navLink.path" class="tab-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
-            <p>{{navLink.name}}</p>
+        <router-link
+            :to="navLink.path"
+            class="tab-navigation-container__item"
+            v-for="navLink in navigation"
+            :key="navLink.name">
+            <p class="tab-navigation-container__item__name">{{navLink.name}}</p>
         </router-link>
     </div>
 </template>
@@ -25,27 +29,27 @@ export default class TabNavigation extends Vue {
     .tab-navigation-container {
         width: auto;
         display: flex;
-        border-bottom: 1px solid #AFB7C1;
-        
+        border-bottom: 1px solid #afb7c1;
+
         &__item {
             width: 150px;
             height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            
-            p {
-                font-family: 'font_medium';
+
+            &__name {
+                font-family: 'font_medium', sans-serif;
                 font-size: 14px;
                 line-height: 20px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
-            
+
             &.router-link-exact-active,
             &:hover {
-                border-bottom: 3px solid #2683FF;
-                
-                p {
+                border-bottom: 3px solid #2683ff;
+
+                .tab-navigation-container__item__name {
                     color: #354049;
                 }
             }

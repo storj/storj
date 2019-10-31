@@ -9,13 +9,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
 // Endpoint implements the contact service Endpoints
@@ -26,12 +24,10 @@ type Endpoint struct {
 	pingStats *PingStats
 }
 
-// PingStats contains information regarding who and when the node was last pinged
+// PingStats contains information regarding when the node was last pinged
 type PingStats struct {
-	mu               sync.Mutex
-	lastPinged       time.Time
-	whoPingedNodeID  storj.NodeID
-	whoPingedAddress string
+	mu         sync.Mutex
+	lastPinged time.Time
 }
 
 // NewEndpoint returns a new contact service endpoint
@@ -45,31 +41,29 @@ func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 // PingNode provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to get grpc peer from context")
-	}
-	peerID, err := identity.PeerIdentityFromPeer(p)
+	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
-	endpoint.pingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
+	peerID, err := identity.PeerIdentityFromPeer(peer)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
+	endpoint.pingStats.WasPinged(time.Now())
 	return &pb.ContactPingResponse{}, nil
 }
 
 // WhenLastPinged returns last time someone pinged this node.
-func (stats *PingStats) WhenLastPinged() (when time.Time, who storj.NodeID, addr string) {
+func (stats *PingStats) WhenLastPinged() (when time.Time) {
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
-	return stats.lastPinged, stats.whoPingedNodeID, stats.whoPingedAddress
+	return stats.lastPinged
 }
 
-// wasPinged notifies the service it has been remotely pinged.
-func (stats *PingStats) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
+// WasPinged notifies the service it has been remotely pinged.
+func (stats *PingStats) WasPinged(when time.Time) {
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 	stats.lastPinged = when
-	stats.whoPingedNodeID = srcNodeID
-	stats.whoPingedAddress = srcAddress
 }

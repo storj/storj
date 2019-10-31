@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -31,12 +31,15 @@ func TestGraphqlQuery(t *testing.T) {
 
 		log := zaptest.NewLogger(t)
 
+		paymentsConfig := stripecoinpayments.Config{}
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.Customers(), db.CoinpaymentsTransactions())
+
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.Rewards(),
-			localpayments.NewService(nil),
+			payments.Accounts(),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)
@@ -48,6 +51,9 @@ func TestGraphqlQuery(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		creator := consoleql.TypeCreator{}
 		err = creator.Create(log, service, mailService)
@@ -60,12 +66,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John",
-				ShortName: "",
-				Email:     "mtest@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "John",
+			ShortName: "",
+			Email:     "mtest@mail.test",
+			Password:  "123a123",
 		}
 		refUserID := ""
 
@@ -183,12 +187,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Mickey Last",
-				ShortName: "Last",
-				Email:     "muu1@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "Mickey Last",
+			ShortName: "Last",
+			Password:  "123a123",
+			Email:     "muu1@mail.test",
 		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
@@ -209,12 +211,10 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Dubas Name",
-				ShortName: "Name",
-				Email:     "muu2@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "Dubas Name",
+			ShortName: "Name",
+			Email:     "muu2@mail.test",
+			Password:  "123a123",
 		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)
 
@@ -301,17 +301,22 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query api keys", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){apiKeys{name,id,createdAt,projectID}}}",
+				"query {project(id: \"%s\") {apiKeys( cursor: { limit: %d, search: \"%s\", page: %d, order: %d, orderDirection: %d } ) { apiKeys { id, name, createdAt, projectID }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
 				createdProject.ID.String(),
-			)
+				5,
+				"",
+				1,
+				1,
+				2)
 
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
-			keys := project[consoleql.FieldAPIKeys].([]interface{})
+			keys := project[consoleql.FieldAPIKeys].(map[string]interface{})
+			apiKeys := keys[consoleql.FieldAPIKeys].([]interface{})
 
-			assert.Equal(t, 2, len(keys))
+			assert.Equal(t, 2, len(apiKeys))
 
 			testAPIKey := func(t *testing.T, actual map[string]interface{}, expected *console.APIKeyInfo) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
@@ -326,7 +331,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			var foundKey1, foundKey2 bool
 
-			for _, entry := range keys {
+			for _, entry := range apiKeys {
 				key := entry.(map[string]interface{})
 
 				id := key[consoleql.FieldID].(string)
@@ -426,12 +431,10 @@ func TestGraphqlQuery(t *testing.T) {
 			regToken, err := service.CreateRegToken(ctx, 2)
 			require.NoError(t, err)
 			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user@mail.test",
-				},
-				Password: "123a123",
+				FullName:  "Example User",
+				ShortName: "Example",
+				Email:     "user@mail.test",
+				Password:  "123a123",
 			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)
@@ -466,12 +469,10 @@ func TestGraphqlQuery(t *testing.T) {
 			regToken, err := service.CreateRegToken(ctx, 2)
 			require.NoError(t, err)
 			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user1@mail.test",
-				},
-				Password: "123a123",
+				FullName:  "Example User",
+				ShortName: "Example",
+				Email:     "user1@mail.test",
+				Password:  "123a123",
 			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)

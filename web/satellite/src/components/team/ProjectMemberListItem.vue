@@ -2,17 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="user-container">
+    <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
-            <div class="checkbox" >
-            </div>
+            <div v-if="!isProjectOwner" class="checkbox"></div>
             <div class="user-container__base-info__avatar" :style="avatarData.style">
-                <h1>{{avatarData.letter}}</h1>
+                <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <p class="user-container__base-info__user-name">{{this.itemData.formattedFullName()}}</p>
+            <div class="user-container__base-info__name-area">
+                <p class="user-container__base-info__name-area__user-name">{{itemName}}</p>
+                <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
+            </div>
         </div>
-        <p class="user-container__date">{{this.itemData.joinedAtLocal()}}</p>
-        <p class="user-container__user-email">{{this.itemData.formattedEmail()}}</p>
+        <p class="user-container__date">{{itemDate}}</p>
+        <p class="user-container__user-email">{{itemEmail}}</p>
     </div>
 </template>
 
@@ -33,20 +35,35 @@ export default class ProjectMemberListItem extends Vue {
         const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
         const style = {
-            background: getColor(letter)
+            background: getColor(letter),
         };
 
         return {
             letter,
-            style
+            style,
         };
+    }
+
+    public get itemName(): string {
+        return this.itemData.formattedFullName();
+    }
+
+    public get itemDate(): string {
+        return this.itemData.joinedAtLocal();
+    }
+
+    public get itemEmail(): string {
+        return this.itemData.formattedEmail();
+    }
+
+    public get isProjectOwner(): boolean {
+        return this.itemData.user.id === this.$store.getters.selectedProject.ownerId;
     }
 }
 </script>
 
 <style scoped lang="scss">
     .user-container {
-        margin-top: 2px;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -55,6 +72,7 @@ export default class ProjectMemberListItem extends Vue {
         background-color: #fff;
         cursor: pointer;
         width: calc(100% - 28px);
+        font-family: 'font_regular', sans-serif;
 
         &__base-info {
             width: 50%;
@@ -67,69 +85,75 @@ export default class ProjectMemberListItem extends Vue {
                 max-width: 40px;
                 min-height: 40px;
                 max-height: 40px;
-                margin-left: 20px;
                 border-radius: 6px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #FF8658;
+                background-color: #ff8658;
 
-                h1 {
+                &__letter {
+                    margin: 0;
                     font-size: 16px;
-                    font-family: 'font_regular';
-                    color: #F5F6FA;
+                    color: #f5f6fa;
                 }
             }
 
-            &__user-name {
-                width: 100%;
-                margin-left: 20px;
-                font-size: 16px;
-                font-family: 'font_bold';
-                color: #354049;
+            &__name-area {
+
+                &__user-name {
+                    margin: 0 0 0 20px;
+                    font-size: 16px;
+                    font-family: 'font_bold', sans-serif;
+                    color: #354049;
+                }
+
+                &__owner-status {
+                    margin: 0 0 0 20px;
+                    font-size: 13px;
+                    color: #afb7c1;
+                    font-family: 'font_medium', sans-serif;
+                }
             }
         }
 
         &__date {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
 
         &__user-email {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
     }
 
-
     .checkbox {
-        background-image: url("../../../static/images/team/checkboxEmpty.svg");
+        background-image: url('../../../static/images/team/checkboxEmpty.png');
+        margin-right: 20px;
         min-width: 23px;
         height: 23px;
     }
 
-
     .user-container.selected {
-        background-color: #2683FF;
+        background-color: #2683ff;
 
         .checkbox {
             min-width: 23px;
             height: 23px;
-            background-image: url("../../../static/images/team/checkboxChecked.svg");
+            background-image: url('../../../static/images/team/checkboxChecked.png');
         }
 
-        h1 {
-            font-size: 16px;
-            font-family: 'font_regular';
-            color: #FFFFFF;
+        .user-container__base-info__name-area__user-name,
+        .user-container__base-info__name-area__owner-status,
+        .user-container__date,
+        .user-container__user-email {
+            color: #fff;
         }
+    }
 
-        p {
-            color: #FFFFFF;
-        }
+    .owner {
+        cursor: default;
     }
 </style>

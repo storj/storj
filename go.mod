@@ -7,7 +7,6 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad
@@ -15,7 +14,7 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814103321-ef17d024197d
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
 
 replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
 
@@ -25,6 +24,7 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b // indirect
 	github.com/cheggaaa/pb/v3 v3.0.1
@@ -73,7 +73,6 @@ require (
 	github.com/minio/minio-go v6.0.3+incompatible
 	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
-	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
 	github.com/nats-io/go-nats-streaming v0.4.2 // indirect
@@ -95,12 +94,12 @@ require (
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cast v1.3.0
-	github.com/spf13/cobra v0.0.3
+	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/stripe/stripe-go v60.17.0+incompatible
+	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
@@ -111,19 +110,19 @@ require (
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.2
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
-	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190909082730-f460065e899a
+	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
+	golang.org/x/net v0.0.0-20190916140828-c8589233b77d // indirect
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
 	golang.org/x/text v0.3.2 // indirect
-	golang.org/x/tools v0.0.0-20190614152001-1edc8e83c897
+	golang.org/x/tools v0.0.0-20190917215024-905c8ffbfa41
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610 // indirect
-	google.golang.org/grpc v1.23.0
+	google.golang.org/grpc v1.23.1
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
-	storj.io/drpc v0.0.1
+	storj.io/drpc v0.0.7-0.20191028212738-fbd7ea0752d6
 )

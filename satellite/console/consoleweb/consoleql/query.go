@@ -5,7 +5,6 @@ package consoleql
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -164,7 +163,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					user, err := service.GetUserByEmail(p.Context, email)
 					if err != nil {
-						return false, fmt.Errorf("%s is not found", email)
+						return true, nil
 					}
 
 					recoveryToken, err := service.GeneratePasswordRecoveryToken(p.Context, user.ID)
@@ -181,6 +180,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					letUsKnowURL := rootObject[LetUsKnowURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
@@ -189,6 +192,9 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 							ResetLink:                  passwordRecoveryLink,
 							CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 							UserName:                   userName,
+							LetUsKnowURL:               letUsKnowURL,
+							TermsAndConditionsURL:      termsAndConditionsURL,
+							ContactInfoURL:             contactInfoURL,
 						},
 					)
 
@@ -228,13 +234,18 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					// TODO: think of a better solution
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
 						&AccountActivationEmail{
-							Origin:         origin,
-							ActivationLink: link,
+							Origin:                origin,
+							ActivationLink:        link,
+							TermsAndConditionsURL: termsAndConditionsURL,
+							ContactInfoURL:        contactInfoURL,
 						},
 					)
 

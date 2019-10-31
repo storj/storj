@@ -4,6 +4,7 @@
 package testcontext
 
 import (
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -26,14 +27,26 @@ type CompileCOptions struct {
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
 
-	exe := ctx.File("build", path.Base(pkg)+".exe")
-
-	var cmd *exec.Cmd
-	if raceEnabled {
-		cmd = exec.Command("go", "build", "-race", "-o", exe, pkg)
+	var binName string
+	if pkg == "" {
+		dir, _ := os.Getwd()
+		binName = path.Base(dir)
 	} else {
-		cmd = exec.Command("go", "build", "-o", exe, pkg)
+		binName = path.Base(pkg)
 	}
+
+	exe := ctx.File("build", binName+".exe")
+
+	args := []string{"build"}
+	if raceEnabled {
+		args = append(args, "-race")
+	}
+	if drpcEnabled {
+		args = append(args, "-tags=drpc")
+	}
+	args = append(args, "-o", exe, pkg)
+
+	cmd := exec.Command("go", args...)
 	ctx.test.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
@@ -53,8 +66,14 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 
 	base := ctx.File("build", name)
 
+	args := []string{"build", "-buildmode", "c-shared"}
+	if drpcEnabled {
+		args = append(args, "-tags=drpc")
+	}
+	args = append(args, "-o", base+".so", pkg)
+
 	// not using race detector for c-shared
-	cmd := exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
+	cmd := exec.Command("go", args...)
 	t.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()

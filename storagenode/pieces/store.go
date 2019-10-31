@@ -349,9 +349,6 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 //
 // Important note: this metric does not include space used by piece headers, whereas
 // storj/filestore/store.(*Store).SpaceUsed() *does* include all space used by the blobs.
-//
-// The value of reservedSpace for this Store is added to the result, but this should only affect
-// tests (reservedSpace should always be 0 in real usage).
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedForPieces(ctx)

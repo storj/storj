@@ -8,10 +8,13 @@ import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+const notificationPlugin = new NotificatorPlugin();
+localVue.use(notificationPlugin);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const notificationsModule = makeNotificationsModule();
@@ -22,7 +25,7 @@ describe('ApiKeysCopyPopup', () => {
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -40,13 +43,13 @@ describe('ApiKeysCopyPopup', () => {
         expect(wrapper.emitted()).toEqual({'closePopup': [[]]});
     });
 
-    it('function onCopyClick works correctly', () => {
+    it('function onCopyClick works correctly', async () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,
         });
 
-        wrapper.vm.onCopyClick();
+        await wrapper.vm.onCopyClick();
 
         expect(wrapper.vm.$data.isCopiedButtonShown).toBe(true);
     });

@@ -32,25 +32,25 @@ func InterceptAPIKey(ctx context.Context, req interface{}, info *grpc.UnaryServe
 	return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
 }
 
-// APIKeyCredentials implements grpc/credentials.PerRPCCredentials
-// for authenticating with the grpc server.
-type APIKeyCredentials struct {
+// DeprecatedAPIKeyCredentials implements grpc/credentials.PerRPCCredentials
+// for authenticating with the grpc server. This does not work with drpc.
+type DeprecatedAPIKeyCredentials struct {
 	value string
 }
 
-// NewAPIKeyCredentials returns a new APIKeyCredentials
-func NewAPIKeyCredentials(apikey string) *APIKeyCredentials {
-	return &APIKeyCredentials{apikey}
+// NewDeprecatedAPIKeyCredentials returns a new DeprecatedAPIKeyCredentials
+func NewDeprecatedAPIKeyCredentials(apikey string) *DeprecatedAPIKeyCredentials {
+	return &DeprecatedAPIKeyCredentials{apikey}
 }
 
 // GetRequestMetadata gets the current request metadata, refreshing tokens if required.
-func (creds *APIKeyCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (creds *DeprecatedAPIKeyCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	return map[string]string{
 		"apikey": creds.value,
 	}, nil
 }
 
 // RequireTransportSecurity indicates whether the credentials requires transport security.
-func (creds *APIKeyCredentials) RequireTransportSecurity() bool {
-	return false
+func (creds *DeprecatedAPIKeyCredentials) RequireTransportSecurity() bool {
+	return false // Deprecated anyway, but how was this the right choice?
 }
