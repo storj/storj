@@ -22,6 +22,8 @@ var (
 
 // Config for the chore
 type Config struct {
+	Enabled bool `help:"whether or not graceful exit is enabled on the satellite side." releaseDefault:"false" devDefault:"true"`
+
 	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
 	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s"`
 
