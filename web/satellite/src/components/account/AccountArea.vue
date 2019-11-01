@@ -37,6 +37,7 @@ export default class AccountArea extends Vue {}
             color: #354049;
             margin-block-start: 0.5em;
             margin-block-end: 0.5em;
+            user-select: none;
         }
     }
 
