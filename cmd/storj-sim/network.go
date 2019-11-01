@@ -234,10 +234,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	var redisPort string
+	var redisPorts []string
 
 	for i := 0; i < flags.SatelliteCount; i++ {
-		redisPort = port(satellitePeer, i, redisConst)
+		redisPort := port(satellitePeer, i, redisConst)
+		redisPorts = append(redisPorts, redisPort)
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
 			Executable: "redis-server",
@@ -310,7 +311,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			)
 		}
 		for flag, db := range redisDBs {
-			url := createPath(net.JoinHostPort(host, redisPort), db)
+			url := createPath(net.JoinHostPort(host, redisPorts[i]), db)
 			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])
@@ -330,7 +331,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-		process.WaitForStart(redisServers[i])
 		process.WaitForStart(satellite)
 	}
 
