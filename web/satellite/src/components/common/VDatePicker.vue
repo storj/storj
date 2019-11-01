@@ -268,6 +268,7 @@ export default class VDatePicker extends Vue {
         top: 0;
         left: 0;
         overflow: hidden;
+        user-select: none;
         -webkit-animation: fadein 0.5s;
 
         /* Safari, Chrome and Opera > 12.1 */
