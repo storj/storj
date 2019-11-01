@@ -18,6 +18,7 @@ a {
     flex-direction: column;
     justify-content: space-between;
     font-family: 'font_regular', sans-serif;
+    user-select: none;
 
     &__logo {
         display: flex;

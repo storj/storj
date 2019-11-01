@@ -353,6 +353,7 @@ export default class ApiKeysArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             margin: 0;
+            user-select: none;
         }
 
         .api-keys-header {
