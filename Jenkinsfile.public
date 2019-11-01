@@ -26,7 +26,6 @@ pipeline {
                 sh 'go mod download'
 
                 sh 'service postgresql start'
-                sh 'service redis-server start'
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
             }
@@ -89,7 +88,6 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-                        STORJ_SIM_REDIS = 'redis://127.0.0.1:6379'
                     }
 
                     steps {
