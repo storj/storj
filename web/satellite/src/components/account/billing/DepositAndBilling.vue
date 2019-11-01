@@ -11,6 +11,7 @@
         <BillingItem
             v-for="item in billingHistoryItems"
             :billing-item="item"
+            :key="item.id"
         />
     </div>
 </template>

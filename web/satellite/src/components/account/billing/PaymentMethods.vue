@@ -204,7 +204,7 @@ export default class PaymentMethods extends Vue {
 
     .payment-methods-area {
         padding: 40px;
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
