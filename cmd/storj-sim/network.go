@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage/redis/redisnamespace"
 )
 
 const (
@@ -230,7 +229,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	// set up redis servers
 	var redisServers []*Process
 	var redisPort string
-	redisDBs := redisnamespace.GetAll()
+
 	for i := 0; i < flags.SatelliteCount; i++ {
 		redisPort = port(satellitePeer, i, redisEndpoint)
 		process := processes.New(Info{
@@ -305,9 +304,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		for name, db := range redisDBs {
-			flag := "--" + name
-			url := redisnamespace.CreatePath(net.JoinHostPort(host, redisPort), db)
+		for flag, db := range redisDBs {
+			url := createPath(net.JoinHostPort(host, redisPort), db)
 			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])

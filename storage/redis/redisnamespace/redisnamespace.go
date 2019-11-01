@@ -10,8 +10,8 @@ var dbs = map[string]int{
 	"server.revocation-dburl":         1,
 }
 
-// GetAll returns entire db map
-func GetAll() map[string]int {
+// getAll returns entire db map
+func getAll() map[string]int {
 	return dbs
 }
 
