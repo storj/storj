@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build grpc
-
 package rpcpeer
 
 import (
@@ -12,8 +10,8 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-// internalFromContext returns a peer from the context using grpc.
-func internalFromContext(ctx context.Context) (*Peer, error) {
+// grpcInternalFromContext returns a peer from the context using grpc.
+func grpcInternalFromContext(ctx context.Context) (*Peer, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, Error.New("unable to get grpc peer from context")

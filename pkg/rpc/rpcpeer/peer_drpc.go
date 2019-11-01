@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !grpc
-
 package rpcpeer
 
 import (
@@ -12,8 +10,8 @@ import (
 	"storj.io/drpc/drpcctx"
 )
 
-// internalFromContext returns a peer from the context using drpc.
-func internalFromContext(ctx context.Context) (*Peer, error) {
+// drpcInternalFromContext returns a peer from the context using drpc.
+func drpcInternalFromContext(ctx context.Context) (*Peer, error) {
 	tr, ok := drpcctx.Transport(ctx)
 	if !ok {
 		return nil, Error.New("unable to get drpc peer from context")
