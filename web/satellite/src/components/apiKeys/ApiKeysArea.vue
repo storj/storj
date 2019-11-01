@@ -122,7 +122,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
@@ -218,9 +218,9 @@ export default class ApiKeysArea extends Vue {
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(DELETE);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API keys deleted successfully`);
+            await this.$notify.success(`API keys deleted successfully`);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
 
         try {
@@ -336,7 +336,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async notifyFetchError(error: Error): Promise<void> {
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+        await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
     }
 }
 </script>
@@ -346,10 +346,10 @@ export default class ApiKeysArea extends Vue {
         position: relative;
         padding: 40px 65px 55px 64px;
         height: 85vh;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
             margin: 0;
@@ -363,7 +363,7 @@ export default class ApiKeysArea extends Vue {
                 position: absolute;
                 top: 100%;
                 left: 0;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 width: 100%;
                 height: 70vh;
                 z-index: 100;
@@ -378,7 +378,7 @@ export default class ApiKeysArea extends Vue {
                 height: 56px;
                 z-index: 100;
                 opacity: 0.3;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
             }
         }
 
@@ -397,7 +397,7 @@ export default class ApiKeysArea extends Vue {
 
             &__additional-info {
                 font-size: 16px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
         }
     }
@@ -409,7 +409,7 @@ export default class ApiKeysArea extends Vue {
         flex-direction: column;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
             margin-top: 104px;
@@ -448,7 +448,7 @@ export default class ApiKeysArea extends Vue {
         margin-top: 2px;
 
         &__confirmation-label {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 28px;
         }
@@ -468,14 +468,14 @@ export default class ApiKeysArea extends Vue {
     }
 
     .container.deletion {
-        background-color: #FF4F4D;
+        background-color: #ff4f4d;
 
         &.label {
-            color: #FFFFFF;
+            color: #fff;
         }
 
         &:hover {
-            background-color: #DE3E3D;
+            background-color: #de3e3d;
             box-shadow: none;
         }
     }
@@ -487,12 +487,14 @@ export default class ApiKeysArea extends Vue {
     }
 
     @media screen and (max-width: 1024px) {
+
         .api-keys-area {
             padding: 40px 40px 55px 40px;
         }
     }
 
     @media screen and (max-height: 800px) {
+
         .api-keys-items {
 
             &__content {

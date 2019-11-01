@@ -85,12 +85,13 @@ type Server struct {
 
 	schema    graphql.Schema
 	templates struct {
-		index         *template.Template
-		pageNotFound  *template.Template
-		usageReport   *template.Template
-		resetPassword *template.Template
-		success       *template.Template
-		activated     *template.Template
+		index               *template.Template
+		notFound            *template.Template
+		internalServerError *template.Template
+		usageReport         *template.Template
+		resetPassword       *template.Template
+		success             *template.Template
+		activated           *template.Template
 	}
 }
 
@@ -120,17 +121,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.HandleFunc("/satelliteName", server.satelliteNameHandler).Methods(http.MethodGet)
+	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
+	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
+	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
+	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
 	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
-	authRouter.Handle("/changePassword", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
-	authRouter.Handle("/delete", server.withAuth(http.HandlerFunc(authController.Delete))).Methods(http.MethodDelete)
-	authRouter.HandleFunc("/changePassword", authController.ChangePassword).Methods(http.MethodPost)
-	authRouter.HandleFunc("/forgotPassword", authController.ForgotPassword).Methods(http.MethodPost)
-	authRouter.HandleFunc("/resendEmail", authController.ResendEmail).Methods(http.MethodPost)
+	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
+	authRouter.HandleFunc("/resend-email/{id}", authController.ResendEmail).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -141,6 +143,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
 	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
@@ -210,7 +213,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -243,13 +246,13 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	tokenCookie, err := r.Cookie("_tokenKey")
 	if err != nil {
-		server.serveError(w, r, http.StatusUnauthorized)
+		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		server.serveError(w, r, http.StatusUnauthorized)
+		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
@@ -258,17 +261,17 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	// parse query params
 	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	if err != nil {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 
@@ -283,7 +286,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -347,13 +350,13 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.Error(err))
 
 		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("satellite/console/server: account activated template could not be executed", zap.Error(err))
-		server.serveError(w, r, http.StatusNotFound)
+		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -364,7 +367,7 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 
 	recoveryToken := r.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
@@ -372,36 +375,36 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 	case http.MethodPost:
 		err := r.ParseForm()
 		if err != nil {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		password := r.FormValue("password")
 		passwordRepeat := r.FormValue("passwordRepeat")
 		if strings.Compare(password, passwordRepeat) != 0 {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		err = server.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
-			server.serveError(w, r, http.StatusNotFound)
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
-			server.log.Error("satellite/console/server: success reset password template could not be executed", zap.Error(err))
-			server.serveError(w, r, http.StatusNotFound)
+			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
-			server.log.Error("satellite/console/server: reset password template could not be executed", zap.Error(err))
-			server.serveError(w, r, http.StatusNotFound)
+			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
+			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	default:
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -418,15 +421,20 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
-	// TODO: show different error pages depend on status
-	// F.e. switch(status)
-	//      case http.StatusNotFound: server.executeTemplate(w, r, notFound, nil)
-	//      case http.StatusInternalServerError: server.executeTemplate(w, r, internalError, nil)
+func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
-	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
-		server.log.Error("error occurred in console/server", zap.Error(err))
+	switch status {
+	case http.StatusInternalServerError:
+		err := server.templates.internalServerError.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+		}
+	default:
+		err := server.templates.notFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
 	}
 }
 
@@ -592,7 +600,12 @@ func (server *Server) initializeTemplates() (err error) {
 		return Error.Wrap(err)
 	}
 
-	server.templates.pageNotFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	server.templates.notFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.internalServerError, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "500.html"))
 	if err != nil {
 		return Error.Wrap(err)
 	}

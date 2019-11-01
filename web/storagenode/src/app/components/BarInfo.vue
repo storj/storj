@@ -22,6 +22,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VBar from '@/app/components/VBar.vue';
 import VInfo from '@/app/components/VInfo.vue';
+
 import { formatBytes } from '@/app/utils/converter';
 
 @Component ({
@@ -60,8 +61,8 @@ export default class BarInfo extends Vue {
     .remaining-space-container {
         width: 339px;
         height: 99px;
-        background-color: #FFFFFF;
-        border: 1px solid #E9EFF4;
+        background-color: #fff;
+        border: 1px solid #e9eff4;
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -70,13 +71,13 @@ export default class BarInfo extends Vue {
         &__title {
             font-size: 14px;
             line-height: 21px;
-            color: #586C86;
+            color: #586c86;
         }
 
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
         }
     }
 </style>

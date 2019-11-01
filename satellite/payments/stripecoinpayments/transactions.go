@@ -21,9 +21,13 @@ type TransactionsDB interface {
 	// Insert inserts new coinpayments transaction into DB.
 	Insert(ctx context.Context, tx Transaction) (*Transaction, error)
 	// Update updates status and received for set of transactions.
-	Update(ctx context.Context, updates []TransactionUpdate) error
+	Update(ctx context.Context, updates []TransactionUpdate, applies coinpayments.TransactionIDList) error
+	// Consume marks transaction as consumed, so it won't participate in apply account balance loop.
+	Consume(ctx context.Context, id coinpayments.TransactionID) error
 	// ListPending returns TransactionsPage with pending transactions.
 	ListPending(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
+	// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
+	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
 }
 
 // Transaction defines coinpayments transaction info that is stored in the DB.

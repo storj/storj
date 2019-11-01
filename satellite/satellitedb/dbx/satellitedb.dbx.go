@@ -350,7 +350,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp,
-	PRIMARY KEY ( node_id, path )
+	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
@@ -555,6 +555,12 @@ CREATE TABLE project_members (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
+);
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
@@ -5343,6 +5349,77 @@ func (f ProjectMember_CreatedAt_Field) value() interface{} {
 
 func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
 
+type StripecoinpaymentsApplyBalanceIntent struct {
+	TxId      string
+	State     int
+	CreatedAt time.Time
+}
+
+func (StripecoinpaymentsApplyBalanceIntent) _Table() string {
+	return "stripecoinpayments_apply_balance_intents"
+}
+
+type StripecoinpaymentsApplyBalanceIntent_Update_Fields struct {
+	State StripecoinpaymentsApplyBalanceIntent_State_Field
+}
+
+type StripecoinpaymentsApplyBalanceIntent_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripecoinpaymentsApplyBalanceIntent_TxId(v string) StripecoinpaymentsApplyBalanceIntent_TxId_Field {
+	return StripecoinpaymentsApplyBalanceIntent_TxId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_TxId_Field) _Column() string { return "tx_id" }
+
+type StripecoinpaymentsApplyBalanceIntent_State_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsApplyBalanceIntent_State(v int) StripecoinpaymentsApplyBalanceIntent_State_Field {
+	return StripecoinpaymentsApplyBalanceIntent_State_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_State_Field) _Column() string { return "state" }
+
+type StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsApplyBalanceIntent_CreatedAt(v time.Time) StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field {
+	return StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) _Column() string { return "created_at" }
+
 type UsedSerial struct {
 	SerialNumberId int
 	StorageNodeId  []byte
@@ -6652,6 +6729,30 @@ func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return coinpayments_transaction, nil
+
+}
+
+func (obj *postgresImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := stripecoinpayments_apply_balance_intent_tx_id.value()
+	__state_val := stripecoinpayments_apply_balance_intent_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_apply_balance_intents.tx_id, stripecoinpayments_apply_balance_intents.state, stripecoinpayments_apply_balance_intents.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __tx_id_val, __state_val, __created_at_val)
+
+	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
+	err = obj.driver.QueryRow(__stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_apply_balance_intent, nil
 
 }
 
@@ -8196,15 +8297,16 @@ func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9233,14 +9335,15 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 	return nil
 }
 
-func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	update GracefulExitTransferQueue_Update_Fields) (
 	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9280,7 +9383,7 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_
 		return emptyUpdate()
 	}
 
-	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -9338,6 +9441,46 @@ func (obj *postgresImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Contex
 		return nil, obj.makeErr(err)
 	}
 	return coinpayments_transaction, nil
+}
+
+func (obj *postgresImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_apply_balance_intents SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_apply_balance_intents.tx_id = ? RETURNING stripecoinpayments_apply_balance_intents.tx_id, stripecoinpayments_apply_balance_intents.state, stripecoinpayments_apply_balance_intents.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_apply_balance_intent_tx_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_apply_balance_intent, nil
 }
 
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -9759,15 +9902,16 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.
 
 }
 
-func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9812,6 +9956,32 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Finished
 
 }
 
+func (obj *postgresImpl) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM stripecoinpayments_apply_balance_intents WHERE stripecoinpayments_apply_balance_intents.tx_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_apply_balance_intent_tx_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -9836,6 +10006,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -10705,6 +10885,18 @@ func (rx *Rx) Create_StripeCustomer(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StripecoinpaymentsApplyBalanceIntent(ctx, stripecoinpayments_apply_balance_intent_tx_id, stripecoinpayments_apply_balance_intent_state)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -10823,15 +11015,16 @@ func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Nu
 
 }
 
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path)
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
 func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -10914,6 +11107,16 @@ func (rx *Rx) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
+}
+
+func (rx *Rx) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id)
 }
 
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
@@ -11064,15 +11267,16 @@ func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	return tx.Get_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
 }
 
-func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path)
+	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -11386,16 +11590,17 @@ func (rx *Rx) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
 	return tx.UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
 }
 
-func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	update GracefulExitTransferQueue_Update_Fields) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, update)
+	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, update)
 }
 
 func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -11507,6 +11712,17 @@ func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
+}
+
+func (rx *Rx) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+	update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+	stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -11801,6 +12017,11 @@ type Methods interface {
 		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
 		stripe_customer *StripeCustomer, err error)
 
+	Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+		stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
+		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
@@ -11854,9 +12075,10 @@ type Methods interface {
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
 		count int64, err error)
 
-	Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 		deleted bool, err error)
 
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -11890,6 +12112,10 @@ type Methods interface {
 
 	Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		deleted bool, err error)
+
+	Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
 		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
@@ -11956,9 +12182,10 @@ type Methods interface {
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
 
-	Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -12098,9 +12325,10 @@ type Methods interface {
 		update GracefulExitProgress_Update_Fields) (
 		err error)
 
-	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 		update GracefulExitTransferQueue_Update_Fields) (
 		err error)
 
@@ -12154,6 +12382,11 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
+		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
+		update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
+		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,
