@@ -182,8 +182,7 @@ export class AuthHttpApi {
 
         const response = await this.http.post(path, JSON.stringify(body), false);
         if (!response.ok) {
-            if (response.status === 400)
-            {
+            if (response.status === 400) {
                 throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
             }
 
