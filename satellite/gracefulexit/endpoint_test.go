@@ -824,7 +824,7 @@ func TestExitDisabled(t *testing.T) {
 
 		// Process endpoint should return immediately if GE is disabled
 		response, err := processClient.Recv()
-		require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+		require.Error(t, err)
 		require.Nil(t, response)
 	})
 }
