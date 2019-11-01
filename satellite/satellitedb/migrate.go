@@ -21,10 +21,6 @@ import (
 var (
 	// ErrMigrate is for tracking migration errors
 	ErrMigrate = errs.Class("migrate")
-	// ErrCheckVersionQuery is when there is an error querying version table
-	ErrCheckVersionQuery = errs.Class("check db version query error")
-	// ErrCheckVersionMismatch is the migration version does not match the current database version
-	ErrCheckVersionMismatch = errs.Class("check db version mismatch error")
 )
 
 // CreateTables is a method for creating all tables for database
@@ -53,27 +49,7 @@ func (db *DB) CheckVersion() error {
 	switch db.driver {
 	case "postgres":
 		migration := db.PostgresMigration()
-		lastMigrationStep := migration.Steps[len(migration.Steps)-1]
-
-		var dbVersion sql.NullInt64
-		err := db.db.QueryRow(`SELECT MAX(version) FROM versions`).Scan(&dbVersion)
-		if err != nil {
-			db.log.Debug("error selecting max version for satellite database",
-				zap.Int("expected Version", lastMigrationStep.Version),
-				zap.Int64("current Version", dbVersion.Int64),
-				zap.Error(err),
-			)
-			return ErrCheckVersionQuery.Wrap(err)
-		}
-
-		if int64(lastMigrationStep.Version) != dbVersion.Int64 {
-			db.log.Debug("database is not the correct version",
-				zap.Int("expected Version", lastMigrationStep.Version),
-				zap.Int64("current Version", dbVersion.Int64),
-			)
-			return ErrCheckVersionMismatch.Wrap(err)
-		}
-		return nil
+		return migration.ValidateVersions(db.log)
 	default:
 		// by default we will proceed to execute code
 		return nil
