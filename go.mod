@@ -31,9 +31,9 @@ require (
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.0.0 // indirect
+	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.2.1
-	github.com/golang-migrate/migrate/v3 v3.5.2
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/golang/protobuf v1.3.2
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
@@ -49,6 +49,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
+	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
@@ -79,6 +80,8 @@ require (
 	github.com/prometheus/procfs v0.0.0-20190517135640-51af30a78b0e // indirect
 	github.com/rs/cors v1.5.0 // indirect
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
+	github.com/smartystreets/assertions v0.0.0-20180820201707-7c9eb446e3cf // indirect
+	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
@@ -107,6 +110,7 @@ require (
 	google.golang.org/grpc v1.23.1
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
+	gopkg.in/ini.v1 v1.38.2 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
