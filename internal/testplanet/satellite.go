@@ -366,6 +366,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Version: planet.NewVersionConfig(),
 			GracefulExit: gracefulexit.Config{
+				Enabled: true,
+
 				ChoreBatchSize: 10,
 				ChoreInterval:  defaultInterval,
 
