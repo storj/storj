@@ -127,10 +127,10 @@ export class AuthHttpApi {
                 throw new ErrorUnauthorized();
             }
             case 500: {
-                throw new Error('old password is incorrect, please try again');
+                throw new Error('can not change password');
             }
             default: {
-                throw new Error('can not change password');
+                throw new Error('old password is incorrect, please try again');
             }
         }
     }
