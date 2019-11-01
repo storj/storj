@@ -128,6 +128,9 @@ func (client *Client) Close() error {
 // is requested, an error will be returned
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(keys) == 0 {
+		return nil, nil
+	}
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
@@ -138,9 +141,6 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	}
 
 	results, err := client.db.MGet(keyStrings...).Result()
-	if len(keyStrings) == 0 {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

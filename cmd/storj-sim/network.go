@@ -234,11 +234,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	var ports []string
 
 	for i := 0; i < flags.SatelliteCount; i++ {
 		rp := port(satellitePeer, i, redisPort)
-		ports = append(ports, rp)
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
 			Executable: "redis-server",
@@ -254,7 +252,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"bind " + host,
 				"port " + rp,
 				"timeout 0",
-				"databases " + strconv.Itoa(len(redisDBs)),
+				"databases 2",
 				"dbfilename sim.rdb",
 				"dir ./",
 			}
@@ -292,6 +290,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
+				"--live-accounting.storage-backend", "redis://" + redisServers[i].Address + "?db=0",
+				"--server.revocation-dburl", "redis://" + redisServers[i].Address + "?db=1",
+
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 
@@ -309,10 +310,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
-		}
-		for flag, db := range redisDBs {
-			url := createPath(net.JoinHostPort(host, ports[i]), db)
-			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])
 	}
