@@ -74,8 +74,8 @@ entries, where each entry is one of the following:
 
 This entry contains a URL where a Trusted Satellite List can be downloaded.
 
-Supported schemes are `file://`, `http://` and `https://`.  When
-not using `file://` it **SHOULD** be an `https://` URL to ensure transport
+Supported schemes are `file://`, `http://` and `https://`.  When using HTTP an
+`https://` URL should be preferred over an `http://` URL to ensure transport
 security and prevent a person-in-the-middle from tampering with the list.
 
 Examples:
@@ -95,10 +95,10 @@ the entry is a Satellite URL.
 This entry contains the URL to an explicitly untrusted Satellite. The format of
 the entry is a `!` followed by one of the following:
 
-* Satellite ID
+* Satellite ID followed by an `@` (to distinguish it from a host)
 
 ```
-!121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6
+!121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@
 ```
 
 * Satellite host. If the host is a domain, then subdomains are also untrusted
