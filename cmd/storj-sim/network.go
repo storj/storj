@@ -321,7 +321,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-
 		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"migration",
@@ -329,41 +328,33 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 
-		process.WaitForExited(migrationProcess)
-	}
-
-	// Create the peer process for each satellite API
-	for i, satellite := range satellites {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-peer/%d", i),
+		coreProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-core/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    "",
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		coreProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
-	}
+		coreProcess.WaitForExited(migrationProcess)
 
-	// Create the repairer process for each satellite
-	for i, satellite := range satellites {
-		process := processes.New(Info{
+		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		repairProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
+		repairProcess.WaitForExited(migrationProcess)
+
+		process.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite
