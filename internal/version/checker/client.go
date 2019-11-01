@@ -110,7 +110,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	}
 
 	processesValue := reflect.ValueOf(versions.Processes)
-	field := processesValue.FieldByName(strings.Title(processName))
+	field := processesValue.FieldByName(kebabToPascal(processName))
 
 	processNameErr := Error.New("invalid process name: %s\n", processName)
 	if field == (reflect.Value{}) {
@@ -139,4 +139,8 @@ func (client *Client) ShouldUpdate(ctx context.Context, processName string, node
 		return true, process.Suggested, nil
 	}
 	return false, version.Version{}, nil
+}
+
+func kebabToPascal(str string) string {
+	return strings.ReplaceAll(strings.Title(str), "-", "")
 }
