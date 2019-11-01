@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -364,18 +365,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	{ // setup payments
 		config := paymentsconfig.Config{}
 
-		service := stripecoinpayments.NewService(
-			peer.Log.Named("stripecoinpayments service"),
-			config.StripeCoinPayments,
-			peer.DB.Customers(),
-			peer.DB.CoinpaymentsTransactions())
+		switch config.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				config.StripeCoinPayments,
+				peer.DB.Customers(),
+				peer.DB.CoinpaymentsTransactions())
 
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = stripecoinpayments.NewChore(
-			peer.Log.Named("stripecoinpayments clearing loop"),
-			service,
-			config.StripeCoinPayments.TransactionUpdateInterval,
-			config.StripeCoinPayments.AccountBalanceUpdateInterval)
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Clearing = stripecoinpayments.NewChore(
+				peer.Log.Named("stripecoinpayments clearing loop"),
+				service,
+				config.StripeCoinPayments.TransactionUpdateInterval,
+				config.StripeCoinPayments.AccountBalanceUpdateInterval)
+		}
 	}
 
 	{ // setup console
