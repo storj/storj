@@ -69,6 +69,11 @@ type Config struct {
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
 		DialTimeout time.Duration
+
+		// SkipErrorDetection will pass the minimum number of shares to decode
+		// to possibly succeed. Thus, the decoding step cannot detect any errors
+		// but the decryption step will.
+		SkipErrorDetection bool
 	}
 }
 

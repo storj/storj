@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
@@ -93,21 +92,27 @@ func (r *StripeReader) Close() error {
 // return value is the updated byte slice.
 func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	for i := range r.inmap {
-		delete(r.inmap, i)
-	}
 
 	r.cond.L.Lock()
 	defer r.cond.L.Unlock()
 
-	for r.pendingReaders() {
-		for r.readAvailableShares(ctx, num) == 0 {
+	for i := range r.inmap {
+		delete(r.inmap, i)
+	}
+
+	for r.decodeCouldSucceed() {
+		nin, nerr := r.readAvailableShares(ctx, num)
+		if nin == 0 && nerr == 0 {
 			r.cond.Wait()
+			continue
 		}
-		if r.hasEnoughShares() {
+
+		// only attempt to decode if we have enough shares and we just
+		// got more in the map.
+		if nin > 0 && r.hasEnoughShares() {
 			out, err := r.scheme.Decode(p, r.inmap)
 			if err != nil {
-				if r.shouldWaitForMore(err) {
+				if r.shouldWaitForMore() {
 					continue
 				}
 				return nil, err
@@ -115,6 +120,7 @@ func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ [
 			return out, nil
 		}
 	}
+
 	// could not read enough shares to attempt a decode
 	return nil, r.combineErrs(num)
 }
@@ -122,48 +128,56 @@ func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ [
 // readAvailableShares reads the available num-th erasure shares from the piece
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
-func (r *StripeReader) readAvailableShares(ctx context.Context, num int64) (n int) {
+func (r *StripeReader) readAvailableShares(ctx context.Context, num int64) (nin, nerr int) {
 	defer mon.Task()(&ctx)(nil)
+
 	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue
 		}
+
 		if buf.HasShare(num) {
 			err := buf.ReadShare(num, r.inbufs[i])
 			if err != nil {
 				r.errmap[i] = err
+				nerr++
 			} else {
 				r.inmap[i] = r.inbufs[i]
+				nin++
 			}
-			n++
 		}
 	}
-	return n
+
+	return nin, nerr
 }
 
-// pendingReaders checks if there are any pending readers to get a share from.
-func (r *StripeReader) pendingReaders() bool {
-	goodReaders := r.readerCount - len(r.errmap)
-	return goodReaders >= r.scheme.RequiredCount() && goodReaders > len(r.inmap)
+// necessaryShares returns the number of shares necessary to do a decode including
+// the extra shares for any error detection if possible.
+func (r *StripeReader) necessaryShares() int {
+	if r.forceErrorDetection && r.scheme.RequiredCount() < r.scheme.TotalCount() {
+		return r.scheme.RequiredCount() + 1
+	}
+	return r.scheme.RequiredCount()
+}
+
+// decodeCouldSucceed checks if there are any pending readers to get a share from.
+func (r *StripeReader) decodeCouldSucceed() (pending bool) {
+	remainingReaders := r.readerCount - len(r.errmap) - len(r.inmap)
+	remainingShares := r.necessaryShares() - len(r.inmap)
+	return remainingReaders >= remainingShares
 }
 
 // hasEnoughShares check if there are enough erasure shares read to attempt
 // a decode.
-func (r *StripeReader) hasEnoughShares() bool {
-	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
-		(!r.forceErrorDetection && len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
+func (r *StripeReader) hasEnoughShares() (enough bool) {
+	return len(r.inmap) >= r.necessaryShares()
 }
 
-// shouldWaitForMore checks the returned decode error if it makes sense to wait
-// for more erasure shares to attempt an error correction.
-func (r *StripeReader) shouldWaitForMore(err error) bool {
-	// check if the error is due to error detection
-	if !infectious.NotEnoughShares.Contains(err) &&
-		!infectious.TooManyErrors.Contains(err) {
-		return false
-	}
-	// check if there are more input buffers to wait for
-	return r.pendingReaders()
+// shouldWaitForMore checks if it makes sense to wait for more erasure shares to
+// attempt an error correction. it's always worthwhile to acquire more shares if
+// because they may give us the redundancy needed to detect and repair it.
+func (r *StripeReader) shouldWaitForMore() (ok bool) {
+	return r.readerCount > len(r.inmap)+len(r.errmap)
 }
 
 // combineErrs makes a useful error message from the errors in errmap.
