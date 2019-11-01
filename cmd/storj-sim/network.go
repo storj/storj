@@ -59,8 +59,9 @@ const (
 	debugHTTP   = 9
 
 	// satellite specific constants
-	debugPeerHTTP     = 7
-	debugRepairerHTTP = 8
+	debugMigrationHTTP = 6
+	debugPeerHTTP      = 7
+	debugRepairerHTTP  = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -285,7 +286,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
-			"run": {"migration"},
+			"run": {
+				"migration",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugMigrationHTTP)),
+			},
 		})
 
 		process.WaitForStart(migrationProcess)
