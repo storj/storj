@@ -22,6 +22,11 @@ func (accounts *accounts) CreditCards() payments.CreditCards {
 	return &creditCards{service: accounts.service}
 }
 
+// Invoices exposes all needed functionality to manage account invoices.
+func (accounts *accounts) Invoices() payments.Invoices {
+	return &invoices{service: accounts.service}
+}
+
 // Setup creates a payment account for the user.
 // If account is already set up it will return nil.
 func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {

@@ -145,7 +145,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestConcurrentConnections(t *testing.T) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -157,8 +157,8 @@ func TestConcurrentConnections(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
@@ -241,9 +241,10 @@ func TestConcurrentConnections(t *testing.T) {
 
 func TestRecvTimeout(t *testing.T) {
 	var geConfig gracefulexit.Config
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 9,
+		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -265,10 +266,10 @@ func TestRecvTimeout(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     8,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -799,7 +800,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 }
 
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -816,8 +817,8 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		}
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
