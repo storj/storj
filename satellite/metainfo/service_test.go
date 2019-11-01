@@ -13,7 +13,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -54,4 +56,62 @@ func TestIterate(t *testing.T) {
 		// There should only be 1 item in pointerDB, the one object
 		require.Equal(t, 1, itemCount)
 	})
+}
+
+func TestUpdatePiecesCheckDuplicates(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+		path := "test/path"
+
+		err := uplink.Upload(ctx, satellite, "test1", path, testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
+		require.NoError(t, err)
+
+		var pointer *pb.Pointer
+		var encPath string
+		for _, key := range keys {
+			encPath = string(key)
+			pointer, err = satellite.Metainfo.Service.Get(ctx, encPath)
+			require.NoError(t, err)
+			break
+		}
+		require.NotNil(t, pointer)
+		require.NotNil(t, encPath)
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		require.False(t, hasDuplicates(pointer.GetRemote().GetRemotePieces()))
+
+		piece := pieces[0]
+		piece.PieceNum = 3
+
+		// test no duplicates
+		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath, pointer, []*pb.RemotePiece{piece}, nil, true)
+		require.True(t, metainfo.NodeAlreadyExitsError.Has(err))
+		require.False(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
+
+		// test allow duplicates
+		updPointer, err = satellite.Metainfo.Service.UpdatePieces(ctx, encPath, pointer, []*pb.RemotePiece{piece}, nil)
+		require.NoError(t, err)
+		require.True(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
+	})
+}
+
+func hasDuplicates(pieces []*pb.RemotePiece) bool {
+	nodePieceCounts := make(map[storj.NodeID]int)
+	for _, piece := range pieces {
+		nodePieceCounts[piece.NodeId]++
+	}
+
+	for _, count := range nodePieceCounts {
+		if count > 1 {
+			return true
+		}
+	}
+
+	return false
 }
