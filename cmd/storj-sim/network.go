@@ -277,6 +277,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
+
+		migrationProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-migration/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+
+		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
+			"run": {"migration"},
+		})
+
+		process.WaitForStart(migrationProcess)
 	}
 
 	// Create the peer process for each satellite API
@@ -534,12 +546,9 @@ func identitySetup(network *Processes) (*Processes, error) {
 			continue
 		}
 
-		if strings.Contains(process.Name, "satellite-peer") {
-			// satellite-peer uses the same identity as the satellite
-			continue
-		}
-		if strings.Contains(process.Name, "satellite-repair") {
-			// satellite-repair uses the same identity as the satellite
+		if strings.Contains(process.Name, "satellite-") {
+			// we only need to create the identity once for the satellite system, we create the
+			// identity for the satellite process and share it with these other satellite processes
 			continue
 		}
 

@@ -209,7 +209,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion()
 	if err != nil {
-		zap.S().Fatal("failed satellite database version check", err)
+		zap.S().Fatal("failed satellite database version check: ", err)
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
