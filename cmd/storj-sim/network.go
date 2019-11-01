@@ -234,7 +234,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-
 	for i := 0; i < flags.SatelliteCount; i++ {
 		rp := port(satellitePeer, i, redisPort)
 		process := processes.New(Info{
