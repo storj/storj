@@ -246,17 +246,16 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		redisServers = append(redisServers, process)
 
-		filename := filepath.Join(process.Directory, "sim.rdb")
 		process.ExecBefore["setup"] = func(process *Process) error {
 			confpath := filepath.Join(process.Directory, "redis.conf")
 			arguments := []string{
 				"daemonize no",
-				"bind" + host,
+				"bind " + host,
 				"port " + redisPort,
 				"timeout 0",
-				"databases" + strconv.Itoa(len(redisDBs)),
-				"dbfilename" + filename,
-				"dir " + process.Directory,
+				"databases " + strconv.Itoa(len(redisDBs)),
+				"dbfilename sim.rdb",
+				"dir ./",
 			}
 			conf := strings.Join(arguments, "\n") + "\n"
 			err := ioutil.WriteFile(confpath, []byte(conf), 0755)
@@ -331,7 +330,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-
+		process.WaitForStart(redisServers[i])
 		process.WaitForStart(satellite)
 	}
 
@@ -566,8 +565,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
-		if process.Info.Executable == "gateway" {
-			// gateways don't need an identity
+		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
+			// gateways and redis-servers don't need an identity
 			continue
 		}
 

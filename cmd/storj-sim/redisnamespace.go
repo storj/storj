@@ -3,7 +3,6 @@
 package main
 
 import (
-	"path/filepath"
 	"strconv"
 )
 
@@ -14,5 +13,5 @@ var redisDBs = map[string]int{
 
 // createPath generates a redis path for the db provided
 func createPath(hostPort string, db int) string {
-	return filepath.Join("redis://", hostPort, "?db=", strconv.Itoa(db))
+	return "redis://" + hostPort + "?db=" + strconv.Itoa(db)
 }
