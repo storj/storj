@@ -126,7 +126,7 @@ export class AuthHttpApi {
             case 401: {
                 throw new ErrorUnauthorized();
             }
-            case 400: {
+            case 500: {
                 throw new Error('old password is incorrect, please try again');
             }
             default: {

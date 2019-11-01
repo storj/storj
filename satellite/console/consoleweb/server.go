@@ -213,7 +213,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -356,7 +355,6 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
 		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -394,13 +392,11 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	default:
