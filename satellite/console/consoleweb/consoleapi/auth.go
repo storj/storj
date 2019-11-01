@@ -265,6 +265,11 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
