@@ -292,7 +292,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 
-		process.WaitForStart(migrationProcess)
+		process.WaitForExited(migrationProcess)
 	}
 
 	// Create the peer process for each satellite API
