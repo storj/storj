@@ -3,7 +3,7 @@
 
 <template>
     <div class="profile-container">
-        <h1 class="profile-container__title">Profile</h1>
+        <h1 class="profile-container__title">Account Settings</h1>
         <div class="profile-container__edit-profile no-margin" >
             <div class="profile-container__edit-profile__row">
                 <div class="profile-container__edit-profile__avatar">
