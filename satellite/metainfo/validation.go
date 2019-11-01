@@ -343,15 +343,17 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 
 	if endpoint.requiredRSConfig.Validate {
 		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.requiredRSConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MinTotalThreshold > int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MaxTotalThreshold < int(redundancy.Total) ||
 			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||
 			endpoint.requiredRSConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
 			endpoint.requiredRSConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
-			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d, %d] got [%d, %d, %d, %d, %d]",
+			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d-%d, %d] got [%d, %d, %d, %d, %d]",
 				endpoint.requiredRSConfig.MinThreshold,
 				endpoint.requiredRSConfig.RepairThreshold,
 				endpoint.requiredRSConfig.SuccessThreshold,
-				endpoint.requiredRSConfig.MaxThreshold,
+				endpoint.requiredRSConfig.MinTotalThreshold,
+				endpoint.requiredRSConfig.MaxTotalThreshold,
 				endpoint.requiredRSConfig.ErasureShareSize.Int32(),
 
 				redundancy.MinReq,

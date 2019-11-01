@@ -51,7 +51,9 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverride int, satelliteSignee signing.Signee,
+	excessOptimalThreshold float64, repairOverride int,
+	downloadTimeout time.Duration,
+	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -63,7 +65,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverride:             repairOverride,
@@ -100,7 +102,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
@@ -208,7 +209,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, path)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
