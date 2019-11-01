@@ -6,11 +6,24 @@ a {
     outline: none;
 }
 
+::-webkit-scrollbar,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb {
+    width: 3px;
+    margin-top: 100px;
+    background-color: #fff;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #afb7c1;
+}
+
 .navigation-area {
     position: relative;
     min-width: 280px;
     max-width: 280px;
-    height: 100vh;
+    height: calc(97vh + 5px);
+    overflow-y: scroll;
     left: 0;
     background-color: #fff;
     padding-top: 20px;
@@ -155,6 +168,12 @@ a {
 
 @media screen and (max-width: 1024px) {
 
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin-top: 0;
+    }
+
     .divider {
         margin-left: 42px;
     }
@@ -186,5 +205,33 @@ a {
             display: block;
             margin-left: 35px;
         }
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 790px) {
+
+    .navigation-area {
+        height: 84vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 700px) {
+
+    .navigation-area {
+        height: 83vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 660px) {
+
+    .navigation-area {
+        height: 82vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 620px) {
+
+    .navigation-area {
+        height: 81vh;
     }
 }

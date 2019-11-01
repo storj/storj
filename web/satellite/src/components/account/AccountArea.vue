@@ -3,7 +3,6 @@
 
 <template>
     <div class="account-area-container">
-        <h1 class="account-area-container__title">Account</h1>
         <router-view/>
     </div>
 </template>
@@ -16,27 +15,34 @@ export default class AccountArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        width: 4px;
+        margin-top: 103px;
+        background-color: #f5f6fa;
+    }
+
+    ::-webkit-scrollbar-track-piece {
+        background-color: #f5f6fa;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: #afb7c1;
+    }
+
     .account-area-container {
-        padding: 44px 55px 55px 55px;
+        padding: 0 39px 0 55px;
+        margin-right: 16px;
         position: relative;
+        overflow-y: scroll;
+        height: 90vh;
 
         &__navigation {
             position: absolute;
             right: 55px;
             z-index: 99;
             background-color: #f5f6fa;
-        }
-
-        &__title {
-            position: absolute;
-            left: 55px;
-            z-index: 99;
-            font-family: 'font_bold', sans-serif;
-            font-size: 24px;
-            line-height: 29px;
-            color: #354049;
-            margin-block-start: 0.5em;
-            margin-block-end: 0.5em;
         }
     }
 
@@ -47,10 +53,6 @@ export default class AccountArea extends Vue {}
 
             &__navigation {
                 right: 40px;
-            }
-
-            &__title {
-                left: 40px;
             }
         }
     }

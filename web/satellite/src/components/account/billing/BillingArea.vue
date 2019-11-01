@@ -3,6 +3,7 @@
 
 <template>
     <div class="account-billing-area">
+        <h1 class="account-billing-area__title">Billing</h1>
         <div class="account-billing-area__notification-container">
             <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -68,16 +69,14 @@ export default class BillingArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-thumb {
-        width: 0;
-    }
-
     .account-billing-area {
-        margin-top: 83px;
-        overflow-y: scroll;
-        height: 75vh;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            margin: 40px 0 25px 0;
+        }
 
         &__notification-container {
 
