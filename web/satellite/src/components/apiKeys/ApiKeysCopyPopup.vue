@@ -77,6 +77,7 @@ export default class ApiKeysCopyPopup extends Vue {
             font-size: 24px;
             line-height: 29px;
             margin-bottom: 26px;
+            user-select: none;
         }
 
         &__copy-area {
@@ -130,19 +131,22 @@ export default class ApiKeysCopyPopup extends Vue {
     .copied-button {
         padding: 13px 28.5px;
         background-color: #196cda;
-        cursor: default;
+        border: 1px solid #196cda;
+    }
+
+    .copy-button {
+        cursor: pointer;
+        background-color: #2683ff;
+        border: 1px solid #2683ff;
     }
 
     .copy-button,
     .copied-button {
         display: flex;
-        background-color: #2683ff;
         padding: 13px 36px;
-        cursor: pointer;
         align-items: center;
         justify-content: space-between;
         color: #fff;
-        border: 1px solid #2683ff;
         box-sizing: border-box;
         border-radius: 8px;
         font-size: 14px;
@@ -151,6 +155,7 @@ export default class ApiKeysCopyPopup extends Vue {
 
         &__label {
             margin: 0;
+            user-select: none;
         }
 
         &:hover {

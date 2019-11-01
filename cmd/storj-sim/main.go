@@ -102,7 +102,6 @@ func main() {
 	rootCmd.AddCommand(
 		networkCmd,
 	)
-
 	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
 	if err != nil {
