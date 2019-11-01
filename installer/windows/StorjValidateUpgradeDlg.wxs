@@ -5,8 +5,8 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <UI>
-            <Dialog Id="StorjValidateUpgradeDlg" Width="370" Height="270" Title="Ready to upgrade [ProductName]" TrackDiskSpace="yes">
-                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Ready to upgrade [ProductName]" />
+            <Dialog Id="StorjValidateUpgradeDlg" Width="370" Height="270" Title="Ready to update [ProductName]" TrackDiskSpace="yes">
+                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Ready to update [ProductName]" />
                 <Control Id="UpgradeDescription" Type="Text" X="135" Y="70" Width="220" Height="100" Transparent="yes"  Text="The Setup Wizard will update your Storj V3 Storage Node to version !(bind.FileVersion.Storagenodeexe). This operation will not modify your storage node's configuration." />
                 <Control Id="ButtonsDescription" Type="Text" X="135" Y="120" Width="220" Height="80" Transparent="yes" Text="Click Update to continue or Cancel to exit the wizard. " />
 
