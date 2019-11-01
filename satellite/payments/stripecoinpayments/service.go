@@ -26,7 +26,7 @@ var Error = errs.Class("stripecoinpayments service error")
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
-	CoinpaymentsPrivateKey       string        `help:"coinpayments API preivate key key" default:""`
+	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 }
