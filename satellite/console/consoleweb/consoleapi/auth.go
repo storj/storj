@@ -64,7 +64,12 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
