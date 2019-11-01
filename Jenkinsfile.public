@@ -26,6 +26,7 @@ pipeline {
                 sh 'go mod download'
 
                 sh 'service postgresql start'
+
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
             }
@@ -87,6 +88,7 @@ pipeline {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
+
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
                     }
 
@@ -108,6 +110,15 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+               stage('Build [gomobile]') {
+                    steps {
+                        // just to verify its building with recent changes
+                        sh 'make libuplink-gomobile'
+                        sh 'rm libuplink-android-sources.jar'
+                        sh 'rm libuplink-android.aar'
                     }
                 }
 
