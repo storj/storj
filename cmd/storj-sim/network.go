@@ -62,7 +62,7 @@ const (
 	// satellite specific constants
 	debugPeerHTTP     = 7
 	debugRepairerHTTP = 8
-	redisConst        = 4
+	redisPort         = 4
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -234,16 +234,16 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	var redisPorts []string
+	var ports []string
 
 	for i := 0; i < flags.SatelliteCount; i++ {
-		redisPort := port(satellitePeer, i, redisConst)
-		redisPorts = append(redisPorts, redisPort)
+		rp := port(satellitePeer, i, redisPort)
+		ports = append(ports, rp)
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("redis/%d", i),
 			Executable: "redis-server",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
-			Address:    net.JoinHostPort(host, redisPort),
+			Address:    net.JoinHostPort(host, rp),
 		})
 		redisServers = append(redisServers, process)
 
@@ -252,7 +252,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			arguments := []string{
 				"daemonize no",
 				"bind " + host,
-				"port " + redisPort,
+				"port " + rp,
 				"timeout 0",
 				"databases " + strconv.Itoa(len(redisDBs)),
 				"dbfilename sim.rdb",
@@ -311,7 +311,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			)
 		}
 		for flag, db := range redisDBs {
-			url := createPath(net.JoinHostPort(host, redisPorts[i]), db)
+			url := createPath(net.JoinHostPort(host, ports[i]), db)
 			process.Arguments["setup"] = append(process.Arguments["setup"], flag, url)
 		}
 		process.WaitForStart(redisServers[i])
