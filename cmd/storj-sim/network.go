@@ -234,33 +234,36 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	for i := 0; i < flags.SatelliteCount; i++ {
-		rp := port(satellitePeer, i, redisPort)
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("redis/%d", i),
-			Executable: "redis-server",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
-			Address:    net.JoinHostPort(host, rp),
-		})
-		redisServers = append(redisServers, process)
 
-		process.ExecBefore["setup"] = func(process *Process) error {
-			confpath := filepath.Join(process.Directory, "redis.conf")
-			arguments := []string{
-				"daemonize no",
-				"bind " + host,
-				"port " + rp,
-				"timeout 0",
-				"databases 2",
-				"dbfilename sim.rdb",
-				"dir ./",
+	if flags.Redis == "" {
+		for i := 0; i < flags.SatelliteCount; i++ {
+			rp := port(satellitePeer, i, redisPort)
+			process := processes.New(Info{
+				Name:       fmt.Sprintf("redis/%d", i),
+				Executable: "redis-server",
+				Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
+				Address:    net.JoinHostPort(host, rp),
+			})
+			redisServers = append(redisServers, process)
+
+			process.ExecBefore["setup"] = func(process *Process) error {
+				confpath := filepath.Join(process.Directory, "redis.conf")
+				arguments := []string{
+					"daemonize no",
+					"bind " + host,
+					"port " + rp,
+					"timeout 0",
+					"databases 2",
+					"dbfilename sim.rdb",
+					"dir ./",
+				}
+				conf := strings.Join(arguments, "\n") + "\n"
+				err := ioutil.WriteFile(confpath, []byte(conf), 0755)
+				return err
 			}
-			conf := strings.Join(arguments, "\n") + "\n"
-			err := ioutil.WriteFile(confpath, []byte(conf), 0755)
-			return err
-		}
-		process.Arguments = Arguments{
-			"run": []string{filepath.Join(process.Directory, "redis.conf")},
+			process.Arguments = Arguments{
+				"run": []string{filepath.Join(process.Directory, "redis.conf")},
+			}
 		}
 	}
 
@@ -276,6 +279,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
+		redisAddress := flags.Redis
+		redisPortBase := i * 2
+		if redisAddress == "" {
+			redisAddress = redisServers[i].Address
+			redisPortBase = 0
+			process.WaitForStart(redisServers[i])
+		}
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -289,8 +300,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
-				"--live-accounting.storage-backend", "redis://" + redisServers[i].Address + "?db=0",
-				"--server.revocation-dburl", "redis://" + redisServers[i].Address + "?db=1",
+				"--live-accounting.storage-backend", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase),
+				"--server.revocation-dburl", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase+1),
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
@@ -310,7 +321,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		process.WaitForStart(redisServers[i])
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
