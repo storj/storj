@@ -866,6 +866,25 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
+		// check that node is no longer in the pointer
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		require.NoError(t, err)
+
+		var pointer *pb.Pointer
+		for _, key := range keys {
+			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			require.NoError(t, err)
+
+			if p.GetRemote() != nil {
+				pointer = p
+				break
+			}
+		}
+		require.NotNil(t, pointer)
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			require.NotEqual(t, piece.NodeId, exitingNode.ID())
+		}
+
 		// check that the exit has completed and we have the correct transferred/failed values
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
@@ -891,6 +910,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 			if p.GetRemote() != nil {
 				oldPointer = p
 				path = key
+				break
 			}
 		}
 
@@ -937,6 +957,25 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 			require.NotNil(t, m)
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+
+		// check that node is no longer in the pointer
+		keys, err = satellite.Metainfo.Database.List(ctx, nil, -1)
+		require.NoError(t, err)
+
+		var pointer *pb.Pointer
+		for _, key := range keys {
+			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			require.NoError(t, err)
+
+			if p.GetRemote() != nil {
+				pointer = p
+				break
+			}
+		}
+		require.NotNil(t, pointer)
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			require.NotEqual(t, piece.NodeId, exitingNode.ID())
 		}
 
 		// check that the exit has completed and we have the correct transferred/failed values
