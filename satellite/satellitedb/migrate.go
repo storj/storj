@@ -51,7 +51,6 @@ func (db *DB) CheckVersion() error {
 		migration := db.PostgresMigration()
 		return migration.ValidateVersions(db.log)
 	default:
-		// by default we will proceed to execute code
 		return nil
 	}
 }

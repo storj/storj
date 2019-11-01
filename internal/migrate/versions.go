@@ -105,18 +105,16 @@ func (migration *Migration) ValidateVersions(log *zap.Logger) error {
 			return ErrValidateVersionQuery.Wrap(err)
 		}
 
-		if step.Version <= dbVersion {
-			continue
-		} else {
+		if step.Version > dbVersion {
 			return ErrValidateVersionMismatch.New("expected %d <= %d", step.Version, dbVersion)
 		}
 	}
 
 	if len(migration.Steps) > 0 {
 		last := migration.Steps[len(migration.Steps)-1]
-		log.Info("Database version is up to date", zap.Int("version", last.Version))
+		log.Debug("Database version is up to date", zap.Int("version", last.Version))
 	} else {
-		log.Info("No Versions")
+		log.Debug("No Versions")
 	}
 
 	return nil
