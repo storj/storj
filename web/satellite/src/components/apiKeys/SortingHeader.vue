@@ -86,6 +86,7 @@ export default class SortApiKeysHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
+        user-select: none;
 
         &__date-item {
             width: 60%;
