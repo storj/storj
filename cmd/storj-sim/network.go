@@ -311,6 +311,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			)
 		}
 		process.WaitForStart(redisServers[i])
+		process.ExecBefore["run"] = func(process *Process) error {
+			return readConfigString(&process.Address, process.Directory, "server.address")
+		}
 	}
 
 	// Create the peer process for each satellite API
