@@ -69,7 +69,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 

@@ -212,7 +212,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
-		server.log.Error("satellite/console/server: index template could not be executed")
+		server.log.Error("index template could not be executed")
 		return
 	}
 }
