@@ -442,12 +442,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, stream, pending, nodeID, m)
 			if err != nil {
-				if metainfo.NodeAlreadyExitsError.Has(err) {
+				if metainfo.ErrNodeAlreadyExists.Has(err) {
 					// this will get re-tried
 					endpoint.log.Warn("node already exists in pointer.", zap.Error(err))
 
 					if transfer, ok := pending.get(m.Succeeded.OriginalPieceId); ok {
-						endpoint.log.Debug("retrying peice b/c the replacement node already has a piece for the segment.", zap.Stringer("nodeID", nodeID), zap.ByteString("path", transfer.path), zap.Int32("pieceNum", transfer.pieceNum))
+						endpoint.log.Debug("retrying piece b/c the replacement node already has a piece for the segment.", zap.Stringer("nodeID", nodeID), zap.ByteString("path", transfer.path), zap.Int32("pieceNum", transfer.pieceNum))
 						incomplete, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
 						if err != nil {
 							return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())

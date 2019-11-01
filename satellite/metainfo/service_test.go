@@ -91,7 +91,7 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 
 		// test no duplicates
 		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath, pointer, []*pb.RemotePiece{piece}, nil, true)
-		require.True(t, metainfo.NodeAlreadyExitsError.Has(err))
+		require.True(t, metainfo.ErrNodeAlreadyExists.Has(err))
 		require.False(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
 
 		// test allow duplicates

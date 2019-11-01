@@ -59,8 +59,8 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 // prior to calling this method.
 //
 // It will first check if the pointer has been deleted or replaced.
-// Then if checkDuplicats is true it will return an error if the nodes to be
-// added already have a piece for the pointer.
+// Then if checkDuplicates is true it will return an error if the nodes to be
+// added are already in the pointer.
 // Then it will remove the toRemove pieces and then it will add the toAdd pieces.
 // Replacing the node ID and the hash of a piece can be done by adding the
 // piece to both toAdd and toRemove.
