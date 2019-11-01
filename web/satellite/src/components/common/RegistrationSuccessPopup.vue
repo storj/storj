@@ -126,6 +126,7 @@ export default class RegistrationSuccessPopup extends Vue {
                 line-height: 39px;
                 color: #384b65;
                 margin: 0;
+                user-select: none;
             }
 
             &__text {
