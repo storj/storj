@@ -63,38 +63,37 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	if !chore.service.initialized.Wait(ctx) {
 		return ctx.Err()
 	}
+
+	backOff := time.Second
+	interval := chore.interval
+
 	chore.mu.Lock()
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
-		backOff := time.Second
-		interval := chore.interval
+
 		cycle := sync2.NewCycle(interval)
 		chore.cycles = append(chore.cycles, cycle)
 
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
 			chore.log.Info("starting contact cycle for satellite " + satellite.String())
-			err := chore.pingSatellite(ctx, satellite)
-			if err == nil {
-				return nil
-			}
-
 			interval := backOff
-			retries := 0
+			attempts := 0
 			for {
-				if !sync2.Sleep(ctx, interval) {
-					chore.log.Error("ping satellite failed after " + strconv.Itoa(retries) + " retries timed out")
-					return ctx.Err()
-				}
 				err := chore.pingSatellite(ctx, satellite)
-				retries++
+				attempts++
 				if err == nil {
 					return nil
 				}
-				chore.log.Error("ping satellite failed " + strconv.Itoa(retries) + " times")
+				chore.log.Error("ping satellite failed " + strconv.Itoa(attempts) + " times")
 				interval *= 2
 				if interval > chore.interval {
 					interval = chore.interval
 				}
+				if !sync2.Sleep(ctx, interval) {
+					chore.log.Error("ping satellite failed after " + strconv.Itoa(attempts) + " retries timed out")
+					return nil
+				}
+
 			}
 		})
 	}
