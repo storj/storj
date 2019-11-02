@@ -88,11 +88,11 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 
 		// put all existing pieces to a map
 		pieceMap := make(map[int32]*pb.RemotePiece)
-		nodePieceMap := make(map[storj.NodeID]*pb.RemotePiece)
+		nodePieceMap := make(map[storj.NodeID]struct{})
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			pieceMap[piece.PieceNum] = piece
 			if checkDuplicates {
-				nodePieceMap[piece.NodeId] = piece
+				nodePieceMap[piece.NodeId] = struct{}{}
 			}
 		}
 
@@ -103,7 +103,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 				if ok {
 					return nil, ErrNodeAlreadyExists.New("node id already exists in piece. Path: %s, NodeID: %s", path, piece.NodeId.String())
 				}
-				nodePieceMap[piece.NodeId] = piece
+				nodePieceMap[piece.NodeId] = struct{}{}
 			}
 		}
 		// remove the toRemove pieces from the map

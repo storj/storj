@@ -44,7 +44,7 @@ var (
 	mon = monkit.Package()
 	// Error general metainfo error
 	Error = errs.Class("metainfo error")
-	// ErrNodeAlreadyExists pointer alredy has a piece for a node err
+	// ErrNodeAlreadyExists pointer already has a piece for a node err
 	ErrNodeAlreadyExists = errs.Class("metainfo error")
 )
 
