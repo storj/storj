@@ -103,6 +103,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 				if ok {
 					return nil, ErrNodeAlreadyExists.New("node id already exists in piece. Path: %s, NodeID: %s", path, piece.NodeId.String())
 				}
+				nodePieceMap[piece.NodeId] = piece
 			}
 		}
 		// remove the toRemove pieces from the map
