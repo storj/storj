@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -61,6 +62,7 @@ const (
 	// satellite specific constants
 	debugPeerHTTP     = 7
 	debugRepairerHTTP = 8
+	redisPort         = 4
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -103,6 +105,7 @@ func networkExec(flags *Flags, args []string, command string) error {
 
 func networkEnv(flags *Flags, args []string) error {
 	flags.OnlyEnv = true
+
 	processes, err := newNetwork(flags)
 	if err != nil {
 		return err
@@ -222,12 +225,46 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	versioncontrol.ExecBefore["run"] = func(process *Process) error {
 		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
 	}
-
 	// gateway must wait for the versioncontrol to start up
 
 	// Create satellites
 	if flags.SatelliteCount > maxInstanceCount {
 		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
+	}
+
+	// set up redis servers
+	var redisServers []*Process
+
+	if flags.Redis == "" {
+		for i := 0; i < flags.SatelliteCount; i++ {
+			rp := port(satellitePeer, i, redisPort)
+			process := processes.New(Info{
+				Name:       fmt.Sprintf("redis/%d", i),
+				Executable: "redis-server",
+				Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
+				Address:    net.JoinHostPort(host, rp),
+			})
+			redisServers = append(redisServers, process)
+
+			process.ExecBefore["setup"] = func(process *Process) error {
+				confpath := filepath.Join(process.Directory, "redis.conf")
+				arguments := []string{
+					"daemonize no",
+					"bind " + host,
+					"port " + rp,
+					"timeout 0",
+					"databases 2",
+					"dbfilename sim.rdb",
+					"dir ./",
+				}
+				conf := strings.Join(arguments, "\n") + "\n"
+				err := ioutil.WriteFile(confpath, []byte(conf), 0755)
+				return err
+			}
+			process.Arguments = Arguments{
+				"run": []string{filepath.Join(process.Directory, "redis.conf")},
+			}
+		}
 	}
 
 	var satellites []*Process
@@ -242,6 +279,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
+		redisAddress := flags.Redis
+		redisPortBase := i * 2
+		if redisAddress == "" {
+			redisAddress = redisServers[i].Address
+			redisPortBase = 0
+			process.WaitForStart(redisServers[i])
+		}
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -254,6 +299,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
+
+				"--live-accounting.storage-backend", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase),
+				"--server.revocation-dburl", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase+1),
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
@@ -273,7 +321,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
@@ -293,7 +340,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-
 		process.WaitForStart(satellite)
 	}
 
@@ -311,7 +357,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
-
 		process.WaitForStart(satellite)
 	}
 
@@ -529,8 +574,8 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
-		if process.Info.Executable == "gateway" {
-			// gateways don't need an identity
+		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
+			// gateways and redis-servers don't need an identity
 			continue
 		}
 
