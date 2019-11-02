@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink"
 )
 
 func TestIterate(t *testing.T) {
@@ -63,10 +64,17 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		uplink := planet.Uplinks[0]
+		uplinkPeer := planet.Uplinks[0]
 		path := "test/path"
 
-		err := uplink.Upload(ctx, satellite, "test1", path, testrand.Bytes(5*memory.KiB))
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  1,
+			SuccessThreshold: 2,
+			MaxThreshold:     2,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "test1", path, testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
