@@ -58,6 +58,8 @@ var mon = monkit.Package()
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
+	// CheckVersion checks the database is the correct version
+	CheckVersion() error
 	// Close closes the database
 	Close() error
 
