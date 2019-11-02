@@ -66,7 +66,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	backOff := time.Second
 	interval := chore.interval
-
 	chore.mu.Lock()
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
@@ -84,14 +83,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				if err == nil {
 					return nil
 				}
-				chore.log.Error("ping satellite failed " + strconv.Itoa(attempts) + " times")
+				chore.log.Error("ping satellite failed " + strconv.Itoa(attempts) + " times: " + err.Error())
+
+				if !sync2.Sleep(ctx, interval) && interval == chore.interval {
+					chore.log.Error("ping satellite failed after " + strconv.Itoa(attempts) + " retries timed out")
+					return nil
+				}
 				interval *= 2
 				if interval > chore.interval {
 					interval = chore.interval
-				}
-				if !sync2.Sleep(ctx, interval) {
-					chore.log.Error("ping satellite failed after " + strconv.Itoa(attempts) + " retries timed out")
-					return nil
 				}
 
 			}
