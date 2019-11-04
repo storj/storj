@@ -35,6 +35,8 @@ const (
 )
 
 func TestAutoUpdater_unix(t *testing.T) {
+	t.Skip("TODO: the version server must listen on random port")
+
 	if runtime.GOOS == "windows" {
 		t.Skip("requires storagenode and storagenode-updater to be installed as windows services")
 	}

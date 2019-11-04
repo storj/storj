@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
@@ -58,6 +59,8 @@ var mon = monkit.Package()
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
+	// CheckVersion checks the database is the correct version
+	CheckVersion() error
 	// Close closes the database
 	Close() error
 
@@ -382,26 +385,34 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
+	// TODO: remove in future, should be in API
 	{ // setup payments
 		config := paymentsconfig.Config{}
 
-		service := stripecoinpayments.NewService(
-			peer.Log.Named("stripecoinpayments service"),
-			config.StripeCoinPayments,
-			peer.DB.Customers(),
-			peer.DB.CoinpaymentsTransactions())
+		switch config.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				config.StripeCoinPayments,
+				peer.DB.Customers(),
+				peer.DB.CoinpaymentsTransactions())
 
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = stripecoinpayments.NewChore(
-			peer.Log.Named("stripecoinpayments clearing loop"),
-			service,
-			config.StripeCoinPayments.TransactionUpdateInterval,
-			config.StripeCoinPayments.AccountBalanceUpdateInterval)
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Clearing = stripecoinpayments.NewChore(
+				peer.Log.Named("stripecoinpayments clearing loop"),
+				service,
+				config.StripeCoinPayments.TransactionUpdateInterval,
+				config.StripeCoinPayments.AccountBalanceUpdateInterval)
+		}
 	}
 
 	{ // setup graceful exit
-		log.Debug("Setting up graceful")
-		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+		if config.GracefulExit.Enabled {
+			log.Debug("Setting up graceful exit")
+			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+		}
 	}
 
 	{ // setup metrics service
@@ -451,9 +462,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
-	})
+	if peer.GracefulExit.Chore != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+		})
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
 	})
