@@ -107,14 +107,14 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        const localProject: string | null = localStorage.getItem('localProjectKey');
-        if (localProject) {
-            const project = JSON.parse(localProject as string);
+        const selectedProjectId: string | null = localStorage.getItem('selectedProjectId');
+        if (selectedProjectId) {
+            const projectId = selectedProjectId as string;
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, project.id);
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectId);
         } else {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-            localStorage.setItem('localProjectKey', JSON.stringify(this.$store.getters.selectedProject));
+            localStorage.setItem('selectedProjectId', this.$store.getters.selectedProject.id);
         }
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
