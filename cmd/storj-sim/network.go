@@ -281,7 +281,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		consoleAuthToken := "secure_token"
 
 		redisAddress := flags.Redis
-		redisPortBase := i * 2
+		redisPortBase := flags.RedisStartDB + i*2
 		if redisAddress == "" {
 			redisAddress = redisServers[i].Address
 			redisPortBase = 0
