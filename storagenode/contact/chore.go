@@ -64,7 +64,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		return ctx.Err()
 	}
 
-	backOff := time.Second
+	initialBackOff := time.Second
 	interval := chore.interval
 	chore.mu.Lock()
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
@@ -75,7 +75,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
 			chore.log.Info("starting contact cycle for satellite " + satellite.String())
-			interval := backOff
+			interval := initialBackOff
 			attempts := 0
 			for {
 				err := chore.pingSatellite(ctx, satellite)
@@ -85,7 +85,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 				chore.log.Error("ping satellite failed " + strconv.Itoa(attempts) + " times: " + err.Error())
 
-				if !sync2.Sleep(ctx, interval) && interval == chore.interval {
+				if !sync2.Sleep(ctx, interval) {
 					chore.log.Error("ping satellite failed after " + strconv.Itoa(attempts) + " retries timed out")
 					return nil
 				}
@@ -93,7 +93,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				if interval > chore.interval {
 					interval = chore.interval
 				}
-
 			}
 		})
 	}
@@ -149,7 +148,7 @@ func (chore *Chore) TriggerWait(ctx context.Context) {
 			return nil
 		})
 	}
-	_ = group.Wait() // we don't need to trigger any errors
+	_ = group.Wait() // goroutines aren't returning any errors
 }
 
 // Close stops all the cycles in the contact chore
