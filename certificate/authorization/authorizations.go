@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -26,12 +27,12 @@ import (
 const (
 	// Bucket is the bucket used with a bolt-backed authorizations DB.
 	Bucket = "authorizations"
-	// MaxClaimDelaySeconds is the max duration in seconds in the past or
+	// MaxClockOffset is the max duration in seconds in the past or
 	// future that a claim timestamp is allowed to have and still be valid.
-	MaxClaimDelaySeconds = 15
-	tokenDataLength      = 64 // 2^(64*8) =~ 1.34E+154
-	tokenDelimiter       = ":"
-	tokenVersion         = 0
+	MaxClockOffset  = 5 * time.Minute
+	tokenDataLength = 64 // 2^(64*8) =~ 1.34E+154
+	tokenDelimiter  = ":"
+	tokenVersion    = 0
 )
 
 var (
