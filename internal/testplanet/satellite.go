@@ -55,7 +55,7 @@ import (
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
-	Peer     *satellite.Core
+	Core     *satellite.Core
 	API      *satellite.API
 	Repairer *satellite.Repairer
 
