@@ -100,8 +100,6 @@ type ProjectAccounting interface {
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// GetProjectUsageLimits returns project usage limit
 	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
-	// ProjectSummary retrieves project storage, egress and objects summary for specified period.
-	ProjectSummary(ctx context.Context, projectID uuid.UUID, start, before time.Time) (ProjectSummary, error)
 }
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.

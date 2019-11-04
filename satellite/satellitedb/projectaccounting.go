@@ -146,27 +146,3 @@ func (db *ProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectI
 	}
 	return memory.Size(project.UsageLimit), nil
 }
-
-// ProjectSummary retrieves project storage, egress and objects summary for specified period.
-func (db *ProjectAccounting) ProjectSummary(ctx context.Context, projectID uuid.UUID, start, before time.Time) (_ accounting.ProjectSummary, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	queryStorage := `SELECT SUM(inline), SUM(remote), SUM(object_count)
-		FROM bucket_storage_tallies
-		WHERE project_id = ?
-		AND interval_start >= ?
-		AND interval_start < ?
-		GROUP BY interval_start
-		ORDER BY interval_start DESC;`
-
-	row := db.db.QueryRowContext(ctx, queryStorage, projectID[:], start, before)
-
-	var inline, remote, objects int64
-
-	err = row.Scan(&inline, &remote, &objects)
-	if err != nil {
-		return accounting.ProjectSummary{}, err
-	}
-
-	return accounting.ProjectSummary{}, nil
-}

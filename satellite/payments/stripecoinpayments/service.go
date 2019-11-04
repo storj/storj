@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -39,7 +38,6 @@ type Service struct {
 	log              *zap.Logger
 	customers        CustomersDB
 	projectsDB       console.Projects
-	accountingDB     accounting.ProjectAccounting
 	transactionsDB   TransactionsDB
 	projectRecordsDB ProjectRecordsDB
 	stripeClient     *client.API
@@ -47,7 +45,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB, projectRecordsDB ProjectRecordsDB, projectsDB console.Projects, accountingDB accounting.ProjectAccounting) *Service {
+func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB, projectRecordsDB ProjectRecordsDB, projectsDB console.Projects) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -61,7 +59,6 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 		log:              log,
 		customers:        customers,
 		projectsDB:       projectsDB,
-		accountingDB:     accountingDB,
 		transactionsDB:   transactionsDB,
 		projectRecordsDB: projectRecordsDB,
 		stripeClient:     stripeClient,
@@ -284,17 +281,13 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			return err
 		}
 
-		summ, err := service.accountingDB.ProjectSummary(ctx, project.ID, start, end)
-		if err != nil {
-			return err
-		}
-
+		// TODO: account for usage data.
 		records = append(records,
 			CreateProjectRecord{
 				ProjectID: project.ID,
-				Storage:   summ.Storage,
-				Egress:    summ.Egress,
-				Objects:   summ.Objects,
+				Storage:   0,
+				Egress:    0,
+				Objects:   0,
 			},
 		)
 	}
@@ -374,6 +367,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
+	// TODO: add and apply pricing.
 	projectItem := &stripe.InvoiceItemParams{
 		Amount:      stripe.Int64(0),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
@@ -386,7 +380,6 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	}
 
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
-	projectItem.AddMetadata("type", "storage")
 
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
 	return
