@@ -5,10 +5,10 @@ package satellitedb
 
 import (
 	"context"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
