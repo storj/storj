@@ -13,7 +13,7 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// ensure that customers implements stripecoinpayments.CustomersDB
+// ensure that customers implements stripecoinpayments.CustomersDB.
 var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.

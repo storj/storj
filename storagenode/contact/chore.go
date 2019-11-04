@@ -65,6 +65,7 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	var group errgroup.Group
 	self := chore.service.Local()
 	satellites := chore.trust.GetSatellites(ctx)
+
 	for _, satellite := range satellites {
 		satellite := satellite
 		addr, err := chore.trust.GetAddress(ctx, satellite)
@@ -85,7 +86,10 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 				Capacity: &self.Capacity,
 				Operator: &self.Operator,
 			})
-			if !resp.PingNodeSuccess {
+
+			if err != nil {
+				chore.log.Error("Check-In with satellite failed", zap.Error(err))
+			} else if !resp.PingNodeSuccess {
 				chore.log.Error("Check-In with satellite failed due to failed ping back", zap.String("satellite ID", satellite.String()), zap.String("satellite addr", addr), zap.String("ping back error message", resp.GetPingErrorMessage()))
 			}
 

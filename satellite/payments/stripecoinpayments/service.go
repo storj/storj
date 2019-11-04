@@ -19,21 +19,25 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 )
 
-var mon = monkit.Package()
+var (
+	// Error defines stripecoinpayments service error.
+	Error = errs.Class("stripecoinpayments service error")
 
-// Error defines stripecoinpayments service error.
-var Error = errs.Class("stripecoinpayments service error")
+	mon = monkit.Package()
+)
 
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
-	CoinpaymentsPrivateKey       string        `help:"coinpayments API preivate key key" default:""`
+	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
+//
+// architecture: Service
 type Service struct {
 	log              *zap.Logger
 	customers        CustomersDB

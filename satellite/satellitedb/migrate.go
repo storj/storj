@@ -44,6 +44,17 @@ func (db *DB) CreateTables() error {
 	}
 }
 
+// CheckVersion confirms confirms the database is at the desired version
+func (db *DB) CheckVersion() error {
+	switch db.driver {
+	case "postgres":
+		migration := db.PostgresMigration()
+		return migration.ValidateVersions(db.log)
+	default:
+		return nil
+	}
+}
+
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
