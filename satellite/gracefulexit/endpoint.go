@@ -766,6 +766,11 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		}
 		remote := pointer.GetRemote()
 		if remote == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
 			return nil
 		}
 		pieces := remote.GetRemotePieces()
@@ -777,6 +782,11 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 			}
 		}
 		if nodePiece == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
 			return nil
 		}
 
@@ -798,7 +808,6 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 		if err != nil {
 			return Error.Wrap(err)
 		}
-
 		pending.delete(pieceID)
 
 		return nil
