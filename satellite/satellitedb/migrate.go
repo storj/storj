@@ -1357,7 +1357,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Removing unused bucket_usages table",
 				Version:     64,
 				Action: migrate.SQL{
-					`DROP INDEX IF EXISTS bucket_id_rollup;`,
 					`DROP TABLE bucket_usages CASCADE;`,
 				},
 			},
