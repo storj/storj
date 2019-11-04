@@ -10,6 +10,8 @@ import (
 )
 
 // CustomersDB is interface for working with stripe customers table.
+//
+// architecture: Database
 type CustomersDB interface {
 	// Insert inserts a stripe customer into the database.
 	Insert(ctx context.Context, userID uuid.UUID, customerID string) error
