@@ -34,6 +34,8 @@ type Config struct {
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
+//
+// architecture: Service
 type Service struct {
 	log            *zap.Logger
 	customers      CustomersDB
