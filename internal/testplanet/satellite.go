@@ -55,7 +55,7 @@ import (
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
-	Peer     *satellite.Peer
+	Core     *satellite.Core
 	API      *satellite.API
 	Repairer *satellite.Repairer
 
@@ -176,7 +176,7 @@ func (system *SatelliteSystem) URL() storj.NodeURL {
 
 // Close closes all the subsystems in the Satellite system
 func (system *SatelliteSystem) Close() error {
-	return errs.Combine(system.API.Close(), system.Peer.Close(), system.Repairer.Close())
+	return errs.Combine(system.API.Close(), system.Core.Close(), system.Repairer.Close())
 }
 
 // Run runs all the subsystems in the Satellite system
@@ -184,7 +184,7 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(system.Peer.Run(ctx))
+		return errs2.IgnoreCanceled(system.Core.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.API.Run(ctx))
@@ -435,9 +435,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
 	system := &SatelliteSystem{
-		Peer:     peer,
+		Core:     peer,
 		API:      api,
 		Repairer: repairerPeer,
 	}
