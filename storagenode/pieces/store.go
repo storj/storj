@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -270,6 +271,64 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if store.v0PieceInfo != nil {
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
+
+	return Error.Wrap(err)
+}
+
+// MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
+// format v1. If the piece is not stored as a v0 piece it will return an error.
+// The follow failures are possible:
+// - Fail to open or read v0 piece. In this case no artifacts remain.
+// - Fail to Write or Commit v1 piece. In this case no artifacts remain.
+// - Fail to Delete v0 piece. In this case v0 piece may remain, but v1 piece
+//   will exist and be preferred in future calls.
+func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := store.v0PieceInfo.Get(ctx, satelliteID, pieceID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = func() (err error) {
+		r, err := store.Reader(ctx, satelliteID, pieceID)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, r.Close()) }()
+
+		w, err := store.Writer(ctx, satelliteID, pieceID)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(w, r)
+		if err != nil {
+			return errs.Combine(err, w.Cancel(ctx))
+		}
+
+		header := &pb.PieceHeader{
+			Hash:         w.Hash(),
+			CreationTime: info.PieceCreation,
+			Signature:    info.UplinkPieceHash.GetSignature(),
+			OrderLimit:   *info.OrderLimit,
+		}
+
+		return w.Commit(ctx, header)
+	}()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = store.blobs.DeleteWithStorageFormat(ctx, storage.BlobRef{
+		Namespace: satelliteID.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.FormatV0)
+
+	if store.v0PieceInfo != nil {
+		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satelliteID, pieceID))
+	}
+
 	return Error.Wrap(err)
 }
 

@@ -94,6 +94,13 @@ func (store *blobStore) Delete(ctx context.Context, ref storage.BlobRef) (err er
 	return Error.Wrap(err)
 }
 
+// DeleteWithStorageFormat deletes blobs with the specified ref and storage format version
+func (store *Store) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return Error.Wrap(err)
+}
+
 // GarbageCollect tries to delete any files that haven't yet been deleted
 func (store *blobStore) GarbageCollect(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

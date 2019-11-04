@@ -76,6 +76,8 @@ type Blobs interface {
 	OpenWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
+	// DeleteWithStorageFormat deletes a blob of a specific storage format
+	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
