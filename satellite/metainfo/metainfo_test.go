@@ -750,6 +750,14 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				firstPiece := pointer.Remote.RemotePieces[0]
+				pointer.Remote.RemotePieces[1] = firstPiece
+				pointer.Remote.RemotePieces[2] = firstPiece
+			},
+			ErrorMessage: "invalid number of unique pieces",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
