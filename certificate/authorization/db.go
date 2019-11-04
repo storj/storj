@@ -170,9 +170,10 @@ func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 // Claim marks an authorization as claimed and records claim information.
 func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	now := time.Now().Unix()
-	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
-		!(opts.Req.Timestamp < now+MaxClaimDelaySeconds) {
+	now := time.Now()
+	reqTime := time.Unix(opts.Req.Timestamp, 0)
+	if (now.Sub(reqTime) > MaxClockOffset) ||
+		(reqTime.Sub(now) > MaxClockOffset) {
 		return Error.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
 	}
 
@@ -209,7 +210,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 			auths[i] = &Authorization{
 				Token: auth.Token,
 				Claim: &Claim{
-					Timestamp:        now,
+					Timestamp:        now.Unix(),
 					Addr:             opts.Peer.Addr.String(),
 					Identity:         ident,
 					SignedChainBytes: opts.ChainBytes,
