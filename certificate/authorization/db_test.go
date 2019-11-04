@@ -246,8 +246,8 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 
 	claimTime := time.Unix(claim.Timestamp, 0)
 	assert.Condition(t, func() bool {
-		return now.Sub(claimTime) < MaxClockOffset &&
-			claimTime.Sub(now) < MaxClockOffset
+		return now.Sub(claimTime) < MaxClockSkew &&
+			claimTime.Sub(now) < MaxClockSkew
 	})
 }
 
