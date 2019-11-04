@@ -74,7 +74,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		chore.cycles = append(chore.cycles, cycle)
 
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
-			chore.log.Info("starting contact cycle for satellite " + satellite.String())
+			chore.log.Info("contact cycle: satellite " + satellite.String() + " - starting contact cycle")
 			interval := initialBackOff
 			attempts := 0
 			for {
@@ -83,10 +83,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				if err == nil {
 					return nil
 				}
-				chore.log.Error("ping satellite failed " + strconv.Itoa(attempts) + " times: " + err.Error())
+				chore.log.Error("contact cycle: satellite " + satellite.String() + " - ping satellite failed " + strconv.Itoa(attempts) + " times - " + err.Error())
 
+				// Sleeps until interval times out, then continue. Returns if context is cancelled.
 				if !sync2.Sleep(ctx, interval) {
-					chore.log.Error("ping satellite failed after " + strconv.Itoa(attempts) + " retries timed out")
+					chore.log.Info("contact cycle: satellite " + satellite.String() + " - contact chore context cancelled")
+					return nil
+				}
+				if interval == chore.interval {
+					chore.log.Error("contact cycle: satellite " + satellite.String() + " - retries timed out for this cycle")
 					return nil
 				}
 				interval *= 2
