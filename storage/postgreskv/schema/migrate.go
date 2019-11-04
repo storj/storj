@@ -8,9 +8,9 @@ package schema
 import (
 	"database/sql"
 
-	"github.com/golang-migrate/migrate/v3"
-	"github.com/golang-migrate/migrate/v3/database/postgres"
-	bindata "github.com/golang-migrate/migrate/v3/source/go_bindata"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
