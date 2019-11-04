@@ -124,8 +124,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: defaultInterval,
 			},
 			GracefulExit: gracefulexit.Config{
-				ChoreInterval: time.Second * 1,
-				NumWorkers:    3,
+				ChoreInterval:      time.Second * 1,
+				NumWorkers:         3,
+				MinBytesPerSecond:  128 * memory.B,
+				MinDownloadTimeout: 2 * time.Minute,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -1679,5 +1680,47 @@ func TestBatch(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, numOfSegments+1, len(responses))
 		}
+	})
+}
+
+func TestValidateRS(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinTotalThreshold = 4
+				config.Metainfo.RS.MaxTotalThreshold = 5
+				config.Metainfo.RS.Validate = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		testData := testrand.Bytes(8 * memory.KiB)
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     3,
+		}
+		// test below permitted total value
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/below", testData)
+		require.Error(t, err)
+
+		// test above permitted total value
+		rs.MaxThreshold = 6
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/above", testData)
+		require.Error(t, err)
+
+		// test minimum permitted total value
+		rs.MaxThreshold = 4
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/min", testData)
+		require.NoError(t, err)
+
+		// test maximum permitted total value
+		rs.MaxThreshold = 5
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/max", testData)
+		require.NoError(t, err)
 	})
 }

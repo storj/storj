@@ -108,6 +108,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Checker.RepairOverride,
+			config.Repairer.DownloadTimeout,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)

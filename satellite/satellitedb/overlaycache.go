@@ -530,6 +530,11 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 		return failed, nil
 	}
 
+	// ensure updates happen in-order
+	sort.Slice(updateRequests, func(i, k int) bool {
+		return updateRequests[i].NodeID.Less(updateRequests[k].NodeID)
+	})
+
 	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
 		appendAll := func() {
 			for _, ur := range updateRequests {

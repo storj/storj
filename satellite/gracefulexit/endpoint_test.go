@@ -13,10 +13,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testblobs"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -25,7 +28,11 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/uplink"
 )
 
@@ -138,7 +145,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestConcurrentConnections(t *testing.T) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -150,8 +157,8 @@ func TestConcurrentConnections(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
@@ -198,9 +205,7 @@ func TestConcurrentConnections(t *testing.T) {
 		// connect to satellite so we initiate the exit ("main" call)
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 		// this connection will immediately return since graceful exit has not been initiated yet
@@ -229,6 +234,81 @@ func TestConcurrentConnections(t *testing.T) {
 
 		err = group.Wait()
 		require.NoError(t, err)
+	})
+}
+
+func TestRecvTimeout(t *testing.T) {
+	var geConfig gracefulexit.Config
+	successThreshold := 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				geConfig = config.GracefulExit
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		exitStatusReq := overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
+		require.NoError(t, err)
+
+		// run the satellite chore to build the transfer queue.
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		// check that the satellite knows the storage node is exiting.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 1)
+
+		storageNodeDB := exitingNode.DB.(*testblobs.SlowDB)
+		// make uploads on storage node slower than the timeout for transferring bytes to another node
+		delay := 200 * time.Millisecond
+		storageNodeDB.SetLatency(delay)
+		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
+
+		// run the SN chore again to start processing transfers.
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		err = worker.Run(ctx, func() {})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))
 	})
 }
 
@@ -717,8 +797,43 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 	})
 }
 
+func TestExitDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.Enabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		require.Nil(t, satellite.GracefulExit.Chore)
+		require.Nil(t, satellite.GracefulExit.Endpoint)
+
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if GE is disabled
+		response, err := processClient.Recv()
+		require.Error(t, err)
+		// grpc will return "Unimplemented", drpc will return "Unknown"
+		unimplementedOrUnknown := errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
+		require.True(t, unimplementedOrUnknown)
+		require.Nil(t, response)
+	})
+}
+
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -735,8 +850,8 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		}
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
@@ -757,9 +872,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite so we initiate the exit.
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 
@@ -794,9 +907,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite again to start receiving transfers
 		c, err = client.Process(ctx)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, c.CloseSend())
-		}()
+		defer ctx.Check(c.CloseSend)
 
 		verifier(ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
 	})

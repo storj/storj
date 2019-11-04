@@ -72,6 +72,12 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
 	}
 
+	err = db.CheckVersion()
+	if err != nil {
+		zap.S().Fatal("failed satellite database version check: ", err)
+		return errs.New("Error checking version for satellitedb: %+v", err)
+	}
+
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 	return errs.Combine(runError, closeError)
