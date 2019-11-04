@@ -42,6 +42,7 @@ export default class ProjectSelectionDropdown extends Vue {
 
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        localStorage.setItem('localProjectKey', JSON.stringify(this.$store.getters.selectedProject));
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 

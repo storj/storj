@@ -64,6 +64,7 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        localStorage.removeItem('localProjectKey');
     }
 }
 </script>

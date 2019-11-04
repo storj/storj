@@ -117,6 +117,7 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
+            localStorage.setItem('localProjectKey', JSON.stringify(this.$store.getters.selectedProject));
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 
