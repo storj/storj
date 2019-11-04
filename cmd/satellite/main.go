@@ -45,6 +45,11 @@ var (
 		Short: "Run the satellite",
 		RunE:  cmdRun,
 	}
+	runMigrationCmd = &cobra.Command{
+		Use:   "migration",
+		Short: "Run the satellite database migration",
+		RunE:  cmdMigrationRun,
+	}
 	runAPICmd = &cobra.Command{
 		Use:   "api",
 		Short: "Run the satellite API",
@@ -123,6 +128,7 @@ func init() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
+	runCmd.AddCommand(runMigrationCmd)
 	runCmd.AddCommand(runAPICmd)
 	runCmd.AddCommand(runRepairerCmd)
 	rootCmd.AddCommand(setupCmd)
@@ -132,6 +138,7 @@ func init() {
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
@@ -200,9 +207,32 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
+	err = db.CheckVersion()
+	if err != nil {
+		zap.S().Fatal("failed satellite database version check: ", err)
+		return errs.New("Error checking version for satellitedb: %+v", err)
+	}
+
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 	return errs.Combine(runError, closeError)
+}
+
+func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
+	log := zap.L()
+	db, err := satellitedb.New(log.Named("db migration"), runCfg.Database)
+	if err != nil {
+		return errs.New("Error createing new master database connection for satellitedb migration: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	err = db.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+	return nil
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

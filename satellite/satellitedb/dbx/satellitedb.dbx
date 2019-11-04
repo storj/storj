@@ -383,54 +383,6 @@ read all (
     orderby asc api_key.name
 )
 
-//-----bucket_usage----//
-
-model bucket_usage (
-    key    id
-    index (
-    		name bucket_id_rollup
-    		fields bucket_id rollup_end_time
-    		unique
-    	)
-
-    field  id                 blob
-    field  bucket_id          blob      //--TODO: add foreign key constraint--//
-
-    field  rollup_end_time    timestamp
-
-    field  remote_stored_data uint64
-    field  inline_stored_data uint64
-    field  remote_segments    uint
-    field  inline_segments    uint
-    field  objects            uint
-    field  metadata_size      uint64
-    field  repair_egress      uint64
-    field  get_egress         uint64
-    field  audit_egress       uint64
-)
-
-create bucket_usage ( )
-delete bucket_usage ( where bucket_usage.id = ? )
-
-read one (
-    select bucket_usage
-    where  bucket_usage.id = ?
-)
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby asc bucket_usage.rollup_end_time
-)
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby desc bucket_usage.rollup_end_time
-)
-
 //--- tracking serial numbers ---//
 
 model serial_number (
