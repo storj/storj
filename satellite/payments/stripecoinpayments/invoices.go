@@ -22,7 +22,7 @@ type invoices struct {
 func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesList []payments.Invoice, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := invoices.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

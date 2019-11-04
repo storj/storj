@@ -379,7 +379,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
 
 			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
-			pb.DRPCRegisterPayments(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
 		}
 	}
 
