@@ -48,7 +48,7 @@ const {
 export default class AccountBalance extends Vue {
     public mounted() {
         try {
-            // this.$store.dispatch(GET_BALANCE);
+            this.$store.dispatch(GET_BALANCE);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }

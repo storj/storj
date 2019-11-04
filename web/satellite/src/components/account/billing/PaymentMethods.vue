@@ -20,7 +20,6 @@
                         width="123px"
                         height="48px"
                         :on-press="onAddCard"
-                        :is-disabled="true"
                     />
                 </div>
                 <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
@@ -100,7 +99,7 @@ export default class PaymentMethods extends Vue {
 
     public mounted() {
         try {
-            // this.$store.dispatch(GET_CREDIT_CARDS);
+            this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
@@ -156,7 +155,7 @@ export default class PaymentMethods extends Vue {
         this.isLoading = true;
 
         try {
-            // await this.$store.dispatch(ADD_CREDIT_CARD, token);
+            await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
@@ -167,7 +166,7 @@ export default class PaymentMethods extends Vue {
 
         await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
         try {
-            // await this.$store.dispatch(GET_CREDIT_CARDS);
+            await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.isLoading = false;

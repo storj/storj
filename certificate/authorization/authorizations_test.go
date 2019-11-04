@@ -236,10 +236,10 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 		},
 	}
 
-	now := time.Now().Unix()
+	now := time.Now()
 	req := &pb.SigningRequest{
 		AuthToken: auths[0].Token.String(),
-		Timestamp: now,
+		Timestamp: now.Unix(),
 	}
 	difficulty, err := ident.ID.Difficulty()
 	require.NoError(t, err)
@@ -262,9 +262,11 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	claim := updatedAuths[0].Claim
 	assert.Equal(t, peer.Addr.String(), claim.Addr)
 	assert.Equal(t, [][]byte{ident.CA.Raw}, claim.SignedChainBytes)
+
+	claimTime := time.Unix(claim.Timestamp, 0)
 	assert.Condition(t, func() bool {
-		return now-MaxClaimDelaySeconds < claim.Timestamp &&
-			claim.Timestamp < now+MaxClaimDelaySeconds
+		return now.Sub(claimTime) < MaxClockOffset &&
+			claimTime.Sub(now) < MaxClockOffset
 	})
 }
 
