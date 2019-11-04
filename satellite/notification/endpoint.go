@@ -52,7 +52,6 @@ func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.N
 		}
 		defer func() { err = errs.Combine(err, client.Close()) }()
 
-		endpoint.log.Info("About to send Notification", zap.String("address", message.Address), zap.String("message", string(message.Message)))
 		return client.client.ProcessNotification(ctx, message)
 	}
 

@@ -122,24 +122,3 @@ type Config struct {
 
 	Metrics metrics.Config
 }
-
-	Notification struct {
-		Service  *notification.Service
-		Endpoint *notification.Endpoint
-	}
-
-	{
-		log.Debug("Setting up notification service")
-		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), config.Notification, peer.Dialer, peer.Overlay.DB, peer.Mail.Service)
-		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
-		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
-		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint.DRPC())
-	}
-
-		return errs2.IgnoreCanceled(peer.Notification.Service.Run(ctx))
-	})
-	group.Go(func() error {
-	}
-
-	if peer.Notification.Service != nil {
-		errlist.Add(peer.Notification.Service.Close())

@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
@@ -105,6 +106,11 @@ type Core struct {
 
 	GracefulExit struct {
 		Chore *gracefulexit.Chore
+	}
+
+	Notification struct {
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 
 	Metrics struct {
@@ -318,6 +324,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 	}
 
+	{ // setup notification
+		log.Debug("Satellite API Process setting up notification endpoint")
+		peer.Notification.Service = notification.NewService(
+			peer.Log.Named("notification:service"),
+			config.Notification,
+			peer.Dialer,
+			peer.Overlay.DB,
+			nil,
+		)
+		peer.Notification.Endpoint = notification.NewEndpoint(
+			peer.Log.Named("notification:endpoint"),
+			peer.Notification.Service,
+		)
+	}
+
 	{ // setup metrics service
 		peer.Metrics.Chore = metrics.NewChore(
 			peer.Log.Named("metrics"),
@@ -365,6 +386,9 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Notification.Service.Run(ctx))
+	})
 	if peer.GracefulExit.Chore != nil {
 		group.Go(func() error {
 			return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
@@ -386,6 +410,10 @@ func (peer *Core) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Metrics.Chore != nil {
 		errlist.Add(peer.Metrics.Chore.Close())
+	}
+
+	if peer.Notification.Service != nil {
+		errlist.Add(peer.Notification.Service.Close())
 	}
 
 	if peer.GracefulExit.Chore != nil {

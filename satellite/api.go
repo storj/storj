@@ -462,7 +462,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 				peer.Metainfo.Service,
 				peer.Orders.Service,
 				peer.DB.PeerIdentities(),
-				config.GracefulExit)
+				config.GracefulExit,
+			)
 
 			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
@@ -471,11 +472,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup notification
 		log.Debug("Satellite API Process setting up notification endpoint")
-		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), config.Notification, peer.Dialer, peer.Overlay.DB, peer.Mail.Service)
-		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
+		peer.Notification.Service = notification.NewService(
+			peer.Log.Named("notification:service"),
+			config.Notification,
+			peer.Dialer,
+			peer.Overlay.DB,
+			peer.Mail.Service,
+		)
+		peer.Notification.Endpoint = notification.NewEndpoint(
+			peer.Log.Named("notification:endpoint"),
+			peer.Notification.Service,
+		)
 		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
 		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint.DRPC())
 	}
+
 	return peer, nil
 }
 

@@ -93,7 +93,7 @@ var (
 		Use:   "notification [LOGLEVEL] [message]",
 		Short: "Send a notification to all nodes",
 		Long:  "Send a notification to all nodes. Example: satellite notification INFO 'This is a Info notification'",
-		RunE:  cmdNotification
+		RunE:  cmdNotification,
 	}
 	gracefulExitCmd = &cobra.Command{
 		Use:   "graceful-exit [start] [end]",

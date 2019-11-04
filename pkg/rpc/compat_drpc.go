@@ -141,7 +141,7 @@ func (c *Conn) NodeStatsClient() NodeStatsClient {
 }
 
 // NewNotificationClient returns the drpc version of a NotificationClient
-func NewNotificationClient(rc *RawConn) NodeNotificationClient {
+func NewNotificationClient(rc *RawConn) NotificationClient {
 	return pb.NewDRPCNotificationClient(rc)
 }
 
