@@ -767,6 +767,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		}
 
 		response, err = processClient.Recv()
+		require.NoError(t, err)
 
 		switch m := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_TransferPiece:
