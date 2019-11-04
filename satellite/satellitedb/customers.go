@@ -5,11 +5,15 @@ package satellitedb
 
 import (
 	"context"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensure that customers implements stripecoinpayments.CustomersDB.
+var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.
 type customers struct {
