@@ -60,9 +60,10 @@ const (
 	debugHTTP   = 9
 
 	// satellite specific constants
-	debugPeerHTTP     = 7
-	debugRepairerHTTP = 8
-	redisPort         = 4
+	redisPort          = 4
+	debugMigrationHTTP = 6
+	debugPeerHTTP      = 7
+	debugRepairerHTTP  = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -234,33 +235,36 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// set up redis servers
 	var redisServers []*Process
-	for i := 0; i < flags.SatelliteCount; i++ {
-		rp := port(satellitePeer, i, redisPort)
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("redis/%d", i),
-			Executable: "redis-server",
-			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
-			Address:    net.JoinHostPort(host, rp),
-		})
-		redisServers = append(redisServers, process)
 
-		process.ExecBefore["setup"] = func(process *Process) error {
-			confpath := filepath.Join(process.Directory, "redis.conf")
-			arguments := []string{
-				"daemonize no",
-				"bind " + host,
-				"port " + rp,
-				"timeout 0",
-				"databases 2",
-				"dbfilename sim.rdb",
-				"dir ./",
+	if flags.Redis == "" {
+		for i := 0; i < flags.SatelliteCount; i++ {
+			rp := port(satellitePeer, i, redisPort)
+			process := processes.New(Info{
+				Name:       fmt.Sprintf("redis/%d", i),
+				Executable: "redis-server",
+				Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i), "redis"),
+				Address:    net.JoinHostPort(host, rp),
+			})
+			redisServers = append(redisServers, process)
+
+			process.ExecBefore["setup"] = func(process *Process) error {
+				confpath := filepath.Join(process.Directory, "redis.conf")
+				arguments := []string{
+					"daemonize no",
+					"bind " + host,
+					"port " + rp,
+					"timeout 0",
+					"databases 2",
+					"dbfilename sim.rdb",
+					"dir ./",
+				}
+				conf := strings.Join(arguments, "\n") + "\n"
+				err := ioutil.WriteFile(confpath, []byte(conf), 0755)
+				return err
 			}
-			conf := strings.Join(arguments, "\n") + "\n"
-			err := ioutil.WriteFile(confpath, []byte(conf), 0755)
-			return err
-		}
-		process.Arguments = Arguments{
-			"run": []string{filepath.Join(process.Directory, "redis.conf")},
+			process.Arguments = Arguments{
+				"run": []string{filepath.Join(process.Directory, "redis.conf")},
+			}
 		}
 	}
 
@@ -276,6 +280,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		consoleAuthToken := "secure_token"
 
+		redisAddress := flags.Redis
+		redisPortBase := flags.RedisStartDB + i*2
+		if redisAddress == "" {
+			redisAddress = redisServers[i].Address
+			redisPortBase = 0
+			process.WaitForStart(redisServers[i])
+		}
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
@@ -289,8 +301,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
-				"--live-accounting.storage-backend", "redis://" + redisServers[i].Address + "?db=0",
-				"--server.revocation-dburl", "redis://" + redisServers[i].Address + "?db=1",
+				"--live-accounting.storage-backend", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase),
+				"--server.revocation-dburl", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase+1),
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
@@ -310,44 +322,49 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		process.WaitForStart(redisServers[i])
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
-	}
 
-	// Create the peer process for each satellite API
-	for i, satellite := range satellites {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-peer/%d", i),
+		migrationProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-migration/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"migration",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugMigrationHTTP)),
+			},
+		})
+
+		coreProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-core/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    "",
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		coreProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
-	}
+		coreProcess.WaitForExited(migrationProcess)
 
-	// Create the repairer process for each satellite
-	for i, satellite := range satellites {
-		process := processes.New(Info{
+		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		repairProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
+		repairProcess.WaitForExited(migrationProcess)
+
+		process.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite
@@ -569,12 +586,9 @@ func identitySetup(network *Processes) (*Processes, error) {
 			continue
 		}
 
-		if strings.Contains(process.Name, "satellite-peer") {
-			// satellite-peer uses the same identity as the satellite
-			continue
-		}
-		if strings.Contains(process.Name, "satellite-repair") {
-			// satellite-repair uses the same identity as the satellite
+		if strings.Contains(process.Name, "satellite-") {
+			// we only need to create the identity once for the satellite system, we create the
+			// identity for the satellite process and share it with these other satellite processes
 			continue
 		}
 

@@ -13,6 +13,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that resetPasswordTokens implements console.ResetPasswordTokens.
+var _ console.ResetPasswordTokens = (*resetPasswordTokens)(nil)
+
 type resetPasswordTokens struct {
 	db dbx.Methods
 }
