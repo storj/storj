@@ -89,6 +89,8 @@ func (metainfoUpload *metainfoSegmentsUpload) Upload(
 	ctx context.Context, segment io.Reader, segmentEncryption storj.SegmentEncryption,
 	contentKey storj.Key, contentNonce storj.Nonce,
 ) (_ metainfoSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if !metainfoUpload.canUpload {
 		return metainfoSegment{}, errs.New("Previous Upload call must be commited before calling Upload again")
 	}
@@ -205,14 +207,13 @@ func (metainfoUpload *metainfoSegmentsUpload) Upload(
 // all the segments upload is finished.
 func (metainfoUpload *metainfoSegmentsUpload) Close(
 	ctx context.Context, objectMetadata []byte,
-) (storj.StreamID, error) {
-	var (
-		err          error
-		commitObject = metainfo.CommitObjectParams{
-			StreamID:          metainfoUpload.streamID,
-			EncryptedMetadata: objectMetadata,
-		}
-	)
+) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	commitObject := metainfo.CommitObjectParams{
+		StreamID:          metainfoUpload.streamID,
+		EncryptedMetadata: objectMetadata,
+	}
 
 	if metainfoUpload.lastCommitSegmentReq != nil {
 		_, err = metainfoUpload.client.Batch(ctx, metainfoUpload.lastCommitSegmentReq, &commitObject)
