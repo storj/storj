@@ -124,11 +124,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			log.Println(err)
 		}
 
-		updaterBinName := os.Args[0]
-		if err := update(ctx, updaterBinName, updaterServiceName, renameUpdater); err != nil {
-			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
-		}
+		// TODO: enable self-autoupdate back when having reliable recovery mechanism
+		// updaterBinName := os.Args[0]
+		// if err := update(ctx, updaterBinName, updaterServiceName, renameUpdater); err != nil {
+		// 	// don't finish loop in case of error just wait for another execution
+		// 	log.Println(err)
+		// }
 		return nil
 	}
 
@@ -243,19 +244,19 @@ func renameStoragenode(currentVersion version.SemVer) error {
 	return nil
 }
 
-func renameUpdater(_ version.SemVer) error {
-	updaterBinName := os.Args[0]
-	extension := filepath.Ext(updaterBinName)
-	dir := filepath.Dir(updaterBinName)
-	base := filepath.Base(updaterBinName)
-	base = base[:len(base)-len(extension)]
-	backupExec := filepath.Join(dir, base+".old"+extension)
+// func renameUpdater(_ version.SemVer) error {
+// 	updaterBinName := os.Args[0]
+// 	extension := filepath.Ext(updaterBinName)
+// 	dir := filepath.Dir(updaterBinName)
+// 	base := filepath.Base(updaterBinName)
+// 	base = base[:len(base)-len(extension)]
+// 	backupExec := filepath.Join(dir, base+".old"+extension)
 
-	if err := os.Rename(updaterBinName, backupExec); err != nil {
-		return errs.Wrap(err)
-	}
-	return nil
-}
+// 	if err := os.Rename(updaterBinName, backupExec); err != nil {
+// 		return errs.Wrap(err)
+// 	}
+// 	return nil
+// }
 
 func parseDownloadURL(template string) string {
 	url := strings.Replace(template, "{os}", runtime.GOOS, 1)
