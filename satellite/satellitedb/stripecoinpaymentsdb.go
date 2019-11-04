@@ -12,6 +12,8 @@ import (
 var _ stripecoinpayments.DB = (*stripeCoinPaymentsDB)(nil)
 
 // stripeCoinPaymentsDB is stripecoinpayments DB.
+//
+// architecture: Database
 type stripeCoinPaymentsDB struct {
 	db *dbx.DB
 }

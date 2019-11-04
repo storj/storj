@@ -234,7 +234,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
-		//return Error.New("prepare is for past periods only")
+		return Error.New("prepare is for past periods only")
 	}
 
 	projsPage, err := service.projectsDB.List(ctx, 0, limit, end)
@@ -306,25 +306,25 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 
 	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	for recordsPage.Next {
 		if err = ctx.Err(); err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 	}
 
@@ -347,9 +347,11 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
-			// TODO: add error to distinguish not set up account.
-			// if account is not set up leave intent for future invoice
-			continue
+			if err == ErrNoCustomer {
+				continue
+			}
+
+			return err
 		}
 
 		if err = service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {

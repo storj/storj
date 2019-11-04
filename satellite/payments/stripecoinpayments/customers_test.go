@@ -20,7 +20,7 @@ func TestCustomersRepository(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		customers := db.Customers()
+		customers := db.StripeCoinPayments().Customers()
 
 		customerID := "customerID"
 		userID, err := uuid.New()

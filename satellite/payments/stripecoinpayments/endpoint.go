@@ -9,15 +9,17 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Endpoint
+// Endpoint is stripecoinpayments private RPC server payments endpoint.
 type Endpoint struct {
 	service *Service
 }
 
+// NewEndpoint creates new endpoint.
 func NewEndpoint(service *Service) *Endpoint {
-	return &Endpoint{service:service}
+	return &Endpoint{service: service}
 }
 
+// PrepareInvoiceRecords creates project invoice records for all satellite projects.
 func (endpoint *Endpoint) PrepareInvoiceRecords(ctx context.Context, req *pb.PrepareInvoiceRecordsRequest) (_ *pb.PrepareInvoiceRecordsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -29,6 +31,7 @@ func (endpoint *Endpoint) PrepareInvoiceRecords(ctx context.Context, req *pb.Pre
 	return &pb.PrepareInvoiceRecordsResponse{}, nil
 }
 
+// ApplyInvoiceRecords creates stripe line items for all unapplied invoice project records.
 func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.ApplyInvoiceRecordsRequest) (_ *pb.ApplyInvoiceRecordsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -40,6 +43,7 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 	return &pb.ApplyInvoiceRecordsResponse{}, nil
 }
 
+// CreateInvoices creates invoice for all user accounts on the satellite.
 func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvoicesRequest) (_ *pb.CreateInvoicesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

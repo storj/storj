@@ -14,6 +14,8 @@ import (
 )
 
 // invoices is an implementation of payments.Invoices.
+//
+// architecture: Database
 type invoices struct {
 	service *Service
 }

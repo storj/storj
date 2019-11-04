@@ -4,6 +4,8 @@
 package stripecoinpayments
 
 // DB is stripecoinpayments DB interface.
+//
+// architecture: Database
 type DB interface {
 	// Customers is getter for customers db.
 	Customers() CustomersDB

@@ -10,6 +10,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
+// ErrNoCustomer is error class defining that there is no customer for user.
+var ErrNoCustomer = Error.New("customer doesn't exist")
+
 // CustomersDB is interface for working with stripe customers table.
 //
 // architecture: Database
@@ -19,7 +22,7 @@ type CustomersDB interface {
 	// GetCustomerID return stripe customers id.
 	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
 	// List returns page with customers ids created before specified date.
-	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomerPage, error)
+	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
 }
 
 // Customer holds customer id and user id.
@@ -31,7 +34,7 @@ type Customer struct {
 // CustomersPage holds customers and
 // indicates if there is more data available
 // and provides next offset.
-type CustomerPage struct {
+type CustomersPage struct {
 	Customers  []Customer
 	Next       bool
 	NextOffset int64

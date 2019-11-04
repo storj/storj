@@ -53,13 +53,6 @@ type StorageNodeUsage struct {
 	Timestamp time.Time
 }
 
-// ProjectSummary
-type ProjectSummary struct {
-	Storage float64
-	Egress  int64
-	Objects int64
-}
-
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
 //
 // architecture: Database

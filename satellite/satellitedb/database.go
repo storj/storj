@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -18,6 +17,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -146,6 +146,5 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 
 // StripeCoinPayments returns database for stripecoinpayments.
 func (db *DB) StripeCoinPayments() stripecoinpayments.DB {
-	return &stripeCoinPaymentsDB{db:db.db}
+	return &stripeCoinPaymentsDB{db: db.db}
 }
-

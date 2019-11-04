@@ -85,7 +85,7 @@ func (db *invoiceProjectRecords) Check(ctx context.Context, projectID uuid.UUID,
 			return nil
 		}
 
-		return  err
+		return err
 	}
 
 	return stripecoinpayments.ErrProjectRecordExists
