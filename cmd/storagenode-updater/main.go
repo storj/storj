@@ -244,19 +244,19 @@ func renameStoragenode(currentVersion version.SemVer) error {
 	return nil
 }
 
-func renameUpdater(_ version.SemVer) error {
-	updaterBinName := os.Args[0]
-	extension := filepath.Ext(updaterBinName)
-	dir := filepath.Dir(updaterBinName)
-	base := filepath.Base(updaterBinName)
-	base = base[:len(base)-len(extension)]
-	backupExec := filepath.Join(dir, base+".old"+extension)
+// func renameUpdater(_ version.SemVer) error {
+// 	updaterBinName := os.Args[0]
+// 	extension := filepath.Ext(updaterBinName)
+// 	dir := filepath.Dir(updaterBinName)
+// 	base := filepath.Base(updaterBinName)
+// 	base = base[:len(base)-len(extension)]
+// 	backupExec := filepath.Join(dir, base+".old"+extension)
 
-	if err := os.Rename(updaterBinName, backupExec); err != nil {
-		return errs.Wrap(err)
-	}
-	return nil
-}
+// 	if err := os.Rename(updaterBinName, backupExec); err != nil {
+// 		return errs.Wrap(err)
+// 	}
+// 	return nil
+// }
 
 func parseDownloadURL(template string) string {
 	url := strings.Replace(template, "{os}", runtime.GOOS, 1)
