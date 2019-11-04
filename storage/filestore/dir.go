@@ -254,16 +254,8 @@ func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, 
 // Delete deletes blobs with the specified ref (in all supported storage formats).
 func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	pathBase, err := dir.blobToBasePath(ref)
-	if err != nil {
-		return err
-	}
-	trashPath := dir.blobToTrashPath(ref)
 
-	var (
-		moveErr        error
-		combinedErrors errs.Group
-	)
+	var combinedErrors errs.Group
 
 	// Try deleting all possible paths, starting with the oldest format version. It is more
 	// likely, in the general case, that we will find the piece with the newest format version
@@ -273,48 +265,68 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	// _forwards_, this race should not occur because it is assumed that pieces are never
 	// rewritten with an _older_ storage format version.
 	for i := MinFormatVersionSupported; i <= MaxFormatVersionSupported; i++ {
-		verPath := blobPathForFormatVersion(pathBase, i)
-
-		// move to trash folder, this is allowed for some OS-es
-		moveErr = rename(verPath, trashPath)
-		if os.IsNotExist(moveErr) {
-			// no piece at that path; either it has a different storage format version or there
-			// was a concurrent delete. (this function is expected by callers to return a nil
-			// error in the case of concurrent deletes.)
-			continue
-		}
-		if moveErr != nil {
-			// piece could not be moved into the trash dir; we'll try removing it directly
-			trashPath = verPath
-		}
-
-		// try removing the file
-		err = os.Remove(trashPath)
-
-		// ignore concurrent deletes
-		if os.IsNotExist(err) {
-			// something is happening at the same time as this; possibly a concurrent delete,
-			// or possibly a rewrite of the blob. keep checking for more versions.
-			continue
-		}
-
-		// the remove may have failed because of an open file handle. put it in a queue to be
-		// retried later.
-		if err != nil {
-			dir.mu.Lock()
-			dir.deleteQueue = append(dir.deleteQueue, trashPath)
-			dir.mu.Unlock()
-		}
-
-		// ignore is-busy errors, they are still in the queue
-		// but no need to notify
-		if isBusy(err) {
-			err = nil
-		}
-		combinedErrors.Add(err)
+		combinedErrors.Add(dir.DeleteWithStorageFormat(ctx, ref, i))
 	}
 
 	return combinedErrors.Err()
+}
+
+// DeleteWithStorageFormat deletes the blob with the specified ref for one specific format version
+func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Ensure garbage dir exists so that we know any os.IsNotExist errors below
+	// are not from a missing garbage dir
+	_, err = os.Stat(dir.garbagedir())
+	if err != nil {
+		return err
+	}
+
+	pathBase, err := dir.blobToBasePath(ref)
+	if err != nil {
+		return err
+	}
+
+	trashPath := dir.blobToTrashPath(ref)
+	verPath := blobPathForFormatVersion(pathBase, formatVer)
+
+	// move to trash folder, this is allowed for some OS-es
+	moveErr := rename(verPath, trashPath)
+	if os.IsNotExist(moveErr) {
+		// no piece at that path; either it has a different storage format
+		// version or there was a concurrent delete. (this function is expected
+		// by callers to return a nil error in the case of concurrent deletes.)
+		return nil
+	}
+	if moveErr != nil {
+		// piece could not be moved into the trash dir; we'll try removing it
+		// directly
+		trashPath = verPath
+	}
+
+	// try removing the file
+	err = os.Remove(trashPath)
+
+	// ignore concurrent deletes
+	if os.IsNotExist(err) {
+		// something is happening at the same time as this; possibly a
+		// concurrent delete, or possibly a rewrite of the blob.
+		return nil
+	}
+
+	// the remove may have failed because of an open file handle. put it in a
+	// queue to be retried later.
+	if err != nil {
+		dir.mu.Lock()
+		dir.deleteQueue = append(dir.deleteQueue, trashPath)
+		dir.mu.Unlock()
+	}
+
+	// ignore is-busy errors, they are still in the queue but no need to notify
+	if isBusy(err) {
+		err = nil
+	}
+	return err
 }
 
 // GarbageCollect collects files that are pending deletion.
