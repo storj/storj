@@ -8,19 +8,25 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that *stripeCoinPaymentsDB implements stripecoinpayments.DB.
+var _ stripecoinpayments.DB = (*stripeCoinPaymentsDB)(nil)
+
+// stripeCoinPaymentsDB is stripecoinpayments DB.
 type stripeCoinPaymentsDB struct {
 	db *dbx.DB
 }
 
+// Customers is getter for customers db.
 func (db *stripeCoinPaymentsDB) Customers() stripecoinpayments.CustomersDB {
-	return &customers{db:db.db}
+	return &customers{db: db.db}
 }
 
+// Transactions is getter for transactions db.
 func (db *stripeCoinPaymentsDB) Transactions() stripecoinpayments.TransactionsDB {
-	return &coinPaymentsTransactions{db:db.db}
+	return &coinPaymentsTransactions{db: db.db}
 }
 
+// ProjectRecords is getter for invoice project records db.
 func (db *stripeCoinPaymentsDB) ProjectRecords() stripecoinpayments.ProjectRecordsDB {
-	return &invoiceProjectRecords{db:db.db}
+	return &invoiceProjectRecords{db: db.db}
 }
-

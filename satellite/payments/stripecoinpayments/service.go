@@ -234,7 +234,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
-		return Error.New("prepare is for past periods only")
+		//return Error.New("prepare is for past periods only")
 	}
 
 	projsPage, err := service.projectsDB.List(ctx, 0, limit, end)

@@ -16,7 +16,7 @@ import (
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
-var _ stripecoinpayments.TransactionsDB = (*coinpaymentsTransactions)(nil)
+var _ stripecoinpayments.TransactionsDB = (*coinPaymentsTransactions)(nil)
 
 // applyBalanceIntentState defines states of the apply balance intents.
 type applyBalanceIntentState int
