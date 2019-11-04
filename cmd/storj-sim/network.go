@@ -60,9 +60,10 @@ const (
 	debugHTTP   = 9
 
 	// satellite specific constants
-	debugPeerHTTP     = 7
-	debugRepairerHTTP = 8
-	redisPort         = 4
+	redisPort          = 4
+	debugMigrationHTTP = 6
+	debugPeerHTTP      = 7
+	debugRepairerHTTP  = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -324,40 +325,46 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
-	}
 
-	// Create the peer process for each satellite API
-	for i, satellite := range satellites {
-		process := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-peer/%d", i),
+		migrationProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-migration/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
+			"run": {
+				"migration",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugMigrationHTTP)),
+			},
+		})
+
+		coreProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-core/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    "",
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		coreProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
-	}
+		coreProcess.WaitForExited(migrationProcess)
 
-	// Create the repairer process for each satellite
-	for i, satellite := range satellites {
-		process := processes.New(Info{
+		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-
-		process.Arguments = withCommon(process.Directory, Arguments{
+		repairProcess.Arguments = withCommon(process.Directory, Arguments{
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
 			},
 		})
-		process.WaitForStart(satellite)
+		repairProcess.WaitForExited(migrationProcess)
+
+		process.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite
@@ -579,12 +586,9 @@ func identitySetup(network *Processes) (*Processes, error) {
 			continue
 		}
 
-		if strings.Contains(process.Name, "satellite-peer") {
-			// satellite-peer uses the same identity as the satellite
-			continue
-		}
-		if strings.Contains(process.Name, "satellite-repair") {
-			// satellite-repair uses the same identity as the satellite
+		if strings.Contains(process.Name, "satellite-") {
+			// we only need to create the identity once for the satellite system, we create the
+			// identity for the satellite process and share it with these other satellite processes
 			continue
 		}
 

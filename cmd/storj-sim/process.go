@@ -168,6 +168,11 @@ func (process *Process) WaitForStart(dependency *Process) {
 	process.Wait = append(process.Wait, &dependency.Status.Started)
 }
 
+// WaitForExited ensures that process will wait on dependency before starting.
+func (process *Process) WaitForExited(dependency *Process) {
+	process.Wait = append(process.Wait, &dependency.Status.Exited)
+}
+
 // Exec runs the process using the arguments for a given command
 func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	// ensure that we always release all status fences

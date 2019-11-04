@@ -17,10 +17,12 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 )
 
-var mon = monkit.Package()
+var (
+	// Error defines stripecoinpayments service error.
+	Error = errs.Class("stripecoinpayments service error")
 
-// Error defines stripecoinpayments service error.
-var Error = errs.Class("stripecoinpayments service error")
+	mon = monkit.Package()
+)
 
 // Config stores needed information for payment service initialization.
 type Config struct {

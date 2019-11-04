@@ -196,13 +196,15 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			require.NotEmpty(t, updatedAuths)
 			require.NotNil(t, updatedAuths[0].Claim)
 
-			now := time.Now().Unix()
 			claim := updatedAuths[0].Claim
 			assert.Equal(t, expectedAddr.String(), claim.Addr)
 			assert.Equal(t, res.Chain, claim.SignedChainBytes)
+
+			now := time.Now()
+			claimTime := time.Unix(claim.Timestamp, 0)
 			assert.Condition(t, func() bool {
-				return now-authorization.MaxClaimDelaySeconds < claim.Timestamp &&
-					claim.Timestamp < now+authorization.MaxClaimDelaySeconds
+				return now.Sub(claimTime) < authorization.MaxClockOffset &&
+					claimTime.Sub(now) < authorization.MaxClockOffset
 			})
 		})
 	})
