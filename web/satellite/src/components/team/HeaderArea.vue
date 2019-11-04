@@ -130,7 +130,7 @@ export default class HeaderArea extends Vue {
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
-            this.setProjectState();
+            await this.setProjectState();
         } catch (error) {
             await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
             this.isDeleteClicked = false;
