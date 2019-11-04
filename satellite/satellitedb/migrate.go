@@ -1354,8 +1354,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.db,
-				Description: "Add payments update balance intents",
+				Description: "Removing unused bucket_usages table",
 				Version:     64,
+				Action: migrate.SQL{
+					`DROP TABLE bucket_usages CASCADE;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add payments update balance intents",
+				Version:     65,
 				Action: migrate.SQL{
 					`CREATE TABLE stripecoinpayments_invoice_project_records (
 						id bytea NOT NULL,

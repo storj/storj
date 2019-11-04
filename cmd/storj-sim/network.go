@@ -270,13 +270,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	var satellites []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
-		process := processes.New(Info{
+		apiProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
 		})
-		satellites = append(satellites, process)
+		satellites = append(satellites, apiProcess)
 
 		consoleAuthToken := "secure_token"
 
@@ -285,12 +285,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		if redisAddress == "" {
 			redisAddress = redisServers[i].Address
 			redisPortBase = 0
-			process.WaitForStart(redisServers[i])
+			apiProcess.WaitForStart(redisServers[i])
 		}
 
-		process.Arguments = withCommon(process.Directory, Arguments{
+		apiProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"setup": {
-				"--identity-dir", process.Directory,
+				"--identity-dir", apiProcess.Directory,
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
@@ -298,7 +298,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--marketing.base-url", "",
 				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
-				"--server.address", process.Address,
+				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
 				"--live-accounting.storage-backend", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase),
@@ -317,12 +317,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		if flags.Postgres != "" {
-			process.Arguments["setup"] = append(process.Arguments["setup"],
+			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
 				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
 			)
 		}
-		process.ExecBefore["run"] = func(process *Process) error {
+		apiProcess.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 
@@ -331,7 +331,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-		migrationProcess.Arguments = withCommon(process.Directory, Arguments{
+		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"migration",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugMigrationHTTP)),
@@ -344,7 +344,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 			Address:    "",
 		})
-		coreProcess.Arguments = withCommon(process.Directory, Arguments{
+		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
@@ -356,7 +356,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
 		})
-		repairProcess.Arguments = withCommon(process.Directory, Arguments{
+		repairProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
@@ -364,7 +364,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		repairProcess.WaitForExited(migrationProcess)
 
-		process.WaitForExited(migrationProcess)
+		apiProcess.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite
