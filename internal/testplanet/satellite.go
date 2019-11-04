@@ -495,7 +495,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	system.Notification.Endpoint = api.Notification.Endpoint
-	system.Notification.Service = peer.Notification.Service
+	system.Notification.Service = api.Notification.Service
 
 	system.Metrics.Chore = peer.Metrics.Chore
 

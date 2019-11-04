@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
@@ -108,11 +107,6 @@ type Core struct {
 		Chore *gracefulexit.Chore
 	}
 
-	Notification struct {
-		Service  *notification.Service
-		Endpoint *notification.Endpoint
-	}
-
 	Metrics struct {
 		Chore *metrics.Chore
 	}
@@ -133,7 +127,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = version_checker.NewService(
+			log.Named("version"),
+			config.Version,
+			versionInfo,
+			"Satellite",
+		)
 	}
 
 	{ // setup listener and server
@@ -189,7 +188,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		log.Debug("Setting up metainfo")
 
 		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+		peer.Metainfo.Service = metainfo.NewService(
+			peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
@@ -273,7 +273,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup garbage collection
 		log.Debug("Setting up garbage collection")
-
 		peer.GarbageCollection.Service = gc.NewService(
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
@@ -290,12 +289,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		peer.Accounting.Tally = tally.New(
+			peer.Log.Named("tally"),
+			peer.DB.StoragenodeAccounting(),
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			peer.Metainfo.Loop,
+			config.Tally.Interval,
+		)
+		peer.Accounting.Rollup = rollup.New(
+			peer.Log.Named("rollup"),
+			peer.DB.StoragenodeAccounting(),
+			config.Rollup.Interval,
+			config.Rollup.DeleteTallies,
+		)
 	}
 
 	// TODO: remove in future, should be in API
 	{ // setup payments
+		log.Debug("Setting up payments")
 		config := paymentsconfig.Config{}
 
 		switch config.Provider {
@@ -320,23 +332,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
 			log.Debug("Setting up graceful exit")
-			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+			peer.GracefulExit.Chore = gracefulexit.NewChore(
+				peer.Log.Named("graceful exit chore"),
+				peer.DB.GracefulExit(),
+				peer.Overlay.DB,
+				peer.Metainfo.Loop,
+				config.GracefulExit,
+			)
 		}
-	}
-
-	{ // setup notification
-		log.Debug("Satellite API Process setting up notification endpoint")
-		peer.Notification.Service = notification.NewService(
-			peer.Log.Named("notification:service"),
-			config.Notification,
-			peer.Dialer,
-			peer.Overlay.DB,
-			nil,
-		)
-		peer.Notification.Endpoint = notification.NewEndpoint(
-			peer.Log.Named("notification:endpoint"),
-			peer.Notification.Service,
-		)
 	}
 
 	{ // setup metrics service
@@ -386,9 +389,6 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Notification.Service.Run(ctx))
-	})
 	if peer.GracefulExit.Chore != nil {
 		group.Go(func() error {
 			return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
@@ -410,10 +410,6 @@ func (peer *Core) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Metrics.Chore != nil {
 		errlist.Add(peer.Metrics.Chore.Close())
-	}
-
-	if peer.Notification.Service != nil {
-		errlist.Add(peer.Notification.Service.Close())
 	}
 
 	if peer.GracefulExit.Chore != nil {
