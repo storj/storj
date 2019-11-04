@@ -65,32 +65,21 @@ func TestAuthorizationDB_Create(t *testing.T) {
 		incCount,
 		newCount,
 		endCount int
-		errClass *errs.Class
-		err      error
 	}{
 		{
 			"first authorization",
 			"user1@mail.test",
 			0, 1, 1, 1,
-			nil, nil,
 		},
 		{
 			"second authorization",
 			"user1@mail.test",
 			1, 2, 2, 3,
-			nil, nil,
 		},
 		{
 			"large authorization",
 			"user2@mail.test",
 			0, 5, 5, 5,
-			nil, nil,
-		},
-		{
-			"authorization error",
-			"user2@mail.test",
-			5, -1, 0, 5,
-			&ErrDB, ErrCount,
 		},
 	}
 
@@ -101,6 +90,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 
 			if testCase.startCount == 0 {
 				_, err := authDB.db.Get(ctx, emailKey)
+				// NB: key not found error
 				assert.Error(t, err)
 			} else {
 				v, err := authDB.db.Get(ctx, emailKey)
@@ -114,25 +104,58 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			}
 
 			expectedAuths, err := authDB.Create(ctx, testCase.email, testCase.incCount)
-			if testCase.errClass != nil {
-				assert.True(t, testCase.errClass.Has(err))
-			}
-			if testCase.err != nil {
-				assert.Equal(t, testCase.err, err)
-			}
-			if testCase.errClass == nil && testCase.err == nil {
-				assert.NoError(t, err)
-			}
-			assert.Len(t, expectedAuths, testCase.newCount)
+			require.NoError(t, err)
+			require.Len(t, expectedAuths, testCase.newCount)
 
 			v, err := authDB.db.Get(ctx, emailKey)
-			assert.NoError(t, err)
-			assert.NotEmpty(t, v)
+			require.NoError(t, err)
+			require.NotEmpty(t, v)
 
 			var actualAuths Group
 			err = actualAuths.Unmarshal(v)
-			assert.NoError(t, err)
-			assert.Len(t, actualAuths, testCase.endCount)
+			require.NoError(t, err)
+			require.Len(t, actualAuths, testCase.endCount)
+		})
+	}
+}
+
+func TestAuthorizationDB_Create_error(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	authDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authDB.Close)
+
+	cases := []struct {
+		testID,
+		email string
+		count    int
+		errClass *errs.Class
+		err      error
+	}{
+		{
+			"empty userID",
+			"", 1,
+			&ErrDB,
+			ErrEmptyUserID,
+		},
+		{
+			"negative count",
+			"user@mail.example", -1,
+			&ErrDB,
+			ErrCount,
+		},
+	}
+
+	for _, c := range cases {
+		testCase := c
+		t.Run(c.testID, func(t *testing.T) {
+			auths, err := authDB.Create(ctx, testCase.email, testCase.count)
+			if !assert.True(t, testCase.errClass.Has(err)) {
+				t.Logf("error: %s", err)
+			}
+			assert.Equal(t, testCase.err, err)
+			assert.Empty(t, auths)
 		})
 	}
 }
@@ -315,7 +338,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, Error.Has(err))
+			assert.True(t, ErrDB.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
@@ -344,7 +367,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, Error.Has(err))
+			assert.True(t, ErrDB.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
@@ -368,7 +391,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2 + 1,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, Error.Has(err))
+			assert.True(t, ErrDB.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}

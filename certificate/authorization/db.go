@@ -18,6 +18,17 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
+var (
+	// ErrDB is used when an error occurs involving the authorization database.
+	ErrDB = errs.Class("authorization db error")
+	// ErrEmptyUserID is used when a user ID is required but not provided.
+	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
+	// ErrCount is used when attempting to create an invalid number of authorizations.
+	ErrCount = ErrDB.New("cannot add less than one authorizations")
+	// ErrDBInternal is used when an internal error occurs involving the authorization database.
+	ErrDBInternal = errs.Class("internal authorization db error")
+)
+
 // DB stores authorizations which may be claimed in exchange for a
 // certificate signature.
 type DB struct {
@@ -85,26 +96,19 @@ func (authDB *DB) Close() error {
 func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID, count)(&err)
 	if len(userID) == 0 {
-		return nil, ErrDB.Wrap(ErrEmptyUserID)
+		return nil, ErrEmptyUserID
 	}
 	if count < 1 {
-		return nil, ErrDB.Wrap(ErrCount)
+		return nil, ErrCount
 	}
 
-	var (
-		newAuths Group
-		authErrs errs.Group
-	)
+	var newAuths Group
 	for i := 0; i < count; i++ {
 		auth, err := NewAuthorization(userID)
 		if err != nil {
-			authErrs.Add(err)
-			continue
+			return nil, ErrDBInternal.Wrap(err)
 		}
 		newAuths = append(newAuths, auth)
-	}
-	if authErrs.Err() != nil {
-		return nil, ErrDB.Wrap(authErrs.Err())
 	}
 
 	if err := authDB.add(ctx, userID, newAuths); err != nil {
@@ -174,21 +178,21 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	reqTime := time.Unix(opts.Req.Timestamp, 0)
 	if (now.Sub(reqTime) > MaxClockSkew) ||
 		(reqTime.Sub(now) > MaxClockSkew) {
-		return Error.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
+		return ErrDB.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
 	}
 
 	ident, err := identity.PeerIdentityFromPeer(opts.Peer)
 	if err != nil {
-		return err
+		return ErrDB.Wrap(err)
 	}
 
 	peerDifficulty, err := ident.ID.Difficulty()
 	if err != nil {
-		return err
+		return ErrDB.Wrap(err)
 	}
 
 	if peerDifficulty < opts.MinDifficulty {
-		return Error.New("difficulty must be greater than: %d", opts.MinDifficulty)
+		return ErrDB.New("difficulty must be greater than: %d", opts.MinDifficulty)
 	}
 
 	token, err := ParseToken(opts.Req.AuthToken)
@@ -204,7 +208,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	for i, auth := range auths {
 		if auth.Token.Equal(token) {
 			if auth.Claim != nil {
-				return Error.New("authorization has already been claimed: %s", auth.String())
+				return ErrDB.New("authorization has already been claimed: %s", auth.String())
 			}
 
 			auths[i] = &Authorization{
