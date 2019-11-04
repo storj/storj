@@ -115,6 +115,9 @@ contact.external-address: ""
 # how often to run the transfer queue chore.
 # graceful-exit.chore-interval: 30s
 
+# whether or not graceful exit is enabled on the satellite side.
+# graceful-exit.enabled: false
+
 # size of the buffer used to batch transfer queue reads and sends to the storage node.
 # graceful-exit.endpoint-batch-size: 100
 

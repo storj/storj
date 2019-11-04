@@ -29,6 +29,7 @@ export default class PagesBlock extends Vue {
 <style scoped lang="scss">
     .pages-container {
         display: flex;
+        user-select: none;
 
         &__pages {
             font-family: 'font_medium', sans-serif;
