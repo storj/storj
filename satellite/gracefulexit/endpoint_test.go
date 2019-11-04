@@ -37,6 +37,7 @@ import (
 )
 
 const numObjects = 6
+const successThreshold = 4
 
 // exitProcessClient is used so we can pass the graceful exit process clients regardless of implementation.
 type exitProcessClient interface {
@@ -45,7 +46,7 @@ type exitProcessClient interface {
 }
 
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, numObjects, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
 		deletedCount := 0
@@ -315,7 +316,7 @@ func TestRecvTimeout(t *testing.T) {
 }
 
 func TestInvalidStorageNodeSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -389,7 +390,7 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 }
 
 func TestFailureHashMismatch(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -464,7 +465,7 @@ func TestFailureHashMismatch(t *testing.T) {
 }
 
 func TestFailureUnknownError(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -506,7 +507,7 @@ func TestFailureUnknownError(t *testing.T) {
 }
 
 func TestFailureUplinkSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -583,7 +584,7 @@ func TestFailureUplinkSignature(t *testing.T) {
 }
 
 func TestSuccessPointerUpdate(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, successThreshold, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var recNodeID storj.NodeID
 
 		response, err := processClient.Recv()
@@ -680,18 +681,18 @@ func TestSuccessPointerUpdate(t *testing.T) {
 }
 
 func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-
-		var recNodeID storj.NodeID
-
+	testTransfers(t, 1, successThreshold+1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
+		var firstRecNodeID storj.NodeID
+		var pieceID storj.PieceID
 		switch m := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_TransferPiece:
-			require.NotNil(t, m)
+			firstRecNodeID = m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId
+			pieceID = m.TransferPiece.OriginalPieceId
 
-			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), pieceID)
 			require.NoError(t, err)
 
 			header, err := pieceReader.GetPieceHeader()
@@ -713,11 +714,23 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				Timestamp: time.Now(),
 			}
 
-			receivingIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingIdentity)
+			receivingNodeIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNodeIdentity)
+			signer := signing.SignerFromFullIdentity(receivingNodeIdentity)
 
-			// get the receiving node piece count before processing
-			recNodeID = receivingIdentity.ID
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+			require.NoError(t, err)
+
+			success := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      pieceID,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
+					},
+				},
+			}
 
 			// update pointer to include the new receiving node before responding to satellite
 			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -739,39 +752,30 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				}
 			}
 
-			// create a piece with deleted piece number and receiving node ID from the pointer
 			pieceToAdd[0] = &pb.RemotePiece{
 				PieceNum: pieceToRemove[0].PieceNum,
-				NodeId:   recNodeID,
+				NodeId:   firstRecNodeID,
 			}
 
 			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
 			require.NoError(t, err)
 
-			signer := signing.SignerFromFullIdentity(receivingIdentity)
-
-			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-			require.NoError(t, err)
-
-			success := &pb.StorageNodeMessage{
-				Message: &pb.StorageNodeMessage_Succeeded{
-					Succeeded: &pb.TransferSucceeded{
-						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-						OriginalPieceHash:    originalPieceHash,
-						OriginalOrderLimit:   &orderLimit,
-						ReplacementPieceHash: signedNewPieceHash,
-					},
-				},
-			}
 			err = processClient.Send(success)
 			require.NoError(t, err)
 		default:
 			t.FailNow()
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.Internal))
+		response, err = processClient.Recv()
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			// validate we get a new node to transfer too
+			require.True(t, m.TransferPiece.OriginalPieceId == pieceID)
+			require.True(t, m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId != firstRecNodeID)
+		default:
+			t.FailNow()
+		}
 
 		// check exiting node is still in the pointer
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -793,17 +797,16 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		count, ok := pieceMap[exitingNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
-		count, ok = pieceMap[recNodeID]
+		count, ok = pieceMap[firstRecNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
 	})
 }
 
-func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
-	successThreshold := 4
+func testTransfers(t *testing.T, objects int, successThreshold int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: successThreshold + 1,
+		StorageNodeCount: successThreshold + 2,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
