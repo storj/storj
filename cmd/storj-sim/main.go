@@ -29,7 +29,7 @@ type Flags struct {
 	Redis    string
 
 	// Value of first redis db
-	DBStart int
+	RedisStartDB int
 }
 
 var printCommands bool
@@ -63,7 +63,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
-	rootCmd.PersistentFlags().IntVarP(&flags.DBStart, "db-start", "", 0, "value of first redis db (defaults to 0)")
+	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
