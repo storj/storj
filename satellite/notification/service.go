@@ -106,14 +106,14 @@ func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
 }
 
 func (service *Service) CheckRPCLimit(id string) bool {
-	if service.limiter[id].RPC >= service.config.HourlyRPC {
+	if entry, ok := service.limiter[id]; ok && entry.RPC < service.config.HourlyRPC {
 		return false
 	}
 	return true
 }
 
 func (service *Service) CheckEmailLimit(id string) bool {
-	if service.limiter[id].Emails >= service.config.HourlyEmails {
+	if entry, ok := service.limiter[id]; ok && entry.Emails < service.config.HourlyEmails {
 		return false
 	}
 	return true

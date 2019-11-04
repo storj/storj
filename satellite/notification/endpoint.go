@@ -36,26 +36,46 @@ func (endpoint *Endpoint) DRPC() pb.DRPCNotificationServer {
 }
 
 // ProcessNotification sends message to the specified set of nodes (ids)
-func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (_ *pb.NotificationResponse, err error) {
-
-	endpoint.log.Info("Sending Notification to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
-	if endpoint.service.CheckRPCLimit(message.NodeId.String()) || true {
-		client, err := newClient(ctx, endpoint.service.dialer, message.Address, message.NodeId)
+func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (msg *pb.NotificationResponse, err error) {
+	var eSent, rSent = false, false
+	endpoint.log.Debug("Sending Notification to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
+	if endpoint.service.CheckRPCLimit(message.NodeId.String()) {
+		msg, err = endpoint.processNotificationRPC(ctx, message)
 		if err != nil {
-			// if this is a network error, then return the error otherwise just report internal error
-			_, ok := err.(net.Error)
-			if ok {
-				return &pb.NotificationResponse{}, Error.New("failed to connect to %s: %v", message.Address, err)
-			}
-			endpoint.log.Info("notification internal error", zap.String("error", err.Error()))
-			return &pb.NotificationResponse{}, Error.New("couldn't connect to client at addr: %s due to internal error.", message.Address)
+			return msg, err
 		}
-		defer func() { err = errs.Combine(err, client.Close()) }()
-
-		return client.client.ProcessNotification(ctx, message)
+		rSent = true
 	}
+	if endpoint.service.CheckEmailLimit(message.NodeId.String()) {
+		err = endpoint.processNotificationEmail(ctx, message)
+		if err != nil {
+			return msg, err
+		}
+		eSent = true
+	}
+	endpoint.service.IncrementLimiter(message.NodeId.String(), eSent, rSent)
+	return msg, nil
+}
 
-	return &pb.NotificationResponse{}, nil
+func (endpoint *Endpoint) processNotificationRPC(ctx context.Context, message *pb.NotificationMessage) (_ *pb.NotificationResponse, err error) {
+	client, err := newClient(ctx, endpoint.service.dialer, message.Address, message.NodeId)
+	if err != nil {
+		// if this is a network error, then return the error otherwise just report internal error
+		_, ok := err.(net.Error)
+		if ok {
+			return &pb.NotificationResponse{}, Error.New("failed to connect to %s: %v", message.Address, err)
+		}
+		endpoint.log.Info("notification internal error", zap.String("error", err.Error()))
+		return &pb.NotificationResponse{}, Error.New("couldn't connect to client at addr: %s due to internal error.", message.Address)
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	return client.client.ProcessNotification(ctx, message)
+}
+
+func (endpoint *Endpoint) processNotificationEmail(ctx context.Context, message *pb.NotificationMessage) (err error) {
+	//return endpoint.service.mailer.Send(ctx, &post.Message{})
+	return nil
 }
 
 func (endpoint *Endpoint) sendBroadcastNotification(ctx context.Context, message string, ids []pb.Node) {
