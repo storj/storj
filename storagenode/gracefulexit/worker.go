@@ -101,11 +101,14 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				}
 			})
 		case *pb.SatelliteMessage_DeletePiece:
-			pieceID := msg.DeletePiece.OriginalPieceId
-			err := worker.deleteOnePieceOrAll(ctx, &pieceID)
-			if err != nil {
-				worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
-			}
+			deletePieceMsg := msg.DeletePiece
+			worker.limiter.Go(ctx, func() {
+				pieceID := deletePieceMsg.OriginalPieceId
+				err := worker.deleteOnePieceOrAll(ctx, &pieceID)
+				if err != nil {
+					worker.log.Error("failed to delete piece.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("piece ID", pieceID), zap.Error(errs.Wrap(err)))
+				}
+			})
 
 		case *pb.SatelliteMessage_ExitFailed:
 			worker.log.Error("graceful exit failed.", zap.Stringer("satellite ID", worker.satelliteID), zap.Stringer("reason", msg.ExitFailed.Reason))
