@@ -301,6 +301,53 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 	})
 }
 
+func TestFindStorageNodesDistinctIPs(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// will create 3 storage nodes with same IP; 2 will have unique
+			NewIPCount: 2,
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		var excludedNodes storj.NodeIDList
+		addrs := make(map[storj.NodeID]struct{})
+		for _, node := range planet.StorageNodes {
+			if _, ok := addrs[node.ID()]; ok {
+				addrs[node.ID()] = struct{}{}
+			} else {
+				// Add one ID to the excluded nodes list.
+				// The FindStorageNodesDistinctIPs function should
+				// also exclude the other nodes that share the same IP.
+				excludedNodes = append(excludedNodes, node.ID())
+				break
+			}
+		}
+
+		req := overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 2,
+			RequestedCount:       2,
+			ExcludedNodes:        excludedNodes,
+		}
+		nodes, err := satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, nodes, 2)
+		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
+
+		req = overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 4,
+			RequestedCount:       4,
+			ExcludedNodes:        excludedNodes,
+		}
+		_, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		require.Error(t, err)
+	})
+}
+
 func TestDistinctIPs(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("Test does not work with macOS")

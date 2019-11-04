@@ -440,8 +440,12 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 	return missingPieces, nil
 }
 
-// GetNodeIPs returns a list of node IP addresses.
-func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req FindStorageNodesRequest) (nodeIDs []*pb.Node, err error) {
+// FindStorageNodesDistinctIPs takes a list of excluded nodes, finds their IPs, and returns a list of nodes with distinct IPs.
+// Using this method is different from just calling SelectStorageNodes with DistinctIP=true, because SelectStorageNodes will not account
+// for IPs of excluded nodes. Excluding the IPs of excluded nodes is currently only necessary for graceful exit and repair,
+// which is why we're choosing to create a separate method instead of adding filtering to SelectStorageNodes.
+// TODO: instead, should we make it so excluding IPs of excluded nodes also occurs when DistinctIP=true?
+func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req FindStorageNodesRequest) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeIPs, err := service.db.GetNodeIPs(ctx, req.ExcludedNodes)
