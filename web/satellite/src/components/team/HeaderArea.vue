@@ -128,17 +128,9 @@ export default class HeaderArea extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        const currentUser = this.$store.getters.user;
-        const selectedProjectMembersEmails = this.$store.getters.selectedProjectMembersEmails;
-
         try {
-            if (selectedProjectMembersEmails.includes(currentUser.email)) {
-                await this.deleteWithCurrentUser();
-            } else {
-                await this.$store.dispatch(PM_ACTIONS.DELETE);
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-                this.$refs.headerComponent.clearSearch();
-            }
+            await this.$store.dispatch(PM_ACTIONS.DELETE);
+            this.setProjectState();
         } catch (error) {
             await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
             this.isDeleteClicked = false;
@@ -176,33 +168,18 @@ export default class HeaderArea extends Vue {
         return this.headerState === 1 && this.isDeleteClicked;
     }
 
-    private async deleteWithCurrentUser(): Promise<void> {
-        const selectedProject = this.$store.getters.selectedProject;
-        try {
-            await this.$store.dispatch(PM_ACTIONS.DELETE);
-            await this.$store.dispatch(PROJECTS_ACTIONS.DELETE_STORED_PROJECT, selectedProject.id);
-
-            await this.setProjectState();
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isDeleteClicked = false;
-
-            return;
-        }
-    }
-
     private async setProjectState(): Promise<void> {
         const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-        if (projects.length) {
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            this.$refs.headerComponent.clearSearch();
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
             return;
         }
 
-        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-        await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        this.$refs.headerComponent.clearSearch();
     }
 }
 </script>

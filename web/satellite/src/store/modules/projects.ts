@@ -10,7 +10,6 @@ export const PROJECTS_ACTIONS = {
     SELECT: 'selectProject',
     UPDATE: 'updateProject',
     DELETE: 'deleteProject',
-    DELETE_STORED_PROJECT: 'deleteStoredProject',
     CLEAR: 'clearProjects',
 };
 
@@ -36,7 +35,6 @@ const {
     SELECT,
     UPDATE,
     DELETE,
-    DELETE_STORED_PROJECT,
     CLEAR,
 } = PROJECTS_ACTIONS;
 
@@ -134,9 +132,6 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
                 await api.delete(projectID);
 
-                commit(REMOVE, projectID);
-            },
-            [DELETE_STORED_PROJECT]: function ({commit}: any, projectID: string): void {
                 commit(REMOVE, projectID);
             },
             [CLEAR]: function({commit}: any): void {

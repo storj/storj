@@ -140,7 +140,6 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             selectedProjectMembers: (state: ProjectMembersState) =>
                 state.page.projectMembers.filter((member: ProjectMember) =>
                     state.selectedProjectMembersEmails.includes(member.user.email)),
-            selectedProjectMembersEmails: (state: ProjectMembersState) => state.selectedProjectMembersEmails,
         },
     };
 }
