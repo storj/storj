@@ -136,10 +136,10 @@ type Config struct {
 	Metrics metrics.Config
 }
 
-// Peer is the satellite
+// Core is the satellite core process that runs chores
 //
 // architecture: Peer
-type Peer struct {
+type Core struct {
 	// core dependencies
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -210,8 +210,8 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Peer, error) {
-	peer := &Peer{
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Core, error) {
+	peer := &Core{
 		Log:      log,
 		Identity: full,
 		DB:       db,
@@ -427,7 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 }
 
 // Run runs satellite until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) (err error) {
+func (peer *Core) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
@@ -475,7 +475,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 }
 
 // Close closes all the resources.
-func (peer *Peer) Close() error {
+func (peer *Core) Close() error {
 	var errlist errs.Group
 
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
@@ -526,4 +526,4 @@ func (peer *Peer) Close() error {
 }
 
 // ID returns the peer ID.
-func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *Core) ID() storj.NodeID { return peer.Identity.ID }
