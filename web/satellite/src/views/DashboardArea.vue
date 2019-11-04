@@ -109,9 +109,7 @@ export default class DashboardArea extends Vue {
 
         const selectedProjectId: string | null = localStorage.getItem('selectedProjectId');
         if (selectedProjectId) {
-            const projectId = selectedProjectId as string;
-
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectId);
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
         } else {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
             localStorage.setItem('selectedProjectId', this.$store.getters.selectedProject.id);
