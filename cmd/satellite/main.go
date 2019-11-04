@@ -45,10 +45,20 @@ var (
 		Short: "Run the satellite",
 		RunE:  cmdRun,
 	}
+	runMigrationCmd = &cobra.Command{
+		Use:   "migration",
+		Short: "Run the satellite database migration",
+		RunE:  cmdMigrationRun,
+	}
 	runAPICmd = &cobra.Command{
 		Use:   "api",
 		Short: "Run the satellite API",
 		RunE:  cmdAPIRun,
+	}
+	runRepairerCmd = &cobra.Command{
+		Use:   "repair",
+		Short: "Run the repair service",
+		RunE:  cmdRepairerRun,
 	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
@@ -83,8 +93,14 @@ var (
 		Use:   "notification [LOGLEVEL] [message]",
 		Short: "Send a notification to all nodes",
 		Long:  "Send a notification to all nodes. Example: satellite notification INFO 'This is a Info notification'",
+		RunE:  cmdNotification
+	}
+	gracefulExitCmd = &cobra.Command{
+		Use:   "graceful-exit [start] [end]",
+		Short: "Generate a graceful exit report",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdNotification,
+		RunE:  cmdGracefulExit,
 	}
 
 	runCfg   Satellite
@@ -102,6 +118,11 @@ var (
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
+	gracefulExitCfg struct {
+		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Output    string `help:"destination of report output" default:""`
+		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
+	}
 	confDir     string
 	identityDir string
 )
@@ -113,19 +134,25 @@ func init() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for satellite identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
+	runCmd.AddCommand(runMigrationCmd)
 	runCmd.AddCommand(runAPICmd)
+	runCmd.AddCommand(runRepairerCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(notificationCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
+	reportsCmd.AddCommand(gracefulExitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(notificationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -188,9 +215,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CreateTables()
+	err = db.CheckVersion()
 	if err != nil {
-		return errs.New("Error creating tables for master database on satellite: %+v", err)
+		zap.S().Fatal("failed satellite database version check: ", err)
+		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
 	runError := peer.Run(ctx)
@@ -198,64 +226,21 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return errs.Combine(runError, closeError)
 }
 
-func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
-
-	identity, err := runCfg.Identity.Load()
+	db, err := satellitedb.New(log.Named("db migration"), runCfg.Database)
 	if err != nil {
-		zap.S().Fatal(err)
-	}
-
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
-	if err != nil {
-		return errs.New("Error starting master database on satellite api: %+v", err)
+		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	err = db.CreateTables()
 	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
+		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
-	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, revocationDB.Close())
-	}()
-
-	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
-	if err != nil {
-		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, accountingCache.Close())
-	}()
-
-	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, accountingCache, &runCfg.Config, version.Build)
-	if err != nil {
-		return err
-	}
-
-	err = peer.Version.CheckVersion(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
-	}
-
-	runError := peer.Run(ctx)
-	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
+	return nil
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -310,6 +295,45 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
+func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[0])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+	}
+
+	// adding one day to properly account for the entire end day
+	end = end.AddDate(0, 0, 1)
+
+	// ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if gracefulExitCfg.Output == "" {
+		return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(gracefulExitCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+	}()
+
+	return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, file)
+}
+
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -333,7 +357,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if nodeUsageCfg.Output == "" {
-		return generateCSV(ctx, start, end, os.Stdout)
+		return generateNodeUsageCSV(ctx, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -346,7 +370,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateCSV(ctx, start, end, file)
+	return generateNodeUsageCSV(ctx, start, end, file)
 }
 
 func cmdNotification(cmd *cobra.Command, args []string) (err error) {

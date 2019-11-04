@@ -6,7 +6,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-@Component
+import MainIcon from '@/../static/images/errors/404.svg';
+import LogoIcon from '@/../static/images/errors/logo.svg';
+import TextIcon from '@/../static/images/errors/text.svg';
+
+@Component({
+    components: {
+        LogoIcon,
+        TextIcon,
+        MainIcon,
+    },
+})
 // 404 component on page not found error
 export default class Page404 extends Vue {}
 </script>
@@ -24,15 +34,14 @@ export default class Page404 extends Vue {}
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        -webkit-touch-callout: none; 
-        -webkit-user-select: none; 
-        -khtml-user-select: none; 
-        -moz-user-select: none; 
-        -ms-user-select: none; 
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
         user-select: none;
 
         &__title {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             margin-bottom: 60px;
             font-size: 32px;
         }

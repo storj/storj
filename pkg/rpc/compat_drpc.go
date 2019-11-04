@@ -1,17 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build drpc
+// +build !grpc
 
 package rpc
 
 import (
-	"storj.io/drpc/drpcconn"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
 // RawConn is a type alias to a drpc client connection
-type RawConn = drpcconn.Conn
+type RawConn = rpcpool.Conn
 
 type (
 	// CertificatesClient is an alias to the drpc client interface

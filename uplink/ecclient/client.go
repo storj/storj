@@ -16,7 +16,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/groupcancel"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/rpc"
@@ -33,6 +35,8 @@ type Client interface {
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) error
 	WithForceErrorDetection(force bool) Client
+	// PutPiece is not intended to be used by normal uplinks directly, but is exported to support storagenode graceful exit transfers.
+	PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, id *identity.PeerIdentity, err error)
 }
 
 type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, error)
@@ -105,7 +109,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
+			hash, _, err := ec.PutPiece(psCtx, ctx, addressedLimit, privateKey, readers[i])
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -175,7 +179,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, peerID *identity.PeerIdentity, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -185,7 +189,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 
 	if limit == nil {
 		_, _ = io.Copy(ioutil.Discard, data)
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	storageNodeID := limit.GetLimit().StorageNodeId
@@ -200,9 +204,18 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
+
+	peerID, err = ps.GetPeerIdentity()
+	if err != nil {
+		ec.log.Debug("Failed getting peer identity from node connection",
+			zap.String("NodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
+		return nil, nil, err
+	}
 
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
@@ -211,7 +224,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
-		return nil, err
+		return nil, nil, err
 	}
 
 	defer func() {
@@ -247,10 +260,10 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			)
 		}
 
-		return nil, err
+		return nil, nil, err
 	}
 
-	return nil, nil
+	return nil, peerID, nil
 }
 
 func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {
@@ -293,16 +306,25 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	errch := make(chan error, len(limits))
+	setLimits := 0
+	for _, addressedLimit := range limits {
+		if addressedLimit != nil {
+			setLimits++
+		}
+	}
+
+	gctx, cancel := groupcancel.NewContext(ctx, setLimits, .75, 2)
+	defer cancel()
+
+	errch := make(chan error, setLimits)
 	for _, addressedLimit := range limits {
 		if addressedLimit == nil {
-			errch <- nil
 			continue
 		}
 
 		go func(addressedLimit *pb.AddressedOrderLimit) {
 			limit := addressedLimit.GetLimit()
-			ps, err := ec.dialPiecestore(ctx, &pb.Node{
+			ps, err := ec.dialPiecestore(gctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
@@ -315,7 +337,8 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, limit, privateKey)
+
+			err = ps.Delete(gctx, limit, privateKey)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				ec.log.Debug("Failed deleting piece from node",
@@ -328,23 +351,21 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}(addressedLimit)
 	}
 
-	allerrs := collectErrors(errch, len(limits))
-	if len(allerrs) > 0 && len(allerrs) == len(limits) {
-		return allerrs[0]
-	}
-
-	return nil
-}
-
-func collectErrors(errs <-chan error, size int) []error {
-	var result []error
-	for i := 0; i < size; i++ {
-		err := <-errs
-		if err != nil {
-			result = append(result, err)
+	var anySuccess bool
+	var lastErr error
+	for i := 0; i < setLimits; i++ {
+		if err := <-errch; err == nil {
+			gctx.Success()
+			anySuccess = true
+		} else {
+			gctx.Failure()
+			lastErr = err
 		}
 	}
-	return result
+	if anySuccess {
+		return nil
+	}
+	return lastErr
 }
 
 func unique(limits []*pb.AddressedOrderLimit) bool {

@@ -8,8 +8,12 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensures that customers implements stripecoinpayments.CustomersDB.
+var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.
 type customers struct {
@@ -29,8 +33,8 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 	return err
 }
 
-// GetCustomerID return stripe customers id.
-func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID) (customerID string, err error) {
+// GetCustomerID returns stripe customers id.
+func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID) (_ string, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	idRow, err := customers.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))

@@ -18,6 +18,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
+
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
@@ -42,6 +43,10 @@ class StampTooltip {
     },
 })
 export default class DiskSpaceChart extends Vue {
+    private readonly TOOLTIP_MARGIN: number = 20;
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
+
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
@@ -101,11 +106,10 @@ export default class DiskSpaceChart extends Vue {
         const diskSpaceChart = document.getElementById('disk-space-chart');
 
         if (diskSpaceChart) {
-            const tenPixels = 10;
             const position = diskSpaceChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - tenPixels + 'px';
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
+            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - this.TOOLTIP_MARGIN + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
 
@@ -125,17 +129,17 @@ export default class DiskSpaceChart extends Vue {
             font-size: 13px;
             color: #586c86;
             margin: 0 0 5px 30px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
         }
     }
 
     #disk-space-tooltip {
-        background-color: #FFFFFF;
+        background-color: #fff;
         width: auto;
         font-size: 12px;
         border-radius: 8px;
-        box-shadow: 0 2px 10px #D2D6DE;
-        color: #535F77;
+        box-shadow: 0 2px 10px #d2d6de;
+        color: #535f77;
         padding: 6px;
         pointer-events: none;
     }

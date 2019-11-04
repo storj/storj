@@ -383,54 +383,6 @@ read all (
     orderby asc api_key.name
 )
 
-//-----bucket_usage----//
-
-model bucket_usage (
-    key    id
-    index (
-    		name bucket_id_rollup
-    		fields bucket_id rollup_end_time
-    		unique
-    	)
-
-    field  id                 blob
-    field  bucket_id          blob      //--TODO: add foreign key constraint--//
-
-    field  rollup_end_time    timestamp
-
-    field  remote_stored_data uint64
-    field  inline_stored_data uint64
-    field  remote_segments    uint
-    field  inline_segments    uint
-    field  objects            uint
-    field  metadata_size      uint64
-    field  repair_egress      uint64
-    field  get_egress         uint64
-    field  audit_egress       uint64
-)
-
-create bucket_usage ( )
-delete bucket_usage ( where bucket_usage.id = ? )
-
-read one (
-    select bucket_usage
-    where  bucket_usage.id = ?
-)
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby asc bucket_usage.rollup_end_time
-)
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby desc bucket_usage.rollup_end_time
-)
-
 //--- tracking serial numbers ---//
 
 model serial_number (
@@ -837,7 +789,7 @@ read one (
 
 model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
-    key node_id path
+    key node_id path piece_num
 
     field node_id             blob
     field path                blob
@@ -855,6 +807,7 @@ create graceful_exit_transfer_queue ( noreturn )
 update graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 	noreturn
 )
 delete graceful_exit_transfer_queue ( 
@@ -864,6 +817,7 @@ delete graceful_exit_transfer_queue (
 delete graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 )
 
 delete graceful_exit_transfer_queue ( 
@@ -875,6 +829,7 @@ read one (
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 )
 
 //--- satellite payments ---//
@@ -909,3 +864,29 @@ model coinpayments_transaction (
 )
 
 create coinpayments_transaction ()
+update coinpayments_transaction ( where coinpayments_transaction.id = ? )
+
+read limitoffset (
+    select coinpayments_transaction
+    where coinpayments_transaction.created_at <= ?
+    where coinpayments_transaction.status = ?
+    orderby desc coinpayments_transaction.created_at
+)
+
+model stripecoinpayments_apply_balance_intent (
+    key tx_id
+
+    field tx_id coinpayments_transaction.id  cascade
+    field state int                          ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_apply_balance_intent ()
+update stripecoinpayments_apply_balance_intent (
+    where stripecoinpayments_apply_balance_intent.tx_id = ?
+)
+delete stripecoinpayments_apply_balance_intent (
+    where stripecoinpayments_apply_balance_intent.tx_id = ?
+)
+

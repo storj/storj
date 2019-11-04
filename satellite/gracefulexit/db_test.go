@@ -100,7 +100,7 @@ func TestTransferQueueItem(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, tqi := range items {
-				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
 
 				now := time.Now().UTC()
@@ -110,7 +110,7 @@ func TestTransferQueueItem(t *testing.T) {
 				err = geDB.UpdateTransferQueueItem(ctx, *item)
 				require.NoError(t, err)
 
-				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
 				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
 				require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
@@ -122,7 +122,7 @@ func TestTransferQueueItem(t *testing.T) {
 		}
 		// mark the first item finished and test that only 1 item gets returned from the GetIncomplete
 		{
-			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1)
+			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1, 1)
 			require.NoError(t, err)
 
 			now := time.Now().UTC()
@@ -146,11 +146,11 @@ func TestTransferQueueItem(t *testing.T) {
 			require.NoError(t, err)
 
 			// path1 should no longer exist for nodeID1
-			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1)
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1, 1)
 			require.Error(t, err)
 
 			// path2 should still exist for nodeID1
-			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path2)
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path2, 2)
 			require.NoError(t, err)
 		}
 

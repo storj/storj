@@ -133,9 +133,9 @@ func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int
 	return payments.service.accounts.Balance(ctx, auth.User.ID)
 }
 
-// AddCreditCard adds a card as a new payment method.
+// AddCreditCard is used to save new credit card and attach it to payment account.
 func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -143,6 +143,73 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 	}
 
 	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+}
+
+// MakeCreditCardDefault makes a credit card default payment method.
+func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+}
+
+// ListCreditCards returns a list of credit cards for a given payment account.
+func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+}
+
+// RemoveCreditCard is used to detach a credit card from payment account.
+func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
+}
+
+// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add transactions, etc in future
+	for _, invoice := range invoices {
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          invoice.ID,
+			Description: invoice.Description,
+			Amount:      invoice.Amount,
+			Status:      invoice.Status,
+			Link:        invoice.Link,
+			End:         invoice.End,
+			Start:       invoice.Start,
+			Type:        Invoice,
+		})
+	}
+
+	return billingHistory, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -446,21 +513,22 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, er
 }
 
 // UpdateAccount updates User
-func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
+func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = info.IsValid(); err != nil {
-		return err
+	// validate fullName
+	if fullName == "" {
+		return errs.New("full name can't be empty")
 	}
 
 	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
-		FullName:     info.FullName,
-		ShortName:    info.ShortName,
+		FullName:     fullName,
+		ShortName:    shortName,
 		Email:        auth.User.Email,
 		PasswordHash: nil,
 		Status:       auth.User.Status,

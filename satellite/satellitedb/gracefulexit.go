@@ -47,7 +47,10 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, gracefulexit.ErrNodeNotFound.Wrap(err)
+
+	} else if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)
@@ -116,17 +119,19 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(item.FinishedAt)
 	}
 
-	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(item.NodeID.Bytes()),
 		dbx.GracefulExitTransferQueue_Path(item.Path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(item.PieceNum)),
 		update,
 	)
 }
 
 // DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
-func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (err error) {
+func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path))
+	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	return Error.Wrap(err)
 }
 
@@ -145,11 +150,12 @@ func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, 
 }
 
 // GetTransferQueueItem gets a graceful exit transfer queue entry.
-func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (_ *gracefulexit.TransferQueueItem, err error) {
+func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(path))
+		dbx.GracefulExitTransferQueue_Path(path),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -221,7 +227,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is not NULL
-			AND failed_count <= ?
+			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
 	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
