@@ -136,10 +136,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		ExpiresAt:     expiration,
 	}
 
-	if err != nil {
-		return Meta{}, 0, storj.StreamID{}, err
-	}
-
 	var (
 		streamID       storj.StreamID
 		currentSegment int64
