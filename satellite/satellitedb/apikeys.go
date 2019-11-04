@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that apikeys implements console.APIKeys.
+var _ console.APIKeys = (*apikeys)(nil)
+
 // apikeys is an implementation of satellite.APIKeys
 type apikeys struct {
 	methods dbx.Methods

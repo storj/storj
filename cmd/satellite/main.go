@@ -222,7 +222,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
 	db, err := satellitedb.New(log.Named("db migration"), runCfg.Database)
 	if err != nil {
-		return errs.New("Error createing new master database connection for satellitedb migration: %+v", err)
+		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())

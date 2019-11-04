@@ -305,21 +305,6 @@ CREATE TABLE bucket_storage_tallies (
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
-CREATE TABLE bucket_usages (
-	id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	rollup_end_time timestamp with time zone NOT NULL,
-	remote_stored_data bigint NOT NULL,
-	inline_stored_data bigint NOT NULL,
-	remote_segments integer NOT NULL,
-	inline_segments integer NOT NULL,
-	objects integer NOT NULL,
-	metadata_size bigint NOT NULL,
-	repair_egress bigint NOT NULL,
-	get_egress bigint NOT NULL,
-	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -580,7 +565,6 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -1245,254 +1229,6 @@ func (f BucketStorageTally_MetadataSize_Field) value() interface{} {
 }
 
 func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata_size" }
-
-type BucketUsage struct {
-	Id               []byte
-	BucketId         []byte
-	RollupEndTime    time.Time
-	RemoteStoredData uint64
-	InlineStoredData uint64
-	RemoteSegments   uint
-	InlineSegments   uint
-	Objects          uint
-	MetadataSize     uint64
-	RepairEgress     uint64
-	GetEgress        uint64
-	AuditEgress      uint64
-}
-
-func (BucketUsage) _Table() string { return "bucket_usages" }
-
-type BucketUsage_Update_Fields struct {
-}
-
-type BucketUsage_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BucketUsage_Id(v []byte) BucketUsage_Id_Field {
-	return BucketUsage_Id_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_Id_Field) _Column() string { return "id" }
-
-type BucketUsage_BucketId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func BucketUsage_BucketId(v []byte) BucketUsage_BucketId_Field {
-	return BucketUsage_BucketId_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_BucketId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_BucketId_Field) _Column() string { return "bucket_id" }
-
-type BucketUsage_RollupEndTime_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func BucketUsage_RollupEndTime(v time.Time) BucketUsage_RollupEndTime_Field {
-	return BucketUsage_RollupEndTime_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_RollupEndTime_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_RollupEndTime_Field) _Column() string { return "rollup_end_time" }
-
-type BucketUsage_RemoteStoredData_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_RemoteStoredData(v uint64) BucketUsage_RemoteStoredData_Field {
-	return BucketUsage_RemoteStoredData_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_RemoteStoredData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_RemoteStoredData_Field) _Column() string { return "remote_stored_data" }
-
-type BucketUsage_InlineStoredData_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_InlineStoredData(v uint64) BucketUsage_InlineStoredData_Field {
-	return BucketUsage_InlineStoredData_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_InlineStoredData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_InlineStoredData_Field) _Column() string { return "inline_stored_data" }
-
-type BucketUsage_RemoteSegments_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func BucketUsage_RemoteSegments(v uint) BucketUsage_RemoteSegments_Field {
-	return BucketUsage_RemoteSegments_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_RemoteSegments_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_RemoteSegments_Field) _Column() string { return "remote_segments" }
-
-type BucketUsage_InlineSegments_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func BucketUsage_InlineSegments(v uint) BucketUsage_InlineSegments_Field {
-	return BucketUsage_InlineSegments_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_InlineSegments_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_InlineSegments_Field) _Column() string { return "inline_segments" }
-
-type BucketUsage_Objects_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func BucketUsage_Objects(v uint) BucketUsage_Objects_Field {
-	return BucketUsage_Objects_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_Objects_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_Objects_Field) _Column() string { return "objects" }
-
-type BucketUsage_MetadataSize_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_MetadataSize(v uint64) BucketUsage_MetadataSize_Field {
-	return BucketUsage_MetadataSize_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_MetadataSize_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_MetadataSize_Field) _Column() string { return "metadata_size" }
-
-type BucketUsage_RepairEgress_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_RepairEgress(v uint64) BucketUsage_RepairEgress_Field {
-	return BucketUsage_RepairEgress_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_RepairEgress_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_RepairEgress_Field) _Column() string { return "repair_egress" }
-
-type BucketUsage_GetEgress_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_GetEgress(v uint64) BucketUsage_GetEgress_Field {
-	return BucketUsage_GetEgress_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_GetEgress_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_GetEgress_Field) _Column() string { return "get_egress" }
-
-type BucketUsage_AuditEgress_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func BucketUsage_AuditEgress(v uint64) BucketUsage_AuditEgress_Field {
-	return BucketUsage_AuditEgress_Field{_set: true, _value: v}
-}
-
-func (f BucketUsage_AuditEgress_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
 type CoinpaymentsTransaction struct {
 	Id        string
@@ -6283,47 +6019,6 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
-	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
-	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
-	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
-	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
-	bucket_usage_objects BucketUsage_Objects_Field,
-	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
-	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
-	bucket_usage_get_egress BucketUsage_GetEgress_Field,
-	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
-	bucket_usage *BucketUsage, err error) {
-	__id_val := bucket_usage_id.value()
-	__bucket_id_val := bucket_usage_bucket_id.value()
-	__rollup_end_time_val := bucket_usage_rollup_end_time.value()
-	__remote_stored_data_val := bucket_usage_remote_stored_data.value()
-	__inline_stored_data_val := bucket_usage_inline_stored_data.value()
-	__remote_segments_val := bucket_usage_remote_segments.value()
-	__inline_segments_val := bucket_usage_inline_segments.value()
-	__objects_val := bucket_usage_objects.value()
-	__metadata_size_val := bucket_usage_metadata_size.value()
-	__repair_egress_val := bucket_usage_repair_egress.value()
-	__get_egress_val := bucket_usage_get_egress.value()
-	__audit_egress_val := bucket_usage_audit_egress.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_usages ( id, bucket_id, rollup_end_time, remote_stored_data, inline_stored_data, remote_segments, inline_segments, objects, metadata_size, repair_egress, get_egress, audit_egress ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val)
-
-	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __bucket_id_val, __rollup_end_time_val, __remote_stored_data_val, __inline_stored_data_val, __remote_segments_val, __inline_segments_val, __objects_val, __metadata_size_val, __repair_egress_val, __get_egress_val, __audit_egress_val).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_usage, nil
-
-}
-
 func (obj *postgresImpl) CreateNoReturn_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
@@ -7509,103 +7204,6 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	bucket_usage *BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_usage = &BucketUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_usage, nil
-
-}
-
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_usage)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_usages.id, bucket_usages.bucket_id, bucket_usages.rollup_end_time, bucket_usages.remote_stored_data, bucket_usages.inline_stored_data, bucket_usages.remote_segments, bucket_usages.inline_segments, bucket_usages.objects, bucket_usages.metadata_size, bucket_usages.repair_egress, bucket_usages.get_egress, bucket_usages.audit_egress FROM bucket_usages WHERE bucket_usages.bucket_id = ? AND bucket_usages.rollup_end_time > ? AND bucket_usages.rollup_end_time <= ? ORDER BY bucket_usages.rollup_end_time DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_bucket_id.value(), bucket_usage_rollup_end_time_greater.value(), bucket_usage_rollup_end_time_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		bucket_usage := &BucketUsage{}
-		err = __rows.Scan(&bucket_usage.Id, &bucket_usage.BucketId, &bucket_usage.RollupEndTime, &bucket_usage.RemoteStoredData, &bucket_usage.InlineStoredData, &bucket_usage.RemoteSegments, &bucket_usage.InlineSegments, &bucket_usage.Objects, &bucket_usage.MetadataSize, &bucket_usage.RepairEgress, &bucket_usage.GetEgress, &bucket_usage.AuditEgress)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, bucket_usage)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -9719,32 +9317,6 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_usages WHERE bucket_usages.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_usage_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 	serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 	count int64, err error) {
@@ -10245,16 +9817,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10731,28 +10293,6 @@ func (rx *Rx) Create_BucketMetainfo(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_BucketUsage(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
-	bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
-	bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
-	bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
-	bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
-	bucket_usage_objects BucketUsage_Objects_Field,
-	bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
-	bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
-	bucket_usage_get_egress BucketUsage_GetEgress_Field,
-	bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
-	bucket_usage *BucketUsage, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
-
-}
-
 func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
@@ -10971,16 +10511,6 @@ func (rx *Rx) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
-}
-
-func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
 func (rx *Rx) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
@@ -11247,16 +10777,6 @@ func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	return tx.Get_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
 }
 
-func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
-	bucket_usage_id BucketUsage_Id_Field) (
-	bucket_usage *BucketUsage, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
-}
-
 func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -11473,32 +10993,6 @@ func (rx *Rx) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_N
 		return
 	}
 	return tx.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name_greater, limit, offset)
-}
-
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
-}
-
-func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
-	bucket_usage_bucket_id BucketUsage_BucketId_Field,
-	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-	bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-	limit int, offset int64) (
-	rows []*BucketUsage, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
 func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
@@ -11933,21 +11427,6 @@ type Methods interface {
 		optional BucketMetainfo_Create_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
 
-	Create_BucketUsage(ctx context.Context,
-		bucket_usage_id BucketUsage_Id_Field,
-		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time BucketUsage_RollupEndTime_Field,
-		bucket_usage_remote_stored_data BucketUsage_RemoteStoredData_Field,
-		bucket_usage_inline_stored_data BucketUsage_InlineStoredData_Field,
-		bucket_usage_remote_segments BucketUsage_RemoteSegments_Field,
-		bucket_usage_inline_segments BucketUsage_InlineSegments_Field,
-		bucket_usage_objects BucketUsage_Objects_Field,
-		bucket_usage_metadata_size BucketUsage_MetadataSize_Field,
-		bucket_usage_repair_egress BucketUsage_RepairEgress_Field,
-		bucket_usage_get_egress BucketUsage_GetEgress_Field,
-		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
-		bucket_usage *BucketUsage, err error)
-
 	Create_CoinpaymentsTransaction(ctx context.Context,
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
@@ -12057,10 +11536,6 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
-		deleted bool, err error)
-
-	Delete_BucketUsage_By_Id(ctx context.Context,
-		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
 	Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
@@ -12174,10 +11649,6 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		bucket_metainfo *BucketMetainfo, err error)
 
-	Get_BucketUsage_By_Id(ctx context.Context,
-		bucket_usage_id BucketUsage_Id_Field) (
-		bucket_usage *BucketUsage, err error)
-
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
@@ -12269,20 +11740,6 @@ type Methods interface {
 		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
-
-	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
-		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-		limit int, offset int64) (
-		rows []*BucketUsage, err error)
-
-	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx context.Context,
-		bucket_usage_bucket_id BucketUsage_BucketId_Field,
-		bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
-		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
-		limit int, offset int64) (
-		rows []*BucketUsage, err error)
 
 	Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
