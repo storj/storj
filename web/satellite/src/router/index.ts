@@ -118,7 +118,7 @@ export const router = new Router({
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: LoginArea,
+                    component: ProjectOverviewArea,
                 },
                 {
                     path: RouteConfig.Team.path,
