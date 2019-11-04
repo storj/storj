@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
@@ -50,10 +51,10 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overl
 	}
 }
 
-// Run runs a notification cycle every minute
+// Run runs a notification cycle every 5 Seconds
 func (service *Service) Run(ctx context.Context) error {
-
-	service.loop = sync2.NewCycle(time.Minute * 1)
+	service.log.Debug("Starting Loop")
+	service.loop = sync2.NewCycle(time.Second * 5)
 
 	_ = service.loop.Run(ctx, service.debug)
 
@@ -63,15 +64,19 @@ func (service *Service) Run(ctx context.Context) error {
 // debug sends a dumb notification
 func (service *Service) debug(ctx context.Context) error {
 	// TODO: Get all nodes from the DB
-	node := pb.Node{
-		Id:      pb.NodeID{},
-		Address: &pb.NodeAddress{Address: "localhost:10000"},
+	nodem := pb.NotificationMessage{
+		NodeId:   pb.NodeID{},
+		Address:  "localhost:13000",
+		Loglevel: pb.LogLevel_INFO,
+		Message:  []byte("Hello Node"),
 	}
-	client, err := newClient(ctx, service.dialer, node.Address.Address, node.Id)
+	service.log.Info("Debug Message")
+	client, err := newClient(ctx, service.dialer, nodem.Address, nodem.NodeId)
 	if err != nil {
 		return err
 	}
-	_, err = client.client.ProcessNotification(ctx, &pb.NotificationMessage{Loglevel: pb.LogLevel_INFO, Message: []byte("Hello Node")})
+	defer func() { err = errs.Combine(err, client.Close()) }()
+	_, err = client.client.ProcessNotification(ctx, &nodem)
 	if err != nil {
 		return err
 	}

@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
+	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -151,6 +152,11 @@ type SatelliteSystem struct {
 	GracefulExit struct {
 		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Notification struct {
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 
 	Metrics struct {
@@ -468,6 +474,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
+
+	system.Notification.Service = peer.Notification.Service
+	system.Notification.Endpoint = peer.Notification.Endpoint
 
 	system.Metrics.Chore = peer.Metrics.Chore
 

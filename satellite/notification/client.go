@@ -19,7 +19,7 @@ type client struct {
 func newClient(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (_ *client, err error) {
 	var conn *rpc.Conn
 
-	if id.IsZero() {
+	if !id.IsZero() {
 		conn, err = dialer.DialAddressID(ctx, address, id)
 		if err != nil {
 			return nil, err
