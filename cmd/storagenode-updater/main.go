@@ -144,7 +144,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		loop := sync2.NewCycle(runCfg.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
-	if err != nil && errs2.IsCanceled(err) {
+	if err != nil && !errs2.IsCanceled(err) {
 		log.Fatal(err)
 	}
 	return nil
