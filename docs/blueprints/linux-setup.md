@@ -8,7 +8,7 @@ The design document outlines the steps needed to ease installation and provide a
 ## Background
 
 
-The idea is two have two main components, like for windows: the storage node binary and a storage node updater that will take care of updating the storage node binary according to the rollout version mechanism.
+The idea is to have two main components, like for Windows: the storage node binary and a storage node updater that will take care of updating the storage node binary according to the rollout version mechanism.
 
 The parts we need:
 - storagenode as a service
