@@ -5,7 +5,6 @@ package contact
 
 import (
 	"context"
-	"strconv"
 	"sync"
 	"time"
 
@@ -30,15 +29,17 @@ type Chore struct {
 
 	trust *trust.Pool
 
-	interval time.Duration
-	cycles   []*sync2.Cycle
 	mu       sync.Mutex
+	cycles   []*sync2.Cycle
 	started  sync2.Fence
+	interval time.Duration
 }
 
 var (
 	errPingSatellite = errs.Class("ping satellite error")
 )
+
+const initialBackOff = time.Second
 
 // NewChore creates a new contact chore
 func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
@@ -64,17 +65,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		return ctx.Err()
 	}
 
-	initialBackOff := time.Second
-	interval := chore.interval
 	chore.mu.Lock()
 	for _, satellite := range chore.trust.GetSatellites(ctx) {
 		satellite := satellite
 
-		cycle := sync2.NewCycle(interval)
+		cycle := sync2.NewCycle(chore.interval)
 		chore.cycles = append(chore.cycles, cycle)
 
 		cycle.Start(ctx, &group, func(ctx context.Context) error {
-			chore.log.Info("contact cycle: satellite " + satellite.String() + " - starting contact cycle")
+			chore.log.Debug("starting cycle", zap.Stringer("satellite", satellite))
 			interval := initialBackOff
 			attempts := 0
 			for {
@@ -83,20 +82,17 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				if err == nil {
 					return nil
 				}
-				chore.log.Error("contact cycle: satellite " + satellite.String() + " - ping satellite failed " + strconv.Itoa(attempts) + " times - " + err.Error())
+				chore.log.Error("ping satellite failed ", zap.Stringer("satellite", satellite), zap.Int("attempts", attempts), zap.Error(err))
 
 				// Sleeps until interval times out, then continue. Returns if context is cancelled.
 				if !sync2.Sleep(ctx, interval) {
-					chore.log.Info("contact cycle: satellite " + satellite.String() + " - contact chore context cancelled")
-					return nil
-				}
-				if interval == chore.interval {
-					chore.log.Error("contact cycle: satellite " + satellite.String() + " - retries timed out for this cycle")
+					chore.log.Info("context cancelled", zap.Stringer("satellite", satellite))
 					return nil
 				}
 				interval *= 2
-				if interval > chore.interval {
-					interval = chore.interval
+				if interval >= chore.interval {
+					chore.log.Info("retries timed out for this cycle", zap.Stringer("satellite", satellite))
+					return nil
 				}
 			}
 		})
@@ -107,15 +103,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 }
 
 func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, id)(&err)
 	self := chore.service.Local()
 	address, err := chore.trust.GetAddress(ctx, id)
 	if err != nil {
-		return errPingSatellite.New("failed to get satellite address %s: %v", id.String(), err)
+		return errPingSatellite.Wrap(err)
 	}
 	conn, err := chore.dialer.DialAddressID(ctx, address, id)
 	if err != nil {
-		return errPingSatellite.New("failed to dial satellite address %s %s: %v", id.String(), address, err)
+		return errPingSatellite.Wrap(err)
 	}
 	_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address.GetAddress(),
@@ -124,12 +120,12 @@ func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err err
 		Operator: &self.Operator,
 	})
 	if err != nil {
-		return errPingSatellite.New("failed to check into satellite %s: %v", id.String(), err)
+		return errPingSatellite.Wrap(err)
 	}
 	return nil
 }
 
-// Pause stops all the cycles in the contact chore
+// Pause stops all the cycles in the contact chore.
 func (chore *Chore) Pause(ctx context.Context) {
 	chore.started.Wait(ctx)
 	chore.mu.Lock()
@@ -156,7 +152,7 @@ func (chore *Chore) TriggerWait(ctx context.Context) {
 	_ = group.Wait() // goroutines aren't returning any errors
 }
 
-// Close stops all the cycles in the contact chore
+// Close stops all the cycles in the contact chore.
 func (chore *Chore) Close() error {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
