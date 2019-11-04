@@ -26,7 +26,7 @@ How detect zombie segment:
 
 Different kind of bad segment is a case where all segments are available on satellite but were deleted from storage nodes.
 
-General idea is to register a new metainfo observer to verify all segment paths. During iteration, each segment path will be processed and assigned to a struct that will collect segments from the same object. When the last segment will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes then helper struct will be removed from memory. If not then all related segments will be moved to delete.
+General idea is to register a new `metainfo.Observer` to verify all segment paths. During iteration, each segment path will be processed and assigned to a struct that will collect segments from the same object. When the last segment will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes, then helper struct will be removed from memory. If not, then all related segments will be moved to delete.
 
 Each path processing should be done as much in asynchronous way as possible to avoid blocking metainfo loop.
 
@@ -36,10 +36,12 @@ In case of performance issues with metainfo observer as an alternative, we can d
 
 ## Implementation
 
+Code should be added to satelite in package `satellite/segcleaner`.
+
+Proposal for keeping segments structures:
 ```
 // key will represent projectID/bucketName/encryptedPath
-map[string]ZombieObject
-
+map[string]Object
 
 type Object struct {
     segments []int32
