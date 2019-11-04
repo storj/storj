@@ -32,6 +32,11 @@ func NewContext(ctx context.Context, peer *Peer) context.Context {
 func FromContext(ctx context.Context) (*Peer, error) {
 	if peer, ok := ctx.Value(peerKey{}).(*Peer); ok {
 		return peer, nil
+	} else if peer, drpcErr := drpcInternalFromContext(ctx); drpcErr == nil {
+		return peer, nil
+	} else if peer, grpcErr := grpcInternalFromContext(ctx); grpcErr == nil {
+		return peer, nil
+	} else {
+		return nil, errs.Combine(drpcErr, grpcErr)
 	}
-	return internalFromContext(ctx)
 }
