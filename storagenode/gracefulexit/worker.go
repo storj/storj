@@ -31,7 +31,7 @@ type Worker struct {
 	store              *pieces.Store
 	satelliteDB        satellites.DB
 	dialer             rpc.Dialer
-	limiter            sync2.Limiter
+	limiter            *sync2.Limiter
 	satelliteID        storj.NodeID
 	satelliteAddr      string
 	ecclient           ecclient.Client
@@ -93,10 +93,13 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		case *pb.SatelliteMessage_NotReady:
 			break // wait until next worker execution
 		case *pb.SatelliteMessage_TransferPiece:
-			err = worker.transferPiece(ctx, msg.TransferPiece, c)
-			if err != nil {
-				continue
-			}
+			transferPieceMsg := msg.TransferPiece
+			worker.limiter.Go(ctx, func() {
+				err = worker.transferPiece(ctx, transferPieceMsg, c)
+				if err != nil {
+					worker.log.Error("failed to transfer piece.", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(errs.Wrap(err)))
+				}
+			})
 		case *pb.SatelliteMessage_DeletePiece:
 			pieceID := msg.DeletePiece.OriginalPieceId
 			err := worker.deleteOnePieceOrAll(ctx, &pieceID)
