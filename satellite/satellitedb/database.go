@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -17,7 +18,6 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -144,17 +144,8 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
 }
 
-// Customers returns database for dealing with stripe customers.
-func (db *DB) Customers() stripecoinpayments.CustomersDB {
-	return &customers{db: db.db}
+// StripeCoinPayments returns database for stripecoinpayments.
+func (db *DB) StripeCoinPayments() stripecoinpayments.DB {
+	return &stripeCoinPaymentsDB{db:db.db}
 }
 
-// CoinpaymentsTransactions returns database for dealing with coinpayments transactions.
-func (db *DB) CoinpaymentsTransactions() stripecoinpayments.TransactionsDB {
-	return &coinpaymentsTransactions{db: db.db}
-}
-
-// ProjectRecords returns database that stores invoice project records.
-func (db *DB) ProjectRecords() stripecoinpayments.ProjectRecordsDB {
-	return &invoiceProjectRecords{db: db.db}
-}

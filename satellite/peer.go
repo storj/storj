@@ -95,12 +95,8 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
-	// StripeCustomers returns table for storing stripe customers
-	Customers() stripecoinpayments.CustomersDB
-	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
-	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
-	// ProjectRecords returns database that stores invoice project records.
-	ProjectRecords() stripecoinpayments.ProjectRecordsDB
+	// StripeCoinPayments returns database for stripecoinpayments.
+	StripeCoinPayments() stripecoinpayments.DB
 }
 
 // Config is the global config satellite
@@ -199,7 +195,7 @@ type Peer struct {
 
 	Payments struct {
 		Accounts payments.Accounts
-		Clearing payments.Clearing
+		Chore    *stripecoinpayments.Chore
 	}
 
 	GracefulExit struct {
@@ -397,13 +393,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
 				config.StripeCoinPayments,
-				peer.DB.Customers(),
-				peer.DB.CoinpaymentsTransactions(),
-				peer.DB.ProjectRecords(),
+				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects())
 
 			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Clearing = stripecoinpayments.NewChore(
+
+			peer.Payments.Chore = stripecoinpayments.NewChore(
 				peer.Log.Named("stripecoinpayments clearing loop"),
 				service,
 				config.StripeCoinPayments.TransactionUpdateInterval,

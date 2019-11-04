@@ -39,17 +39,15 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log              *zap.Logger
-	customers        CustomersDB
-	projectsDB       console.Projects
-	transactionsDB   TransactionsDB
-	projectRecordsDB ProjectRecordsDB
-	stripeClient     *client.API
-	coinPayments     *coinpayments.Client
+	log          *zap.Logger
+	db           DB
+	projectsDB   console.Projects
+	stripeClient *client.API
+	coinPayments *coinpayments.Client
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB, projectRecordsDB ProjectRecordsDB, projectsDB console.Projects) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -60,13 +58,11 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 	)
 
 	return &Service{
-		log:              log,
-		customers:        customers,
-		projectsDB:       projectsDB,
-		transactionsDB:   transactionsDB,
-		projectRecordsDB: projectRecordsDB,
-		stripeClient:     stripeClient,
-		coinPayments:     coinPaymentsClient,
+		log:          log,
+		db:           db,
+		projectsDB:   projectsDB,
+		stripeClient: stripeClient,
+		coinPayments: coinPaymentsClient,
 	}
 }
 
@@ -82,7 +78,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 	const limit = 25
 	before := time.Now()
 
-	txsPage, err := service.transactionsDB.ListPending(ctx, 0, limit, before)
+	txsPage, err := service.db.Transactions().ListPending(ctx, 0, limit, before)
 	if err != nil {
 		return err
 	}
@@ -96,7 +92,8 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		txsPage, err = service.transactionsDB.ListPending(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, limit, before)
+
 		if err != nil {
 			return err
 		}
@@ -144,7 +141,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 		}
 	}
 
-	return service.transactionsDB.Update(ctx, updates, applies)
+	return service.db.Transactions().Update(ctx, updates, applies)
 }
 
 // applyAccountBalanceLoop fetches all unapplied transaction in a loop, applying transaction
@@ -155,7 +152,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 	const limit = 25
 	before := time.Now()
 
-	txsPage, err := service.transactionsDB.ListUnapplied(ctx, 0, limit, before)
+	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, limit, before)
 	if err != nil {
 		return err
 	}
@@ -175,7 +172,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		txsPage, err := service.transactionsDB.ListUnapplied(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err := service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, limit, before)
 		if err != nil {
 			return err
 		}
@@ -198,12 +195,12 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 func (service *Service) applyTransactionBalance(ctx context.Context, tx Transaction) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cusID, err := service.customers.GetCustomerID(ctx, tx.AccountID)
+	cusID, err := service.db.Customers().GetCustomerID(ctx, tx.AccountID)
 	if err != nil {
 		return err
 	}
 
-	if err = service.transactionsDB.Consume(ctx, tx.ID); err != nil {
+	if err = service.db.Transactions().Consume(ctx, tx.ID); err != nil {
 		return err
 	}
 
@@ -277,7 +274,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			return err
 		}
 
-		if err = service.projectRecordsDB.Check(ctx, project.ID, start, end); err != nil {
+		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
 			if err == ErrProjectRecordExists {
 				continue
 			}
@@ -296,7 +293,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 		)
 	}
 
-	return service.projectRecordsDB.Create(ctx, records, start, end)
+	return service.db.ProjectRecords().Create(ctx, records, start, end)
 }
 
 // InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
@@ -307,7 +304,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 	const limit = 25
 	before := time.Now()
 
-	recordsPage, err := service.projectRecordsDB.ListUnapplied(ctx, 0, limit, before)
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
 	if err != nil {
 		return err
 	}
@@ -321,7 +318,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 			return err
 		}
 
-		recordsPage, err = service.projectRecordsDB.ListUnapplied(ctx, 0, limit, before)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
 		if err != nil {
 			return err
 		}
@@ -348,7 +345,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 			return err
 		}
 
-		cusID, err := service.customers.GetCustomerID(ctx, proj.OwnerID)
+		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
 			// TODO: add error to distinguish not set up account.
 			// if account is not set up leave intent for future invoice
@@ -367,7 +364,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = service.projectRecordsDB.Consume(ctx, record.ID); err != nil {
+	if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
 		return err
 	}
 
@@ -396,7 +393,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 	const limit = 25
 	before := time.Now()
 
-	cusPage, err := service.customers.List(ctx, 0, limit, before)
+	cusPage, err := service.db.Customers().List(ctx, 0, limit, before)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -416,7 +413,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.customers.List(ctx, 0, limit, before)
+		cusPage, err = service.db.Customers().List(ctx, 0, limit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
