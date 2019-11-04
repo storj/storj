@@ -1,0 +1,30 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package notification;
+
+
+import "gogo.proto";
+
+service Notification {
+    rpc ProcessNotification(NotificationMessage) returns (NotificationResponse);
+}
+
+enum LogLevel {
+    INFO  = 0;
+    WARN  = 1;
+    ERROR = 2;
+    DEBUG = 3;
+}
+
+message NotificationMessage {
+    bytes    node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string   address  = 2;
+    LogLevel loglevel = 3;
+    bytes    message  = 4;
+}
+
+message NotificationResponse {}

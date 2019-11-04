@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
+	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -137,6 +138,8 @@ type Config struct {
 	Version version.Config
 
 	GracefulExit gracefulexit.Config
+
+	Notification notification.Config
 
 	Metrics metrics.Config
 }
@@ -241,6 +244,11 @@ type Peer struct {
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
 		Chore    *gracefulexit.Chore
+	}
+
+	Notification struct {
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 
 	Metrics struct {
@@ -660,6 +668,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}
 
+	{
+		log.Debug("Setting up notification service")
+		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), config.Notification, peer.Dialer, peer.Overlay.DB, peer.Mail.Service)
+		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
+		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
+		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint.DRPC())
+	}
+
 	{ // setup metrics service
 		peer.Metrics.Chore = metrics.NewChore(
 			peer.Log.Named("metrics"),
@@ -725,6 +741,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Notification.Service.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
 	})
 
@@ -744,6 +763,10 @@ func (peer *Peer) Close() error {
 
 	if peer.Metrics.Chore != nil {
 		errlist.Add(peer.Metrics.Chore.Close())
+	}
+
+	if peer.Notification.Service != nil {
+		errlist.Add(peer.Notification.Service.Close())
 	}
 
 	if peer.GracefulExit.Chore != nil {

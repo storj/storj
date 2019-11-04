@@ -79,6 +79,13 @@ var (
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
+	notificationCmd = &cobra.Command{
+		Use:   "notification [LOGLEVEL] [message]",
+		Short: "Send a notification to all nodes",
+		Long:  "Send a notification to all nodes. Example: satellite notification INFO 'This is a Info notification'",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdNotification,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -110,6 +117,7 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
+	rootCmd.AddCommand(notificationCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -117,6 +125,7 @@ func init() {
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(notificationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -338,6 +347,11 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateCSV(ctx, start, end, file)
+}
+
+func cmdNotification(cmd *cobra.Command, args []string) (err error) {
+	//ctx, _ := process.Ctx(cmd)
+	return nil
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {

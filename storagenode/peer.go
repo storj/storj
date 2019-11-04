@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
+	"storj.io/storj/storagenode/notification"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -161,6 +162,11 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Notification struct {
+		Endpoint *notification.Endpoint
+		Service  *notification.Service
+	}
 }
 
 // New creates a new Storage Node.
@@ -399,6 +405,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.GracefulExit,
 			peer.DB.Satellites(),
 		)
+	}
+
+	{
+		// setup notification service
+		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), peer.Dialer)
+		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
+		pb.RegisterNotificationServer(peer.Server.PrivateGRPC(), peer.Notification.Endpoint)
+		pb.DRPCRegisterNotification(peer.Server.PrivateDRPC(), peer.Notification.Endpoint)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)

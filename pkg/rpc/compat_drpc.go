@@ -38,6 +38,9 @@ type (
 	// NodeStatsClient is an alias to the drpc client interface
 	NodeStatsClient = pb.DRPCNodeStatsClient
 
+	// Notification is an alias to the drpc client interface
+	NotificationClient = pb.DRPCNotificationClient
+
 	// OrdersClient is an alias to the drpc client interface
 	OrdersClient = pb.DRPCOrdersClient
 
@@ -135,6 +138,16 @@ func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 // NodeStatsClient returns a NodeStatsClient for this connection
 func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
+}
+
+// NewNotificationClient returns the drpc version of a NotificationClient
+func NewNotificationClient(rc *RawConn) NodeNotificationClient {
+	return pb.NewDRPCNotificationClient(rc)
+}
+
+// NotificationClient returns a NotificationClient for this connection
+func (c *Conn) NotificationClient() NotificationClient {
+	return NewNotificationClient(c.raw)
 }
 
 // NewOrdersClient returns the drpc version of a OrdersClient
