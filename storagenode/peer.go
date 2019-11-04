@@ -411,8 +411,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		// setup notification service
 		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), peer.Dialer)
 		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
-		pb.RegisterNotificationServer(peer.Server.PrivateGRPC(), peer.Notification.Endpoint)
-		pb.DRPCRegisterNotification(peer.Server.PrivateDRPC(), peer.Notification.Endpoint)
+		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
+		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)

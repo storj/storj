@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodestats"
+	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -120,6 +121,11 @@ type API struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Notification struct {
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 }
 
@@ -423,6 +429,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 	}
 
+	{ // setup notification
+		log.Debug("Satellite API Process setting up notification endpoint")
+		peer.Notification.Service = notification.NewService(peer.Log.Named("notification:service"), config.Notification, peer.Dialer, peer.Overlay.DB, peer.Mail.Service)
+		peer.Notification.Endpoint = notification.NewEndpoint(peer.Log.Named("notification:endpoint"), peer.Notification.Service)
+		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
+		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint.DRPC())
+	}
 	return peer, nil
 }
 

@@ -37,9 +37,9 @@ func (endpoint *Endpoint) DRPC() pb.DRPCNotificationServer {
 
 // ProcessNotification sends message to the specified set of nodes (ids)
 func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (_ *pb.NotificationResponse, err error) {
-	endpoint.log.Info("Sending Notification to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
-	if endpoint.service.CheckRPCLimit(message.NodeId.String()) {
 
+	endpoint.log.Info("Sending Notification to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
+	if endpoint.service.CheckRPCLimit(message.NodeId.String()) || true {
 		client, err := newClient(ctx, endpoint.service.dialer, message.Address, message.NodeId)
 		if err != nil {
 			// if this is a network error, then return the error otherwise just report internal error
@@ -52,7 +52,8 @@ func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.N
 		}
 		defer func() { err = errs.Combine(err, client.Close()) }()
 
-		return client.client.ProcessNotification(ctx, message, nil)
+		endpoint.log.Info("About to send Notification", zap.String("address", message.Address), zap.String("message", string(message.Message)))
+		return client.client.ProcessNotification(ctx, message)
 	}
 
 	return &pb.NotificationResponse{}, nil
