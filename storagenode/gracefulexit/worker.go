@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
@@ -30,6 +31,7 @@ type Worker struct {
 	store              *pieces.Store
 	satelliteDB        satellites.DB
 	dialer             rpc.Dialer
+	limiter            sync2.Limiter
 	satelliteID        storj.NodeID
 	satelliteAddr      string
 	ecclient           ecclient.Client
@@ -38,23 +40,23 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteID storj.NodeID, satelliteAddr string, choreConfig Config) *Worker {
+func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteID storj.NodeID, satelliteAddr string, config Config) *Worker {
 	return &Worker{
 		log:                log,
 		store:              store,
 		satelliteDB:        satelliteDB,
 		dialer:             dialer,
+		limiter:            sync2.NewLimiter(config.NumConcurrentTransfers),
 		satelliteID:        satelliteID,
 		satelliteAddr:      satelliteAddr,
 		ecclient:           ecclient.NewClient(log, dialer, 0),
-		minBytesPerSecond:  choreConfig.MinBytesPerSecond,
-		minDownloadTimeout: choreConfig.MinDownloadTimeout,
+		minBytesPerSecond:  config.MinBytesPerSecond,
+		minDownloadTimeout: config.MinDownloadTimeout,
 	}
 }
 
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
 // It also marks the satellite finished once all the pieces have been transferred
-// TODO handle transfers in parallel
 func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer done()
