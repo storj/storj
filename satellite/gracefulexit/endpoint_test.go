@@ -5,7 +5,6 @@ package gracefulexit_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"sync"
@@ -774,7 +773,6 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			// validate we get a new node to transfer too
 			require.True(t, m.TransferPiece.OriginalPieceId == pieceID)
 			require.True(t, m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId != firstRecNodeID)
-			fmt.Printf("EEEE %v %v\n", m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId.String(), firstRecNodeID.String())
 		default:
 			t.FailNow()
 		}
