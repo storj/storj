@@ -551,20 +551,14 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
-	excludedIPs, err := endpoint.overlay.GetNodeIPs(ctx, excludedNodeIDs)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludedNodeIDs,
-		ExcludedIPs:    excludedIPs,
 	}
 
-	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
+	newNodes, err := endpoint.overlay.FindStorageNodesDistinctIPs(ctx, request)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -441,9 +441,22 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 }
 
 // GetNodeIPs returns a list of node IP addresses.
-func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs storj.NodeIDList) (nodeIPs []string, err error) {
+func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req FindStorageNodesRequest) (nodeIDs []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.GetNodeIPs(ctx, nodeIDs)
+
+	nodeIPs, err := service.db.GetNodeIPs(ctx, req.ExcludedNodes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	req.ExcludedIPs = nodeIPs
+
+	newNodes, err := service.FindStorageNodes(ctx, req)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return newNodes, nil
 }
 
 func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
