@@ -824,7 +824,10 @@ func TestExitDisabled(t *testing.T) {
 
 		// Process endpoint should return immediately if GE is disabled
 		response, err := processClient.Recv()
-		require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+		require.Error(t, err)
+		// grpc will return "Unimplemented", drpc will return "Unknown"
+		unimplementedOrUnknown := errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
+		require.True(t, unimplementedOrUnknown)
 		require.Nil(t, response)
 	})
 }

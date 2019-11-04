@@ -17,6 +17,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that usagerollups implements console.UsageRollups.
+var _ console.UsageRollups = (*usagerollups)(nil)
+
 // usagerollups implements console.UsageRollups
 type usagerollups struct {
 	db *dbx.DB
