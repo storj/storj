@@ -335,11 +335,16 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 				return Error.New("piece NodeID != order limit NodeID")
 			}
 
+			if _, ok := pieceNums[piece.PieceNum]; ok {
+				return Error.New("piece num %d is duplicated", piece.PieceNum)
+			}
+
+			if _, ok := nodeIds[piece.NodeId]; ok {
+				return Error.New("node id %s for piece num %d is duplicated", piece.NodeId.String(), piece.PieceNum)
+			}
+
 			pieceNums[piece.PieceNum] = struct{}{}
 			nodeIds[piece.NodeId] = struct{}{}
-		}
-		if len(pieceNums) != len(remote.RemotePieces) || len(nodeIds) != len(remote.RemotePieces) {
-			return Error.New("invalid number of unique pieces")
 		}
 	}
 

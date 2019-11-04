@@ -756,7 +756,14 @@ func TestCommitSegmentPointer(t *testing.T) {
 				pointer.Remote.RemotePieces[1] = firstPiece
 				pointer.Remote.RemotePieces[2] = firstPiece
 			},
-			ErrorMessage: "invalid number of unique pieces",
+			ErrorMessage: "piece num 0 is duplicated",
+		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				firstNodeID := pointer.Remote.RemotePieces[0].NodeId
+				pointer.Remote.RemotePieces[1].NodeId = firstNodeID
+			},
+			ErrorMessage: "invalid order limit piece id",
 		},
 	}
 
