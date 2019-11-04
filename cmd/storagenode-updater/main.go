@@ -124,11 +124,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			log.Println(err)
 		}
 
-		updaterBinName := os.Args[0]
-		if err := update(ctx, updaterBinName, updaterServiceName, renameUpdater); err != nil {
-			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
-		}
+		// TODO: enable self-autoupdate back when having reliable recovery mechanism
+		// updaterBinName := os.Args[0]
+		// if err := update(ctx, updaterBinName, updaterServiceName, renameUpdater); err != nil {
+		// 	// don't finish loop in case of error just wait for another execution
+		// 	log.Println(err)
+		// }
 		return nil
 	}
 
