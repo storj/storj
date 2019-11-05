@@ -183,7 +183,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	reqTime := time.Unix(opts.Req.Timestamp, 0)
 	if (now.Sub(reqTime) > MaxClockSkew) ||
 		(reqTime.Sub(now) > MaxClockSkew) {
-		return ErrDB.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
+		return ErrDB.New("claim timestamp is outside of max skew window: %d", opts.Req.Timestamp)
 	}
 
 	ident, err := identity.PeerIdentityFromPeer(opts.Peer)
@@ -260,7 +260,7 @@ func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 			return authDB.put(ctx, token.UserID, auths)
 		}
 	}
-	mon.Meter("authorization_claim").Mark(1)
+	mon.Meter("authorization_unclaim").Mark(1)
 	return errs.New("token not found in authorizations DB")
 }
 
