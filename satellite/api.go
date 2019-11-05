@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -108,8 +109,8 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Clearing payments.Clearing
+		Accounts  payments.Accounts
+		Inspector *stripecoinpayments.Endpoint
 	}
 
 	Console struct {
@@ -119,6 +120,8 @@ type API struct {
 	}
 
 	Marketing struct {
+		PartnersService *rewards.PartnersService
+
 		Listener net.Listener
 		Endpoint *marketingweb.Server
 	}
@@ -372,15 +375,44 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
 				config.StripeCoinPayments,
-				peer.DB.Customers(),
-				peer.DB.CoinpaymentsTransactions())
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects())
 
 			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Clearing = stripecoinpayments.NewChore(
-				peer.Log.Named("stripecoinpayments clearing loop"),
-				service,
-				config.StripeCoinPayments.TransactionUpdateInterval,
-				config.StripeCoinPayments.AccountBalanceUpdateInterval)
+			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+		}
+	}
+
+	{ // setup marketing portal
+		log.Debug("Satellite API Process setting up marketing server")
+
+		peer.Marketing.PartnersService = rewards.NewPartnersService(
+			peer.Log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			config.Marketing,
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
@@ -400,6 +432,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
@@ -413,24 +446,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Mail.Service,
 			peer.Console.Listener,
 		)
-	}
-
-	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-		marketingConfig := config.Marketing
-		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			marketingConfig,
-			peer.DB.Rewards(),
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup node stats endpoint

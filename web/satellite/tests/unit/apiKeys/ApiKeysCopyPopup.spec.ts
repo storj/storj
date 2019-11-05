@@ -39,18 +39,6 @@ describe('ApiKeysCopyPopup', () => {
 
         wrapper.vm.onCloseClick();
 
-        expect(wrapper.vm.$data.isCopiedButtonShown).toBe(false);
         expect(wrapper.emitted()).toEqual({'closePopup': [[]]});
-    });
-
-    it('function onCopyClick works correctly', async () => {
-        const wrapper = mount(ApiKeysCopyPopup, {
-            store,
-            localVue,
-        });
-
-        await wrapper.vm.onCopyClick();
-
-        expect(wrapper.vm.$data.isCopiedButtonShown).toBe(true);
     });
 });

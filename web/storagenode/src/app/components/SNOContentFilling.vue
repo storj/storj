@@ -203,6 +203,7 @@ export default class SNOContentFilling extends Vue {
             font-size: 18px;
             line-height: 57px;
             color: #535f77;
+            user-select: none;
         }
 
         &__chart-area,
@@ -226,6 +227,7 @@ export default class SNOContentFilling extends Vue {
         &__title {
             font-size: 14px;
             color: #586c86;
+            user-select: none;
         }
 
         &__amount {

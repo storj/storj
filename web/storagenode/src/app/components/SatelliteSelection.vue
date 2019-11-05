@@ -68,6 +68,7 @@ export default class SatelliteSelection extends Vue {
 
         &__bold-text {
             margin-right: 3px;
+            user-select: none;
         }
 
         &__image {
