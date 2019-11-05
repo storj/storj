@@ -21,6 +21,7 @@ In the long term, the metainfo refactor will fix this. We need a short term solu
 
 How detect zombie segment:
 * segment doesn't have corresponding last segment (`l`)
+**Note**: Exception from this case are segments that are part of object that is currently uploaded. For time of uploading all object segments have indexes `s0..sN` but at the end of upload (`CommitObject`) segment `sN` is renamed (`delete` and `put`) to last segment (`l`).
 * segment where index is greater than 0 but any previous segment is missing
 * last segment (`l`) where unencrypted number of segments is greater than 0 but rest of segments are missing or number of existing segments is different from stored value
 
@@ -44,12 +45,12 @@ Proposal for keeping segments structures:
 map[string]Object
 
 type Object struct {
-    segments []int32
+    // big.Int represents a bitmask of unlimited size
+    segments big.Int
 }
 ```
 
 ## Open issues (if applicable)
 
-* current metainfo.Loop implementation doesn't notify about the end of iteration
 * how detect segments deleted from storage nodes but existing on satellite?
 * should we try also to delete zombie segments from storage nodes or leave it for garbage collection?
