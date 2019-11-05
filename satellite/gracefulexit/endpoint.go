@@ -512,7 +512,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	// verify transfered piece
+	// verify transferred piece
 	err = verifyPieceTransferred(ctx, message, transfer, endpoint.signer, peerID)
 	if err != nil {
 		return Error.Wrap(err)
