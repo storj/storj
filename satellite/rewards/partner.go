@@ -22,7 +22,7 @@ type PartnerInfo struct {
 	ID   string
 }
 
-// UserAgent returns partners cano user agent.
+// UserAgent returns canonicial user agent.
 func (p *PartnerInfo) UserAgent() string { return p.Name }
 
 // CanonicalUserAgentProduct returns canonicalizes the user agent product, which is suitable for lookups.
