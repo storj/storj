@@ -33,6 +33,7 @@ import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { AuthToken } from '@/utils/authToken';
+import { getSelectedProjectId, setSelectedProjectId } from '@/utils/consoleLocalStorage';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -107,12 +108,12 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        const selectedProjectId: string | null = localStorage.getItem('selectedProjectId');
+        const selectedProjectId: string | null = getSelectedProjectId();
         if (selectedProjectId) {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
         } else {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-            localStorage.setItem('selectedProjectId', this.$store.getters.selectedProject.id);
+            setSelectedProjectId(this.$store.getters.selectedProject.id);
         }
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');

@@ -66,6 +66,7 @@ import EditIcon from '@/../static/images/project/edit.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
+import { setSelectedProjectId } from '@/utils/consoleLocalStorage';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
@@ -117,7 +118,7 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
-            localStorage.setItem('selectedProjectId', this.$store.getters.selectedProject.id);
+            setSelectedProjectId(this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 
