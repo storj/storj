@@ -230,13 +230,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	//TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	currentReward, err := s.partners.GetActiveOffer(ctx, offers, offerType, user.PartnerID)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}

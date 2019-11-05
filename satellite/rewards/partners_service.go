@@ -84,7 +84,7 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 // GetActiveOffer returns an offer that is active based on its type.
 func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offers, offerType OfferType, partnerID string) (offer *Offer, err error) {
 	if len(offers) < 1 {
-		return nil, NoCurrentOfferErr.New("no active offers")
+		return nil, ErrOfferNotExist.New("no active offers")
 	}
 	switch offerType {
 	case Partner:
