@@ -6,6 +6,17 @@ import { UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
+ * Token class holds token entity.
+ */
+class Token {
+    public token: string;
+
+    public constructor(token: string) {
+        this.token = token;
+    }
+}
+
+/**
  * AuthHttpApi is a console Auth API.
  * Exposes all auth-related functionality
  */
@@ -42,11 +53,13 @@ export class AuthHttpApi {
             password: password,
         };
         const response = await this.http.post(path, JSON.stringify(body), false);
-        if (response.ok) {
-            return await response.json();
+        if (!response.ok) {
+            throw new Error('can not receive authentication token');
         }
 
-        throw new Error('can not receive authentication token');
+        const result = await response.json() as Token;
+
+        return result.token;
     }
 
     /**
@@ -93,11 +106,11 @@ export class AuthHttpApi {
     public async get(): Promise<User> {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.http.get(path, true);
-        if (response.ok) {
-            return await response.json();
+        if (!response.ok) {
+            throw new Error('can not get user data');
         }
 
-        throw new Error('can not get user data');
+        return await response.json() as User;
     }
 
     /**
@@ -175,6 +188,8 @@ export class AuthHttpApi {
             throw new Error('can not register user');
         }
 
-        return await response.json();
+        const result = await response.json() as User;
+
+        return result.id;
     }
 }

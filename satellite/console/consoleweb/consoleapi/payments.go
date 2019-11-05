@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
 )
@@ -60,7 +60,11 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	balance, err := p.service.Payments().AccountBalance(ctx)
+	var balanceResponse struct {
+		Balance int64 `json:"balance"`
+	}
+
+	balanceResponse.Balance, err = p.service.Payments().AccountBalance(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -71,7 +75,7 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(balance)
+	err = json.NewEncoder(w).Encode(&balanceResponse)
 	if err != nil {
 		p.log.Error("failed to write json balance response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}

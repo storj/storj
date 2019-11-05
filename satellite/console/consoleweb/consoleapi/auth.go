@@ -62,13 +62,17 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	var tokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	tokenResponse.Token, err = a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(token)
+	err = json.NewEncoder(w).Encode(&tokenResponse)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -140,7 +144,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	err = json.NewEncoder(w).Encode(&user.ID)
+	var userIdResponse struct {
+		UserID uuid.UUID `json:"userId"`
+	}
+
+	userIdResponse.UserID = user.ID
+
+	err = json.NewEncoder(w).Encode(&userIdResponse)
 	if err != nil {
 		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
