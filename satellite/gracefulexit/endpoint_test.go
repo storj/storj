@@ -864,34 +864,20 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		exitingNode, err := findNodeToExit(ctx, planet, 2)
 		require.NoError(t, err)
 
-		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
-		require.NoError(t, err)
-
-		client := conn.SatelliteGracefulExitClient()
-
-		c, err := client.Process(ctx)
-		require.NoError(t, err)
-
-		response, err := c.Recv()
-		require.NoError(t, err)
-
-		// should get a NotReady since the metainfo loop would not be finished at this point.
-		switch response.GetMessage().(type) {
-		case *pb.SatelliteMessage_NotReady:
-			// now check that the exiting node is initiated.
-			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-			require.NoError(t, err)
-			require.Len(t, exitingNodes, 1)
-
-			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
-		default:
-			t.FailNow()
+		exitRequest := &overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
 		}
 
-		// close the old client
-		require.NoError(t, c.CloseSend())
-		require.NoError(t, conn.Close())
+		_, err = satellite.DB.OverlayCache().UpdateExitStatus(ctx, exitRequest)
+		require.NoError(t, err)
+		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		require.NoError(t, err)
+
+		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
 		// trigger the metainfo loop chore so we can get some pieces to transfer
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
@@ -907,17 +893,17 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 
 		// reconnect to the satellite.
-		conn, err = exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client = conn.SatelliteGracefulExitClient()
+		client := conn.SatelliteGracefulExitClient()
 
-		c, err = client.Process(ctx)
+		c, err := client.Process(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(c.CloseSend)
 
-		response, err = c.Recv()
+		response, err := c.Recv()
 		require.NoError(t, err)
 
 		// we expect an exit completed b/c there is nothing to do here
@@ -926,6 +912,11 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 			signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
 			err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
 			require.NoError(t, err)
+
+			exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+			require.NoError(t, err)
+			require.NotNil(t, exitStatus.ExitFinishedAt)
+			require.True(t, exitStatus.ExitSuccess)
 		default:
 			t.FailNow()
 		}
