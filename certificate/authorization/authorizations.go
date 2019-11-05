@@ -27,9 +27,9 @@ import (
 const (
 	// Bucket is the bucket used with a bolt-backed authorizations DB.
 	Bucket = "authorizations"
-	// MaxClockOffset is the max duration in seconds in the past or
-	// future that a claim timestamp is allowed to have and still be valid.
-	MaxClockOffset  = 5 * time.Minute
+	// MaxClockSkew is the max duration in the past or future that a claim
+	// timestamp is allowed to have and still be valid.
+	MaxClockSkew    = 5 * time.Minute
 	tokenDataLength = 64 // 2^(64*8) =~ 1.34E+154
 	tokenDelimiter  = ":"
 	tokenVersion    = 0
