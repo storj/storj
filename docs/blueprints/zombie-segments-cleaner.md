@@ -27,17 +27,15 @@ How detect zombie segment:
 
 Different kind of bad segment is a case where all segments are available on satellite but were deleted from storage nodes.
 
-General idea is to register a new `metainfo.Observer` to verify all segment paths. During iteration, each segment path will be processed and assigned to a struct that will collect segments from the same object. When the last segment will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes, then helper struct will be removed from memory. If not, then all related segments will be moved to delete.
+General idea is to create cli command to verify all segment paths and delete bad segments. With this command user should be able to specify flags like DB connection string, dry run (only listing bad segments) and how old segments should be verified. During iteration, each segment path will be processed and assigned to a struct that will collect segments from the same object. All segments from object where at least one segment is not old enough should be skipped. When the last segment (`l`) will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes, then helper struct will be removed from memory. If not, then all related segments will be moved to delete or only printed in case of dry run.
 
-Each path processing should be done as much in asynchronous way as possible to avoid blocking metainfo loop.
-
-## Alternative
-
-In case of performance issues with metainfo observer as an alternative, we can detect zombie segments by iterating on a backup of pointerDB. Result of such operation would be a static list of segments to delete on production satellite.
+Command can be run agains production database or in case of performance concerns agains backup of pointerDB.
 
 ## Implementation
 
-Code should be added to satelite in package `satellite/segcleaner`.
+Code should be placed in package `cmd/segment-reaper`.
+
+Implementation can incorporate `metainfo.PointerDB` and `Iterate` method to go over all segments in DB.
 
 Proposal for keeping segments structures:
 ```
@@ -47,6 +45,9 @@ map[string]Object
 type Object struct {
     // big.Int represents a bitmask of unlimited size
     segments big.Int
+    // if skip is true segments from object should be removed from memory 
+    // when last segment is found or iteration is finished
+    skip     bool 
 }
 ```
 
