@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
@@ -16,9 +15,6 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
 )
-
-// Error is the default error class for graceful exit package.
-var Error = errs.Class("gracefulexit")
 
 // Endpoint is
 type Endpoint struct {
