@@ -172,8 +172,8 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now()
 	reqTime := time.Unix(opts.Req.Timestamp, 0)
-	if (now.Sub(reqTime) > MaxClockOffset) ||
-		(reqTime.Sub(now) > MaxClockOffset) {
+	if (now.Sub(reqTime) > MaxClockSkew) ||
+		(reqTime.Sub(now) > MaxClockSkew) {
 		return Error.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
 	}
 

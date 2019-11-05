@@ -21,7 +21,7 @@ type creditCards struct {
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -66,7 +66,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return payments.ErrAccountNotSetup.Wrap(err)
 	}
@@ -107,7 +107,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
 	defer mon.Task()(&ctx, userID, cardID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return payments.ErrAccountNotSetup.Wrap(err)
 	}
