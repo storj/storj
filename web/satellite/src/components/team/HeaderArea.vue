@@ -3,14 +3,20 @@
 
 <template>
     <div class="team-header-container">
-	    <h1 class="team-header-container__title">Project Members</h1>
+        <div class="team-header-container__title-area">
+            <h1 class="team-header-container__title-area__title">Project Members</h1>
+            <VInfo
+                class="team-header-container__title-area__info-button"
+                bold-text="The only project role currently available is Admin, which gives full access to the project.">
+                <InfoIcon class="team-header-container__title-area__info-button__image"/>
+            </VInfo>
+        </div>
 	    <div class="team-header-container__wrapper">
             <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
                 :search="processSearchQuery">
                 <div class="header-default-state" v-if="isDefaultState">
-                    <span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
                     <VButton
                         class="button"
                         label="+Add"
@@ -70,7 +76,10 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
+import VInfo from '@/components/common/VInfo.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
+
+import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -87,6 +96,8 @@ declare interface ClearSearch {
         VButton,
         VHeader,
         AddUserPopup,
+        VInfo,
+        InfoIcon,
     },
 })
 export default class HeaderArea extends Vue {
@@ -191,12 +202,34 @@ export default class HeaderArea extends Vue {
 <style scoped lang="scss">
     .team-header-container {
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 32px;
-            line-height: 39px;
-            margin: 0;
-            user-select: none;
+        &__title-area {
+            display: flex;
+            align-items: center;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 32px;
+                line-height: 39px;
+                margin: 0;
+                user-select: none;
+            }
+
+            &__info-button {
+                max-height: 20px;
+                cursor: pointer;
+                margin-left: 10px;
+
+                &:hover {
+
+                    .team-header-svg-path {
+                        fill: #fff;
+                    }
+
+                    .team-header-svg-rect {
+                        fill: #2683ff;
+                    }
+                }
+            }
         }
     }
 
@@ -204,7 +237,7 @@ export default class HeaderArea extends Vue {
     .header-after-delete-click {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: center;
         height: 85px;
 
         &__info-text {
@@ -230,7 +263,7 @@ export default class HeaderArea extends Vue {
 
     .header-selected-members {
         display: flex;
-        align-items: flex-end;
+        align-items: center;
         height: 85px;
         justify-content: center;
 
@@ -284,6 +317,30 @@ export default class HeaderArea extends Vue {
         &:hover {
             background-color: #de3e3d;
             box-shadow: none;
+        }
+    }
+
+    /deep/ .info__message-box {
+        background-image: url('../../../static/images/account/billing/MessageBox.png');
+        background-repeat: no-repeat;
+        min-height: 80px;
+        min-width: 220px;
+        width: 220px;
+        top: 110%;
+        left: -224%;
+        padding: 0 20px 12px 20px;
+        word-break: break-word;
+
+        &__text {
+            text-align: left;
+            font-size: 13px;
+            line-height: 17px;
+            margin-top: 20px;
+
+            &__bold-text {
+                font-family: 'font_medium', sans-serif;
+                color: #354049;
+            }
         }
     }
 </style>
