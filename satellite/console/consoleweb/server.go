@@ -211,9 +211,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
 
-    var data struct {
-        SatelliteName string
-    }
+	var data struct {
+	    SatelliteName string
+	}
 
 	data.SatelliteName = server.config.SatelliteName
 
