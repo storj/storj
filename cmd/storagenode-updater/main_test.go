@@ -233,7 +233,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 			},
 		},
 	}
-	peer, err = versioncontrol.New(zaptest.NewLogger(t), config)
+	peer, err := versioncontrol.New(zaptest.NewLogger(t), config)
 	require.NoError(t, err)
 	ctx.Go(func() error {
 		return peer.Run(ctx)
