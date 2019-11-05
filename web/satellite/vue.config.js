@@ -24,7 +24,7 @@ module.exports = {
         ],
     },
     chainWebpack: config => {
-        config.output.chunkFilename(`js/vendors.js`);
+        config.output.chunkFilename(`js/vendors_[name].js`);
         config.output.filename(`js/app.js`);
 
         config.resolve.alias
