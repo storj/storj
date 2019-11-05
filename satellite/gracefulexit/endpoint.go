@@ -499,13 +499,18 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, incomplete *TransferQueueItem) error {
 	nodeID := incomplete.NodeID
-	pointer, err := endpoint.metainfo.Get(ctx, string(incomplete.Path))
+
+	pointer, err := endpoint.getValidPointer(ctx, incomplete)
 	if err != nil {
-		return Error.Wrap(err)
+		endpoint.log.Warn("invalid pointer", zap.Error(err))
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 	remote := pointer.GetRemote()
-
 	pieces := remote.GetRemotePieces()
+
 	var nodePiece *pb.RemotePiece
 	excludedNodeIDs := make([]storj.NodeID, len(pieces))
 	for i, piece := range pieces {
@@ -861,4 +866,24 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	}
 
 	return nil
+}
+
+func (endpoint *Endpoint) getValidPointer(ctx context.Context, incomplete *TransferQueueItem) (*pb.Pointer, error) {
+	path := string(incomplete.Path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	// TODO we don't know the type of error
+	if err != nil {
+		return nil, Error.New("pointer path %v no longer exists.", path)
+	}
+
+	remote := pointer.GetRemote()
+	// no longer a remote segment
+	if remote == nil {
+		return nil, Error.New("pointer path %v is no longer remote.", path)
+	}
+
+	if !incomplete.RootPieceID.IsZero() && incomplete.RootPieceID != remote.RootPieceId {
+		return nil, Error.New("pointer path %v has changed.", path)
+	}
+	return pointer, nil
 }

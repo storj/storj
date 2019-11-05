@@ -1360,6 +1360,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE bucket_usages CASCADE;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Version:     65,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
+				},
+			},
 		},
 	}
 }
