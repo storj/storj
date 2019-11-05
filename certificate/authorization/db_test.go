@@ -90,8 +90,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 
 			if testCase.startCount == 0 {
 				_, err := authDB.db.Get(ctx, emailKey)
-				// NB: key not found error
-				assert.Error(t, err)
+				require.Error(t, err, ErrAuthorizationNotFound)
 			} else {
 				v, err := authDB.db.Get(ctx, emailKey)
 				require.NoError(t, err)
@@ -177,38 +176,23 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.db.Put(ctx, storage.Key("user@mail.test"), authsBytes)
+	err = authDB.db.Put(ctx, storage.Key("user@mail.example"), authsBytes)
 	require.NoError(t, err)
 
-	cases := []struct {
-		testID,
-		email string
-		result Group
-	}{
-		{
-			"Non-existent email",
-			"nouser@mail.test",
-			nil,
-		},
-		{
-			"Existing email",
-			"user@mail.test",
-			expectedAuths,
-		},
+	{
+		t.Log("Non-existent email")
+		auths, err := authDB.Get(ctx, "nouser@mail.example")
+		require.Error(t, err, ErrAuthorizationNotFound)
+		require.Empty(t, auths)
 	}
 
-	for _, c := range cases {
-		testCase := c
-		t.Run(testCase.testID, func(t *testing.T) {
-			auths, err := authDB.Get(ctx, testCase.email)
-			require.NoError(t, err)
-			if testCase.result != nil {
-				assert.NotEmpty(t, auths)
-				assert.Len(t, auths, len(testCase.result))
-			} else {
-				assert.Empty(t, auths)
-			}
-		})
+	{
+		t.Log("Existing email")
+		auths, err := authDB.Get(ctx, "user@mail.example")
+		require.NoError(t, err)
+		assert.NotEmpty(t, auths)
+		assert.Len(t, auths, len(expectedAuths))
+		assert.Equal(t, expectedAuths, auths)
 	}
 }
 

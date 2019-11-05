@@ -268,7 +268,7 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err e
 	defer mon.Task()(&ctx, userID)(&err)
 
 	auths, err := authDB.Get(ctx, userID)
-	if err != nil {
+	if err != nil && err != ErrAuthorizationNotFound {
 		return err
 	}
 
