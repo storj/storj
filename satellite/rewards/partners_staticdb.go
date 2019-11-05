@@ -11,6 +11,8 @@ import (
 )
 
 // PartnersStaticDB implements partner lookup based on a static definition.
+//
+// architecture: Database Implementation
 type PartnersStaticDB struct {
 	list        *PartnerList
 	byName      map[string]PartnerInfo
