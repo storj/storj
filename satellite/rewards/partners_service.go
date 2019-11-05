@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	// Error is the default error class for partners package.
-	Error = errs.Class("partners")
+	// ErrPartners is the default error class for partners package.
+	ErrPartners = errs.Class("partners")
 
 	// ErrPartnerNotExist is returned when a particular partner does not exist.
 	ErrPartnerNotExist = errs.Class("partner does not exist")
@@ -57,7 +57,7 @@ func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *Partn
 func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerName string) ([]string, error) {
 	partner, err := service.db.ByName(ctx, offerName)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrPartners.Wrap(err)
 	}
 
 	type info struct {

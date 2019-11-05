@@ -36,20 +36,20 @@ func NewPartnersStaticDB(list *PartnerList) (*PartnersStaticDB, error) {
 	var errg errs.Group
 	for _, p := range list.Partners {
 		if _, exists := db.byName[p.Name]; exists {
-			errg.Add(Error.New("name %q already exists", p.Name))
+			errg.Add(ErrPartners.New("name %q already exists", p.Name))
 		} else {
 			db.byName[p.Name] = p
 		}
 
 		if _, exists := db.byID[p.ID]; exists {
-			errg.Add(Error.New("id %q already exists", p.ID))
+			errg.Add(ErrPartners.New("id %q already exists", p.ID))
 		} else {
 			db.byID[p.ID] = p
 		}
 
 		useragent := CanonicalUserAgentProduct(p.UserAgent())
 		if _, exists := db.byUserAgent[useragent]; exists {
-			errg.Add(Error.New("user agent %q already exists", useragent))
+			errg.Add(ErrPartners.New("user agent %q already exists", useragent))
 		} else {
 			db.byUserAgent[useragent] = p
 		}

@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	// Error is the default satellitedb errs class
+	// ErrPartners is the default satellitedb errs class
 	Error = errs.Class("satellitedb")
 )
 

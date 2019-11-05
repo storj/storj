@@ -34,7 +34,7 @@ const (
 	TestPasswordCost = bcrypt.MinCost
 )
 
-// Error messages
+// ErrPartners messages
 const (
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
 	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
