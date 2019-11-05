@@ -10,10 +10,6 @@ import { HttpClient } from '@/utils/httpClient';
  */
 class Token {
     public token: string;
-
-    public constructor(token: string) {
-        this.token = token;
-    }
 }
 
 /**
@@ -107,6 +103,10 @@ export class AuthHttpApi {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.http.get(path, true);
         if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
             throw new Error('can not get user data');
         }
 
