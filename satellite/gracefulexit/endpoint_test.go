@@ -145,7 +145,7 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestConcurrentConnections(t *testing.T) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -157,8 +157,8 @@ func TestConcurrentConnections(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
@@ -205,9 +205,7 @@ func TestConcurrentConnections(t *testing.T) {
 		// connect to satellite so we initiate the exit ("main" call)
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 		// this connection will immediately return since graceful exit has not been initiated yet
@@ -241,9 +239,10 @@ func TestConcurrentConnections(t *testing.T) {
 
 func TestRecvTimeout(t *testing.T) {
 	var geConfig gracefulexit.Config
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 9,
+		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -265,10 +264,10 @@ func TestRecvTimeout(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     8,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -798,8 +797,43 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 	})
 }
 
+func TestExitDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.Enabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		require.Nil(t, satellite.GracefulExit.Chore)
+		require.Nil(t, satellite.GracefulExit.Endpoint)
+
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if GE is disabled
+		response, err := processClient.Recv()
+		require.Error(t, err)
+		// grpc will return "Unimplemented", drpc will return "Unknown"
+		unimplementedOrUnknown := errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
+		require.True(t, unimplementedOrUnknown)
+		require.Nil(t, response)
+	})
+}
+
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
-	successThreshold := 8
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -816,8 +850,8 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		}
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
+			MinThreshold:     2,
+			RepairThreshold:  3,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     successThreshold,
 		}
@@ -838,9 +872,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite so we initiate the exit.
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, conn.Close())
-		}()
+		defer ctx.Check(conn.Close)
 
 		client := conn.SatelliteGracefulExitClient()
 
@@ -875,9 +907,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		// connect to satellite again to start receiving transfers
 		c, err = client.Process(ctx)
 		require.NoError(t, err)
-		defer func() {
-			err = errs.Combine(err, c.CloseSend())
-		}()
+		defer ctx.Check(c.CloseSend)
 
 		verifier(ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
 	})
