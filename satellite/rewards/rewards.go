@@ -115,8 +115,13 @@ type Offer struct {
 }
 
 // IsEmpty evaluates whether or not an on offer is empty
-func (o Offer) IsEmpty() bool {
-	return o.Name == ""
+func (offer Offer) IsEmpty() bool {
+	return offer.Name == ""
+}
+
+// IsZero returns whether it's equivalent to empty struct.
+func (offer Offer) IsZero() bool {
+	return offer == Offer{}
 }
 
 // IsDefault checks if a offer's status is default

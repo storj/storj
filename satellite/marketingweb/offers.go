@@ -41,8 +41,14 @@ func (server *Server) OrganizeOffersByStatus(offers rewards.Offers) OrganizedOff
 	for _, offer := range offers {
 		switch offer.Status {
 		case rewards.Active:
+			if !oo.Active.IsZero() {
+				server.log.Error("duplicate active")
+			}
 			oo.Active = offer
 		case rewards.Default:
+			if !oo.Active.IsZero() {
+				server.log.Error("duplicate default")
+			}
 			oo.Default = offer
 		case rewards.Done:
 			oo.Done = append(oo.Done, offer)
