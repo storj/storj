@@ -4,6 +4,7 @@
 package overlay_test
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
 	"time"
@@ -343,7 +344,11 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 			RequestedCount:       4,
 			ExcludedNodes:        excludedNodes,
 		}
-		_, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		nodes, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		fmt.Println("len nodes", len(nodes))
+		for _, node := range nodes {
+			fmt.Println("node ip", node.LastIp)
+		}
 		require.Error(t, err)
 	})
 }
