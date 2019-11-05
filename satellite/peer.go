@@ -6,8 +6,6 @@ package satellite
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/satellite/payments/stripecoinpayments"
-
 	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/server"
@@ -29,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
