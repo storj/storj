@@ -3,6 +3,7 @@
 
 <template>
     <div class="profile-container">
+        <h1 class="profile-container__title">Account Settings</h1>
         <div class="profile-container__edit-profile no-margin" >
             <div class="profile-container__edit-profile__row">
                 <div class="profile-container__edit-profile__avatar">
@@ -115,8 +116,14 @@ export default class ProfileArea extends Vue {
 <style scoped lang="scss">
     .profile-container {
         position: relative;
-        margin-top: 83px;
         font-family: 'font_regular', sans-serif;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            margin: 40px 0 25px 0;
+        }
 
         &__navigation {
             position: absolute;
