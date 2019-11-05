@@ -343,7 +343,7 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 			RequestedCount:       4,
 			ExcludedNodes:        excludedNodes,
 		}
-		nodes, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		_, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
 		require.Error(t, err)
 	})
 }
