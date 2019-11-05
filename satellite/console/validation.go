@@ -42,3 +42,12 @@ func validatePassword(pass string) error {
 
 	return errs.Combine()
 }
+
+// validateFullName validates full name.
+func validateFullName(name string) error {
+	if name == "" {
+		return errs.New("full name can not be empty")
+	}
+
+	return nil
+}

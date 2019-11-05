@@ -176,6 +176,29 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	billingHistory, err := p.service.Payments().BillingHistory(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(billingHistory)
+	if err != nil {
+		p.log.Error("failed to write json billing history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

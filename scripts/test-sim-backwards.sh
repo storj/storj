@@ -53,6 +53,19 @@ echo client.segment-size: 6MiB >> `storj-sim network env GATEWAY_0_DIR`/config.y
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
+# replace any 140XX port with 100XX port to fix, satellite.API part removal from satellite.Peer
+sed -i -e "s#$STORJ_NETWORK_HOST4:100#$STORJ_NETWORK_HOST4:140#g" `storj-sim network env SATELLITE_0_DIR`/config.yaml
+REDIS_CONFIG=$(storj-sim network env REDIS_0_DIR)/redis.conf
+if [ ! -f "$REDIS_CONFIG" ] ; then
+    echo "daemonize no" >> $REDIS_CONFIG
+    echo "bind $STORJ_NETWORK_HOST4" >> $REDIS_CONFIG
+    echo "port 10004" >> $REDIS_CONFIG
+    echo "timeout 0" >> $REDIS_CONFIG
+    echo "databases 2" >> $REDIS_CONFIG
+    echo "dbfilename sim.rdb" >> $REDIS_CONFIG
+    echo "dir ./" >> $REDIS_CONFIG
+fi
+
 ## Ensure that partially upgraded network works
 
 # keep half of the storage nodes on the old version

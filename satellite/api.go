@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -364,19 +365,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	{ // setup payments
 		config := paymentsconfig.Config{}
 
-		service := stripecoinpayments.NewService(
-			peer.Log.Named("stripecoinpayments service"),
-			config.StripeCoinPayments,
-			peer.DB.Customers(),
-			peer.DB.CoinpaymentsTransactions())
+		switch config.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				config.StripeCoinPayments,
+				peer.DB.Customers(),
+				peer.DB.CoinpaymentsTransactions())
 
-		clearing := stripecoinpayments.NewClearing(
-			peer.Log.Named("stripecoinpayments clearing loop"),
-			service,
-			config.StripeCoinPayments.TransactionUpdateInterval)
-
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = clearing
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Clearing = stripecoinpayments.NewChore(
+				peer.Log.Named("stripecoinpayments clearing loop"),
+				service,
+				config.StripeCoinPayments.TransactionUpdateInterval,
+				config.StripeCoinPayments.AccountBalanceUpdateInterval)
+		}
 	}
 
 	{ // setup console
@@ -440,20 +445,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup graceful exit
-		log.Debug("Satellite API Process setting up graceful exit endpoint")
-		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
-			peer.Log.Named("gracefulexit:endpoint"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.DB.GracefulExit(),
-			peer.Overlay.DB,
-			peer.Overlay.Service,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.DB.PeerIdentities(),
-			config.GracefulExit)
+		if config.GracefulExit.Enabled {
+			log.Debug("Satellite API Process setting up graceful exit endpoint")
+			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+				peer.Log.Named("gracefulexit:endpoint"),
+				signing.SignerFromFullIdentity(peer.Identity),
+				peer.DB.GracefulExit(),
+				peer.Overlay.DB,
+				peer.Overlay.Service,
+				peer.Metainfo.Service,
+				peer.Orders.Service,
+				peer.DB.PeerIdentities(),
+				config.GracefulExit)
 
-		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		}
 	}
 
 	return peer, nil
