@@ -28,7 +28,7 @@ type storjTokens struct {
 func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
-	customerID, err := tokens.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := tokens.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -55,7 +55,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	cpTX, err := tokens.service.transactionsDB.Insert(ctx,
+	cpTX, err := tokens.service.db.Transactions().Insert(ctx,
 		Transaction{
 			ID:        tx.ID,
 			AccountID: userID,
