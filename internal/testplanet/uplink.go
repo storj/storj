@@ -160,7 +160,7 @@ func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 // Upload data to specific satellite
 func (client *Uplink) Upload(ctx context.Context, satellite *SatelliteSystem, bucket string, path storj.Path, data []byte) error {
-	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Now().Add(1*time.Hour))
+	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpiration data to specific satellite and expiration time
@@ -170,7 +170,7 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 
 // UploadWithConfig uploads data to specific satellite with configured values
 func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
-	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Now().Add(1*time.Hour))
+	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
