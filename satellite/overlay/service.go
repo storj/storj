@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
@@ -252,10 +251,6 @@ func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNod
 func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	fmt.Println("excluded ips")
-	for _, ip := range req.ExcludedIPs {
-		fmt.Println(ip)
-	}
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 	reputableNodeCount := req.MinimumRequiredNodes
@@ -458,7 +453,8 @@ func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req Fin
 		return nil, Error.Wrap(err)
 	}
 	req.ExcludedIPs = nodeIPs
-	preferences := &NodeSelectionConfig{DistinctIP: true}
+	preferences := &service.config.Node
+	preferences.DistinctIP = true
 
 	newNodes, err := service.FindStorageNodesWithPreferences(ctx, req, preferences)
 	if err != nil {
