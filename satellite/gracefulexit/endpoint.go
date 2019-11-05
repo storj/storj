@@ -310,7 +310,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 			err = endpoint.handleFinished(ctx, stream, exitStatusRequest, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
 			if err != nil {
-				return err
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
 		} else if pendingCount == 0 {
@@ -371,7 +371,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					}
 					err := endpoint.handleFinished(ctx, stream, exitStatusRequest, pb.ExitFailed_VERIFICATION_FAILED)
 					if err != nil {
-						return err
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 					break
 				}
@@ -612,23 +612,23 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 func (endpoint *Endpoint) handleFinished(ctx context.Context, stream processStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {
 	finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, exitStatusRequest.NodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, failedReason)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return Error.Wrap(err)
 	}
 
 	_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return Error.Wrap(err)
 	}
 
 	err = stream.Send(finishedMsg)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return Error.Wrap(err)
 	}
 
 	// remove remaining items from the queue after notifying nodes about their exit status
 	err = endpoint.db.DeleteTransferQueueItems(ctx, exitStatusRequest.NodeID)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return Error.Wrap(err)
 	}
 
 	return nil
