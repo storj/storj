@@ -32,7 +32,7 @@ func (accounts *accounts) Invoices() payments.Invoices {
 func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
 	defer mon.Task()(&ctx, userID, email)(&err)
 
-	_, err = accounts.service.customers.GetCustomerID(ctx, userID)
+	_, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
 	if err == nil {
 		return nil
 	}
@@ -47,14 +47,14 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return Error.Wrap(accounts.service.customers.Insert(ctx, userID, customer.ID))
+	return Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
 func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := accounts.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
