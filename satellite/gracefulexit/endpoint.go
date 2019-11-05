@@ -202,7 +202,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		endpoint.connections.delete(nodeID)
 	}()
 
-	// check initial state
 	msg, err := endpoint.checkExitStatus(ctx, nodeID)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
