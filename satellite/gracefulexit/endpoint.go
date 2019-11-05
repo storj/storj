@@ -214,6 +214,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+
+		return nil
 	}
 
 	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
