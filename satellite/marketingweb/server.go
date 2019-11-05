@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-// ErrPartners is satellite marketing error type
+// Error is satellite marketing error type
 var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketingweb server
