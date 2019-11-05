@@ -120,7 +120,7 @@ type Peer struct {
 	Version *checker.Service
 
 	// services and endpoints
-	// TODO: similar grouping to satellite.Peer
+	// TODO: similar grouping to satellite.Core
 
 	Contact struct {
 		Service   *contact.Service
