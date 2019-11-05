@@ -33,7 +33,7 @@ type Metainfo interface {
 	// ModifyObject creates a mutable object for updating a partially uploaded object
 	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
-	DeleteObject(ctx context.Context, bucket string, path Path) error
+	DeleteObject(ctx context.Context, bucket Bucket, path Path) error
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 
