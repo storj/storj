@@ -368,6 +368,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 		return Report{}, err
 	}
+	if pointer.ExpirationDate.Before(time.Now().UTC()) {
+		deleteErr := verifier.metainfo.Delete(ctx, path)
+		if deleteErr != nil {
+			return Report{}, Error.Wrap(deleteErr)
+		}
+		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
+	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)
 	pieceHashesVerifiedMutex := &sync.Mutex{}
