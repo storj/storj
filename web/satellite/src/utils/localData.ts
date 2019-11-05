@@ -1,21 +1,28 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export const LOCAL_STORAGE = {
-    USER_ID: 'userId',
-    SELECTED_PROJECT_ID: 'selectedProjectId',
-};
-
+// LocalData exposes methods to manage local storage
 export class LocalData {
-    public static get(key: string): string | null {
-        return localStorage.getItem(key);
+    private static userId: string = 'userId';
+    private static selectedProjectId: string = 'selectedProjectId';
+
+    public static getUserId(): string | null {
+        return localStorage.getItem(LocalData.userId);
     }
 
-    public static set(key: string, id: string): void {
-        localStorage.setItem(key, id);
+    public static setUserId(id: string): void {
+        localStorage.setItem(LocalData.userId, id);
     }
 
-    public static remove(key: string): void {
-        localStorage.removeItem(key);
+    public static getSelectedProjectId(): string | null {
+        return localStorage.getItem(LocalData.selectedProjectId);
+    }
+
+    public static setSelectedProjectId(id: string): void {
+        localStorage.setItem(LocalData.selectedProjectId, id);
+    }
+
+    public static removeSelectedProjectId(): void {
+        localStorage.removeItem(LocalData.selectedProjectId);
     }
 }

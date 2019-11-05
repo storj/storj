@@ -37,7 +37,7 @@ import {
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
-import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -66,7 +66,7 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
 
-        LocalData.remove(LOCAL_STORAGE.SELECTED_PROJECT_ID);
+        LocalData.removeSelectedProjectId();
     }
 }
 </script>
