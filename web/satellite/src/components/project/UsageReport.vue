@@ -175,7 +175,7 @@ export default class UsageReport extends Vue {
 
         const url = new URL(location.origin);
 
-        url.pathname = 'usage-report';
+        url.pathname = 'usage-report/';
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', toUnixTimestamp(endDate).toString());
