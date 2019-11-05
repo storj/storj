@@ -72,8 +72,11 @@ import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
+import { RouteConfig } from '@/router';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -127,17 +130,17 @@ export default class HeaderArea extends Vue {
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
+            await this.setProjectState();
         } catch (error) {
             await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
+            this.isDeleteClicked = false;
 
             return;
         }
 
         this.$emit('onSuccessAction');
-        await this.$notify.success('Members was successfully removed from project');
+        await this.$notify.success('Members were successfully removed from project');
         this.isDeleteClicked = false;
-
-        this.$refs.headerComponent.clearSearch();
     }
 
     public async processSearchQuery(search: string): Promise<void> {
@@ -163,6 +166,20 @@ export default class HeaderArea extends Vue {
 
     public get areSelectedProjectMembersBeingDeleted(): boolean {
         return this.headerState === 1 && this.isDeleteClicked;
+    }
+
+    private async setProjectState(): Promise<void> {
+        const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+            return;
+        }
+
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        this.$refs.headerComponent.clearSearch();
     }
 }
 </script>
