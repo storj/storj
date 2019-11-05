@@ -193,9 +193,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 	ts := httptest.NewServer(&mux)
 
 	config := &versioncontrol.Config{
-		// TODO: add STORJ_VERSION_SERVER_ADDR property to Product.wxs for testing
-		// TODO: set address back to `127.0.0.1:0`
-		Address: "127.0.0.1:10000",
+		Address: "127.0.0.1:0",
 		// NB: this config field is required for versioncontrol to run.
 		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
