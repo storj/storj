@@ -49,15 +49,22 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	return Error.Wrap(err)
 }
 
-// UpdatePieces atomically adds toAdd pieces and removes toRemove pieces from
+// UpdatePieces calls UpdatePiecesCheckDuplicates with checkDuplicates equal to false.
+func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
+	return s.UpdatePiecesCheckDuplicates(ctx, path, ref, toAdd, toRemove, false)
+}
+
+// UpdatePiecesCheckDuplicates atomically adds toAdd pieces and removes toRemove pieces from
 // the pointer under path. ref is the pointer that caller received via Get
 // prior to calling this method.
 //
-// It will first check if the pointer has been deleted or replaced. Then it
-// will remove the toRemove pieces and then it will add the toAdd pieces.
+// It will first check if the pointer has been deleted or replaced.
+// Then if checkDuplicates is true it will return an error if the nodes to be
+// added are already in the pointer.
+// Then it will remove the toRemove pieces and then it will add the toAdd pieces.
 // Replacing the node ID and the hash of a piece can be done by adding the
 // piece to both toAdd and toRemove.
-func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
+func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -81,10 +88,24 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 
 		// put all existing pieces to a map
 		pieceMap := make(map[int32]*pb.RemotePiece)
+		nodePieceMap := make(map[storj.NodeID]struct{})
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			pieceMap[piece.PieceNum] = piece
+			if checkDuplicates {
+				nodePieceMap[piece.NodeId] = struct{}{}
+			}
 		}
 
+		// Return an error if the pointer already has a piece for this node
+		if checkDuplicates {
+			for _, piece := range toAdd {
+				_, ok := nodePieceMap[piece.NodeId]
+				if ok {
+					return nil, ErrNodeAlreadyExists.New("node id already exists in pointer. Path: %s, NodeID: %s", path, piece.NodeId.String())
+				}
+				nodePieceMap[piece.NodeId] = struct{}{}
+			}
+		}
 		// remove the toRemove pieces from the map
 		// only if all piece number, node id and hash match
 		for _, piece := range toRemove {
