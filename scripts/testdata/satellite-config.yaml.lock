@@ -131,10 +131,10 @@ contact.external-address: ""
 # graceful-exit.recv-timeout: 10m0s
 
 # path to the certificate chain for this identity
-identity.cert-path: /home/riko/.local/share/storj/identity/satellite/identity.cert
+identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
-identity.key-path: /home/riko/.local/share/storj/identity/satellite/identity.key
+identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # what to use for storing real-time accounting data
 # live-accounting.storage-backend: memory
