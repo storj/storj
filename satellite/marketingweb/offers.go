@@ -6,6 +6,8 @@ package marketingweb
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -77,7 +79,10 @@ func (server *Server) OrganizeOffersByType(offers rewards.Offers) OfferSet {
 
 // createPartnerSet generates a PartnerSet from the config file.
 func (server *Server) createPartnerSet() PartnerSet {
-	all, _ := server.partners.All(context.TODO()) // TODO: don't ignore error
+	all, err := server.partners.All(context.TODO()) // TODO: don't ignore error
+	if err != nil {
+		server.log.Error("failed to load all partners", zap.Error(err))
+	}
 
 	var ps PartnerSet
 	for _, partner := range all {

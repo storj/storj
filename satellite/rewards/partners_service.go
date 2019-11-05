@@ -15,7 +15,7 @@ import (
 
 var (
 	// Error is the default error class for partners package.
-	Error = errs.Class("partners error class")
+	Error = errs.Class("partners")
 
 	// ErrNotExist is returned when a particular partner does not exist.
 	ErrNotExist = errs.Class("partner does not exist")
