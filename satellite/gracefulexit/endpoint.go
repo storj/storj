@@ -350,11 +350,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case <-done:
 		}
 		if recvErr != nil {
-			if recvErr == io.EOF {
+			if errs.Is(recvErr, io.EOF) {
 				endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
 				return nil
 			}
-			return rpcstatus.Error(rpcstatus.Unknown, Error.Wrap(err).Error())
+			return rpcstatus.Error(rpcstatus.Unknown, Error.Wrap(recvErr).Error())
 		}
 
 		switch m := request.GetMessage().(type) {
@@ -404,12 +404,38 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		return Error.Wrap(err)
 	}
 
-	request, err := endpoint.generateFindNodesRequest(ctx, pointer, incomplete)
+	// validate pointer state
+	nodePiece, err := validatePointer(ctx, pointer, incomplete)
+	if err != nil {
+		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		err := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+
+	pieceSize, err := endpoint.calculatePieceSize(ctx, pointer, incomplete, nodePiece)
+	if ErrAboveOptimalThreshold.has(err) {
+		return nil
+	}
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if request == nil {
-		return nil
+
+	// populate excluded node IDs
+	pieces := pointer.GetRemote().RemotePieces
+	excludedNodeIDs := make([]storj.NodeID, len(pieces))
+	for i, piece := range pieces {
+		excludedNodeIDs[i] = piece.NodeId
+	}
+
+	// get replacement node
+	request := &overlay.FindStorageNodesRequest{
+		RequestedCount: 1,
+		FreeBandwidth:  pieceSize,
+		FreeDisk:       pieceSize,
+		ExcludedNodes:  excludedNodeIDs,
 	}
 
 	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, *request)
@@ -433,7 +459,6 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		return Error.New("invalid path for node ID %v, piece ID %v", incomplete.NodeID, pieceID)
 	}
 
-	pieceSize := request.FreeBandwidth
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
 	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
@@ -453,6 +478,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	// update pending queue with the transfer item
 	pending.put(pieceID, &pendingTransfer{
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,
@@ -475,8 +502,19 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.New("Could not find transfer item in pending queue")
 	}
 
+	err = validatePendingTransfer(ctx, transfer)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+	// get peerID and signee for new storage node
+	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 	// verify transfered piece
-	err = verifyPieceTransferred(ctx, message, transfer)
+	err = verifyPieceTransferred(ctx, message, transfer, endpoint.signer, peerID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -485,7 +523,6 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
 	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
@@ -749,73 +786,29 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, progres
 
 }
 
-func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*pb.RemotePiece, error) {
-	remote := pointer.GetRemote()
+func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem, nodePiece *pb.RemotePiece) (int64, error) {
 	nodeID := incomplete.NodeID
 
-	pieces := remote.GetRemotePieces()
-	var nodePiece *pb.RemotePiece
-	for _, piece := range pieces {
-		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
-			nodePiece = piece
-		}
-	}
-
-	if nodePiece == nil {
-		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
-
-		err := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-	}
-	return nodePiece, nil
-}
-
-func (endpoint *Endpoint) generateFindNodesRequest(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*overlay.FindStorageNodesRequest, error) {
-	// validate pointer state
-	nodePiece, err := endpoint.validatePointer(ctx, pointer, incomplete)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
+	// calculate piece size
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return 0, Error.Wrap(err)
 	}
 
-	nodeID := incomplete.NodeID
-	pieces := pointer.GetRemote().GetRemotePieces()
-	if len(pieces) > redundancy.OptimalThreshold() {
+	if !validateRedundancyThreshold(ctx, pointer, redundancy) {
 		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return 0, Error.Wrap(err)
 		}
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return 0, Error.Wrap(err)
 		}
-
-		return nil, nil
+		return 0, ErrAboveOptimalThreshold.New("")
 	}
 
-	// calculate piece size
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-
-	// populate excluded node IDs
-	excludedNodeIDs := make([]storj.NodeID, len(pieces))
-	for i, piece := range pieces {
-		excludedNodeIDs[i] = piece.NodeId
-	}
-
-	return &overlay.FindStorageNodesRequest{
-		RequestedCount: 1,
-		FreeBandwidth:  pieceSize,
-		FreeDisk:       pieceSize,
-		ExcludedNodes:  excludedNodeIDs,
-	}, nil
+	return eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy), nil
 }

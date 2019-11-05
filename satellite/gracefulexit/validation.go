@@ -7,11 +7,41 @@ import (
 	"bytes"
 	"context"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
+	"storj.io/storj/uplink/eestream"
 )
 
-func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer) error {
+func validatePointer(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*pb.RemotePiece, error) {
+	remote := pointer.GetRemote()
+	nodeID := incomplete.NodeID
+
+	pieces := remote.GetRemotePieces()
+	var nodePiece *pb.RemotePiece
+	for _, piece := range pieces {
+		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
+			nodePiece = piece
+		}
+	}
+
+	if nodePiece == nil {
+		return nil, Error.New("piece no longer held by node")
+	}
+
+	return nodePiece, nil
+}
+
+func validateRedundancyThreshold(ctx context.Context, pointer *pb.Pointer, redundancy eestream.RedundancyStrategy) bool {
+	pieces := pointer.GetRemote().GetRemotePieces()
+	if len(pieces) > redundancy.OptimalThreshold() {
+		return false
+	}
+
+	return true
+}
+
+func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
 	if transfer.satelliteMessage == nil {
 		return Error.New("Satellite message cannot be nil")
 	}
@@ -27,7 +57,14 @@ func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_
 	if transfer.path == nil {
 		return Error.New("Transfer path cannot be nil")
 	}
+	if transfer.originalPointer == nil || transfer.originalPointer.GetRemote() == nil {
+		return Error.New("could not get remote pointer from transfer item")
+	}
 
+	return nil
+}
+
+func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, satellite signing.Signer, nodeID *identity.PeerIdentity) error {
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -47,7 +84,7 @@ func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_
 	}
 
 	// verify that the satellite signed the original order limit
-	err := endpoint.orders.VerifyOrderLimitSignature(ctx, originalOrderLimit)
+	err := signing.VerifyOrderLimitSignature(ctx, satellite, originalOrderLimit)
 	if err != nil {
 		return ErrInvalidArgument.Wrap(err)
 	}
@@ -63,20 +100,12 @@ func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_
 	}
 
 	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
-	if transfer.originalPointer == nil || transfer.originalPointer.GetRemote() == nil {
-		return Error.New("could not get remote pointer from transfer item")
-	}
 	calculatedNewPieceID := transfer.originalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.pieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
 		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}
 
-	// get peerID and signee for new storage node
-	peerID, err := endpoint.peerIdentities.Get(ctx, receivingNodeID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	signee := signing.SigneeFromPeerIdentity(peerID)
+	signee := signing.SigneeFromPeerIdentity(nodeID)
 
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
