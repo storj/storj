@@ -832,7 +832,7 @@ func TestExitDisabled(t *testing.T) {
 	})
 }
 
-func TestPointerChangedAndDeleted(t *testing.T) {
+func TestPointerChangedOrDeleted(t *testing.T) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
