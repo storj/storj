@@ -8,10 +8,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensures that ConsoleDB implements console.DB.
+var _ console.DB = (*ConsoleDB)(nil)
 
 // ConsoleDB contains access to different satellite databases
 type ConsoleDB struct {
@@ -39,11 +41,6 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return &apikeys{db.methods, db.db}
-}
-
-// BucketUsage is a getter for accounting.BucketUsage repository
-func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
-	return &bucketusage{db.methods}
 }
 
 // RegistrationTokens is a getter for RegistrationTokens repository

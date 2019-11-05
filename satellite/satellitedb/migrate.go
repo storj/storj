@@ -44,6 +44,17 @@ func (db *DB) CreateTables() error {
 	}
 }
 
+// CheckVersion confirms confirms the database is at the desired version
+func (db *DB) CheckVersion() error {
+	switch db.driver {
+	case "postgres":
+		migration := db.PostgresMigration()
+		return migration.ValidateVersions(db.log)
+	default:
+		return nil
+	}
+}
+
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
@@ -1339,6 +1350,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tx_id )
 					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Removing unused bucket_usages table",
+				Version:     64,
+				Action: migrate.SQL{
+					`DROP TABLE bucket_usages CASCADE;`,
 				},
 			},
 		},
