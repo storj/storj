@@ -780,7 +780,8 @@ func TestReverifyDifferentShare(t *testing.T) {
 	})
 }
 
-func TestReverifyExpired(t *testing.T) {
+// TestReverifyExpired1 tests the case where the segment passed into Reverify is expired
+func TestReverifyExpired1(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -827,5 +828,130 @@ func TestReverifyExpired(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+// TestReverifyExpired2 tests the case where the segment passed into Reverify is not expired,
+// but the segment a node is contained for has expired.
+func TestReverifyExpired2(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData1 := testrand.Bytes(8 * memory.KiB)
+		testData2 := testrand.Bytes(8 * memory.KiB)
+		// upload to three nodes so there is definitely at least one node overlap between the two files
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     3,
+		}
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
+		require.NoError(t, err)
+
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path1, err := queue.Next()
+		require.NoError(t, err)
+		path2, err := queue.Next()
+		require.NoError(t, err)
+		require.NotEqual(t, path1, path2)
+
+		pointer1, err := satellite.Metainfo.Service.Get(ctx, path1)
+		require.NoError(t, err)
+		pointer2, err := satellite.Metainfo.Service.Get(ctx, path2)
+		require.NoError(t, err)
+
+		// find a node that contains a piece for both files
+		// save that node ID and the piece number associated with it for pointer1
+		var selectedNode storj.NodeID
+		var selectedPieceNum int32
+		p1Nodes := make(map[storj.NodeID]int32)
+		for _, piece := range pointer1.GetRemote().GetRemotePieces() {
+			p1Nodes[piece.NodeId] = piece.PieceNum
+		}
+		for _, piece := range pointer2.GetRemote().GetRemotePieces() {
+			pieceNum, ok := p1Nodes[piece.NodeId]
+			if ok {
+				selectedNode = piece.NodeId
+				selectedPieceNum = pieceNum
+				break
+			}
+		}
+		require.NotEqual(t, selectedNode, storj.NodeID{})
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer1)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
+
+		rootPieceID := pointer1.GetRemote().RootPieceId
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(selectedPieceNum))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            selectedNode,
+			PieceID:           rootPieceID,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			Path:              path1,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		// update pointer1 to be expired
+		oldPointerBytes, err := proto.Marshal(pointer1)
+		require.NoError(t, err)
+		newPointer := &pb.Pointer{}
+		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		require.NoError(t, err)
+		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointerBytes, err := proto.Marshal(newPointer)
+		require.NoError(t, err)
+		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
+		require.NoError(t, err)
+
+		// reverify with path 2. Since the selected node was put in containment for path1,
+		// it should be audited for path1
+		// since path1 has expired, we expect no failure and we expect that the pointer has been deleted
+		// and that the selected node has been removed from containment mode
+		report, err := audits.Verifier.Reverify(ctx, path2)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.Fails, 0)
+
+		// Reverify should delete the expired segment
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path1)
+		require.Error(t, err)
+		require.Nil(t, pointer)
+
+		// Reverify should remove the node from containment mode
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.Error(t, err)
 	})
 }

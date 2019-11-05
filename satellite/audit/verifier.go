@@ -95,9 +95,9 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, err
 	}
 	if pointer.ExpirationDate.Before(time.Now().UTC()) {
-		deleteErr := verifier.metainfo.Delete(ctx, path)
-		if deleteErr != nil {
-			return Report{}, Error.Wrap(deleteErr)
+		errDelete := verifier.metainfo.Delete(ctx, path)
+		if errDelete != nil {
+			return Report{}, Error.Wrap(errDelete)
 		}
 		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
 	}
@@ -369,11 +369,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, err
 	}
 	if pointer.ExpirationDate.Before(time.Now().UTC()) {
-		deleteErr := verifier.metainfo.Delete(ctx, path)
-		if deleteErr != nil {
-			return Report{}, Error.Wrap(deleteErr)
+		errDelete := verifier.metainfo.Delete(ctx, path)
+		if errDelete != nil {
+			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
+		return Report{}, ErrSegmentExpired.New("Segment expired before Reverify")
 	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)
@@ -434,6 +434,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 
 				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+				return
+			}
+			if pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
+				errDelete := verifier.metainfo.Delete(ctx, pending.Path)
+				if errDelete != nil {
+					verifier.log.Debug("Reverify: error deleting expired segment", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				_, errDelete = verifier.containment.Delete(ctx, pending.NodeID)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				verifier.log.Debug("Reverify: segment already expired", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID))
+				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
 
