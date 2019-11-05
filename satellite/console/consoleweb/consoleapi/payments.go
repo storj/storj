@@ -232,7 +232,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var responseData struct {
-		Address string `json:"adress"`
+		Address string `json:"address"`
 		Amount  string `json:"amount"`
 	}
 
