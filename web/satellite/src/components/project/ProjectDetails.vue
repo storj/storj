@@ -66,7 +66,7 @@ import EditIcon from '@/../static/images/project/edit.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
-import { setSelectedProjectId } from '@/utils/consoleLocalStorage';
+import { setSelectedProjectId } from '@/utils/localData';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({

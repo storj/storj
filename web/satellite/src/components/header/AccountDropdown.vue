@@ -31,7 +31,7 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { AuthToken } from '@/utils/authToken';
-import { removeSelectedProjectId } from '@/utils/consoleLocalStorage';
+import { removeSelectedProjectId } from '@/utils/localData';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,

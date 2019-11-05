@@ -17,7 +17,7 @@ import LogoIcon from '@/../static/images/Logo.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import { setUserId } from '@/utils/consoleLocalStorage';
+import { setUserId } from '@/utils/localData';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';

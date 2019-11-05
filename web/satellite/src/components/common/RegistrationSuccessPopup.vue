@@ -13,7 +13,7 @@ import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { getUserId } from '@/utils/consoleLocalStorage';
+import { getUserId } from '@/utils/localData';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({

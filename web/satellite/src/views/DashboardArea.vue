@@ -33,7 +33,7 @@ import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { AuthToken } from '@/utils/authToken';
-import { getSelectedProjectId, setSelectedProjectId } from '@/utils/consoleLocalStorage';
+import { getSelectedProjectId, setSelectedProjectId } from '@/utils/localData';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
