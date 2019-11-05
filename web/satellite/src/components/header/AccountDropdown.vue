@@ -31,13 +31,13 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { AuthToken } from '@/utils/authToken';
-import { removeSelectedProjectId } from '@/utils/localData';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
+import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -65,7 +65,8 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        removeSelectedProjectId();
+
+        LocalData.remove(LOCAL_STORAGE.SELECTED_PROJECT_ID);
     }
 }
 </script>

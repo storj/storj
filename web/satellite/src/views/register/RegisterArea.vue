@@ -17,9 +17,9 @@ import LogoIcon from '@/../static/images/Logo.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import { setUserId } from '@/utils/localData';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
@@ -160,7 +160,7 @@ export default class RegisterArea extends Vue {
         try {
             this.userId = await this.auth.register(this.user, this.secret, this.refUserId);
 
-            setUserId(this.userId);
+            LocalData.set(LOCAL_STORAGE.USER_ID, this.userId);
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);

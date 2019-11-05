@@ -26,12 +26,12 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { Project } from '@/types/projects';
-import { setSelectedProjectId } from '@/utils/localData';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
+import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -43,7 +43,7 @@ export default class ProjectSelectionDropdown extends Vue {
 
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        setSelectedProjectId(this.$store.getters.selectedProject.id);
+        LocalData.set(LOCAL_STORAGE.SELECTED_PROJECT_ID, this.$store.getters.selectedProject.id);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 

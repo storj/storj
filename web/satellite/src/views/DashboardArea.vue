@@ -33,13 +33,13 @@ import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { AuthToken } from '@/utils/authToken';
-import { getSelectedProjectId, setSelectedProjectId } from '@/utils/localData';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
 
 const {
     SETUP_ACCOUNT,
@@ -108,12 +108,12 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        const selectedProjectId: string | null = getSelectedProjectId();
+        const selectedProjectId: string | null = LocalData.get(LOCAL_STORAGE.SELECTED_PROJECT_ID);
         if (selectedProjectId) {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
         } else {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-            setSelectedProjectId(this.$store.getters.selectedProject.id);
+            LocalData.set(LOCAL_STORAGE.SELECTED_PROJECT_ID, this.$store.getters.selectedProject.id);
         }
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');

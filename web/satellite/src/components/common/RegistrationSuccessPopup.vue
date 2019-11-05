@@ -13,8 +13,8 @@ import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { getUserId } from '@/utils/localData';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { LOCAL_STORAGE, LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -39,7 +39,7 @@ export default class RegistrationSuccessPopup extends Vue {
     public async onResendEmailButtonClick(): Promise<void> {
         this.isResendEmailButtonDisabled = true;
 
-        const userId = getUserId();
+        const userId = LocalData.get(LOCAL_STORAGE.USER_ID);
         if (!userId) {
             return;
         }
