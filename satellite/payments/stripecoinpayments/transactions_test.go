@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestInsertUpdateConsume(t *testing.T) {
+func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -111,7 +111,7 @@ func TestInsertUpdateConsume(t *testing.T) {
 	})
 }
 
-func TestList(t *testing.T) {
+func TestTransactionsDBList(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
