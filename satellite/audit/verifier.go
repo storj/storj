@@ -39,6 +39,8 @@ var (
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
 	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
+	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
+	ErrSegmentExpired = errs.Class("segment expired before audit")
 )
 
 // Share represents required information about an audited share
@@ -91,6 +93,13 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			return Report{}, ErrSegmentDeleted.New("%q", path)
 		}
 		return Report{}, err
+	}
+	if pointer.ExpirationDate.Before(time.Now().UTC()) {
+		deleteErr := verifier.metainfo.Delete(ctx, path)
+		if deleteErr != nil {
+			return Report{}, Error.Wrap(deleteErr)
+		}
+		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
 	}
 
 	defer func() {
