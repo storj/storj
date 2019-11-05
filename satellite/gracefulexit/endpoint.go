@@ -410,9 +410,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			default:
 			}
 
-			pendingCount = pending.length()
 			// if pending count is still 0 and the loop has exited, return
-			if pendingCount == 0 && !loopRunningFlag {
+			if pending.length() == 0 && !loopRunningFlag {
 				processMu.Unlock()
 				continue
 			}
@@ -443,6 +442,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, stream, pending, nodeID, m)
 			if err != nil {
+				if metainfo.ErrNodeAlreadyExists.Has(err) {
+					// this will get retried
+					endpoint.log.Warn("node already exists in pointer.", zap.Error(err))
+
+					continue
+				}
 				if ErrInvalidArgument.Has(err) {
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
 					exitStatusRequest := &overlay.ExitStatusRequest{
@@ -695,6 +700,9 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
+		// remove the piece from the pending queue so it gets retried
+		pending.delete(originalPieceID)
+
 		return Error.Wrap(err)
 	}
 
@@ -900,18 +908,13 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	delete(pieceMap, exitingNodeID)
 
 	var toAdd []*pb.RemotePiece
-	// check receiving node id is not already in the pointer
-	_, ok = pieceMap[receivingNodeID]
-	if ok {
-		return Error.New("node id already exists in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
-	}
 	if !receivingNodeID.IsZero() {
 		toAdd = []*pb.RemotePiece{{
 			PieceNum: pieceNum,
 			NodeId:   receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), originalPointer, toAdd, toRemove)
+	_, err = endpoint.metainfo.UpdatePiecesCheckDuplicates(ctx, string(path), originalPointer, toAdd, toRemove, true)
 	if err != nil {
 		return Error.Wrap(err)
 	}
