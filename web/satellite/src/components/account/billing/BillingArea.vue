@@ -68,16 +68,7 @@ export default class BillingArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-thumb {
-        width: 0;
-    }
-
     .account-billing-area {
-        margin-top: 83px;
-        overflow-y: scroll;
-        height: 75vh;
 
         &__notification-container {
 
