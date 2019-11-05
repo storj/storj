@@ -71,7 +71,10 @@ func Exec(cmd *cobra.Command) {
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	cleanup(cmd)
-	_ = cmd.Execute()
+	err = cmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
