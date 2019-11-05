@@ -22,7 +22,7 @@ var Error = errs.Class("audit error")
 type Config struct {
 	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
-	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5m0s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
 	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m"`
