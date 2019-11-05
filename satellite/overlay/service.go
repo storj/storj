@@ -457,10 +457,10 @@ func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req Fin
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	req.ExcludedIPs = nodeIPs
+	preferences := &NodeSelectionConfig{DistinctIP: true}
 
-	newNodes, err := service.FindStorageNodes(ctx, req)
+	newNodes, err := service.FindStorageNodesWithPreferences(ctx, req, preferences)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
