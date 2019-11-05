@@ -376,14 +376,40 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
+}
+
+func TestExitDisqualifiedNode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		disqualifyNode(t, ctx, satellite, exitingNode.ID())
+
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if node is disqualified
+		response, err := processClient.Recv()
+		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.Nil(t, response)
+	})
+
 }
 
 func TestFailureHashMismatch(t *testing.T) {
@@ -451,13 +477,12 @@ func TestFailureHashMismatch(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 }
 
@@ -493,13 +518,12 @@ func TestFailureUnknownError(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 }
 
@@ -570,13 +594,12 @@ func TestFailureUplinkSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 }
 
@@ -954,4 +977,27 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	return nil, nil
+}
+
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
+	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
+	require.NoError(t, err)
+
+	return node.Disqualified != nil
+}
+
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
+	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		IsUp:         true,
+		AuditSuccess: false,
+		AuditLambda:  0,
+		AuditWeight:  1,
+		AuditDQ:      0.5,
+		UptimeLambda: 1,
+		UptimeWeight: 1,
+		UptimeDQ:     0.5,
+	})
+	require.NoError(t, err)
+	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

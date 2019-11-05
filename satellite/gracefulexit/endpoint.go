@@ -204,6 +204,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		endpoint.connections.delete(nodeID)
 	}()
 
+	// check if node is disqualified
+	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	}
+	if nodeInfo.Disqualified != nil {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
+	}
+
 	eofHandler := func(err error) error {
 		if err == io.EOF {
 			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
@@ -343,6 +352,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		// if there are no more transfers and the pending queue is empty, send complete
 		if !morePiecesFlag && pendingCount == 0 {
 			processMu.Unlock()
+
+			// check if node is disqualified
+			nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+			}
+			if nodeInfo.Disqualified != nil {
+				return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
+			}
 
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
