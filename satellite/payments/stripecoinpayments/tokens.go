@@ -6,6 +6,7 @@ package stripecoinpayments
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -79,4 +80,49 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		Status:    payments.TransactionStatusPending,
 		CreatedAt: cpTX.CreatedAt,
 	}, nil
+}
+
+// ListTransactionInfos fetches all transactions from the database for specified user, reconstructing checkout link.
+func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid.UUID) (_ []payments.TransactionInfo, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	txs, err := tokens.service.db.Transactions().ListAccount(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var infos []payments.TransactionInfo
+	for _, tx := range txs {
+		link := coinpayments.GetCheckoutURL(tx.Key, tx.ID)
+
+		var status payments.TransactionStatus
+		switch tx.Status {
+		case coinpayments.StatusPending:
+			status = payments.TransactionStatusPending
+		case coinpayments.StatusReceived:
+			status = payments.TransactionStatusPaid
+		case coinpayments.StatusCancelled:
+			status = payments.TransactionStatusCancelled
+		default:
+			// unknown
+			status = payments.TransactionStatus(tx.Status.String())
+		}
+
+		infos = append(infos,
+			payments.TransactionInfo{
+				ID:       []byte(tx.ID),
+				Amount:   tx.Amount,
+				Received: tx.Received,
+				Address:  tx.Address,
+				Status:   status,
+				Link:     link,
+				// CoinPayments deposit transaction expires in an hour after creation.
+				// TODO: decide if it's better to calculate expiration time during tx creation, or updating.
+				ExpiresAt: tx.CreatedAt.Add(time.Hour),
+				CreatedAt: tx.CreatedAt,
+			},
+		)
+	}
+
+	return infos, nil
 }

@@ -15,11 +15,18 @@ import (
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount.
 	Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (*Transaction, error)
+	// ListTransactionInfos returns all transaction associated with user.
+	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 }
 
 // TransactionStatus defines allowed statuses
 // for deposit transactions.
 type TransactionStatus string
+
+// String returns string representation of transaction status.
+func (status TransactionStatus) String() string {
+	return string(status)
+}
 
 const (
 	// TransactionStatusPaid is a transaction which successfully received required funds.
@@ -33,6 +40,11 @@ const (
 // TransactionID is a transaction ID type.
 type TransactionID []byte
 
+// String returns string representation of transaction id.
+func (id TransactionID) String() string {
+	return string(id)
+}
+
 // Transaction defines deposit transaction which
 // accepts user funds on a specific wallet address.
 type Transaction struct {
@@ -42,5 +54,18 @@ type Transaction struct {
 	Received  big.Float
 	Address   string
 	Status    TransactionStatus
+	CreatedAt time.Time
+}
+
+// TransactionInfo holds transaction data with additional information
+// such as links and expiration time.
+type TransactionInfo struct {
+	ID        TransactionID
+	Amount    big.Float
+	Received  big.Float
+	Address   string
+	Status    TransactionStatus
+	Link      string
+	ExpiresAt time.Time
 	CreatedAt time.Time
 }
