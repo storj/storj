@@ -155,13 +155,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	var userIdResponse struct {
+	var userIDResponse struct {
 		UserID uuid.UUID `json:"userId"`
 	}
 
-	userIdResponse.UserID = user.ID
+	userIDResponse.UserID = user.ID
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(&userIdResponse)
+	err = json.NewEncoder(w).Encode(&userIDResponse)
 	if err != nil {
 		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -218,7 +218,6 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.PartnerID = auth.User.PartnerID
 
 	w.Header().Set("Content-Type", "application/json")
-
 	err = json.NewEncoder(w).Encode(&user)
 	if err != nil {
 		a.log.Error("could not encode user info", zap.Error(ErrAuthAPI.Wrap(err)))
