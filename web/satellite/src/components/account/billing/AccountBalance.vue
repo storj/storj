@@ -90,7 +90,7 @@ export default class AccountBalance extends Vue {
         align-items: center;
         justify-content: space-between;
         padding: 40px;
-        margin-bottom: 32px;
+        margin: 55px 0 32px 0;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
