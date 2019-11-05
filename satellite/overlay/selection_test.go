@@ -4,7 +4,6 @@
 package overlay_test
 
 import (
-	"fmt"
 	"runtime"
 	"testing"
 	"time"
@@ -310,7 +309,7 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			// will create 3 storage nodes with same IP; 2 will have unique
-			NewIPCount: 2,
+			UniqueIPCount: 2,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -345,10 +344,6 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 			ExcludedNodes:        excludedNodes,
 		}
 		nodes, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
-		fmt.Println("len nodes", len(nodes))
-		for _, node := range nodes {
-			fmt.Println("node ip", node.LastIp)
-		}
 		require.Error(t, err)
 	})
 }
@@ -360,7 +355,7 @@ func TestDistinctIPs(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewIPCount: 3,
+			UniqueIPCount: 3,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -390,7 +385,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewIPCount: 3,
+			UniqueIPCount: 3,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
