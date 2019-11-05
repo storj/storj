@@ -1362,7 +1362,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.db,
-				Description: "Add payments update balance intents",
+				Description: "Add stripecoinpayments_invoice_project_records",
 				Version:     65,
 				Action: migrate.SQL{
 					`CREATE TABLE stripecoinpayments_invoice_project_records (
