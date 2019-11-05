@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 
 	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
@@ -107,6 +108,9 @@ type Config struct {
 	LiveAccounting live.Config
 
 	Mail    mailservice.Config
+
+	Payments paymentsconfig.Config
+
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
