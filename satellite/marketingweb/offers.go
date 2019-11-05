@@ -88,6 +88,7 @@ func (server *Server) createPartnerSet() PartnerSet {
 	all, err := server.partners.All(context.TODO()) // TODO: don't ignore error
 	if err != nil {
 		server.log.Error("failed to load all partners", zap.Error(err))
+		return nil
 	}
 
 	var ps PartnerSet
