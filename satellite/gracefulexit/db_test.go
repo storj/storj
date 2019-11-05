@@ -109,8 +109,11 @@ func TestTransferQueueItem(t *testing.T) {
 			for _, tqi := range items {
 				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
+				require.Equal(t, tqi.RootPieceID, item.RootPieceID)
+				require.Equal(t, tqi.DurabilityRatio, item.DurabilityRatio)
 
 				now := time.Now().UTC()
+				item.RootPieceID = testrand.PieceID()
 				item.DurabilityRatio = 1.2
 				item.RequestedAt = &now
 
@@ -119,6 +122,7 @@ func TestTransferQueueItem(t *testing.T) {
 
 				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
+
 				require.Equal(t, item.RootPieceID, latestItem.RootPieceID)
 				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
 				require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
@@ -145,7 +149,6 @@ func TestTransferQueueItem(t *testing.T) {
 			for _, queueItem := range queueItems {
 				require.Equal(t, nodeID1, queueItem.NodeID)
 				require.Equal(t, path2, queueItem.Path)
-				require.Equal(t, rootPieceID2, queueItem.RootPieceID)
 			}
 		}
 
