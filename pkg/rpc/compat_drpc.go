@@ -44,9 +44,6 @@ type (
 	// OverlayInspectorClient is an alias to the drpc client interface
 	OverlayInspectorClient = pb.DRPCOverlayInspectorClient
 
-	// PaymentsClient is an alias to the drpc client interface
-	PaymentsClient = pb.DRPCPaymentsClient
-
 	// PieceStoreInspectorClient is an alias to the drpc client interface
 	PieceStoreInspectorClient = pb.DRPCPieceStoreInspectorClient
 
@@ -158,16 +155,6 @@ func NewOverlayInspectorClient(rc *RawConn) OverlayInspectorClient {
 // OverlayInspectorClient returns a OverlayInspectorClient for this connection
 func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
-}
-
-// NewPaymentsClient returns the drpc version of a PaymentsClient
-func NewPaymentsClient(rc *RawConn) PaymentsClient {
-	return pb.NewDRPCPaymentsClient(rc)
-}
-
-// PaymentsClient returns a PaymentsClient for this connection
-func (c *Conn) PaymentsClient() PaymentsClient {
-	return NewPaymentsClient(c.raw)
 }
 
 // NewPieceStoreInspectorClient returns the drpc version of a PieceStoreInspectorClient

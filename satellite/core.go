@@ -100,7 +100,7 @@ type Core struct {
 
 	Payments struct {
 		Accounts payments.Accounts
-		Chore    *stripecoinpayments.Chore
+		Clearing payments.Clearing
 	}
 
 	GracefulExit struct {
@@ -299,12 +299,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
 				config.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects())
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.StripeCoinPayments().Transactions())
 
 			peer.Payments.Accounts = service.Accounts()
-
-			peer.Payments.Chore = stripecoinpayments.NewChore(
+			peer.Payments.Clearing = stripecoinpayments.NewChore(
 				peer.Log.Named("stripecoinpayments clearing loop"),
 				service,
 				config.StripeCoinPayments.TransactionUpdateInterval,

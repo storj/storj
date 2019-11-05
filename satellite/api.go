@@ -108,8 +108,8 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts  payments.Accounts
-		Inspector *stripecoinpayments.Endpoint
+		Accounts payments.Accounts
+		Clearing payments.Clearing
 	}
 
 	Console struct {
@@ -372,14 +372,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
 				config.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects())
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.StripeCoinPayments().Transactions())
 
 			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
-
-			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
-			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+			peer.Payments.Clearing = stripecoinpayments.NewChore(
+				peer.Log.Named("stripecoinpayments clearing loop"),
+				service,
+				config.StripeCoinPayments.TransactionUpdateInterval,
+				config.StripeCoinPayments.AccountBalanceUpdateInterval)
 		}
 	}
 
