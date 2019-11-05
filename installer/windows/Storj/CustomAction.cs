@@ -63,33 +63,21 @@ namespace Storj
         {
             string wallet = session["STORJ_WALLET"];
 
-            if (string.IsNullOrEmpty(wallet))
+            try
             {
-                session["STORJ_WALLET_VALID"] = "The payout address cannot be empty.";
+                CustomActionRunner.ValidateWallet(wallet);
+            } catch (ArgumentException e)
+            {
+                // Wallet is invalid
+                session["STORJ_WALLET_VALID"] = e.Message;
                 return ActionResult.Success;
             }
-
-            if (!wallet.StartsWith("0x"))
-            {
-                session["STORJ_WALLET_VALID"] = "The payout address must start with a '0x' prefix.";
-                return ActionResult.Success;
-            }
-
-            // Remove 0x prefix
-            wallet = wallet.Substring(2);
-
-            if (wallet.Length != 40)
-            {
-                session["STORJ_WALLET_VALID"] = "The payout address must have 40 characters after the '0x' prefix.";
-                return ActionResult.Success;
-            }
-
-            // TODO validate address checksum
 
             // Wallet is valid
             session["STORJ_WALLET_VALID"] = "1";
             return ActionResult.Success;
         }
+
         [CustomAction]
         public static ActionResult ValidateStorageDir(Session session)
         {
@@ -199,4 +187,32 @@ namespace Storj
             return ActionResult.Success;
         }
     }
+
+    public class CustomActionRunner
+    {
+        public static void ValidateWallet(string wallet)
+        {
+            if (string.IsNullOrEmpty(wallet))
+            {
+                throw new ArgumentException("The payout address cannot be empty.");
+            }
+
+            if (!wallet.StartsWith("0x"))
+            {
+                throw new ArgumentException("The payout address must start with a '0x' prefix.");
+            }
+
+            // Remove 0x prefix
+            wallet = wallet.Substring(2);
+
+            if (wallet.Length != 40)
+            {
+                throw new ArgumentException("The payout address must have 40 characters after the '0x' prefix.");
+            }
+
+            // TODO validate address checksum
+        }
+    }
+
+
 }
