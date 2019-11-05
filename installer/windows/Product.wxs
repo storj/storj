@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
-  <Product Id="{E97D368F-CB18-45B5-8799-1EBB10728A99}" Name="Storj V3 Storage Node" Language="1033" Version="0.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
+  <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="!(bind.FileVersion.Storagenodeexe)" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute"/>
     <MediaTemplate EmbedCab="yes" />
     
     <Feature Id="ProductFeature" Title="Storage Node" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
-    
+
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="StorjFolder" Name="Storj">
@@ -57,14 +57,11 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
           />
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
       </Component>
       
-      <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">
-        <RemoveFile Id="ConfigFile" Name="config.yaml" On="uninstall" />
-      </Component>
       <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}" Win64="yes">
         <!-- We use a standard shortcut to 'cmd.exe /C "start http://localhost:14002"' instead of util:InternetShortcut, 
              so it appears as an App Shortcut with icon in the Windows Start Menu. In contrast, InternetShortcut does
@@ -77,18 +74,21 @@
         <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
-    
+ 
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
-
     <Property Id="STORJ_DEFAULTIDENTITYDIR">
-        <DirectorySearch Id='search1' Path='[PersonalFolder]' />
-        <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
+      <DirectorySearch Id='search1' Path='[PersonalFolder]' />
+      <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
+    </Property>
+    <Property Id="STORJ_SERVICE_COMMAND">
+      <RegistrySearch Id="ServiceCommand" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\storagenode" Name="ImagePath" Type="raw" />
     </Property>
     <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
+    <SetDirectory Action="SetInstallFolder" Id="INSTALLFOLDER" Value="[STORJ_INSTALLDIR]" Sequence="execute">WIX_UPGRADE_DETECTED</SetDirectory>
 
     <UIRef Id="CustomInstallDir" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
@@ -98,7 +98,7 @@
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
     <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.png" />
 
     <Property Id="WixShellExecTarget" Value='http://localhost:14002' />
     <CustomAction Id="LaunchSNOBoard" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
@@ -106,10 +106,24 @@
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;"
-    />
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
+
+    <CustomAction Id="DeleteConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" Impersonate="no" />
+
+    <CustomAction Id="ExtractInstallDir" BinaryKey="StorjDLL" DllEntry="ExtractInstallDir" Execute="immediate" Return="check" />
+    <CustomAction Id="BackupConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="check" Impersonate="no" />
+    <CustomAction Id="RestoreConfigFile" Directory='INSTALLFOLDER'
+                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="check" Impersonate="no" />
+
     <InstallExecuteSequence>
-      <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed</Custom>
+      <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action='DeleteConfigFile' After='RemoveFiles'>(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
+      <!-- legacy: save config file as old versions of the installer will remove it -->
+      <Custom Action='ExtractInstallDir' Before='SetInstallFolder'>WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action='BackupConfigFile' Before='InstallExecute'>WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action='RestoreConfigFile' After='RemoveExistingProducts'>WIX_UPGRADE_DETECTED</Custom>
     </InstallExecuteSequence>
   </Product>
 </Wix>

@@ -11,6 +11,10 @@ import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSe
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
+import LogoIcon from '@/../static/images/header/logo.svg';
+import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
+import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
+
 import AccountButton from './AccountButton.vue';
 
 @Component({
@@ -20,6 +24,9 @@ import AccountButton from './AccountButton.vue';
         NewProjectArea,
         AccountButton,
         NavigationArea,
+        NavigationMenuIcon,
+        NavigationCloseIcon,
+        LogoIcon,
     },
 })
 export default class DashboardHeader extends Vue {

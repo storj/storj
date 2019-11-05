@@ -6,6 +6,7 @@ package pieces_test
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"io"
 	"io/ioutil"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
@@ -179,6 +181,124 @@ func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.Store, sa
 	require.NoError(t, err)
 	verifyPieceHandle(t, reader, expectDataLen, expectTime, expectFormat)
 	require.NoError(t, reader.Close())
+}
+
+func TestPieceVersionMigrate(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		const pieceSize = 1024
+
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		var (
+			data        = testrand.Bytes(pieceSize)
+			satelliteID = testrand.NodeID()
+			pieceID     = testrand.PieceID()
+			now         = time.Now().UTC()
+		)
+
+		// Initialize pub/priv keys for signing piece hash
+		publicKeyBytes, err := hex.DecodeString("01eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+		require.NoError(t, err)
+		privateKeyBytes, err := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+		require.NoError(t, err)
+		publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+		require.NoError(t, err)
+		privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+		require.NoError(t, err)
+
+		ol := &pb.OrderLimit{
+			SerialNumber:       testrand.SerialNumber(),
+			SatelliteId:        satelliteID,
+			StorageNodeId:      testrand.NodeID(),
+			PieceId:            pieceID,
+			SatelliteSignature: []byte("sig"),
+			Limit:              100,
+			Action:             pb.PieceAction_GET,
+			PieceExpiration:    now,
+			OrderExpiration:    now,
+			OrderCreation:      now,
+		}
+		olPieceInfo := *ol
+
+		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
+
+		blobs, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+		require.NoError(t, err)
+		defer ctx.Check(blobs.Close)
+
+		store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, nil, nil)
+
+		// write as a v0 piece
+		tStore := &pieces.StoreForTest{store}
+		writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, filestore.FormatV0)
+		require.NoError(t, err)
+		_, err = writer.Write(data)
+		require.NoError(t, err)
+		assert.Equal(t, int64(len(data)), writer.Size())
+		err = writer.Commit(ctx, &pb.PieceHeader{
+			Hash:         writer.Hash(),
+			CreationTime: now,
+			OrderLimit:   olPieceInfo,
+		})
+		require.NoError(t, err)
+
+		// Create PieceHash from the v0 piece written
+		ph := &pb.PieceHash{
+			PieceId:   pieceID,
+			Hash:      writer.Hash(),
+			PieceSize: writer.Size(),
+			Timestamp: now,
+		}
+
+		// sign v0 pice hash
+		signedPhPieceInfo, err := signing.SignUplinkPieceHash(ctx, privateKey, ph)
+		require.NoError(t, err)
+
+		// Create v0 pieces.Info and add to v0 store
+		pieceInfo := pieces.Info{
+			SatelliteID:     satelliteID,
+			PieceID:         pieceID,
+			PieceSize:       writer.Size(),
+			OrderLimit:      &olPieceInfo,
+			PieceCreation:   now,
+			UplinkPieceHash: signedPhPieceInfo,
+		}
+		require.NoError(t, v0PieceInfo.Add(ctx, &pieceInfo))
+
+		// verify piece can be opened as v0
+		tryOpeningAPiece(ctx, t, store, satelliteID, pieceID, len(data), now, filestore.FormatV0)
+
+		// run migration
+		require.NoError(t, store.MigrateV0ToV1(ctx, satelliteID, pieceID))
+
+		// open as v1 piece
+		tryOpeningAPiece(ctx, t, store, satelliteID, pieceID, len(data), now, filestore.FormatV1)
+
+		// manually read v1 piece
+		reader, err := store.ReaderWithStorageFormat(ctx, satelliteID, pieceID, filestore.FormatV1)
+		require.NoError(t, err)
+
+		// generate v1 pieceHash and verify signature is still valid
+		v1Header, err := reader.GetPieceHeader()
+		require.NoError(t, err)
+		v1PieceHash := pb.PieceHash{
+			PieceId:   v1Header.OrderLimit.PieceId,
+			Hash:      v1Header.GetHash(),
+			PieceSize: reader.Size(),
+			Timestamp: v1Header.GetCreationTime(),
+			Signature: v1Header.GetSignature(),
+		}
+		require.NoError(t, signing.VerifyUplinkPieceHashSignature(ctx, publicKey, &v1PieceHash))
+		require.Equal(t, signedPhPieceInfo.GetSignature(), v1PieceHash.GetSignature())
+		require.Equal(t, *ol, v1Header.OrderLimit)
+
+		// Verify that it was deleted from v0PieceInfo
+		retrivedInfo, err := v0PieceInfo.Get(ctx, satelliteID, pieceID)
+		require.Error(t, err)
+		require.Nil(t, retrivedInfo)
+	})
 }
 
 // Test that the piece store can still read V0 pieces that might be left over from a previous

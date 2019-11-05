@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
@@ -79,15 +80,36 @@ var (
 		Args:  cobra.MinimumNArgs(4),
 		RunE:  SegmentHealth,
 	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments",
+		Short: "commands for payments",
+	}
+	prepareInvoiceRecordsCmd = &cobra.Command{
+		Use:   "prepare-invoice-records <period>",
+		Short: "Prepares invoice project records that will be used during invoice line items creation",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  prepareInvoiceRecords,
+	}
+	createInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-invoice-items",
+		Short: "Creates stripe invoice line items for not consumed project records",
+		RunE:  createInvoiceItems,
+	}
+	createInvoicesCmd = &cobra.Command{
+		Use:   "create-invoices",
+		Short: "Creates stripe invoices for all stripe customers known to satellite",
+		RunE:  createInvoices,
+	}
 )
 
 // Inspector gives access to overlay.
 type Inspector struct {
-	conn          *rpc.Conn
-	identity      *identity.FullIdentity
-	overlayclient rpc.OverlayInspectorClient
-	irrdbclient   rpc.IrreparableInspectorClient
-	healthclient  rpc.HealthInspectorClient
+	conn           *rpc.Conn
+	identity       *identity.FullIdentity
+	overlayclient  rpc.OverlayInspectorClient
+	irrdbclient    rpc.IrreparableInspectorClient
+	healthclient   rpc.HealthInspectorClient
+	paymentsClient rpc.PaymentsClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to overlay.
@@ -108,11 +130,12 @@ func NewInspector(address, path string) (*Inspector, error) {
 	}
 
 	return &Inspector{
-		conn:          conn,
-		identity:      id,
-		overlayclient: conn.OverlayInspectorClient(),
-		irrdbclient:   conn.IrreparableInspectorClient(),
-		healthclient:  conn.HealthInspectorClient(),
+		conn:           conn,
+		identity:       id,
+		overlayclient:  conn.OverlayInspectorClient(),
+		irrdbclient:    conn.IrreparableInspectorClient(),
+		healthclient:   conn.HealthInspectorClient(),
+		paymentsClient: conn.PaymentsClient(),
 	}, nil
 }
 
@@ -423,13 +446,103 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 	return objects
 }
 
+func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.PrepareInvoiceRecords(context.Background(),
+		&pb.PrepareInvoiceRecordsRequest{
+			Period: period,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice project records")
+	return nil
+}
+
+func createInvoiceItems(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.ApplyInvoiceRecords(context.Background(), &pb.ApplyInvoiceRecordsRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice line items")
+	return nil
+}
+
+func createInvoices(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.CreateInvoices(context.Background(), &pb.CreateInvoicesRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoices")
+	return nil
+}
+
+// parseDateString parses provided date string and returns corresponding time.Time.
+func parseDateString(s string) (time.Time, error) {
+	values := strings.Split(s, "/")
+
+	if len(values) != 2 {
+		return time.Time{}, errs.New("invalid date format %s, use mm/yyyy", s)
+	}
+
+	month, err := strconv.ParseInt(values[0], 10, 64)
+	if err != nil {
+		return time.Time{}, errs.New("can not parse month: %v", err)
+	}
+	year, err := strconv.ParseInt(values[1], 10, 64)
+	if err != nil {
+		return time.Time{}, errs.New("can not parse year: %v", err)
+	}
+
+	date := time.Date(int(year), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	if date.Year() != int(year) || date.Month() != time.Month(month) || date.Day() != 1 {
+		return date, errs.New("dates mismatch have %s result %s", s, date)
+	}
+
+	return date, nil
+}
+
 func init() {
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
+	rootCmd.AddCommand(paymentsCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
+
+	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
+	paymentsCmd.AddCommand(createInvoiceItemsCmd)
+	paymentsCmd.AddCommand(createInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
 
