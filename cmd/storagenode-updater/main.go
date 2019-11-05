@@ -168,26 +168,26 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 
 	client := checker.New(runCfg.ClientConfig)
 	log.Println("downloading versions from", runCfg.ServerAddress)
-	shouldUpdate, newVersion, err := client.ShouldUpdate(ctx, serviceName, nodeID)
+	processVersion, err := client.Process(ctx, serviceName)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	if shouldUpdate {
-		// TODO: consolidate semver.Version and version.SemVer
-		suggestedVersion, err := newVersion.SemVer()
-		if err != nil {
-			return errs.Wrap(err)
-		}
+	// TODO: consolidate semver.Version and version.SemVer
+	suggestedVersion, err := processVersion.Suggested.SemVer()
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
-		if currentVersion.Compare(suggestedVersion) < 0 {
+	if currentVersion.Compare(suggestedVersion) < 0 {
+		if version.ShouldUpdate(processVersion.Rollout, nodeID) {
 			tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
 			if err != nil {
 				return errs.New("cannot create temporary archive: %v", err)
 			}
 			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
 
-			downloadURL := parseDownloadURL(newVersion.URL)
+			downloadURL := parseDownloadURL(processVersion.Suggested.URL)
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
 			err = downloadArchive(ctx, tempArchive, downloadURL)
 			if err != nil {
