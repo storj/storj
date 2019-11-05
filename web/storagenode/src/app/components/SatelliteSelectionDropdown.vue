@@ -4,6 +4,11 @@
 <template>
     <div class="satellite-selection-choice-container" id="satelliteDropdown">
         <div class="satellite-selection-overflow-container">
+            <div class="satellite-selection-choice-container__all-satellites">
+                <div class="satellite-selection-overflow-container__satellite-choice" @click.stop="onSatelliteClick(null)">
+                    <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
+                </div>
+            </div>
             <!-- loop for rendering satellites -->
             <div class="satellite-selection-overflow-container__satellite-choice"
                 v-for="satellite in satellites" :key="satellite.id"
@@ -14,11 +19,6 @@
                     alt="disqualified image"
                 />
                 <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.id}}</p>
-            </div>
-            <div class="satellite-selection-choice-container__all-satellites">
-                <div class="satellite-selection-overflow-container__satellite-choice" @click.stop="onSatelliteClick(null)">
-                    <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
-                </div>
             </div>
         </div>
     </div>
