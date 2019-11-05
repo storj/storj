@@ -18,10 +18,10 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import DashboardArea from '@/views/DashboardArea.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import LoginArea from '@/views/login/LoginArea.vue';
-import RegisterArea from '@/views/register/RegisterArea.vue';
+const DashboardArea = () => import('@/views/DashboardArea.vue');
+const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const LoginArea = () => import('@/views/login/LoginArea.vue');
+const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 
 Vue.use(Router);
 
