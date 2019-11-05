@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that projects implements console.Projects.
+var _ console.Projects = (*projects)(nil)
+
 // implementation of Projects interface repository using spacemonkeygo/dbx orm
 type projects struct {
 	db dbx.Methods

@@ -24,13 +24,6 @@
                     {{balance}}
                 </b>
             </span>
-            <VButton
-                class="button"
-                label="Earn Credits"
-                width="153px"
-                height="48px"
-                :on-press="onEarnCredits"
-            />
         </div>
     </div>
 </template>
@@ -38,7 +31,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -51,13 +43,12 @@ const {
 @Component({
     components: {
         VInfo,
-        VButton,
     },
 })
 export default class AccountBalance extends Vue {
     public mounted() {
         try {
-            // this.$store.dispatch(GET_BALANCE);
+            this.$store.dispatch(GET_BALANCE);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
@@ -92,14 +83,6 @@ export default class AccountBalance extends Vue {
     span {
         margin: 0;
         color: #354049;
-    }
-
-    .button {
-
-        &:hover {
-            background-color: #0059d0;
-            box-shadow: none;
-        }
     }
 
     .account-balance-area {
@@ -146,7 +129,6 @@ export default class AccountBalance extends Vue {
             align-items: center;
 
             &__balance {
-                margin-right: 27px;
                 font-size: 18px;
                 color: rgba(53, 64, 73, 0.5);
 

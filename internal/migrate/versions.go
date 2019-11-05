@@ -14,6 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	// ErrValidateVersionQuery is when there is an error querying version table
+	ErrValidateVersionQuery = errs.Class("validate db version query error")
+	// ErrValidateVersionMismatch is when the migration version does not match the current database version
+	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
+)
+
 /*
 
 Scenarios it doesn't handle properly.
@@ -79,7 +86,7 @@ func (migration *Migration) ValidTableName() error {
 	return nil
 }
 
-// ValidateSteps checks whether the specified table name is valid
+// ValidateSteps checks that the version for each migration step increments in order
 func (migration *Migration) ValidateSteps() error {
 	sorted := sort.SliceIsSorted(migration.Steps, func(i, j int) bool {
 		return migration.Steps[i].Version <= migration.Steps[j].Version
@@ -87,6 +94,29 @@ func (migration *Migration) ValidateSteps() error {
 	if !sorted {
 		return Error.New("steps have incorrect order")
 	}
+	return nil
+}
+
+// ValidateVersions checks that the version of the migration matches the state of the database
+func (migration *Migration) ValidateVersions(log *zap.Logger) error {
+	for _, step := range migration.Steps {
+		dbVersion, err := migration.getLatestVersion(log, step.DB)
+		if err != nil {
+			return ErrValidateVersionQuery.Wrap(err)
+		}
+
+		if step.Version > dbVersion {
+			return ErrValidateVersionMismatch.New("expected %d <= %d", step.Version, dbVersion)
+		}
+	}
+
+	if len(migration.Steps) > 0 {
+		last := migration.Steps[len(migration.Steps)-1]
+		log.Debug("Database version is up to date", zap.Int("version", last.Version))
+	} else {
+		log.Debug("No Versions")
+	}
+
 	return nil
 }
 
