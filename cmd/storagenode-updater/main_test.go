@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,6 +23,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -194,14 +194,10 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 	ts := httptest.NewServer(&mux)
 
 	var randSeed version.RolloutBytes
-	_, err := rand.Read(randSeed[:])
-	require.NoError(t, err)
-
+	testrand.Read(randSeed[:])
 	storagenodeSeed := fmt.Sprintf("%x", randSeed)
 
-	_, err = rand.Read(randSeed[:])
-	require.NoError(t, err)
-
+	testrand.Read(randSeed[:])
 	updaterSeed := fmt.Sprintf("%x", randSeed)
 
 	config := &versioncontrol.Config{
