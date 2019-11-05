@@ -25,6 +25,8 @@ var (
 	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
 	// ErrCount is used when attempting to create an invalid number of authorizations.
 	ErrCount = ErrDB.New("cannot add less than one authorizations")
+	// ErrAuthorizationNotFound is used when there is no matching authorization in the DB for a given userID and token.
+	ErrAuthorizationNotFound = ErrDB.New("authorization not found")
 	// ErrDBInternal is used when an internal error occurs involving the authorization database.
 	ErrDBInternal = errs.Class("internal authorization db error")
 )
@@ -122,6 +124,9 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
+	if storage.ErrKeyNotFound.Has(err) {
+		return nil, ErrAuthorizationNotFound
+	}
 	if err != nil {
 		return nil, ErrDBInternal.Wrap(err)
 	}
@@ -205,8 +210,10 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		return err
 	}
 
+	foundMatch := false
 	for i, auth := range auths {
 		if auth.Token.Equal(token) {
+			foundMatch = true
 			if auth.Claim != nil {
 				return ErrDB.New("authorization has already been claimed: %s", auth.String())
 			}
@@ -225,6 +232,9 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 			}
 			break
 		}
+	}
+	if !foundMatch {
+		return ErrAuthorizationNotFound
 	}
 
 	mon.Meter("authorization_claim").Mark(1)
