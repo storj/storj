@@ -6,6 +6,8 @@ package stripecoinpayments
 import (
 	"context"
 
+	"storj.io/storj/pkg/rpc/rpcstatus"
+
 	"storj.io/storj/pkg/pb"
 )
 
@@ -25,7 +27,7 @@ func (endpoint *Endpoint) PrepareInvoiceRecords(ctx context.Context, req *pb.Pre
 
 	err = endpoint.service.PrepareInvoiceProjectRecords(ctx, req.Period)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return &pb.PrepareInvoiceRecordsResponse{}, nil
@@ -37,7 +39,7 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 
 	err = endpoint.service.InvoiceApplyProjectRecords(ctx)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return &pb.ApplyInvoiceRecordsResponse{}, nil
@@ -49,7 +51,7 @@ func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvo
 
 	err = endpoint.service.CreateInvoices(ctx)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return &pb.CreateInvoicesResponse{}, nil
