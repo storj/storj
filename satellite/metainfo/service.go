@@ -101,7 +101,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			for _, piece := range toAdd {
 				_, ok := nodePieceMap[piece.NodeId]
 				if ok {
-					return nil, ErrNodeAlreadyExists.New("node id already exists in piece. Path: %s, NodeID: %s", path, piece.NodeId.String())
+					return nil, ErrNodeAlreadyExists.New("node id already exists in pointer. Path: %s, NodeID: %s", path, piece.NodeId.String())
 				}
 				nodePieceMap[piece.NodeId] = struct{}{}
 			}
