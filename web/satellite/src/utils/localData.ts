@@ -11,12 +11,11 @@ export class LocalData {
         return localStorage.getItem(key);
     }
 
-    public static set(key: string, id: string) {
-        console.log(localStorage)
+    public static set(key: string, id: string): void {
         localStorage.setItem(key, id);
     }
 
-    public static remove(key: string) {
+    public static remove(key: string): void {
         localStorage.removeItem(key);
     }
 }
