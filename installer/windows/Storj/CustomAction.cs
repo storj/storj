@@ -2,6 +2,7 @@ using Microsoft.Deployment.WindowsInstaller;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Storj
 {
@@ -64,13 +65,13 @@ namespace Storj
 
             if (string.IsNullOrEmpty(wallet))
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address cannot be empty.";
+                session["STORJ_WALLET_VALID"] = "The payout address cannot be empty.";
                 return ActionResult.Success;
             }
 
             if (!wallet.StartsWith("0x"))
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address must start with a '0x' prefix.";
+                session["STORJ_WALLET_VALID"] = "The payout address must start with a '0x' prefix.";
                 return ActionResult.Success;
             }
 
@@ -79,7 +80,7 @@ namespace Storj
 
             if (wallet.Length != 40)
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address must have 40 characters after the '0x' prefix.";
+                session["STORJ_WALLET_VALID"] = "The payout address must have 40 characters after the '0x' prefix.";
                 return ActionResult.Success;
             }
 
@@ -180,6 +181,21 @@ namespace Storj
 
             // Allocated Bandwidth value is valid
             session["STORJ_BANDWIDTH_VALID"] = "1";
+            return ActionResult.Success;
+        }
+
+        [CustomAction]
+        public static ActionResult ExtractInstallDir(Session session)
+        {
+            string line = session["STORJ_SERVICE_COMMAND"];
+            session.Log($"ExtractInstallDir registry value: {line}");
+
+            Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
+            Match match = pattern.Match(line);
+            string path = match.Groups["installDir"].Value;
+            session.Log($"ExtractInstallDir extracted path: {path}");
+
+            session["STORJ_INSTALLDIR"] = path;
             return ActionResult.Success;
         }
     }

@@ -44,6 +44,8 @@ var (
 	mon = monkit.Package()
 	// Error general metainfo error
 	Error = errs.Class("metainfo error")
+	// ErrNodeAlreadyExists pointer already has a piece for a node err
+	ErrNodeAlreadyExists = errs.Class("metainfo error: node already exists")
 )
 
 // APIKeys is api keys store methods used by endpoint
@@ -1269,7 +1271,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
-		EncryptedPath: []byte{},
+		EncryptedPath: req.EncryptedPrefix,
 		Time:          time.Now(),
 	})
 	if err != nil {

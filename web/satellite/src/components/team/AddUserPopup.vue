@@ -85,7 +85,7 @@ import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
@@ -158,7 +158,7 @@ export default class AddUserPopup extends Vue {
         }
 
         if (emailArray.includes(this.$store.state.usersModule.email)) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. You can't add yourself to the project`);
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
             this.isLoading = false;
 
             return;
@@ -167,19 +167,19 @@ export default class AddUserPopup extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${error.message}`);
+            await this.$notify.error(`Error during adding project members. ${error.message}`);
             this.isLoading = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+        await this.$notify.success('Members successfully added to project!');
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
@@ -259,7 +259,7 @@ export default class AddUserPopup extends Vue {
         justify-content: center;
         align-items: center;
         flex-direction: column;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
     }
 
     .add-user-row {
@@ -278,7 +278,7 @@ export default class AddUserPopup extends Vue {
             }
 
             &__label {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 margin-left: 0;
                 padding-left: 0;
@@ -289,7 +289,6 @@ export default class AddUserPopup extends Vue {
             &:first-child {
                 cursor: pointer;
                 -webkit-user-select: none;
-                -khtml-user-select: none;
                 -moz-user-select: none;
                 -ms-user-select: none;
                 user-select: none;
@@ -299,7 +298,7 @@ export default class AddUserPopup extends Vue {
 
     .inactive-label {
         cursor: default;
-        color: #DADDE5;
+        color: #dadde5;
     }
 
     .error-input {
@@ -312,11 +311,11 @@ export default class AddUserPopup extends Vue {
         .add-user-row__item__image {
 
             &__rect {
-                fill: #DADDE5;
+                fill: #dadde5;
             }
 
             &__path {
-                fill: #ACB0BC;
+                fill: #acb0bc;
             }
         }
     }
@@ -326,7 +325,7 @@ export default class AddUserPopup extends Vue {
     }
 
     .red {
-        background-color: #EB5757;
+        background-color: #eb5757;
     }
 
     .add-user {
@@ -347,7 +346,7 @@ export default class AddUserPopup extends Vue {
             align-items: flex-start;
             position: relative;
             justify-content: center;
-            background-color: #FFFFFF;
+            background-color: #fff;
             padding: 80px 20px 80px 60px;
             width: calc(100% - 80px);
         }
@@ -367,12 +366,13 @@ export default class AddUserPopup extends Vue {
             }
 
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
-                color: #384B65;
+                color: #384b65;
                 margin-top: 0;
                 width: 107%;
+                user-select: none;
             }
         }
 
@@ -394,7 +394,7 @@ export default class AddUserPopup extends Vue {
                 &__error {
                     margin: 0;
                     padding-left: 10px;
-                    color: #EB5757;
+                    color: #eb5757;
                 }
             }
 
@@ -430,7 +430,7 @@ export default class AddUserPopup extends Vue {
                         cursor: pointer;
 
                         &:hover .delete-input-svg-path {
-                            fill: #2683FF;
+                            fill: #2683ff;
                         }
                     }
                 }
@@ -446,10 +446,11 @@ export default class AddUserPopup extends Vue {
 
             &__common-label {
                 margin: 0 0 10px 0;
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
+                user-select: none;
             }
 
             &__button-container {
@@ -474,7 +475,7 @@ export default class AddUserPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
@@ -500,7 +501,7 @@ export default class AddUserPopup extends Vue {
             align-items: center;
 
             &__text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
             }
         }
@@ -511,6 +512,7 @@ export default class AddUserPopup extends Vue {
     }
 
     @media screen and (max-width: 1025px) {
+
         .add-user {
             padding: 10px;
             max-width: 1000px;

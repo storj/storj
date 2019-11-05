@@ -11,7 +11,7 @@
             />
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
-            <p class="sort-header-container__date-item__title">Created</p>
+            <p class="sort-header-container__date-item__title creation-date">Created</p>
             <VerticalArrows
                 :is-active="areApiKeysSortedByDate"
                 :direction="getSortDirection"
@@ -86,6 +86,15 @@ export default class SortApiKeysHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
+        user-select: none;
+
+        &__date-item {
+            width: 60%;
+
+            &__title {
+                margin: 0;
+            }
+        }
 
         &__name-item,
         &__date-item {
@@ -96,22 +105,14 @@ export default class SortApiKeysHeader extends Vue {
             cursor: pointer;
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 margin: 0 0 0 26px;
-                color: #2A2A32;
+                color: #2a2a32;
             }
 
-            &:nth-child(1) {
+            .creation-date {
                 margin-left: 0;
-            }
-        }
-
-        &__date-item {
-            width: 60%;
-
-            &__title {
-                margin: 0;
             }
         }
     }

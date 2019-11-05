@@ -18,10 +18,10 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import DashboardArea from '@/views/DashboardArea.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import LoginArea from '@/views/login/LoginArea.vue';
-import RegisterArea from '@/views/register/RegisterArea.vue';
+const DashboardArea = () => import('@/views/DashboardArea.vue');
+const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const LoginArea = () => import('@/views/login/LoginArea.vue');
+const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 
 Vue.use(Router);
 
@@ -51,7 +51,7 @@ export abstract class RouteConfig {
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
-const router = new Router({
+export const router = new Router({
     mode: 'history',
     routes: [
         {
@@ -185,5 +185,3 @@ router.beforeEach((to, from, next) => {
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
-
-export default router;

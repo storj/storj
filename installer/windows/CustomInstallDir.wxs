@@ -3,7 +3,7 @@
 Customized to collect user input for storage node config.
 
 First-time install dialog sequence:
- - WixUI_WelcomeDlg
+ - StorjWelcomeDlg
  - WixUI_LicenseAgreementDlg
  - InstallDirConfigDlg
  - IdentityDirDlg
@@ -58,8 +58,9 @@ Patch dialog sequence:
             <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
             <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
 
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed</Publish>
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed OR NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="StorjValidateUpgradeDlg">NOT Installed AND WIX_UPGRADE_DETECTED</Publish>
 
             <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg">1</Publish>
             <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="InstallDirConfigDlg">LicenseAccepted = "1"</Publish>
@@ -112,9 +113,9 @@ Patch dialog sequence:
             <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_BANDWIDTH_VALID<>"1"]]></Publish>
             <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_BANDWIDTH_VALID="1"</Publish>
           
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
 
             <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
 
