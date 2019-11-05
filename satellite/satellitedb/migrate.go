@@ -450,350 +450,214 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					// version: 0
 					`CREATE TABLE IF NOT EXISTS storagenode_storage_tallies (
-							id bigserial NOT NULL,
-							node_id bytea NOT NULL,
-							interval_end_time timestamp with time zone NOT NULL,
-							data_total double precision NOT NULL,
-							PRIMARY KEY ( id )
-						)`,
+						id bigserial NOT NULL,
+						node_id bytea NOT NULL,
+						interval_end_time timestamp with time zone NOT NULL,
+						data_total double precision NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS accounting_rollups (
-							id bigserial NOT NULL,
-							node_id bytea NOT NULL,
-							start_time timestamp with time zone NOT NULL,
-							put_total bigint NOT NULL,
-							get_total bigint NOT NULL,
-							get_audit_total bigint NOT NULL,
-							get_repair_total bigint NOT NULL,
-							put_repair_total bigint NOT NULL,
-							at_rest_total double precision NOT NULL,
-							PRIMARY KEY ( id )
-						)`,
+						id bigserial NOT NULL,
+						node_id bytea NOT NULL,
+						start_time timestamp with time zone NOT NULL,
+						put_total bigint NOT NULL,
+						get_total bigint NOT NULL,
+						get_audit_total bigint NOT NULL,
+						get_repair_total bigint NOT NULL,
+						put_repair_total bigint NOT NULL,
+						at_rest_total double precision NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS accounting_timestamps (
-							name text NOT NULL,
-							value timestamp with time zone NOT NULL,
-							PRIMARY KEY ( name )
-						)`,
+						name text NOT NULL,
+						value timestamp with time zone NOT NULL,
+						PRIMARY KEY ( name )
+					);`,
 					`CREATE TABLE IF NOT EXISTS injuredsegments (
-							data bytea NOT NULL,
-							path bytea NOT NULL,
-							attempted timestamp,
-							INDEX injuredsegments_attempted_index ( attempted ),
-							PRIMARY KEY ( path )
-						)`,
+						data bytea NOT NULL,
+						path bytea NOT NULL,
+						attempted timestamp,
+						INDEX injuredsegments_attempted_index ( attempted ),
+						PRIMARY KEY ( path )
+					);`,
 					`CREATE TABLE IF NOT EXISTS irreparabledbs (
-							segmentpath bytea NOT NULL,
-							segmentdetail bytea NOT NULL,
-							pieces_lost_count bigint NOT NULL,
-							seg_damaged_unix_sec bigint NOT NULL,
-							repair_attempt_count bigint NOT NULL,
-							PRIMARY KEY ( segmentpath )
-						)`,
+						segmentpath bytea NOT NULL,
+						segmentdetail bytea NOT NULL,
+						pieces_lost_count bigint NOT NULL,
+						seg_damaged_unix_sec bigint NOT NULL,
+						repair_attempt_count bigint NOT NULL,
+						PRIMARY KEY ( segmentpath )
+					);`,
 					`CREATE TABLE IF NOT EXISTS nodes (
-							id bytea NOT NULL,
-							audit_success_count bigint NOT NULL DEFAULT 0,
-							total_audit_count bigint NOT NULL DEFAULT 0,
-							uptime_success_count bigint NOT NULL,
-							total_uptime_count bigint NOT NULL,
-							wallet text NOT NULL DEFAULT '',
-							email text NOT NULL DEFAULT '',
-							address text NOT NULL DEFAULT '',
-							protocol INTEGER NOT NULL DEFAULT 0,
-							type INTEGER NOT NULL DEFAULT 0,
-							free_bandwidth BIGINT NOT NULL DEFAULT -1,
-							free_disk BIGINT NOT NULL DEFAULT -1,
-							latency_90 BIGINT NOT NULL DEFAULT 0,
-							last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
-							last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
-							created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-							updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-							major bigint NOT NULL DEFAULT 0,
-							minor bigint NOT NULL DEFAULT 0,
-							patch bigint NOT NULL DEFAULT 0,
-							hash TEXT NOT NULL DEFAULT '',
-							timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
-							release bool NOT NULL DEFAULT FALSE,
-							contained bool NOT NULL DEFAULT FALSE,
-							last_net text NOT NULL DEFAULT '',
-							disqualified timestamp,
-							audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-							audit_reputation_beta double precision NOT NULL DEFAULT 0,
-							uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
-							uptime_reputation_beta double precision NOT NULL DEFAULT 0,
-							INDEX node_last_ip (last_net),
-							piece_count BIGINT NOT NULL DEFAULT 0,
-							exit_loop_completed_at TIMESTAMP,
-							exit_initiated_at TIMESTAMP,
-							exit_finished_at TIMESTAMP,
-							exit_success boolean NOT NULL DEFAULT FALSE,
-							PRIMARY KEY ( id )
-						)`,
+						id bytea NOT NULL,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						uptime_success_count bigint NOT NULL,
+						total_uptime_count bigint NOT NULL,
+						wallet text NOT NULL DEFAULT '',
+						email text NOT NULL DEFAULT '',
+						address text NOT NULL DEFAULT '',
+						protocol INTEGER NOT NULL DEFAULT 0,
+						type INTEGER NOT NULL DEFAULT 0,
+						free_bandwidth BIGINT NOT NULL DEFAULT -1,
+						free_disk BIGINT NOT NULL DEFAULT -1,
+						latency_90 BIGINT NOT NULL DEFAULT 0,
+						last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
+						last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						major bigint NOT NULL DEFAULT 0,
+						minor bigint NOT NULL DEFAULT 0,
+						patch bigint NOT NULL DEFAULT 0,
+						hash TEXT NOT NULL DEFAULT '',
+						timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+						release bool NOT NULL DEFAULT FALSE,
+						contained bool NOT NULL DEFAULT FALSE,
+						last_net text NOT NULL DEFAULT '',
+						disqualified timestamp,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+						uptime_reputation_beta double precision NOT NULL DEFAULT 0,
+						piece_count BIGINT NOT NULL DEFAULT 0,
+						exit_loop_completed_at TIMESTAMP,
+						exit_initiated_at TIMESTAMP,
+						exit_finished_at TIMESTAMP,
+						exit_success boolean NOT NULL DEFAULT FALSE,
+						INDEX node_last_ip (last_net),
+						PRIMARY KEY ( id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS projects (
-							id bytea NOT NULL,
-							name text NOT NULL,
-							description text NOT NULL,
-							created_at timestamp with time zone NOT NULL,
-							usage_limit bigint NOT NULL DEFAULT 0,
-							partner_id BYTEA,
-							owner_id BYTEA NOT NULL,
-							PRIMARY KEY ( id )
-						)`,
+						id bytea NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						usage_limit bigint NOT NULL DEFAULT 0,
+						partner_id BYTEA,
+						owner_id BYTEA NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS users (
-							id bytea NOT NULL,
-							full_name text NOT NULL,
-							short_name text,
-							email text NOT NULL,
-							password_hash bytea NOT NULL,
-							status integer NOT NULL,
-							created_at timestamp with time zone NOT NULL,
-							partner_id BYTEA,
-							PRIMARY KEY ( id )
-						)`,
+						id bytea NOT NULL,
+						full_name text NOT NULL,
+						short_name text,
+						email text NOT NULL,
+						password_hash bytea NOT NULL,
+						status integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						partner_id BYTEA,
+						PRIMARY KEY ( id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS api_keys (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						head bytea NOT NULL,
+						head bytea NOT NULL UNIQUE,
 						name text NOT NULL,
 						secret bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						partner_id BYTEA,
 						normalized_email TEXT NOT NULL,
 						PRIMARY KEY ( id ),
-						UNIQUE ( head ),
 						UNIQUE ( name, project_id )
-						)`,
+					);`,
 					`CREATE TABLE IF NOT EXISTS project_members (
-							member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-							project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-							created_at timestamp with time zone NOT NULL,
-							PRIMARY KEY ( member_id, project_id )
-						)`,
-
-					// version: 1, bwagreements dropped
-					// `ALTER TABLE bwagreements RENAME COLUMN storage_node TO storage_node_id;`,
-					// `ALTER TABLE bwagreements ADD COLUMN uplink_id BYTEA;`,
-					// `ALTER TABLE bwagreements ALTER COLUMN uplink_id SET NOT NULL;`,
-					// `ALTER TABLE bwagreements DROP COLUMN data;`,
+						member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( member_id, project_id )
+					);`,
 
 					// version: 2
-					`DROP TABLE IF EXISTS bucket_infos CASCADE`,
-
-					// version: 3
-					// `CREATE TABLE IF NOT EXISTS certRecords (
-					// 		publickey bytea NOT NULL,
-					// 		id bytea NOT NULL,
-					// 		update_at timestamp with time zone NOT NULL,
-					// 		INDEX certrecord_id_update_at ( id, update_at ),
-					// 		PRIMARY KEY ( publickey )
-					// 	)`,
+					`DROP TABLE IF EXISTS bucket_infos CASCADE;`,
 
 					// version: 4, combined w/version 0
-					// `ALTER TABLE users ALTER COLUMN email SET NOT NULL;`,
-					// `ALTER TABLE users ADD COLUMN status INTEGER;`,
 					// todo: do we need this status set to something?
 					// `UPDATE users SET status = 1;`,
-					// `ALTER TABLE users ALTER COLUMN status SET NOT NULL;`,
-					// `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;`,
-
-					// version: 5, combined w/version 0
-					// `ALTER TABLE nodes ADD wallet TEXT;
-					// 	ALTER TABLE nodes ADD email TEXT;
-					// 	UPDATE nodes SET wallet = '';
-					// 	UPDATE nodes SET email = '';
-					// 	ALTER TABLE nodes ALTER COLUMN wallet SET NOT NULL;
-					// 	ALTER TABLE nodes ALTER COLUMN email SET NOT NULL;`,
 
 					// version: 6
 					`CREATE TABLE IF NOT EXISTS bucket_usages (
-							id bytea NOT NULL,
-							bucket_id bytea NOT NULL,
-							rollup_end_time timestamp with time zone NOT NULL,
-							remote_stored_data bigint NOT NULL,
-							inline_stored_data bigint NOT NULL,
-							remote_segments integer NOT NULL,
-							inline_segments integer NOT NULL,
-							objects integer NOT NULL,
-							metadata_size bigint NOT NULL,
-							repair_egress bigint NOT NULL,
-							get_egress bigint NOT NULL,
-							audit_egress bigint NOT NULL,
-							PRIMARY KEY ( id ),
-						)`,
-
-					// version: 7, bwagreements table dropped
-					// `CREATE INDEX IF NOT EXISTS bwa_created_at ON bwagreements (created_at)`,
+						id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						rollup_end_time timestamp with time zone NOT NULL,
+						remote_stored_data bigint NOT NULL,
+						inline_stored_data bigint NOT NULL,
+						remote_segments integer NOT NULL,
+						inline_segments integer NOT NULL,
+						objects integer NOT NULL,
+						metadata_size bigint NOT NULL,
+						repair_egress bigint NOT NULL,
+						get_egress bigint NOT NULL,
+						audit_egress bigint NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
 
 					// version: 8
 					`CREATE TABLE IF NOT EXISTS registration_tokens (
-							secret bytea NOT NULL,
-							owner_id bytea,
-							project_limit integer NOT NULL,
-							created_at timestamp with time zone NOT NULL,
-							PRIMARY KEY ( secret ),
-							UNIQUE ( owner_id )
-						)`,
+						secret bytea NOT NULL,
+						owner_id bytea UNIQUE,
+						project_limit integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret )
+					);`,
 
 					// version: 9
 					`CREATE TABLE IF NOT EXISTS serial_numbers (
-							id serial NOT NULL,
-							serial_number bytea NOT NULL,
-							bucket_id bytea NOT NULL,
-							expires_at timestamp NOT NULL,
-							PRIMARY KEY ( id )
-						)`,
-					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at )`,
-					`CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number )`,
+						id serial NOT NULL,
+						serial_number bytea NOT NULL UNIQUE,
+						bucket_id bytea NOT NULL,
+						expires_at timestamp NOT NULL,
+						PRIMARY KEY ( id ),
+						INDEX serial_numbers_expires_at_index ( expires_at )
+					);`,
 					`CREATE TABLE IF NOT EXISTS used_serials (
-							serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-							storage_node_id bytea NOT NULL,
-							PRIMARY KEY ( serial_number_id, storage_node_id )
-						)`,
+						serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+						storage_node_id bytea NOT NULL,
+						PRIMARY KEY ( serial_number_id, storage_node_id )
+					);`,
 					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollups (
-							storagenode_id bytea NOT NULL,
-							interval_start timestamp NOT NULL,
-							interval_seconds integer NOT NULL,
-							action integer NOT NULL,
-							allocated bigint NOT NULL,
-							settled bigint NOT NULL,
-							PRIMARY KEY ( storagenode_id, interval_start, action )
-						)`,
-					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups (
-							storagenode_id,
-							interval_start,
-							interval_seconds
-						)`,
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action ),
+						INDEX storagenode_id_interval_start_interval_seconds_index ( storagenode_id, interval_start, interval_seconds )
+					);`,
 					`CREATE TABLE IF NOT EXISTS bucket_bandwidth_rollups (
-							bucket_name bytea NOT NULL,
-							project_id bytea NOT NULL ,
-							interval_start timestamp NOT NULL,
-							interval_seconds integer NOT NULL,
-							action integer NOT NULL,
-							inline bigint NOT NULL,
-							allocated bigint NOT NULL,
-							settled bigint NOT NULL,
-							INDEX bucket_name_project_id_interval_start_interval_seconds ( bucket_name, project_id, interval_start, interval_seconds ),
-							PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-						)`,
-					`CREATE INDEX bucket_id_interval_start_interval_seconds_index ON bucket_bandwidth_rollups (
-							bucket_id,
-							interval_start,
-							interval_seconds
-						)`,
+						bucket_name bytea NOT NULL,
+						project_id bytea NOT NULL ,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						inline bigint NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						INDEX bucket_name_project_id_interval_start_interval_seconds ( bucket_name, project_id, interval_start, interval_seconds ),
+						PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+					);`,
 					`CREATE TABLE IF NOT EXISTS bucket_storage_tallies (
-							bucket_name bytea NOT NULL,
-							project_id bytea NOT NULL ,
-							interval_start timestamp NOT NULL,
-							inline bigint NOT NULL,
-							remote bigint NOT NULL,
-							remote_segments_count integer NOT NULL DEFAULT 0,
-							inline_segments_count integer NOT NULL DEFAULT 0,
-							object_count integer NOT NULL DEFAULT 0,
-							metadata_size bigint NOT NULL DEFAULT 0,
-							PRIMARY KEY ( bucket_name, project_id, interval_start )
-						)`,
-					// combined with version 6
-					// `ALTER TABLE bucket_usages DROP CONSTRAINT bucket_usages_rollup_end_time_bucket_id_key`,
-					`CREATE UNIQUE INDEX bucket_id_rollup_end_time_index ON bucket_usages (
-							bucket_id,
-							rollup_end_time
-						)`,
-
-					// version: 10, combined with version 0
-					// `ALTER TABLE users RENAME COLUMN first_name TO full_name;
-					// ALTER TABLE users ALTER COLUMN last_name DROP NOT NULL;
-					// ALTER TABLE users RENAME COLUMN last_name TO short_name;`,
-
-					// version: 11, combined w/version 0
-					// `ALTER TABLE storagenode_storage_rollups RENAME TO storagenode_storage_tallies`,
-					// `ALTER TABLE bucket_storage_rollups RENAME TO bucket_storage_tallies`,
-					// `ALTER TABLE storagenode_storage_tallies DROP COLUMN interval_seconds`,
-					// `ALTER TABLE bucket_storage_tallies DROP COLUMN interval_seconds`,
-					// `ALTER TABLE bucket_storage_tallies ADD remote_segments_count integer;
-					// UPDATE bucket_storage_tallies SET remote_segments_count = 0;
-					// ALTER TABLE bucket_storage_tallies ALTER COLUMN remote_segments_count SET NOT NULL;`,
-					// `ALTER TABLE bucket_storage_tallies ADD inline_segments_count integer;
-					// UPDATE bucket_storage_tallies SET inline_segments_count = 0;
-					// ALTER TABLE bucket_storage_tallies ALTER COLUMN inline_segments_count SET NOT NULL;`,
-					// `ALTER TABLE bucket_storage_tallies ADD object_count integer;
-					// UPDATE bucket_storage_tallies SET object_count = 0;
-					// ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count SET NOT NULL;`,
-					// `ALTER TABLE bucket_storage_tallies ADD metadata_size bigint;
-					// UPDATE bucket_storage_tallies SET metadata_size = 0;
-					// ALTER TABLE bucket_storage_tallies ALTER COLUMN metadata_size SET NOT NULL;`,
-
-					// version: 12, combined w/ version 0
-					// `ALTER TABLE nodes ADD address TEXT NOT NULL DEFAULT '';
-					//  ALTER TABLE nodes ADD protocol INTEGER NOT NULL DEFAULT 0;
-					//  ALTER TABLE nodes ADD type INTEGER NOT NULL DEFAULT 2;
-					//  ALTER TABLE nodes ADD free_bandwidth BIGINT NOT NULL DEFAULT -1;
-					//  ALTER TABLE nodes ADD free_disk BIGINT NOT NULL DEFAULT -1;
-					//  ALTER TABLE nodes ADD latency_90 BIGINT NOT NULL DEFAULT 0;
-					//  ALTER TABLE nodes ADD last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
-					//  ALTER TABLE nodes ADD last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';`,
-					// `DROP TABLE IF EXISTS overlay_cache_nodes CASCADE;`,
-
-					// version: 13, combined w/version 0
-					// `ALTER TABLE bucket_storage_tallies ADD project_id bytea;`,
-					// `ALTER TABLE bucket_storage_tallies ALTER COLUMN project_id SET NOT NULL;`,
-					// `ALTER TABLE bucket_storage_tallies RENAME COLUMN bucket_id TO bucket_name;`,
-					// `ALTER TABLE bucket_storage_tallies DROP CONSTRAINT bucket_storage_rollups_pkey;`,
-					// `ALTER TABLE bucket_storage_tallies ADD CONSTRAINT bucket_storage_tallies_pk PRIMARY KEY (bucket_name, project_id, interval_start);`,
-					// `ALTER TABLE bucket_bandwidth_rollups ADD project_id bytea;`,
-					// `ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN project_id SET NOT NULL;`,
-					// `ALTER TABLE bucket_bandwidth_rollups RENAME COLUMN bucket_id TO bucket_name;`,
-					// `DROP INDEX IF EXISTS bucket_id_interval_start_interval_seconds_index;`,
-					// `CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups (
-					// 	bucket_name,
-					// 	project_id,
-					// 	interval_start,
-					// 	interval_seconds
-					// 	);`,
-					// `ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pkey;`,
-					// `ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action);`,
-
-					// version: 14, combined w/version 0
-					// `ALTER TABLE nodes ADD major bigint NOT NULL DEFAULT 0;
-					// ALTER TABLE nodes ADD minor bigint NOT NULL DEFAULT 1;
-					// ALTER TABLE nodes ADD patch bigint NOT NULL DEFAULT 0;
-					// ALTER TABLE nodes ADD hash TEXT NOT NULL DEFAULT '';
-					// ALTER TABLE nodes ADD timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch';
-					// ALTER TABLE nodes ADD release bool NOT NULL DEFAULT FALSE;`,
-
-					// version: 15, combined w/version 0
-					// `ALTER TABLE nodes ALTER COLUMN type SET DEFAULT 0;`,
-
-					// version: 16, combined w/version 0
-					// `ALTER TABLE injuredsegments ADD path text;
-					// ALTER TABLE injuredsegments RENAME COLUMN info TO data;
-					// ALTER TABLE injuredsegments ADD attempted timestamp;
-					// ALTER TABLE injuredsegments DROP CONSTRAINT IF EXISTS id_pkey;`,
-					// `ALTER TABLE injuredsegments DROP COLUMN id;
-					// ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;
-					// ALTER TABLE injuredsegments ADD PRIMARY KEY (path);`,
-
-					// version: 17
-					// columns dropped in version 34
-					// `UPDATE nodes SET audit_success_ratio = 1 WHERE total_audit_count = 0;
-					// UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
-
-					// version: 18, combined w/version 0
-					// `DROP TABLE storagenode_storage_tallies CASCADE`,
-					// `ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
-					// `ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
-					// `ALTER TABLE storagenode_storage_tallies DROP COLUMN created_at`,
+						bucket_name bytea NOT NULL,
+						project_id bytea NOT NULL ,
+						interval_start timestamp NOT NULL,
+						inline bigint NOT NULL,
+						remote bigint NOT NULL,
+						remote_segments_count integer NOT NULL DEFAULT 0,
+						inline_segments_count integer NOT NULL DEFAULT 0,
+						object_count integer NOT NULL DEFAULT 0,
+						metadata_size bigint NOT NULL DEFAULT 0,
+						PRIMARY KEY ( bucket_name, project_id, interval_start )
+					);`,
 
 					// version: 19
 					`CREATE TABLE IF NOT EXISTS reset_password_tokens (
 						secret bytea NOT NULL,
-						owner_id bytea NOT NULL,
+						owner_id bytea NOT NULL UNIQUE,
 						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( secret ),
-						UNIQUE ( owner_id )
+						PRIMARY KEY ( secret )
 					);`,
 
 					// version: 20, combined w/version 0
-					// `ALTER TABLE nodes ADD contained boolean;
-					// UPDATE nodes SET contained = false;
-					// ALTER TABLE nodes ALTER COLUMN contained SET NOT NULL;`,
 					`CREATE TABLE IF NOT EXISTS pending_audits (
 						node_id bytea NOT NULL,
 						piece_id bytea NOT NULL,
@@ -804,12 +668,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						path bytea NOT NULL,
 						PRIMARY KEY ( node_id )
 					);`,
-
-					// version: 21, combined w/version 0
-					// `ALTER TABLE nodes ADD last_ip TEXT;
-					// UPDATE nodes SET last_ip = '';
-					// ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;
-					// CREATE INDEX IF NOT EXISTS node_last_ip ON nodes (last_ip)`,
 
 					// version: 22
 					`CREATE TABLE IF NOT EXISTS offers (
@@ -828,30 +686,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 
-					// version: 23, combined w/version 0
-					// `DROP TABLE api_keys CASCADE`,
-					// `CREATE TABLE IF NOT EXISTS api_keys (
-					// 	id bytea NOT NULL,
-					// 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-					// 	head bytea NOT NULL,
-					// 	name text NOT NULL,
-					// 	secret bytea NOT NULL,
-					// 	created_at timestamp with time zone NOT NULL,
-					// 	PRIMARY KEY ( id ),
-					// 	UNIQUE ( head ),
-					// 	UNIQUE ( name, project_id )
-					// );`,
-
-					// version: 24, all combined w/v0
-					// `ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
-					// // version: 25
-					// `ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
-					// // version: 26
-					// `ALTER TABLE offers DROP COLUMN credit_in_cents;`,
-					// `ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					// `ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					// `ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
-
 					// version: 27
 					`CREATE TABLE IF NOT EXISTS value_attributions (
 						bucket_name bytea NOT NULL,
@@ -859,37 +693,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						last_updated timestamp NOT NULL,
 						project_id bytea NOT NULL,
 						PRIMARY KEY (project_id, bucket_name)
-						)`,
-					// version: 28, combined w/v0
-					// `DROP TABLE bwagreements`,
+					);`,
 
-					// version: 29
-					// dropped table in version 59
-					// `CREATE TABLE IF NOT EXISTS user_payments (
-					// 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-					// 	customer_id bytea NOT NULL,
-					// 	created_at timestamp with time zone NOT NULL,
-					// 	PRIMARY KEY ( user_id ),
-					// 	UNIQUE ( customer_id )
-					// );`,
 					`CREATE TABLE IF NOT EXISTS project_invoice_stamps (
 						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						invoice_id bytea NOT NULL,
+						invoice_id bytea NOT NULL UNIQUE,
 						start_date timestamp with time zone NOT NULL,
 						end_date timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( project_id, start_date, end_date ),
-						UNIQUE ( invoice_id )
+						PRIMARY KEY ( project_id, start_date, end_date )
 					);`,
-
-					// version: 30, combined w/table creation
-					// `ALTER TABLE value_attributions DROP CONSTRAINT value_attributions_pkey;`,
-					// `ALTER TABLE value_attributions ADD project_id bytea;`,
-					// `UPDATE value_attributions SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
-					// `ALTER TABLE value_attributions ALTER COLUMN project_id SET NOT NULL;`,
-					// `ALTER TABLE value_attributions RENAME COLUMN bucket_id TO bucket_name;`,
-					// `UPDATE value_attributions SET bucket_name=SUBSTRING(bucket_name from 18);`,
-					// `ALTER TABLE value_attributions ADD PRIMARY KEY (project_id, bucket_name);`,
 
 					// version: 31
 					`CREATE TABLE IF NOT EXISTS user_credits (
@@ -902,39 +715,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						type text NOT NULL DEFAULT 'invalid',
-						UNIQUE credits_earned_user_id_offer_id ( id, offer_id ),
+						UNIQUE ( id, offer_id ),
 						PRIMARY KEY ( id )
 					);`,
-
-					// version: 32
-					// `ALTER TABLE nodes
-					// 	ALTER COLUMN disqualified DROP DEFAULT,
-					// 	ALTER COLUMN disqualified DROP NOT NULL,
-					// 	ALTER COLUMN disqualified TYPE timestamp with time zone USING
-					// 		CASE disqualified
-					// 			WHEN true THEN TIMESTAMP WITH TIME ZONE '2019-06-15 00:00:00+00'
-					// 			ELSE NULL
-					// 		END`,
-
-					// version: 33
-					// `ALTER TABLE nodes ADD COLUMN audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
-					// `ALTER TABLE nodes ADD COLUMN audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
-					// `ALTER TABLE nodes ADD COLUMN uptime_reputation_alpha double precision NOT NULL DEFAULT 1;`,
-					// `ALTER TABLE nodes ADD COLUMN uptime_reputation_beta double precision NOT NULL DEFAULT 0;`,
-					// // version: 34
-					// `ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
-					// `ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
-
-					// version: 35
-					// `UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 50);`,
-					// `UPDATE nodes SET audit_reputation_beta = total_audit_count - audit_success_count;`,
-					// `UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 100);`,
-					// `UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
-
-					// version: 36
-					// `UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 24))) WHERE last_ip <> '' AND family(last_ip::INET) = 4;`,
-					// `UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 64))) WHERE last_ip <> '' AND family(last_ip::INET) = 16;`,
-					// `ALTER TABLE nodes RENAME last_ip TO last_net;`,
 
 					// todo: confirm we dont need version 37
 
@@ -958,37 +741,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( name, project_id )
 					);`,
-					// version: 39
-					// `UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
-					// version: 40
-					// `DROP TABLE project_payments CASCADE`,
-					// dropped in version 59
-					// `CREATE TABLE IF NOT EXISTS project_payments (
-					// 	id bytea NOT NULL,
-					// 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-					// 	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-					// 	payment_method_id bytea NOT NULL,
-					// 	is_default boolean NOT NULL,
-					// 	created_at timestamp with time zone NOT NULL,
-					// 	PRIMARY KEY ( id )
-					// );`,
 
-					// version: 41, combined w/table creation
-					// `ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
-					// `ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
-					// `UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
-					// `ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
-					// `ALTER TABLE injuredsegments DROP COLUMN path_old;`,
-					// `ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
-					// // version: 42
-					// `ALTER TABLE offers DROP num_redeemed;`,
-
-					// version: 43,combined w/table creation
-					// `ALTER TABLE offers
-					// 	ALTER COLUMN redeemable_cap DROP NOT NULL,
-					// 	ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
-					// 	ALTER COLUMN award_credit_duration_days DROP NOT NULL
-					// `,
 					`INSERT INTO offers (
 						name,
 						description,
@@ -1019,64 +772,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						1
 					) ON CONFLICT DO NOTHING;`,
 
-					// version: 44, added to table creation
-					// `CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
-
-					// version: 45,  combined w/table creation
-					// `ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
-					// `ALTER TABLE users ADD COLUMN partner_id BYTEA`,
-					// `ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
-					// `ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
-
-					// version: 46, added to table creation
-					// `DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
-					// `ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
-					// `UPDATE nodes SET contained = false;`,
-
-					// version: 47, don't keep updates
-					// `UPDATE offers SET
-					// 	award_credit_duration_days = 365,
-					// 	invitee_credit_duration_days = 14
-					// 	WHERE type=2 AND status=1 AND id=1`,
-					// `UPDATE offers SET
-					// 	invitee_credit_duration_days = 14,
-					// 	award_credit_duration_days = NULL,
-					// 	award_credit_in_cents = 0,
-					// 	invitee_credit_in_cents = 300
-					// 	WHERE type=1 AND status=1 AND id=2;`,
-
-					// version: 48
-					// added this to table createion, but w/o WHERE clause
-					// todo: is that ok? ^
-					// `CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
-					// WHERE credits_earned_in_cents=0;`,
-
-					// version: 49, added to table creation
-					// `ALTER TABLE user_credits DROP CONSTRAINT user_credits_referred_by_fkey;
-					// ALTER TABLE user_credits ADD CONSTRAINT user_credits_referred_by_fkey
-					// 	FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL;
-					// ALTER TABLE user_credits DROP CONSTRAINT user_credits_user_id_fkey;
-					// ALTER TABLE user_credits ADD CONSTRAINT user_credits_user_id_fkey
-					// 	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-					// ALTER TABLE user_credits ADD COLUMN type text;
-					// UPDATE user_credits SET type='invalid';
-					// ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
-
-					// version: 50, table dropped version 52
-					// `ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
-					// ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (publickey);
-					// CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );`,
-
-					// version: 51
-					// `ALTER TABLE projects ADD COLUMN owner_id BYTEA;`,
-					// `ALTER TABLE projects ALTER COLUMN owner_id SET NOT NULL;`,
-
-					// version: 52
-					// `DROP TABLE certRecords CASCADE`,
-
-					// version: 53
-					// `ALTER TABLE nodes ADD piece_count BIGINT NOT NULL DEFAULT 0;`,
-
 					// version: 54
 					`CREATE TABLE IF NOT EXISTS peer_identities (
 						node_id bytea NOT NULL,
@@ -1086,16 +781,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( node_id )
 					);`,
 
-					// // version: 55
-					// `ALTER TABLE users ADD normalized_email TEXT;`,
-					// `UPDATE users SET normalized_email=UPPER(email);`,
-					// `ALTER TABLE users ALTER COLUMN normalized_email SET NOT NULL;`,
-
-					// // version: 56
-					// `ALTER TABLE nodes ADD COLUMN exit_loop_completed_at timestamp with time zone;`,
-					// `ALTER TABLE nodes ADD COLUMN exit_initiated_at timestamp with time zone;`,
-					// `ALTER TABLE nodes ADD COLUMN exit_finished_at timestamp with time zone;`,
-
 					`CREATE TABLE IF NOT EXISTS graceful_exit_progress (
 						node_id bytea NOT NULL,
 						bytes_transferred bigint NOT NULL,
@@ -1104,6 +789,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						pieces_failed bigint NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id )
 					);`,
+
 					`CREATE TABLE IF NOT EXISTS graceful_exit_transfer_queue (
 						node_id bytea NOT NULL,
 						path bytea NOT NULL,
@@ -1118,45 +804,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( node_id, path, piece_num )
 					);`,
 
-					// version: 57
-					// `ALTER TABLE nodes ALTER COLUMN contained SET DEFAULT false;`,
-					// `ALTER TABLE nodes ALTER COLUMN piece_count SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN major SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN minor SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN audit_success_count SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN total_audit_count SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN patch SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN hash SET DEFAULT '';`,
-					// `ALTER TABLE nodes ALTER COLUMN release SET DEFAULT false;`,
-					// `ALTER TABLE nodes ALTER COLUMN latency_90 SET DEFAULT 0;`,
-					// `ALTER TABLE nodes ALTER COLUMN timestamp SET DEFAULT '0001-01-01 00:00:00+00';`,
-					// `ALTER TABLE nodes ALTER COLUMN created_at SET DEFAULT current_timestamp;`,
-					// `ALTER TABLE nodes ALTER COLUMN updated_at SET DEFAULT current_timestamp;`,
-
-					// // version: 58
-					// `ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE timestamp;`,
-					// `ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE timestamp;`,
-					// `ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE timestamp;`,
-					// how to add UTC to type
-					// `UPDATE graceful_exit_progress set updated_at = TIMEZONE('UTC', updated_at);`,
-					// `ALTER TABLE graceful_exit_progress ADD COLUMN pieces_transferred bigint NOT NULL DEFAULT 0;`,
-					// `ALTER TABLE graceful_exit_progress ADD COLUMN pieces_failed bigint NOT NULL DEFAULT 0;`,
-					// `ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE timestamp;`,
-					// `ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE timestamp;`,
-					// `ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE timestamp;`,
-					// `ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE timestamp;`,
-					// `ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE timestamp;`,
-
 					// version: 59
-					// `DROP TABLE project_payments CASCADE`,
-					// `DROP TABLE user_payments CASCADE`,
 					`CREATE TABLE IF NOT EXISTS stripe_customers (
 						user_id bytea NOT NULL,
-						customer_id text NOT NULL,
+						customer_id text NOT NULL UNIQUE,
 						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( user_id ),
-						UNIQUE ( customer_id )
-						);`,
+						PRIMARY KEY ( user_id )
+					);`,
 
 					// version: 60
 					`CREATE TABLE IF NOT EXISTS coinpayments_transactions (
@@ -1170,12 +824,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-
-					// version: 61
-					// `ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
-					// // version: 62
-					// `ALTER TABLE graceful_exit_transfer_queue DROP CONSTRAINT graceful_exit_transfer_queue_pkey;`,
-					// `ALTER TABLE graceful_exit_transfer_queue ADD PRIMARY KEY ( node_id, path, piece_num );`,
 
 					// version: 63
 					`CREATE TABLE IF NOT EXISTS stripecoinpayments_apply_balance_intents (
