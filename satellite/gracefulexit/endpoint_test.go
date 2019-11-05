@@ -523,7 +523,7 @@ func TestFailureUnknownError(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, int64(0), progress.PiecesTransferred)
-		require.Equal(t, int64(1), progress.PiecesFailed)
+		require.Equal(t, int64(0), progress.PiecesFailed)
 	})
 }
 
