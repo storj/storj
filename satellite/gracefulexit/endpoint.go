@@ -203,7 +203,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}()
 
 	// check initial state
-	msg, err := endpoint.checkInitialState(ctx, nodeID)
+	msg, err := endpoint.checkExitStatus(ctx, nodeID)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -719,7 +719,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	return nil
 }
 
-func (endpoint *Endpoint) checkInitialState(ctx context.Context, nodeID storj.NodeID) (*pb.SatelliteMessage, error) {
+func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.NodeID) (*pb.SatelliteMessage, error) {
 	exitStatus, err := endpoint.overlaydb.GetExitStatus(ctx, nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
