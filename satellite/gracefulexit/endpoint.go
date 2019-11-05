@@ -474,7 +474,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
+					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+
 					mon.Meter("graceful_exit_fail_validation").Mark(1)
+
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
