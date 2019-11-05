@@ -29,8 +29,6 @@ func TestInspectorStats(t *testing.T) {
 
 	planet.Start(ctx)
 
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
-
 	var availableBandwidth int64
 	var availableSpace int64
 	for _, storageNode := range planet.StorageNodes {
@@ -130,12 +128,10 @@ func TestInspectorDashboard(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
-			assert.NotEmpty(t, response.LastPingFromAddress)
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
 			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
-			assert.Equal(t, int64(len(planet.StorageNodes)+len(planet.Satellites)), response.NodeConnections)
 			assert.NotNil(t, response.Stats)
 		}
 	})

@@ -6,16 +6,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import VButton from '@/components/common/VButton.vue';
 
-import { AuthApi } from '@/api/auth';
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import RegistrationSuccessIcon from '@/../static/images/register/registerSuccess.svg';
+
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        Button,
+        VButton,
+        RegistrationSuccessIcon,
+        CloseCrossIcon,
     },
 })
 export default class RegistrationSuccessPopup extends Vue {
@@ -23,7 +28,7 @@ export default class RegistrationSuccessPopup extends Vue {
     private timeToEnableResendEmailButton: string = '00:30';
     private intervalID: any = null;
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public beforeDestroy(): void {
         if (this.intervalID) {
@@ -42,7 +47,7 @@ export default class RegistrationSuccessPopup extends Vue {
         try {
             await this.auth.resendEmail(userId);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
+            await this.$notify.error('Could not send email ');
         }
 
         this.startResendEmailCountdown();
@@ -76,33 +81,6 @@ export default class RegistrationSuccessPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
-    h3 {
-        font-family: 'font_medium';
-        font-size: 12px;
-        line-height: 16px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
-    b {
-        color: #2683FF;
-    }
-
-    a {
-        font-family: 'font_bold';
-        color: #2683ff;
-    }
-
     .register-success-popup-container {
         position: fixed;
         top: 0;
@@ -119,7 +97,7 @@ export default class RegistrationSuccessPopup extends Vue {
     .register-success-popup {
         width: 100%;
         max-width: 845px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 6px;
         display: flex;
         flex-direction: row;
@@ -142,12 +120,35 @@ export default class RegistrationSuccessPopup extends Vue {
             max-width: 440px;
             margin-top: 10px;
 
-            &__main-label-text {
-                font-family: 'font_bold';
+            &__title {
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                color: #384B65;
+                color: #384b65;
                 margin: 0;
+                user-select: none;
+            }
+
+            &__text {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+            }
+
+            &__verification-cooldown {
+                font-family: 'font_medium', sans-serif;
+                font-size: 12px;
+                line-height: 16px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+
+                &__bold-text {
+                    color: #2683ff;
+                }
             }
 
             &__button-container {
@@ -171,18 +172,18 @@ export default class RegistrationSuccessPopup extends Vue {
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
-                fill: #2683FF;
+            &:hover .close-cross-svg-path {
+                fill: #2683ff;
             }
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .register-success-popup {
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

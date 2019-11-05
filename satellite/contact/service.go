@@ -4,11 +4,13 @@
 package contact
 
 import (
+	"sync"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -17,24 +19,44 @@ var Error = errs.Class("contact")
 
 var mon = monkit.Package()
 
+// Config contains configurable values for contact service
+type Config struct {
+	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+}
+
 // Service is the contact service between storage nodes and satellites.
 // It is responsible for updating general node information like address, capacity, and uptime.
 // It is also responsible for updating peer identity information for verifying signatures from that node.
 //
 // architecture: Service
 type Service struct {
-	log       *zap.Logger
-	overlay   *overlay.Service
-	peerIDs   overlay.PeerIdentities
-	transport transport.Client
+	log *zap.Logger
+
+	mutex sync.Mutex
+	self  *overlay.NodeDossier
+
+	overlay *overlay.Service
+	peerIDs overlay.PeerIdentities
+	dialer  rpc.Dialer
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerIdentities, transport transport.Client) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer) *Service {
 	return &Service{
-		log:       log,
-		overlay:   overlay,
-		peerIDs:   peerIDs,
-		transport: transport,
+		log:     log,
+		self:    self,
+		overlay: overlay,
+		peerIDs: peerIDs,
+		dialer:  dialer,
 	}
 }
+
+// Local returns the satellite node dossier
+func (service *Service) Local() overlay.NodeDossier {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return *service.self
+}
+
+// Close closes resources
+func (service *Service) Close() error { return nil }

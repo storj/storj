@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
+	"github.com/jbenet/go-base58"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
@@ -38,7 +39,7 @@ type GatewayFlags struct {
 
 	uplink.Config
 
-	Version version.Config
+	Version checker.Config
 }
 
 var (
@@ -134,13 +135,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = version.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
+	err = checker.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")
 	if err != nil {
 		return err
 	}
@@ -250,7 +251,6 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
-	libuplinkCfg.Volatile.RequestTimeout = flags.Client.RequestTimeout
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }
@@ -274,7 +274,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 
 // interactive creates the configuration of the gateway interactively.
 func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
@@ -335,9 +335,7 @@ Your S3 Gateway is configured and ready to use!
 
 Some things to try next:
 
-* Run 'gateway --help' to see the operations that can be performed
-
-* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands`)
+* See http://documentation.tardigrade.io/api-reference/s3-gateway for some example commands`)
 
 	return nil
 }

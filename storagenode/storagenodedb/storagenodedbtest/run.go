@@ -6,6 +6,7 @@ package storagenodedbtest
 // This package should be referenced only in test files!
 
 import (
+	"path/filepath"
 	"testing"
 
 	"go.uber.org/zap/zaptest"
@@ -25,13 +26,21 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 
 		log := zaptest.NewLogger(t)
 
-		db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
+		storageDir := ctx.Dir("storage")
+		cfg := storagenodedb.Config{
+			Storage: storageDir,
+			Info:    filepath.Join(storageDir, "piecestore.db"),
+			Info2:   filepath.Join(storageDir, "info.db"),
+			Pieces:  storageDir,
+		}
+
+		db, err := storagenodedb.New(log, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer ctx.Check(db.Close)
 
-		err = db.CreateTables()
+		err = db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

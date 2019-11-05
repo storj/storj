@@ -6,15 +6,21 @@ package contact
 import (
 	"context"
 	"fmt"
-	"net"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
+)
+
+var (
+	errPingBackDial    = errs.Class("pingback dialing error")
+	errCheckInIdentity = errs.Class("check-in identity error")
+	errCheckInNetwork  = errs.Class("check-in network error")
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -39,95 +45,86 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (_ *pb.CheckInResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	peerID, err := peerIDFromContext(ctx)
+	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.Stringer("node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
+	}
+
+	lastIP, err := overlay.GetNetwork(ctx, req.Address)
+	if err != nil {
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("node ID", nodeID), zap.Error(err))
+		if errPingBackDial.Has(err) {
+			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
+		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	}
-
-	err = endpoint.service.overlay.Put(ctx, nodeID, pb.Node{
-		Id: nodeID,
+	nodeInfo := overlay.NodeCheckInInfo{
+		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   req.Address,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
-	})
+		LastIP:   lastIP,
+		IsUp:     pingNodeSuccess,
+		Capacity: req.Capacity,
+		Operator: req.Operator,
+		Version:  req.Version,
+	}
+	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	// TODO(jg): We are making 2 requests to the database, one to update uptime and
-	// the other to update the capacity and operator info. We should combine these into
-	// one to reduce db connections. Consider adding batching and using a stored procedure.
-	_, err = endpoint.service.overlay.UpdateUptime(ctx, nodeID, pingNodeSuccess)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity(), Version: &pb.NodeVersion{Version: req.Version}}
-	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, nodeID, &nodeInfo)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node succes", pingNodeSuccess))
+	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:  pingNodeSuccess,
 		PingErrorMessage: pingErrorMessage,
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (bool, string, error) {
-	client, err := newClient(ctx,
-		endpoint.service.transport,
-		req.Address,
-		peerID,
-	)
-	if err != nil {
-		// if this is a network error, then return the error otherwise just report internal error
-		_, ok := err.(net.Error)
-		if ok {
-			return false, "", Error.New("failed to connect to %s: %v", req.Address, err)
-		}
-		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
-		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
-	}
+func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (_ bool, _ string, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	pingNodeSuccess := true
 	var pingErrorMessage string
 
-	p := &peer.Peer{}
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{}, grpc.Peer(p))
+	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
 	if err != nil {
+		// If there is an error from trying to dial and ping the node, return that error as
+		// pingErrorMessage and not as the err. We want to use this info to update
+		// node contact info and do not want to terminate execution by returning an err
+		mon.Event("failed dial")
 		pingNodeSuccess = false
-		pingErrorMessage = "erroring while trying to pingNode due to internal error"
-		_, ok := err.(net.Error)
-		if ok {
-			pingErrorMessage = fmt.Sprintf("network erroring while trying to pingNode: %v\n", err)
-		}
+		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q", peerID, req.Address, err)
+		endpoint.log.Info("pingBack failed to dial storage node", zap.Stringer("node ID", peerID), zap.String("node address", req.Address), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
+		return pingNodeSuccess, pingErrorMessage, nil
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	if err != nil {
+		mon.Event("failed ping node")
+		pingNodeSuccess = false
+		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
+		endpoint.log.Info("pingBack pingNode error", zap.Stringer("node ID", peerID), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
 	}
 
 	return pingNodeSuccess, pingErrorMessage, nil
-}
-
-func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from context")
-	}
-	peerIdentity, err := identity.PeerIdentityFromPeer(p)
-	if err != nil {
-		return nil, err
-	}
-	return peerIdentity, nil
 }

@@ -11,12 +11,11 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 )
@@ -144,14 +143,14 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, err.Error())
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
 	formatError := func(err error) error {
 		if err == io.EOF {
 			return nil
 		}
-		return status.Error(codes.Unknown, err.Error())
+		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
 	}
 
 	log := endpoint.log.Named(peer.ID.String())
@@ -175,20 +174,20 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		}
 
 		if request == nil {
-			return status.Error(codes.InvalidArgument, "request missing")
+			return rpcstatus.Error(rpcstatus.InvalidArgument, "request missing")
 		}
 		if request.Limit == nil {
-			return status.Error(codes.InvalidArgument, "order limit missing")
+			return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit missing")
 		}
 		if request.Order == nil {
-			return status.Error(codes.InvalidArgument, "order missing")
+			return rpcstatus.Error(rpcstatus.InvalidArgument, "order missing")
 		}
 
 		orderLimit := request.Limit
 		order := request.Order
 
 		if orderLimit.StorageNodeId != peer.ID {
-			return status.Error(codes.Unauthenticated, "only specified storage node can settle order")
+			return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
 		}
 
 		rejectErr := func() error {

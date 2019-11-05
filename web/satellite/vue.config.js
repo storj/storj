@@ -3,6 +3,7 @@
 
 const path = require('path');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
+const StyleLintPlugin = require('stylelint-webpack-plugin');
 const productionGzipExtensions = ['js', 'css', 'ttf'];
 
 module.exports = {
@@ -16,11 +17,14 @@ module.exports = {
                 test: new RegExp('\\.(' + productionGzipExtensions.join('|') + ')$'),
                 threshold: 10240,
                 minRatio: 0.8
+            }),
+            new StyleLintPlugin({
+                files: ['**/*.{vue,sss,less,scss,sass}'],
             })
         ],
     },
     chainWebpack: config => {
-        config.output.chunkFilename(`js/vendors.js`);
+        config.output.chunkFilename(`js/vendors_[name].js`);
         config.output.filename(`js/app.js`);
 
         config.resolve.alias
@@ -32,5 +36,13 @@ module.exports = {
                 args[0].template = './index.html';
                 return args
             });
+
+        const svgRule = config.module.rule('svg');
+
+        svgRule.uses.clear();
+
+        svgRule
+            .use('vue-svg-loader')
+            .loader('vue-svg-loader');
     }
 };

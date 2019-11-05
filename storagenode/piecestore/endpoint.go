@@ -13,8 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
@@ -23,6 +21,7 @@ import (
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -49,7 +48,7 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777"`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -58,33 +57,43 @@ type OldConfig struct {
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
-	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
+	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 
-	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 
 	Monitor monitor.Config
 	Orders  orders.Config
+}
+
+type pingStatsSource interface {
+	WasPinged(when time.Time)
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node..
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log    *zap.Logger
-	config Config
+	log          *zap.Logger
+	config       Config
+	grpcReqLimit int
 
-	signer  signing.Signer
-	trust   *trust.Pool
-	monitor *monitor.Service
-	retain  *retain.Service
+	signer    signing.Signer
+	trust     *trust.Pool
+	monitor   *monitor.Service
+	retain    *retain.Service
+	pingStats pingStatsSource
 
 	store       *pieces.Store
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
+	// liveRequests tracks the total number of incoming rpc requests. For gRPC
+	// requests only, this number is compared to config.MaxConcurrentRequests
+	// and limits the number of gRPC requests. dRPC requests are tracked but
+	// not limited.
 	liveRequests int32
 }
 
@@ -95,15 +104,24 @@ type drpcEndpoint struct{ *Endpoint }
 func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
-	return &Endpoint{
-		log:    log,
-		config: config,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
+	// However, if it is 0 (unlimited) we force a limit.
+	grpcReqLimit := config.MaxConcurrentRequests
+	if grpcReqLimit <= 0 {
+		grpcReqLimit = 7
+	}
 
-		signer:  signer,
-		trust:   trust,
-		monitor: monitor,
-		retain:  retain,
+	return &Endpoint{
+		log:          log,
+		config:       config,
+		grpcReqLimit: grpcReqLimit,
+
+		signer:    signer,
+		trust:     trust,
+		monitor:   monitor,
+		retain:    retain,
+		pingStats: pingStats,
 
 		store:       store,
 		orders:      orders,
@@ -124,12 +142,14 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
+	endpoint.pingStats.WasPinged(time.Now())
+
 	if delete.Limit.Action != pb.PieceAction_DELETE {
-		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
+		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report rpc status unauthorized or bad request
 	}
 
 	if err := endpoint.verifyOrderLimit(ctx, delete.Limit); err != nil {
-		// TODO: report grpc status unauthorized or bad request
+		// TODO: report rpc status unauthorized or bad request
 		return nil, Error.Wrap(err)
 	}
 
@@ -137,7 +157,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
 		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
-		// TODO: report internal server internal or missing error using grpc status,
+		// TODO: report rpc status of internal server error or missing error,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
 		endpoint.log.Info("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
@@ -148,12 +168,12 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
 }
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream)
+	return endpoint.doUpload(stream, endpoint.config.MaxConcurrentRequests)
 }
 
 // uploadStream is the minimum interface required to perform settlements.
@@ -164,7 +184,7 @@ type uploadStream interface {
 }
 
 // doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
+func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -172,9 +192,11 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
-	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+	endpoint.pingStats.WasPinged(time.Now())
+
+	if requestLimit > 0 && int(liveRequests) > requestLimit {
 		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
-		return status.Error(codes.Unavailable, "storage node overloaded")
+		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
 	}
 
 	startTime := time.Now().UTC()
@@ -199,7 +221,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 	// TODO: verify that we have have expected amount of storage before continuing
 
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
-		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
+		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report rpc status unauthorized or bad request
 	}
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
@@ -237,7 +259,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+		return ErrInternal.Wrap(err) // TODO: report rpc status internal server error
 	}
 	defer func() {
 		// cancel error if it hasn't been committed
@@ -256,21 +278,29 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 		return ErrInternal.Wrap(err)
 	}
 
+	orderSaved := false
 	largestOrder := pb.Order{}
-	defer endpoint.saveOrder(ctx, limit, &largestOrder)
+	// Ensure that the order is saved even in the face of an error. In the
+	// success path, the order will be saved just before sending the response
+	// and closing the stream (in which case, orderSaved will be true).
+	defer func() {
+		if !orderSaved {
+			endpoint.saveOrder(ctx, limit, &largestOrder)
+		}
+	}()
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
 		if err == io.EOF {
 			return ErrProtocol.New("unexpected EOF")
 		} else if err != nil {
-			return ErrProtocol.Wrap(err) // TODO: report grpc status bad message
+			return ErrProtocol.Wrap(err) // TODO: report rpc status bad message
 		}
 		if message == nil {
-			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
+			return ErrProtocol.New("expected a message") // TODO: report rpc status bad message
 		}
 		if message.Order == nil && message.Chunk == nil && message.Done == nil {
-			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
+			return ErrProtocol.New("expected a message") // TODO: report rpc status bad message
 		}
 
 		if message.Order != nil {
@@ -282,13 +312,13 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 
 		if message.Chunk != nil {
 			if message.Chunk.Offset != pieceWriter.Size() {
-				return ErrProtocol.New("chunk out of order") // TODO: report grpc status bad message
+				return ErrProtocol.New("chunk out of order") // TODO: report rpc status bad message
 			}
 
 			chunkSize := int64(len(message.Chunk.Data))
 			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
 				// TODO: should we write currently and give a chance for uplink to remedy the situation?
-				return ErrProtocol.New("not enough allocated, allocated=%v writing=%v", largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data))) // TODO: report grpc status ?
+				return ErrProtocol.New("not enough allocated, allocated=%v writing=%v", largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data))) // TODO: report rpc status ?
 			}
 
 			availableBandwidth -= chunkSize
@@ -301,14 +331,14 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 			}
 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
-				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+				return ErrInternal.Wrap(err) // TODO: report rpc status internal server error
 			}
 		}
 
 		if message.Done != nil {
 			calculatedHash := pieceWriter.Hash()
 			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
-				return err // TODO: report grpc status internal server error
+				return err // TODO: report rpc status internal server error
 			}
 			if message.Done.PieceSize != pieceWriter.Size() {
 				return ErrProtocol.New("Size of finished piece does not match size declared by uplink! %d != %d",
@@ -323,12 +353,12 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 					OrderLimit:   *limit,
 				}
 				if err := pieceWriter.Commit(ctx, info); err != nil {
-					return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+					return ErrInternal.Wrap(err) // TODO: report rpc status internal server error
 				}
 				if !limit.PieceExpiration.IsZero() {
 					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
 					if err != nil {
-						return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+						return ErrInternal.Wrap(err) // TODO: report rpc status internal server error
 					}
 				}
 			}
@@ -342,6 +372,11 @@ func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
+
+			// Save the order before completing the call. Set orderSaved so
+			// that the defer above does not also save.
+			orderSaved = true
+			endpoint.saveOrder(ctx, limit, &largestOrder)
 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
 				Done: storageNodeHash,
@@ -379,6 +414,8 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 
 	startTime := time.Now().UTC()
 
+	endpoint.pingStats.WasPinged(time.Now())
+
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
 
@@ -397,7 +434,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
-		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
+		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report rpc status unauthorized or bad request
 	}
 
 	if chunk.ChunkSize > limit.Limit {
@@ -405,7 +442,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	}
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
+		return Error.Wrap(err) // TODO: report rpc status unauthorized or bad request
 	}
 
 	var pieceReader *pieces.Reader
@@ -439,9 +476,9 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return status.Error(codes.NotFound, err.Error())
+			return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		return status.Error(codes.Internal, err.Error())
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
@@ -462,7 +499,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
 			if err != nil {
 				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-				return status.Error(codes.Internal, err.Error())
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			orderLimit = *info.OrderLimit
 			pieceHash = *info.UplinkPieceHash
@@ -471,7 +508,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			header, err := pieceReader.GetPieceHeader()
 			if err != nil {
 				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
-				return status.Error(codes.Internal, err.Error())
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			orderLimit = header.OrderLimit
 			pieceHash = pb.PieceHash{
@@ -486,7 +523,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
 		if err != nil {
 			endpoint.log.Error("error sending hash and order limit", zap.Error(err))
-			return status.Error(codes.Internal, err.Error())
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 	}
 
@@ -498,7 +535,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
 		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
-		return status.Error(codes.Internal, err.Error())
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	throttle := sync2.NewThrottle()
@@ -524,14 +561,14 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 			if err != nil {
 				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
-				return status.Error(codes.Internal, err.Error())
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
 			// ReadFull is required to ensure we are sending the right amount of data.
 			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
 				endpoint.log.Error("error reading from piecereader", zap.Error(err))
-				return status.Error(codes.Internal, err.Error())
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
 			err = stream.Send(&pb.PieceDownloadResponse{
@@ -633,17 +670,17 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 
 	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
 	if err != nil {
-		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, Error.Wrap(err).Error())
 	}
 
 	// the queue function will update the created before time based on the configurable retain buffer
@@ -674,7 +711,8 @@ func min(a, b int64) int64 {
 
 // ignoreEOF ignores io.EOF error.
 func ignoreEOF(err error) error {
-	if err == io.EOF {
+	// gRPC gives us an io.EOF but dRPC gives us a wrapped io.EOF
+	if errs.Is(err, io.EOF) {
 		return nil
 	}
 	return err

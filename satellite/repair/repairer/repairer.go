@@ -28,7 +28,8 @@ var (
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
 	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
+	DownloadTimeout               time.Duration `help:"time limit for downloading pieces from a node for repair" default:"5m0s"`
 	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 }
@@ -87,12 +88,12 @@ func (service *Service) process(ctx context.Context) (err error) {
 			}
 			return err
 		}
-		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				service.log.Error("repair worker failed:", zap.Error(err))
+				service.log.Error("repair worker failed:", zap.Binary("Segment", seg.GetPath()), zap.Error(err))
 			}
 		})
 	}
@@ -103,17 +104,19 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	service.log.Info("Limiter running repair on segment",
+		zap.Binary("Segment", seg.GetPath()),
+		zap.String("Segment Path", string(seg.GetPath())))
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
 		if IrreparableError.Has(err) {
 			service.log.Error("deleting irreparable segment from the queue:",
 				zap.Error(service.queue.Delete(ctx, seg)),
-				zap.Binary("segment", seg.GetPath()),
+				zap.Binary("Segment", seg.GetPath()),
 			)
 		} else {
-			service.log.Info("deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
+			service.log.Info("deleting segment from repair queue", zap.Binary("Segment", seg.GetPath()))
 		}
 		delErr := service.queue.Delete(ctx, seg)
 		if delErr != nil {

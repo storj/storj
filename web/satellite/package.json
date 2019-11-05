@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint",
+    "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
     "test": "vue-cli-service test:unit",
-    "build": "vue-cli-service build"
+    "build": "vue-cli-service build",
+    "dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "apollo-cache-inmemory": "1.6.3",
@@ -37,6 +38,10 @@
     "@vue/test-utils": "1.0.0-beta.29",
     "babel-core": "7.0.0-bridge.0",
     "compression-webpack-plugin": "3.0.0",
+    "stylelint": "11.1.1",
+    "stylelint-webpack-plugin": "1.0.2",
+    "stylelint-config-standard": "19.0.0",
+    "stylelint-scss": "3.12.0",
     "jest-fetch-mock": "2.1.2",
     "node-sass": "4.12.0",
     "sass-loader": "7.1.0",
@@ -47,6 +52,7 @@
     "tslint-loader": "3.5.4",
     "typescript": "3.5.3",
     "vue-segment-analytics": "0.3.2",
+    "vue-svg-loader": "0.12.0",
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
     "vue-template-compiler": "2.6.10",
@@ -62,6 +68,41 @@
     "last 2 versions",
     "not ie <= 8"
   ],
+  "stylelint": {
+    "plugins": [
+      "stylelint-scss"
+    ],
+    "extends": "stylelint-config-standard",
+    "rules": {
+      "indentation": 4,
+      "string-quotes": "single",
+      "no-duplicate-selectors": true,
+      "selector-max-attribute": 1,
+      "selector-combinator-space-after": "always",
+      "selector-attribute-operator-space-before": "never",
+      "selector-attribute-operator-space-after": "never",
+      "selector-attribute-brackets-space-inside": "never",
+      "declaration-block-trailing-semicolon": "always",
+      "declaration-colon-space-before": "never",
+      "declaration-colon-space-after": "always",
+      "number-leading-zero": "always",
+      "function-url-quotes": "always",
+      "font-family-name-quotes": "always-unless-keyword",
+      "comment-whitespace-inside": "always",
+      "comment-empty-line-before": "always",
+      "rule-empty-line-before": "always-multi-line",
+      "selector-pseudo-element-colon-notation": "single",
+      "selector-pseudo-class-parentheses-space-inside": "never",
+      "selector-max-type": 1,
+      "font-family-no-missing-generic-family-keyword": true,
+      "at-rule-no-unknown": true,
+      "media-feature-range-operator-space-before": "always",
+      "media-feature-range-operator-space-after": "always",
+      "media-feature-parentheses-space-inside": "never",
+      "media-feature-colon-space-before": "never",
+      "media-feature-colon-space-after": "always"
+    }
+  },
   "jest": {
     "automock": false,
     "setupFiles": [
@@ -84,8 +125,9 @@
     "transform": {
       "^.+\\.js$": "babel-jest",
       "^.+\\.vue$": "vue-jest",
-      ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
-      "^.+\\.tsx?$": "ts-jest"
+      ".+\\.(css|styl|less|sass|scss|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
+      "^.+\\.tsx?$": "ts-jest",
+      "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
     },
     "transformIgnorePatterns": [
       "/node_modules/(?!(apollo-client|apollo-link))"

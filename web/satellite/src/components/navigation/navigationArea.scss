@@ -1,18 +1,37 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+a {
+    text-decoration: none;
+    outline: none;
+}
+
+::-webkit-scrollbar,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb {
+    width: 3px;
+    margin-top: 100px;
+    background-color: #fff;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #afb7c1;
+}
+
 .navigation-area {
     position: relative;
     min-width: 280px;
     max-width: 280px;
-    height: 100vh;
+    height: calc(97vh + 5px);
+    overflow-y: scroll;
     left: 0;
     background-color: #fff;
     padding-top: 20px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    font-family: 'font_regular';
+    font-family: 'font_regular', sans-serif;
+    user-select: none;
 
     &__logo {
         display: flex;
@@ -64,7 +83,7 @@
             cursor: pointer;
 
             &:hover {
-                color: #5E6978;
+                color: #5e6978;
             }
         }
     }
@@ -87,10 +106,10 @@
 
         &.router-link-active,
         &:hover {
-            border-left: 3px solid #2683FF;
+            border-left: 3px solid #2683ff;
 
-            .svg path:not(.white) {
-                fill: #2683FF !important;
+            .svg .navigation-svg-path:not(.white) {
+                fill: #2683ff !important;
             }
         }
 
@@ -100,8 +119,8 @@
             justify-content: flex-start;
             align-items: center;
 
-            h1 {
-                font-family: 'font_medium';
+            &__title {
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;
@@ -123,25 +142,20 @@
 
         &.router-link-active {
 
-            h1 {
-                color: #2683FF;
+            .account-item {
+                color: #2683ff;
             }
         }
     }
 }
 
-a {
-    text-decoration: none;
-    outline: none;
-}
-
 .disabled {
-    pointer-events:none;
-    opacity:0.6;
+    pointer-events: none;
+    opacity: 0.6;
 }
 
 .divider {
-    margin: 0 0 0 65px;
+    margin-left: 65px;
     border-top: 1px solid rgba(169, 181, 193, 0.3);
 }
 
@@ -149,56 +163,76 @@ a {
     margin: 10px 0 0 65px;
 }
 
-@media screen and (max-width: 1024px) {
-    .navigation-area {
-        width: 80px;
-        max-width: 80px;
-        min-width: 80px;
+.project-selection-area {
+    display: none;
+}
 
-        &__logo {
-            margin-left: 20px;
+@media screen and (max-width: 1024px) {
+
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin-top: 0;
+    }
+
+    .divider {
+        margin-left: 42px;
+    }
+
+    .navigation-area {
+        z-index: 200;
+
+        &__item-container {
+            padding-left: 40px;
         }
 
-        &__logo__text,
         &__project-title,
         &__resources-title,
-        &__account-title,
-        .account-item {
+        &__account-title {
+            margin-left: 45px;
+        }
+
+        &__project-title {
+            border-top: 1px solid rgba(169, 181, 193, 0.3);
+            padding-top: 20px;
+            margin-top: 5px;
+        }
+
+        &__logo {
             display: none;
         }
 
-        &__item-container {
-            padding-left: 26px;
-
-            &__link-container {
-
-                h1 {
-                    display: none;
-                }
-
-                &__add-button {
-                    display: none;
-                }
-            }
+        .project-selection-area {
+            display: block;
+            margin-left: 35px;
         }
     }
 }
 
-@media screen and (max-height: 800px) {
+@media screen and (max-width: 1024px) and (max-height: 790px) {
+
     .navigation-area {
-
-        &__item-container {
-            height: 45px;
-        }
+        height: 84vh;
     }
 }
 
-@media screen and (max-height: 730px) {
+@media screen and (max-width: 1024px) and (max-height: 700px) {
+
     .navigation-area {
-
-        &__item-container {
-            height: 40px;
-        }
+        height: 83vh;
     }
 }
 
+@media screen and (max-width: 1024px) and (max-height: 660px) {
+
+    .navigation-area {
+        height: 82vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 620px) {
+
+    .navigation-area {
+        height: 81vh;
+    }
+}

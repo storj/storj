@@ -142,7 +142,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segmentItems, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+		segmentItems, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 			CursorPosition: storj.SegmentPosition{
 				Index: 0,
@@ -270,18 +270,18 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 	require.NoError(t, err)
 
-	TestAPIKey := apiKey.Serialize()
+	TestAPIKey := apiKey
 
 	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 	require.NoError(t, err)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
 
 	cfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
 	rs, err := eestream.NewRedundancyStrategyFromStorj(cfg.GetRedundancyScheme())
 	require.NoError(t, err)
 
-	segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segmentStore := segments.NewSegmentStore(metainfo, ec, rs)
 	assert.NotNil(t, segmentStore)
 
 	key := new(storj.Key)
@@ -293,7 +293,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold)
+	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold, 8*memory.MiB.Int64())
 	require.NoError(t, err)
 
 	return metainfo, segmentStore, streamStore

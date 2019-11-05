@@ -3,28 +3,33 @@
 
 <template>
     <div class="container">
-        <p class="container__item">4/20/18 - 5/20/18</p>
-        <p class="container__item">STORJ Token Deposit</p>
-        <p class="container__item status">Added</p>
-        <p class="container__item amount"><b>$25.00</b></p>
-        <p class="container__item download">Download <a>PDF</a></p>
+        <p class="container__item">{{billingItem.date()}}</p>
+        <p class="container__item">{{billingItem.description}}</p>
+        <p class="container__item status">{{billingItem.status}}</p>
+        <p class="container__item amount"><b>{{billingItem.amountDollars()}}</b></p>
+        <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class BillingItem extends Vue {}
+import { BillingHistoryItem } from '@/types/payments';
+
+@Component
+export default class BillingItem extends Vue {
+    @Prop({default: new BillingHistoryItem()})
+    private readonly billingItem: BillingHistoryItem;
+}
 </script>
 
 <style scoped lang="scss">
-    a {
-        color: #2683FF;
-        font-family: 'font_bold';
+    .download-link {
+        color: #2683ff;
+        font-family: 'font_bold', sans-serif;
 
         &:hover {
-            color: #0059D0;
+            color: #0059d0;
         }
     }
 
@@ -34,14 +39,14 @@
         align-items: center;
         width: calc(100% - 60px);
         border-top: 1px solid rgba(169, 181, 193, 0.3);
-    
+
         &__item {
             width: 35%;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             text-align: left;
             margin-right: 10px;
-            color: #61666B;
+            color: #61666b;
         }
     }
 

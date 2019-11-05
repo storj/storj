@@ -14,11 +14,11 @@ Pieces with lower durability have higher importance to be transferred.
 
 ## Design
 
-We need a service on the satellite that finds pieces in the metainfo database that need to be transferred. We'll call this service `gexit.Service` or Graceful Exit service.
+We need a service on the satellite that finds pieces in the metainfo database that need to be transferred. We'll call this service `gracefulexit.Service` or Graceful Exit service.
 
 The service starts by asking overlay for all exiting nodes where `nodes.exit_loop_completed_at` is null.
 
-Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue (if durability <= optimal). We call this the transfer queue. If durability > optimal, we remove the exiting node from the segment / pointer.
+Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue. We call this the transfer queue.
 
 
 The transfer queue is stored in database. We will need batching when inserting to database to avoid excessive load.
@@ -39,7 +39,7 @@ The metainfo loop `Join` guarantees the observer will only receive events at the
 
 1. Add method for finding exiting nodes to overlay.
 2. Implement transfer queue for pieces.
-3. Implement gexit.Service.
+3. Implement gracefulexit.Service.
 4. Update satellite to ignore exiting storage nodes for repairs and uploads.
 
 ## Open issues (if applicable)

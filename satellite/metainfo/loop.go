@@ -76,19 +76,19 @@ type LoopConfig struct {
 //
 // architecture: Service
 type Loop struct {
-	config   LoopConfig
-	metainfo *Service
-	join     chan *observerContext
-	done     chan struct{}
+	config LoopConfig
+	db     PointerDB
+	join   chan *observerContext
+	done   chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service.
-func NewLoop(config LoopConfig, metainfo *Service) *Loop {
+func NewLoop(config LoopConfig, db PointerDB) *Loop {
 	return &Loop{
-		metainfo: metainfo,
-		config:   config,
-		join:     make(chan *observerContext),
-		done:     make(chan struct{}),
+		db:     db,
+		config: config,
+		join:   make(chan *observerContext),
+		done:   make(chan struct{}),
 	}
 }
 
@@ -121,14 +121,18 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	defer close(loop.done)
-
 	for {
 		err := loop.runOnce(ctx)
 		if err != nil {
 			return err
 		}
 	}
+}
+
+// Close closes the looping services.
+func (loop *Loop) Close() (err error) {
+	close(loop.done)
+	return nil
 }
 
 // runOnce goes through metainfo one time and sends information to observers.
@@ -170,7 +174,7 @@ waitformore:
 		}
 	}
 
-	err = loop.metainfo.Iterate(ctx, "", "", true, false,
+	err = loop.db.Iterate(ctx, storage.IterateOptions{Recurse: true},
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
@@ -232,11 +236,16 @@ waitformore:
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handle the error and return false. Otherwise, return true
 func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
-	if pointer.GetRemote() != nil {
+	switch pointer.GetType() {
+	case pb.Pointer_REMOTE:
 		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 			return false
 		}
-	} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+	case pb.Pointer_INLINE:
+		if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+			return false
+		}
+	default:
 		return false
 	}
 	if isLastSegment {

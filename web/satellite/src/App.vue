@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" v-on:click="onClick">
+    <div id="app" @click="onClick">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -31,12 +31,14 @@ export default class App extends Vue {
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
                 'successfulRegistrationPopup',
+                'paymentSelectButton',
+                'paymentSelect',
             ];
 
-    private onClick(e: Event): void {
+    public onClick(e: Event): void {
         let target: any = e.target;
         while (target) {
-            if (this.$data.ids.includes(target.id)) {
+            if (this.ids.includes(target.id)) {
                 return;
             }
             target = target.parentNode;
@@ -49,27 +51,32 @@ export default class App extends Vue {
 
 <style lang="scss">
     body {
-        margin: 0px !important;
+        margin: 0 !important;
         height: 100vh;
         zoom: 100%;
     }
 
-    @font-face {
-        font-family: "font_regular";
-        font-display: swap;
-        src: url("../static/fonts/font_regular.ttf");
+    img,
+    a {
+        -webkit-user-drag: none;
     }
 
     @font-face {
-        font-family: "font_medium";
+        font-family: 'font_regular';
         font-display: swap;
-        src: url("../static/fonts/font_medium.ttf");
+        src: url('../static/fonts/font_regular.ttf');
     }
 
     @font-face {
-        font-family: "font_bold";
+        font-family: 'font_medium';
         font-display: swap;
-        src: url("../static/fonts/font_bold.ttf");
+        src: url('../static/fonts/font_medium.ttf');
+    }
+
+    @font-face {
+        font-family: 'font_bold';
+        font-display: swap;
+        src: url('../static/fonts/font_bold.ttf');
     }
 
     a {
@@ -82,22 +89,25 @@ export default class App extends Vue {
         font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
-        caret-color: #2683FF;
+        caret-color: #2683ff;
     }
 
     /* width */
+
     ::-webkit-scrollbar {
         width: 4px;
     }
 
     /* Track */
+
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
     /* Handle */
+
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }
