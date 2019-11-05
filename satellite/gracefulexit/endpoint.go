@@ -755,7 +755,63 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 
 	errorCode := int(pb.TransferFailed_Error_value[message.Failed.Error.String()])
 
-	// TODO if error code is NOT_FOUND, the node no longer has the piece. remove the queue item and the pointer
+	// If the error code is NOT_FOUND, the node no longer has the piece.
+	// Remove the queue item and remove the node from the pointer.
+	// If the pointer is not piece hash verified, do not count this as a failure.
+	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
+		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("path", transfer.path), zap.Int32("piece num", transfer.pieceNum))
+		pointer, err := endpoint.metainfo.Get(ctx, string(transfer.path))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		remote := pointer.GetRemote()
+		if remote == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
+			return nil
+		}
+		pieces := remote.GetRemotePieces()
+
+		var nodePiece *pb.RemotePiece
+		for _, piece := range pieces {
+			if piece.NodeId == nodeID && piece.PieceNum == transfer.pieceNum {
+				nodePiece = piece
+			}
+		}
+		if nodePiece == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
+			return nil
+		}
+
+		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// If the pointer was piece hash verified, we know this node definitely should have the piece
+		// Otherwise, no penalty.
+		if pointer.PieceHashesVerified {
+			err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		pending.delete(pieceID)
+
+		return nil
+	}
 
 	transferQueueItem.LastFailedAt = &now
 	transferQueueItem.FailedCount = &failedCount
