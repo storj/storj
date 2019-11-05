@@ -43,7 +43,7 @@ func TestGraphqlQuery(t *testing.T) {
 		)
 
 		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(log, paymentsConfig, db.Customers(), db.CoinpaymentsTransactions())
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects())
 
 		service, err := console.NewService(
 			log,

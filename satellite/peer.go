@@ -79,10 +79,8 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
-	// StripeCustomers returns table for storing stripe customers
-	Customers() stripecoinpayments.CustomersDB
-	// CoinpaymentsTransactions returns db for storing coinpayments transactions.
-	CoinpaymentsTransactions() stripecoinpayments.TransactionsDB
+	// StripeCoinPayments returns stripecoinpayments database.
+	StripeCoinPayments() stripecoinpayments.DB
 }
 
 // Config is the global config satellite
