@@ -278,51 +278,64 @@ CREATE TABLE user_credits
     PRIMARY KEY (id)
 );
 CREATE TABLE graceful_exit_progress (
-                                        node_id             bytea                    NOT NULL,
-                                        bytes_transferred   bigint                   NOT NULL,
-                                        pieces_transferred  bigint                   NOT NULL,
-                                        pieces_failed       bigint                   NOT NULL,
-                                        updated_at          timestamp                NOT NULL,
-                                        PRIMARY KEY ( node_id )
+    node_id             bytea                    NOT NULL,
+    bytes_transferred   bigint                   NOT NULL,
+    pieces_transferred  bigint                   NOT NULL,
+    pieces_failed       bigint                   NOT NULL,
+    updated_at          timestamp                NOT NULL,
+    PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
-                                              node_id            bytea                    NOT NULL,
-                                              path               bytea                    NOT NULL,
-                                              piece_num          integer                  NOT NULL,
-                                              root_piece_id      bytea,
-                                              durability_ratio   double precision         NOT NULL,
-                                              queued_at          timestamp                NOT NULL,
-                                              requested_at       timestamp,
-                                              last_failed_at     timestamp,
-                                              last_failed_code   integer,
-                                              failed_count       integer,
-                                              finished_at        timestamp,
-                                              PRIMARY KEY ( node_id, path, piece_num )
+    node_id            bytea                    NOT NULL,
+    path               bytea                    NOT NULL,
+    piece_num          integer                  NOT NULL,
+    durability_ratio   double precision         NOT NULL,
+    queued_at          timestamp                NOT NULL,
+    requested_at       timestamp,
+    last_failed_at     timestamp,
+    last_failed_code   integer,
+    failed_count       integer,
+    finished_at        timestamp,
+    PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE stripe_customers (
-                                  user_id bytea NOT NULL,
-                                  customer_id text NOT NULL,
-                                  created_at timestamp with time zone NOT NULL,
-                                  PRIMARY KEY ( user_id ),
-                                  UNIQUE ( customer_id )
+    user_id bytea NOT NULL,
+    customer_id text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( user_id ),
+    UNIQUE ( customer_id )
 );
 CREATE TABLE coinpayments_transactions (
-                                           id text NOT NULL,
-                                           user_id bytea NOT NULL,
-                                           address text NOT NULL,
-                                           amount bytea NOT NULL,
-                                           received bytea NOT NULL,
-                                           status integer NOT NULL,
-                                           key text NOT NULL,
-                                           created_at timestamp with time zone NOT NULL,
-                                           PRIMARY KEY ( id )
+    id text NOT NULL,
+    user_id bytea NOT NULL,
+    address text NOT NULL,
+    amount bytea NOT NULL,
+    received bytea NOT NULL,
+    status integer NOT NULL,
+    key text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id )
 );
 CREATE TABLE stripecoinpayments_apply_balance_intents (
-                                                          tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
-                                                          state integer NOT NULL,
-                                                          created_at timestamp with time zone NOT NULL,
-                                                          PRIMARY KEY ( tx_id )
+    tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+    state integer NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( tx_id )
 );
+CREATE TABLE stripecoinpayments_invoice_project_records (
+    id bytea NOT NULL,
+    project_id bytea NOT NULL,
+    storage double precision NOT NULL,
+    egress bigint NOT NULL,
+    objects bigint NOT NULL,
+    period_start timestamp with time zone NOT NULL,
+    period_end timestamp with time zone NOT NULL,
+    state integer NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id ),
+    UNIQUE ( project_id, period_start, period_end )
+);
+
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 
 CREATE INDEX node_last_ip ON nodes ( last_net );
@@ -404,5 +417,4 @@ INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "dur
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
 -- NEW DATA --
-INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "root_piece_id", "durability_ratio", "queued_at", "requested_at", "last_failed_at", "last_failed_code", "failed_count", "finished_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', E'f8419768-5baa-4901-b3ba-62808013ec45/s0/test3/\\240\\243\\223n\\334~b}\\2624)\\250m\\201\\202\\235\\276\\361\\3304\\323\\352\\311\\361\\353;\\326\\311', 10, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 1.0, '2019-09-12 10:07:31.028103', '2019-09-12 10:07:32.028103', null, null, 0, '2019-09-12 10:07:33.028103');
-
+INSERT INTO "stripecoinpayments_invoice_project_records"("id", "project_id", "storage", "egress", "objects", "period_start", "period_end", "state", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\021\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 0, 0, 0, '2019-06-01 08:28:24.267934+00', '2019-06-01 08:28:24.267934+00', 0, '2019-06-01 08:28:24.267934+00')

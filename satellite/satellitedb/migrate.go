@@ -1362,8 +1362,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.db,
-				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Description: "Add stripecoinpayments_invoice_project_records",
 				Version:     65,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_invoice_project_records (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						storage double precision NOT NULL,
+						egress bigint NOT NULL,
+						objects bigint NOT NULL,
+						period_start timestamp with time zone NOT NULL,
+						period_end timestamp with time zone NOT NULL,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( project_id, period_start, period_end )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Version:     66,
 				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
 				},
