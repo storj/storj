@@ -67,7 +67,7 @@ func (db *PartnersStaticDB) All(ctx context.Context) ([]PartnerInfo, error) {
 func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInfo, error) {
 	partner, ok := db.byName[name]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", name)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", name)
 	}
 	return partner, nil
 }
@@ -76,7 +76,7 @@ func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInf
 func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (PartnerInfo, error) {
 	partner, ok := db.byID[id]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", id)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", id)
 	}
 	return partner, nil
 }
@@ -85,7 +85,7 @@ func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (PartnerInfo, e
 func (db *PartnersStaticDB) ByUserAgent(ctx context.Context, agent string) (PartnerInfo, error) {
 	partner, ok := db.byUserAgent[CanonicalUserAgentProduct(agent)]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", agent)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", agent)
 	}
 	return partner, nil
 }

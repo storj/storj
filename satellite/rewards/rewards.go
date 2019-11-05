@@ -17,8 +17,6 @@ var (
 	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
 	// NoCurrentOfferErr is the error class used when no current offer is set
 	NoCurrentOfferErr = errs.Class("no current offer")
-	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
-	NoMatchPartnerIDErr = errs.Class("partner not exist")
 )
 
 // DB holds information about offer
