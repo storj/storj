@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	// ErrReachedMaxCapacity is the error class used when an offer has reached its redemption capacity
+	// ErrReachedMaxCapacity is the error class used when an offer has reached its redemption capacity.
 	ErrReachedMaxCapacity = errs.Class("offer redemption has reached its capacity")
-	// ErrOfferNotExist is the error class used when no current offer is set
+	// ErrOfferNotExist is the error class used when no current offer is set.
 	ErrOfferNotExist = errs.Class("no current offer")
 )
 
@@ -112,7 +112,7 @@ type Offer struct {
 	Type   OfferType
 }
 
-// IsEmpty evaluates whether or not an on offer is empty
+// IsEmpty evaluates whether or not an on offer is empty.
 func (offer Offer) IsEmpty() bool {
 	return offer.Name == ""
 }
