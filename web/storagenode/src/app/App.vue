@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" @click="onClick">
+    <div id="app">
         <router-view/>
     </div>
 </template>
@@ -10,26 +10,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APPSTATE_ACTIONS } from './store/modules/appState';
-
 @Component
-export default class App extends Vue {
-    private ids: string[] = [
-        'satelliteDropdown',
-    ];
-
-    public onClick(event: Event): void {
-        let target: any = event.target;
-        while (target) {
-            if (this.ids.includes(target.id)) {
-                return;
-            }
-            target = target.parentNode;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
-    }
-}
+export default class App extends Vue {}
 </script>
 
 <style lang="scss">
