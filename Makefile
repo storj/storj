@@ -162,7 +162,7 @@ storagenode-console:
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
-	/bin/echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
+	echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images
@@ -252,20 +252,26 @@ binary:
 
 .PHONY: binary-check
 binary-check:
-	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} ]; then echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; else echo "Making ${COMPONENT}"; $(MAKE) binary; fi
+	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} ] || [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.exe ]; \
+	then \
+		echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; \
+	else \
+		echo "Making ${COMPONENT}"; \
+		$(MAKE) binary; \
+	fi
 
 .PHONY: certificates_%
 certificates_%:
-	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: gateway_%
 gateway_%:
 	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: identity_%
 identity_%:
-	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: inspector_%
 inspector_%:
-	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: linksharing_%
 linksharing_%:
 	$(MAKE) binary-check COMPONENT=linksharing GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -274,16 +280,16 @@ satellite_%:
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
-	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
-	$(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: uplink_%
 uplink_%:
 	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: versioncontrol_%
 versioncontrol_%:
-	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 
 
 COMPONENTLIST := certificates gateway identity inspector linksharing satellite storagenode storagenode-updater uplink versioncontrol
