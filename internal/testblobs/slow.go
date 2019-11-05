@@ -84,6 +84,12 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	return slow.blobs.Delete(ctx, ref)
 }
 
+// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version
+func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
+	slow.sleep()
+	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+}
+
 // Stat looks up disk metadata on the blob file
 func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	slow.sleep()
