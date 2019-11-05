@@ -292,6 +292,12 @@ read all (
     orderby asc project.name
 )
 
+read limitoffset (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
+
 model project_invoice_stamp (
     key    project_id start_date end_date
     unique invoice_id
@@ -556,7 +562,7 @@ model peer_identity (
 
     field node_id            blob
     field leaf_serial_number blob (updatable)
-    field chain              blob (updatable) // x509 ASN.1 DER content 
+    field chain              blob (updatable) // x509 ASN.1 DER content
     field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
@@ -775,14 +781,14 @@ model graceful_exit_progress (
 )
 
 create graceful_exit_progress ( noreturn )
-update graceful_exit_progress ( 
+update graceful_exit_progress (
 	where graceful_exit_progress.node_id = ?
 	noreturn
 )
 delete graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
 read one (
 	select graceful_exit_progress
-	where graceful_exit_progress.node_id = ? 
+	where graceful_exit_progress.node_id = ?
 )
 
 //--- graceful exit transfer queue ---//
@@ -795,37 +801,37 @@ model graceful_exit_transfer_queue (
     field path                blob
     field piece_num           int
     field durability_ratio    float64    ( updatable )
-    field queued_at           utimestamp ( autoinsert ) 
-    field requested_at        utimestamp ( updatable, nullable ) 
-    field last_failed_at      utimestamp ( updatable, nullable ) 
+    field queued_at           utimestamp ( autoinsert )
+    field requested_at        utimestamp ( updatable, nullable )
+    field last_failed_at      utimestamp ( updatable, nullable )
     field last_failed_code    int        ( updatable, nullable )
     field failed_count        int        ( updatable, nullable )
     field finished_at         utimestamp ( updatable, nullable )
 )
 
 create graceful_exit_transfer_queue ( noreturn )
-update graceful_exit_transfer_queue ( 
+update graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 	where graceful_exit_transfer_queue.piece_num = ?
 	noreturn
 )
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 )
 
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 	where graceful_exit_transfer_queue.piece_num = ?
 )
 
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.finished_at != null
 )
 
-read one ( 
+read one (
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
@@ -844,9 +850,15 @@ model stripe_customer (
 )
 
 create stripe_customer ( )
+
 read one (
 	select stripe_customer.customer_id
 	where stripe_customer.user_id = ?
+)
+read limitoffset (
+    select stripe_customer
+    where stripe_customer.created_at <= ?
+    orderby desc stripe_customer.created_at
 )
 
 model coinpayments_transaction (
@@ -890,3 +902,40 @@ delete stripecoinpayments_apply_balance_intent (
     where stripecoinpayments_apply_balance_intent.tx_id = ?
 )
 
+model stripecoinpayments_invoice_project_record (
+    key id
+
+    unique project_id period_start period_end
+
+    field id           blob
+    field project_id   blob
+    field storage      float64
+    field egress       int64
+    field objects      int64
+    field period_start timestamp
+    field period_end   timestamp
+    field state        int       ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_invoice_project_record ()
+update stripecoinpayments_invoice_project_record (
+    where stripecoinpayments_invoice_project_record.id = ?
+)
+delete stripecoinpayments_invoice_project_record (
+    where stripecoinpayments_invoice_project_record.id = ?
+)
+
+read one (
+    select stripecoinpayments_invoice_project_record
+    where stripecoinpayments_invoice_project_record.project_id = ?
+    where stripecoinpayments_invoice_project_record.period_start = ?
+    where stripecoinpayments_invoice_project_record.period_end = ?
+)
+read limitoffset (
+    select stripecoinpayments_invoice_project_record
+    where stripecoinpayments_invoice_project_record.created_at <= ?
+    where stripecoinpayments_invoice_project_record.state = ?
+    orderby desc stripecoinpayments_invoice_project_record.created_at
+)

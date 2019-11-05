@@ -5330,6 +5330,87 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:payments.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "PrepareInvoiceRecordsRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "period",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PrepareInvoiceRecordsResponse"
+          },
+          {
+            "name": "ApplyInvoiceRecordsRequest"
+          },
+          {
+            "name": "ApplyInvoiceRecordsResponse"
+          },
+          {
+            "name": "CreateInvoicesRequest"
+          },
+          {
+            "name": "CreateInvoicesResponse"
+          }
+        ],
+        "services": [
+          {
+            "name": "Payments",
+            "rpcs": [
+              {
+                "name": "PrepareInvoiceRecords",
+                "in_type": "PrepareInvoiceRecordsRequest",
+                "out_type": "PrepareInvoiceRecordsResponse"
+              },
+              {
+                "name": "ApplyInvoiceRecords",
+                "in_type": "ApplyInvoiceRecordsRequest",
+                "out_type": "ApplyInvoiceRecordsResponse"
+              },
+              {
+                "name": "CreateInvoices",
+                "in_type": "CreateInvoicesRequest",
+                "out_type": "CreateInvoicesResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "nodestats"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:piecestore2.proto",
       "def": {
         "enums": [
