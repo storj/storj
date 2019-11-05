@@ -44,16 +44,19 @@ func restrict_api_key(apikeyRef C.APIKeyRef, cCaveat C.Caveat, cerr **C.char) C.
 	apikey, ok := universe.Get(apikeyRef._handle).(libuplink.APIKey)
 	if !ok {
 		*cerr = C.CString("invalid apikey")
+		return nil
 	}
 
 	allowedPaths, ok := universe.Get(cCaveat.allowed_paths._handle).([]*macaroon.Caveat_Path)
 	if !ok {
 		*cerr = C.CString("invalid allowed caveat paths")
+		return nil
 	}
 
 	nonce, ok := universe.Get(cCaveat.nonce._handle).([]byte)
 	if !ok {
 		*cerr = C.CString("invalid caveat nonce")
+		return nil
 	}
 
 	notAfter := time.Unix(int64(cCaveat.not_after), 0)
@@ -72,6 +75,7 @@ func restrict_api_key(apikeyRef C.APIKeyRef, cCaveat C.Caveat, cerr **C.char) C.
 	restrictedAPIKey, err := apikey.Restrict(caveat)
 	if err != nil {
 		*cerr = C.CString(err.Error())
+		return nil
 	}
 	return C.APIKeyRef{universe.Add(restrictedAPIKey)}
 }
