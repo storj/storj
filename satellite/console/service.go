@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -232,6 +233,12 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 			},
 		)
 	}
+
+	sort.SliceStable(billingHistory,
+		func(i, j int) bool {
+			return billingHistory[i].Start.After(billingHistory[j].Start)
+		},
+	)
 
 	return billingHistory, nil
 }
