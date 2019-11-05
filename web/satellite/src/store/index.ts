@@ -12,17 +12,17 @@ import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
-import { router } from '@/router';
+import { notProjectRelatedRoutes, router } from '@/router';
 import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeCreditsModule } from '@/store/modules/credits';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
-import { makePaymentsModule } from '@/store/modules/payments';
+import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeUsageModule, UsageState } from '@/store/modules/usage';
-import { makeUsersModule } from '@/store/modules/users';
+import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
 import { CreditUsage } from '@/types/credits';
 import { User } from '@/types/users';
 
@@ -51,14 +51,14 @@ class ModulesState {
     public appStateModule;
     public creditsModule: CreditUsage;
     public projectMembersModule: ProjectMembersState;
-    public paymentsModule;
+    public paymentsModule: PaymentsState;
     public usersModule: User;
     public projectsModule: ProjectsState;
     public usageModule: UsageState;
 }
 
 // Satellite store (vuex)
-const store = new Vuex.Store<ModulesState>({
+export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
@@ -74,12 +74,18 @@ const store = new Vuex.Store<ModulesState>({
 });
 
 store.subscribe((mutation, state) => {
-    if (mutation.type === PROJECTS_MUTATIONS.REMOVE) {
-        document.title = `${router.currentRoute.name} | us-central-1 - Tardigrade`;
-    }
+    const currentRouteName = router.currentRoute.name;
+    const satelliteName = state.appStateModule.satelliteName;
 
-    if (mutation.type === PROJECTS_MUTATIONS.SELECT_PROJECT) {
-        document.title = `${state.projectsModule.selectedProject.name} | ${router.currentRoute.name} | us-central-1 - Tardigrade`;
+    switch (mutation.type) {
+        case PROJECTS_MUTATIONS.REMOVE:
+            document.title = `${router.currentRoute.name} | ${satelliteName}`;
+
+            break;
+        case PROJECTS_MUTATIONS.SELECT_PROJECT:
+            if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
+                document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
+            }
     }
 });
 

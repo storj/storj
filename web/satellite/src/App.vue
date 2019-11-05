@@ -35,6 +35,20 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
+    public mounted() {
+        const meta = document.querySelector("meta[name='satellite-name']");
+        let satelliteName;
+
+        if (meta) {
+            satelliteName = meta.getAttribute('content');
+        }
+
+        if (satelliteName) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+            document.title = satelliteName;
+        }
+    }
+
     public onClick(e: Event): void {
         let target: any = e.target;
         while (target) {
