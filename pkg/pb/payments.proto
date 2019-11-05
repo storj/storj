@@ -1,0 +1,28 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package nodestats;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service Payments {
+    rpc PrepareInvoiceRecords(PrepareInvoiceRecordsRequest) returns (PrepareInvoiceRecordsResponse);
+    rpc ApplyInvoiceRecords(ApplyInvoiceRecordsRequest) returns (ApplyInvoiceRecordsResponse);
+    rpc CreateInvoices(CreateInvoicesRequest) returns (CreateInvoicesResponse);
+}
+
+message PrepareInvoiceRecordsRequest {
+    google.protobuf.Timestamp period = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message PrepareInvoiceRecordsResponse {}
+
+message ApplyInvoiceRecordsRequest {}
+message ApplyInvoiceRecordsResponse {}
+
+message CreateInvoicesRequest {}
+message CreateInvoicesResponse {}
