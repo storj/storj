@@ -65,13 +65,13 @@ namespace Storj
 
             if (string.IsNullOrEmpty(wallet))
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address cannot be empty.";
+                session["STORJ_WALLET_VALID"] = "The payout address cannot be empty.";
                 return ActionResult.Success;
             }
 
             if (!wallet.StartsWith("0x"))
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address must start with a '0x' prefix.";
+                session["STORJ_WALLET_VALID"] = "The payout address must start with a '0x' prefix.";
                 return ActionResult.Success;
             }
 
@@ -80,7 +80,7 @@ namespace Storj
 
             if (wallet.Length != 40)
             {
-                session["STORJ_WALLET_VALID"] = "The wallet address must have 40 characters after the '0x' prefix.";
+                session["STORJ_WALLET_VALID"] = "The payout address must have 40 characters after the '0x' prefix.";
                 return ActionResult.Success;
             }
 
