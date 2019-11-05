@@ -6,20 +6,15 @@ package gracefulexit
 import (
 	"context"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
 )
-
-var mon = monkit.Package()
 
 // Chore checks for satellites that the node is exiting and creates a worker per satellite to complete the process.
 //
@@ -36,14 +31,6 @@ type Chore struct {
 	exitingMap sync.Map
 	Loop       sync2.Cycle
 	limiter    sync2.Limiter
-}
-
-// Config for the chore
-type Config struct {
-	ChoreInterval      time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
-	NumWorkers         int           `help:"number of workers to handle satellite exits" default:"3"`
-	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that an exiting node can transfer per second to the new node" default:"128B"`
-	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a piece from storage nodes before timing out" default:"2m"`
 }
 
 // NewChore instantiates Chore.
