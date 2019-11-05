@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -192,6 +193,17 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 
 	ts := httptest.NewServer(&mux)
 
+	var randSeed version.RolloutBytes
+	_, err := rand.Read(randSeed[:])
+	require.NoError(t, err)
+
+	storagenodeSeed := fmt.Sprintf("%x", randSeed)
+
+	_, err = rand.Read(randSeed[:])
+	require.NoError(t, err)
+
+	updaterSeed := fmt.Sprintf("%x", randSeed)
+
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		// NB: this config field is required for versioncontrol to run.
@@ -202,7 +214,6 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
-		// TODO use random seed
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
@@ -210,7 +221,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   storagenodeSeed,
 					Cursor: 100,
 				},
 			},
@@ -220,13 +231,13 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode-updater",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   updaterSeed,
 					Cursor: 100,
 				},
 			},
 		},
 	}
-	peer, err := versioncontrol.New(zaptest.NewLogger(t), config)
+	peer, err = versioncontrol.New(zaptest.NewLogger(t), config)
 	require.NoError(t, err)
 	ctx.Go(func() error {
 		return peer.Run(ctx)
