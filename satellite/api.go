@@ -5,7 +5,6 @@ package satellite
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -154,9 +153,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	{ // setup listener and server
 		log.Debug("Satellite API Process starting listener and server")
 		sc := config.Server
-
-		log.Debug(fmt.Sprintf("Satellite API Public %s", sc.Address))
-		log.Debug(fmt.Sprintf("Satellite API Private %s", sc.PrivateAddress))
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {

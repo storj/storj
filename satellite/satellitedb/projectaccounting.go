@@ -16,9 +16,6 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// ensure that ProjectAccounting implements accounting.ProjectAccounting.
-var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
-
 // ProjectAccounting implements the accounting/db ProjectAccounting interface
 type ProjectAccounting struct {
 	db *dbx.DB

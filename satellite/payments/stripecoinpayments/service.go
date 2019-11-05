@@ -93,7 +93,6 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 		}
 
 		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, limit, before)
-
 		if err != nil {
 			return err
 		}
@@ -251,7 +250,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, 0, limit, end)
+		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, limit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -318,7 +317,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 			return Error.Wrap(err)
 		}
 
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, limit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -385,7 +384,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
-	return
+	return err
 }
 
 // CreateInvoices lists through all customers and creates invoices.
@@ -415,7 +414,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.db.Customers().List(ctx, 0, limit, before)
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, limit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
