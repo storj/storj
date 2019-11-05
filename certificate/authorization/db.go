@@ -122,8 +122,8 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return nil, ErrDB.Wrap(err)
+	if err != nil {
+		return nil, ErrDBInternal.Wrap(err)
 	}
 	if authsBytes == nil {
 		return nil, nil
@@ -131,7 +131,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 
 	var auths Group
 	if err := auths.Unmarshal(authsBytes); err != nil {
-		return nil, ErrDB.Wrap(err)
+		return nil, ErrDBInternal.Wrap(err)
 	}
 	return auths, nil
 }
@@ -148,7 +148,7 @@ func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 		}
 		return nil
 	})
-	return userIDs, err
+	return userIDs, ErrDBInternal.Wrap(err)
 }
 
 // List returns all authorizations in the database.
@@ -166,9 +166,9 @@ func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 			}
 			auths = append(auths, nextAuths...)
 		}
-		return listErrs.Err()
+		return ErrDBInternal.Wrap(listErrs.Err())
 	})
-	return auths, err
+	return auths, ErrDBInternal.Wrap(err)
 }
 
 // Claim marks an authorization as claimed and records claim information.
@@ -271,11 +271,11 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 
 	authsBytes, err := auths.Marshal()
 	if err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 
 	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 	return nil
 }
