@@ -227,9 +227,12 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 			// TODO remove old binary ??
 			return nil
 		}
+
+		log.Printf("new %s version available but not rolled out to this nodeID yet\n", serviceName)
+		return nil
 	}
 
-	log.Printf("%s version is up to date\n", runCfg.ServiceName)
+	log.Printf("%s version is up to date\n", serviceName)
 	return nil
 }
 
