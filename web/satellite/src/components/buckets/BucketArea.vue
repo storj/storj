@@ -184,6 +184,7 @@ export default class BucketArea extends Vue {
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
+            user-select: none;
         }
     }
 

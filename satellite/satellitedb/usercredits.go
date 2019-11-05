@@ -18,6 +18,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that usercredits implements console.UserCredits.
+var _ console.UserCredits = (*usercredits)(nil)
+
 type usercredits struct {
 	db *dbx.DB
 	tx *dbx.Tx

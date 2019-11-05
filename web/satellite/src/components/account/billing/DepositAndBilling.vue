@@ -8,9 +8,11 @@
             <div class="button" @click="onViewAllClick">View All</div>
         </div>
         <SortingHeader/>
-        <BillingItem/>
-        <BillingItem/>
-        <BillingItem/>
+        <BillingItem
+            v-for="item in billingHistoryItems"
+            :billing-item="item"
+            :key="item.id"
+        />
     </div>
 </template>
 
@@ -21,6 +23,7 @@ import BillingItem from '@/components/account/billing/BillingItem.vue';
 import SortingHeader from '@/components/account/billing/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
+import { BillingHistoryItem } from '@/types/payments';
 
 @Component({
     components: {
@@ -31,6 +34,10 @@ import { RouteConfig } from '@/router';
 export default class DepositAndBilling extends Vue {
     public onViewAllClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
+    }
+
+    public get billingHistoryItems(): BillingHistoryItem[] {
+        return this.$store.state.paymentsModule.billingHistory.slice(0, 3);
     }
 }
 </script>
@@ -78,6 +85,20 @@ export default class DepositAndBilling extends Vue {
                     color: #fff;
                 }
             }
+        }
+    }
+
+    @media screen and (max-height: 850px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 50px;
+        }
+    }
+
+    @media screen and (max-height: 650px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 75px;
         }
     }
 </style>

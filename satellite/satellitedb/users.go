@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that users implements console.Users.
+var _ console.Users = (*users)(nil)
+
 // implementation of Users interface repository using spacemonkeygo/dbx orm
 type users struct {
 	db dbx.Methods
