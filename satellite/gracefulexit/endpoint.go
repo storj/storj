@@ -416,7 +416,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	pieceSize, err := endpoint.calculatePieceSize(ctx, pointer, incomplete, nodePiece)
-	if ErrAboveOptimalThreshold.has(err) {
+	if ErrAboveOptimalThreshold.Has(err) {
 		return nil
 	}
 	if err != nil {
