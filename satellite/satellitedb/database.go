@@ -47,8 +47,6 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source = pgutil.CheckApplicationName(source)
-
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",

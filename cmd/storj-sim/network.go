@@ -22,7 +22,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
 	"storj.io/storj/lib/uplink"
@@ -318,8 +317,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		if flags.Postgres != "" {
 			process.Arguments["setup"] = append(process.Arguments["setup"],
-				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
-				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+				"--database", flags.Postgres, fmt.Sprintf("satellite/%d", i),
+				"--metainfo.database-url", flags.Postgres, fmt.Sprintf("satellite/%d/meta", i),
 			)
 		}
 		process.ExecBefore["run"] = func(process *Process) error {

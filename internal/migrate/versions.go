@@ -5,6 +5,7 @@ package migrate
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -132,7 +133,8 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		return err
 	}
 
-	for _, step := range migration.Steps {
+	for i, step := range migration.Steps {
+		fmt.Println("**** start step:", i)
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
@@ -148,6 +150,7 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		}
 
 		if step.Version <= version {
+			fmt.Println("**** cont step:", i)
 			continue
 		}
 
@@ -172,6 +175,7 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		if err := tx.Commit(); err != nil {
 			return Error.Wrap(err)
 		}
+		fmt.Println("**** end step:", i)
 	}
 
 	if len(migration.Steps) > 0 {
