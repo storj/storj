@@ -304,6 +304,8 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
 		}
 
+		pieceNums := make(map[int32]struct{}, 0)
+		nodeIds := make(map[storj.NodeID]struct{}, 0)
 		for _, piece := range remote.RemotePieces {
 			if piece.PieceNum >= int32(len(originalLimits)) {
 				return Error.New("invalid piece number")
@@ -332,6 +334,17 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			if piece.NodeId != limit.StorageNodeId {
 				return Error.New("piece NodeID != order limit NodeID")
 			}
+
+			if _, ok := pieceNums[piece.PieceNum]; ok {
+				return Error.New("piece num %d is duplicated", piece.PieceNum)
+			}
+
+			if _, ok := nodeIds[piece.NodeId]; ok {
+				return Error.New("node id %s for piece num %d is duplicated", piece.NodeId.String(), piece.PieceNum)
+			}
+
+			pieceNums[piece.PieceNum] = struct{}{}
+			nodeIds[piece.NodeId] = struct{}{}
 		}
 	}
 

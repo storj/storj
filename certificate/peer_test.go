@@ -203,8 +203,8 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			now := time.Now()
 			claimTime := time.Unix(claim.Timestamp, 0)
 			assert.Condition(t, func() bool {
-				return now.Sub(claimTime) < authorization.MaxClockOffset &&
-					claimTime.Sub(now) < authorization.MaxClockOffset
+				return now.Sub(claimTime) < authorization.MaxClockSkew &&
+					claimTime.Sub(now) < authorization.MaxClockSkew
 			})
 		})
 	})
