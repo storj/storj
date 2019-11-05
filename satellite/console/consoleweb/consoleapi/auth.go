@@ -64,6 +64,11 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
@@ -115,7 +120,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		registerData.ReferrerUserID,
 	)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -250,12 +260,17 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(w, http.StatusUnauthorized, err)
 			return
 		}
 
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 }

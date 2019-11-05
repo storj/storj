@@ -5,7 +5,7 @@
     <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
             <div v-if="!isProjectOwner" class="checkbox"></div>
-            <div class="user-container__base-info__avatar" :style="avatarData.style">
+            <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
             <div class="user-container__base-info__name-area">
@@ -90,6 +90,7 @@ export default class ProjectMemberListItem extends Vue {
                 align-items: center;
                 justify-content: center;
                 background-color: #ff8658;
+                margin-left: 20px;
 
                 &__letter {
                     margin: 0;
@@ -131,7 +132,6 @@ export default class ProjectMemberListItem extends Vue {
 
     .checkbox {
         background-image: url('../../../static/images/team/checkboxEmpty.png');
-        margin-right: 20px;
         min-width: 23px;
         height: 23px;
     }
@@ -155,5 +155,9 @@ export default class ProjectMemberListItem extends Vue {
 
     .owner {
         cursor: default;
+    }
+
+    .extra-margin {
+        margin-left: 43px;
     }
 </style>

@@ -163,7 +163,7 @@ export default class VDatePicker extends Vue {
      * @param year
      */
     public setYear(year): void {
-        this.populateDays(new Date(year, this.selectedDateState.month, this.selectedDateState.day));
+        this.populateDays(new Date(year, this.selectedDateState.month, 1));
     }
 
     /**
@@ -173,7 +173,7 @@ export default class VDatePicker extends Vue {
      */
     public setMonth(month: string): void {
         const monthIndex = this.monthsNames.indexOf(month);
-        this.populateDays(new Date(this.selectedDateState.year, monthIndex, this.selectedDateState.day));
+        this.populateDays(new Date(this.selectedDateState.year, monthIndex, 1));
     }
 
     /**
@@ -216,7 +216,7 @@ export default class VDatePicker extends Vue {
      * @param action represents next or previous type of action
      */
     private nextMonth(action: DayAction): void {
-        const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
+        const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, 1);
         const currentMonth = currentMoment.getMonth();
         const now = new Date();
 
