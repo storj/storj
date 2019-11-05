@@ -494,8 +494,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			peerID, ok := peerIDMap[piece.NodeId]
 			if !ok {
 				endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
-					zap.Stringer("nodeID", piece.NodeId),
-					zap.Int32("pieceID", piece.PieceNum),
+					zap.Stringer("Node ID", piece.NodeId),
+					zap.Int32("Piece ID", piece.PieceNum),
 				)
 
 				invalidPieces = append(invalidPieces, invalidPiece{
@@ -909,7 +909,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	// check if attribution is set for given bucket
 	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
-		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.String("partnerID", partnerID.String()))
+		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
 		return nil
 	}
 
@@ -1498,7 +1498,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
 			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
-			zap.Stringer("segment ID", req.SegmentId),
+			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
@@ -1568,7 +1568,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if exceeded {
 		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
 			zap.Int64("limit", limit.Int64()),
-			zap.Stringer("project id", keyInfo.ProjectID),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1597,7 +1597,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Error("Could not track new storage usage by project",
-			zap.Stringer("projectID", keyInfo.ProjectID),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
