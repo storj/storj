@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.3
+GO_VERSION ?= 1.13.4
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -294,7 +294,7 @@ BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 .PHONY: sign-windows-installer
-sign-windows-installer: 
+sign-windows-installer:
 	storj-sign release/${TAG}/storagenode_windows_amd64.msi
 
 .PHONY: libuplink

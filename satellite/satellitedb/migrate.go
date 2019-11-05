@@ -1352,6 +1352,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Removing unused bucket_usages table",
+				Version:     64,
+				Action: migrate.SQL{
+					`DROP TABLE bucket_usages CASCADE;`,
+				},
+			},
 		},
 	}
 }
