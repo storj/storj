@@ -58,7 +58,8 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CustomActionTests.cs" />
+    <Compile Include="ExtractInstallDirTests.cs" />
+    <Compile Include="ValidateWalletTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

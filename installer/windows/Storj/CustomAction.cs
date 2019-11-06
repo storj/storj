@@ -178,9 +178,7 @@ namespace Storj
             string line = session["STORJ_SERVICE_COMMAND"];
             session.Log($"ExtractInstallDir registry value: {line}");
 
-            Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
-            Match match = pattern.Match(line);
-            string path = match.Groups["installDir"].Value;
+            string path = CustomActionRunner.ExtractInstallDir(line);
             session.Log($"ExtractInstallDir extracted path: {path}");
 
             session["STORJ_INSTALLDIR"] = path;
@@ -211,6 +209,25 @@ namespace Storj
             }
 
             // TODO validate address checksum
+        }
+
+        public static string ExtractInstallDir(string serviceCmd)
+        {
+            if (string.IsNullOrEmpty(serviceCmd))
+            {
+                return null;
+            }
+
+            Regex pattern = new Regex(@"--config-dir ""(?<installDir>.*)""");
+            Match match = pattern.Match(serviceCmd);
+            string installDir =  match.Groups["installDir"].Value;
+
+            if (string.IsNullOrEmpty(installDir))
+            {
+                return null;
+            }
+
+            return installDir;
         }
     }
 
