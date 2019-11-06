@@ -7,6 +7,7 @@
             <StorjIcon
                 class="footer__content-holder__icon"
                 alt="storj icon"
+                @click="scrollUp"
             />
             <a class="footer__content-holder__community-link" href="https://forum.storj.io/c/sno-category" target="_blank" rel="noopener">Community</a>
             <a class="footer__content-holder__support-link" href="https://support.storj.io" target="_blank" rel="noopener">Support</a>
@@ -24,7 +25,11 @@ import StorjIcon from '@/../static/images/storjIcon.svg';
         StorjIcon,
     },
 })
-export default class SNOFooter extends Vue {}
+export default class SNOFooter extends Vue {
+    public scrollUp(): void {
+        window.scrollTo(0, 0);
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -35,6 +40,7 @@ export default class SNOFooter extends Vue {}
         justify-content: center;
         background-color: #f8f9fb;
         align-items: center;
+        user-select: none;
 
         &__content-holder {
             width: 822px;
@@ -44,6 +50,7 @@ export default class SNOFooter extends Vue {}
 
             &__icon {
                 min-width: 125px;
+                cursor: pointer;
             }
 
             &__community-link,

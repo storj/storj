@@ -39,6 +39,8 @@ var (
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
 	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
+	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
+	ErrSegmentExpired = errs.Class("segment expired before audit")
 )
 
 // Share represents required information about an audited share
@@ -91,6 +93,13 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			return Report{}, ErrSegmentDeleted.New("%q", path)
 		}
 		return Report{}, err
+	}
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+		errDelete := verifier.metainfo.Delete(ctx, path)
+		if errDelete != nil {
+			return Report{}, Error.Wrap(errDelete)
+		}
+		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
 	}
 
 	defer func() {
@@ -359,6 +368,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 		return Report{}, err
 	}
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+		errDelete := verifier.metainfo.Delete(ctx, path)
+		if errDelete != nil {
+			return Report{}, Error.Wrap(errDelete)
+		}
+		return Report{}, ErrSegmentExpired.New("Segment expired before Reverify")
+	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)
 	pieceHashesVerifiedMutex := &sync.Mutex{}
@@ -418,6 +434,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 
 				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+				return
+			}
+			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
+				errDelete := verifier.metainfo.Delete(ctx, pending.Path)
+				if errDelete != nil {
+					verifier.log.Debug("Reverify: error deleting expired segment", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				_, errDelete = verifier.containment.Delete(ctx, pending.NodeID)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				verifier.log.Debug("Reverify: segment already expired", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID))
+				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
 
