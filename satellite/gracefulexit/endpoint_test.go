@@ -931,7 +931,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 		newPointer.PieceHashesVerified = false
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		// begin processing graceful exit messages
