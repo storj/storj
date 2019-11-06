@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/mockpayments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
@@ -100,7 +99,7 @@ type Core struct {
 
 	Payments struct {
 		Accounts payments.Accounts
-		Clearing payments.Clearing
+		Chore    *stripecoinpayments.Chore
 	}
 
 	GracefulExit struct {
@@ -308,24 +307,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	// TODO: remove in future, should be in API
 	{ // setup payments
 		log.Debug("Setting up payments")
-		config := paymentsconfig.Config{}
+		pc := config.Payments
 
-		switch config.Provider {
+		switch pc.Provider {
 		default:
 			peer.Payments.Accounts = mockpayments.Accounts()
 		case "stripecoinpayments":
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
-				config.StripeCoinPayments,
-				peer.DB.Customers(),
-				peer.DB.CoinpaymentsTransactions())
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects())
 
 			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Clearing = stripecoinpayments.NewChore(
+
+			peer.Payments.Chore = stripecoinpayments.NewChore(
 				peer.Log.Named("stripecoinpayments clearing loop"),
 				service,
-				config.StripeCoinPayments.TransactionUpdateInterval,
-				config.StripeCoinPayments.AccountBalanceUpdateInterval)
+				pc.StripeCoinPayments.TransactionUpdateInterval,
+				pc.StripeCoinPayments.AccountBalanceUpdateInterval)
 		}
 	}
 

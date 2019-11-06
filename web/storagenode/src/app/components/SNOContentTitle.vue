@@ -157,6 +157,7 @@ export default class SNOContentTitle extends Vue {
         &__name {
             display: flex;
             align-items: center;
+            user-select: none;
 
             &__title {
                 margin: 0;
@@ -176,6 +177,7 @@ export default class SNOContentTitle extends Vue {
             align-items: center;
             font-size: 12px;
             position: relative;
+            user-select: none;
 
             &__online-status {
                 margin: 0 5px 0 5px;
