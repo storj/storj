@@ -1262,15 +1262,8 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	return nil, nil
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
-	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
-	require.NoError(t, err)
-
-	return node.Disqualified != nil
-}
-
 func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+	nodeStat, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 		NodeID:       nodeID,
 		IsUp:         true,
 		AuditSuccess: false,
@@ -1282,5 +1275,5 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplane
 		UptimeDQ:     0.5,
 	})
 	require.NoError(t, err)
-	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
+	require.NotNil(t, nodeStat.Disqualified)
 }

@@ -204,35 +204,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		endpoint.connections.delete(nodeID)
 	}()
 
-	// check if node is disqualified
-	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+	isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	if nodeInfo.Disqualified != nil {
-		// update graceful exit status to be failed
-		exitStatusRequest := &overlay.ExitStatusRequest{
-			NodeID:         nodeID,
-			ExitFinishedAt: time.Now().UTC(),
-			ExitSuccess:    false,
-		}
-
-		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
-		if err != nil {
-			return rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
-		if err != nil {
-			return rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		// remove remaining items from the queue after notifying nodes about their exit status
-		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
-		if err != nil {
-			return rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
+	if isDisqualified {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
 	}
 
 	eofHandler := func(err error) error {
@@ -375,35 +352,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if !morePiecesFlag && pendingCount == 0 {
 			processMu.Unlock()
 
-			// check if node is disqualified
-			nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 			if err != nil {
-				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
-			if nodeInfo.Disqualified != nil {
-				// update graceful exit status to be failed
-				exitStatusRequest := &overlay.ExitStatusRequest{
-					NodeID:         nodeID,
-					ExitFinishedAt: time.Now().UTC(),
-					ExitSuccess:    false,
-				}
-
-				err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
-				if err != nil {
-					return rpcstatus.Error(rpcstatus.Internal, err.Error())
-				}
-
-				_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
-				if err != nil {
-					return rpcstatus.Error(rpcstatus.Internal, err.Error())
-				}
-
-				// remove remaining items from the queue after notifying nodes about their exit status
-				err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
-				if err != nil {
-					return rpcstatus.Error(rpcstatus.Internal, err.Error())
-				}
-				return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
+			if isDisqualified {
+				return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
 			}
 
 			exitStatusRequest := &overlay.ExitStatusRequest{
@@ -988,4 +942,41 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	}
 
 	return nil
+}
+
+func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID) (isDisqualified bool, err error) {
+	// check if node is disqualified
+	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	if nodeInfo.Disqualified != nil {
+		// update graceful exit status to be failed
+		exitStatusRequest := &overlay.ExitStatusRequest{
+			NodeID:         nodeID,
+			ExitFinishedAt: time.Now().UTC(),
+			ExitSuccess:    false,
+		}
+
+		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+		if err != nil {
+			return true, Error.Wrap(err)
+		}
+
+		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+		if err != nil {
+			return true, Error.Wrap(err)
+		}
+
+		// remove remaining items from the queue after notifying nodes about their exit status
+		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+		if err != nil {
+			return true, Error.Wrap(err)
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }
