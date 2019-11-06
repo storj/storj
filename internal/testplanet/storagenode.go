@@ -135,7 +135,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		newIPCount := planet.config.Reconfigure.NewIPCount
+		newIPCount := planet.config.Reconfigure.UniqueIPCount
 		if newIPCount > 0 {
 			if i >= count-newIPCount {
 				config.Server.Address = fmt.Sprintf("127.0.%d.1:0", i+1)
