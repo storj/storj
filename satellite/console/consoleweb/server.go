@@ -212,7 +212,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	var data struct {
-	    SatelliteName string
+		SatelliteName string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
