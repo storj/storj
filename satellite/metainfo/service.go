@@ -177,6 +177,24 @@ func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, er
 	return pointer, nil
 }
 
+// GetWithBytes gets pointer from db
+func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pointerBytes, err = s.DB.Get(ctx, []byte(path))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	pointer = &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	return pointerBytes, pointer, nil
+}
+
 // List returns all Path keys in the pointers bucket
 func (s *Service) List(ctx context.Context, prefix string, startAfter string, endBefore string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
@@ -257,6 +275,13 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 	}
 
 	return nil
+}
+
+// Delete deletes a pointer bytes when it matches oldPointerBytes, otherwise it'll fail.
+func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(s.DB.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil))
 }
 
 // UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
