@@ -50,7 +50,7 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network tes
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
-# replace any 140XX port with 100XX port to fix, satellite.API part removal from satellite.Peer
+# replace any 140XX port with 100XX port to fix, satellite.API part removal from satellite.Core
 sed -i -e "s#$STORJ_NETWORK_HOST4:100#$STORJ_NETWORK_HOST4:140#g" `storj-sim network env SATELLITE_0_DIR`/config.yaml
 REDIS_CONFIG=$(storj-sim network env REDIS_0_DIR)/redis.conf
 if [ ! -f "$REDIS_CONFIG" ] ; then

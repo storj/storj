@@ -54,7 +54,6 @@ type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
-	StripeKey       string `help:"stripe api key" default:""`
 
 	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
@@ -212,8 +211,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
-		server.log.Error("satellite/console/server: index template could not be executed")
-		server.serveError(w, http.StatusInternalServerError)
+		server.log.Error("index template could not be executed")
 		return
 	}
 }
@@ -356,7 +354,6 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
 		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		server.serveError(w, http.StatusNotFound)
 		return
 	}
 }
@@ -394,13 +391,11 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			server.serveError(w, http.StatusNotFound)
 			return
 		}
 	default:
