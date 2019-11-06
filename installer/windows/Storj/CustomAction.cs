@@ -149,21 +149,14 @@ namespace Storj
         {
             string bandwidthStr = session["STORJ_BANDWIDTH"];
 
-            if (string.IsNullOrEmpty(bandwidthStr))
+            try
             {
-                session["STORJ_BANDWIDTH_VALID"] = "The value cannot be empty.";
-                return ActionResult.Success;
+                CustomActionRunner.ValidateBandwidth(bandwidthStr);
             }
-
-            if (!double.TryParse(bandwidthStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double bandwidth))
+            catch (ArgumentException e)
             {
-                session["STORJ_BANDWIDTH_VALID"] = string.Format("'{0}' is not a valid number.", bandwidthStr);
-                return ActionResult.Success;
-            }
-
-            if (bandwidth < 2.0)
-            {
-                session["STORJ_BANDWIDTH_VALID"] = "The allocated bandwidth cannot be less than 2 TB.";
+                // Wallet is invalid
+                session["STORJ_BANDWIDTH_VALID"] = e.Message;
                 return ActionResult.Success;
             }
 
@@ -209,6 +202,24 @@ namespace Storj
             }
 
             // TODO validate address checksum
+        }
+
+        public static void ValidateBandwidth(string bandwidthStr)
+        {
+            if (string.IsNullOrEmpty(bandwidthStr))
+            {
+                throw new ArgumentException("The value cannot be empty.");
+            }
+
+            if (!double.TryParse(bandwidthStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double bandwidth))
+            {
+                throw new ArgumentException(string.Format("'{0}' is not a valid number.", bandwidthStr));
+            }
+
+            if (bandwidth < 2.0)
+            {
+                throw new ArgumentException("The allocated bandwidth cannot be less than 2 TB.");
+            }
         }
 
         public static string ExtractInstallDir(string serviceCmd)

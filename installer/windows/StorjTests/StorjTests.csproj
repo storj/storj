@@ -59,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ExtractInstallDirTests.cs" />
+    <Compile Include="ValidateBandwidthTests.cs" />
     <Compile Include="ValidateWalletTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
