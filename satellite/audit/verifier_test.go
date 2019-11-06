@@ -415,7 +415,7 @@ func TestVerifierExpired(t *testing.T) {
 		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.PointerDB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
