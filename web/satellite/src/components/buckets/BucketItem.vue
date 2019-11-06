@@ -3,7 +3,7 @@
 
 <template>
     <div class="container">
-        <div class="container__item">{{ name }}</div>
+        <div class="container__item" :title="itemData.bucketName">{{ name }}</div>
         <div class="container__item">{{ storage }}</div>
         <div class="container__item">{{ egress }}</div>
         <div class="container__item">{{ objectCount }}</div>
