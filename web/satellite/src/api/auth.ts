@@ -6,19 +6,13 @@ import { UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
- * Token class holds token entity.
- */
-class Token {
-    public token: string;
-}
-
-/**
  * AuthHttpApi is a console Auth API.
  * Exposes all auth-related functionality
  */
 export class AuthHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
+
     /**
      * Used to resend an registration confirmation email
      *
@@ -49,16 +43,15 @@ export class AuthHttpApi {
             password: password,
         };
         const response = await this.http.post(path, JSON.stringify(body), false);
-        if (!response.ok) {
-            if (response.status === 400) {
-                throw new Error('your email or password was incorrect, please try again');
-            }
-
-            throw new Error('can not receive authentication token');
+        if (response.ok) {
+            return await response.json();
         }
-        const result = await response.json() as Token;
 
-        return result.token;
+        if (response.status === 401) {
+            throw new Error('your email or password was incorrect, please try again');
+        }
+
+        throw new Error('can not receive authentication token');
     }
 
     /**
@@ -105,15 +98,11 @@ export class AuthHttpApi {
     public async get(): Promise<User> {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.http.get(path, true);
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
-            throw new Error('can not get user data');
+        if (response.ok) {
+            return await response.json();
         }
 
-        return await response.json() as User;
+        throw new Error('can not get user data');
     }
 
     /**
@@ -201,8 +190,6 @@ export class AuthHttpApi {
             throw new Error('can not register user');
         }
 
-        const result = await response.json() as User;
-
-        return result.id;
+        return await response.json();
     }
 }
