@@ -219,6 +219,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		"setup": {
 			"--address", versioncontrol.Address,
 			"--debug.addr", net.JoinHostPort(host, port(versioncontrolPeer, 0, debugHTTP)),
+			"--binary.gateway.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.identity.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.satellite.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.storagenode-updater.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.storagenode.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.uplink.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		"run": {},
 	})
