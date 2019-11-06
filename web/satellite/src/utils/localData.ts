@@ -14,6 +14,10 @@ export class LocalData {
         localStorage.setItem(LocalData.userId, id);
     }
 
+    public static removeUserId(): void {
+        localStorage.removeItem(LocalData.userId);
+    }
+
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
     }
