@@ -44,6 +44,17 @@ func (db *DB) CreateTables() error {
 	}
 }
 
+// CheckVersion confirms confirms the database is at the desired version
+func (db *DB) CheckVersion() error {
+	switch db.driver {
+	case "postgres":
+		migration := db.PostgresMigration()
+		return migration.ValidateVersions(db.log)
+	default:
+		return nil
+	}
+}
+
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
@@ -1338,6 +1349,34 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						state integer NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Removing unused bucket_usages table",
+				Version:     64,
+				Action: migrate.SQL{
+					`DROP TABLE bucket_usages CASCADE;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_invoice_project_records",
+				Version:     65,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_invoice_project_records (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						storage double precision NOT NULL,
+						egress bigint NOT NULL,
+						objects bigint NOT NULL,
+						period_start timestamp with time zone NOT NULL,
+						period_end timestamp with time zone NOT NULL,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( project_id, period_start, period_end )
 					);`,
 				},
 			},

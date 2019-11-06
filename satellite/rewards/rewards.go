@@ -17,6 +17,8 @@ var (
 	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
 	// NoCurrentOfferErr is the error class used when no current offer is set
 	NoCurrentOfferErr = errs.Class("no current offer")
+	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
+	NoMatchPartnerIDErr = errs.Class("partner not exist")
 )
 
 // DB holds information about offer
@@ -83,13 +85,10 @@ const (
 type OfferStatus int
 
 const (
-
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
-
 	// Default is the status of an offer when there is no active offer.
 	Default
-
 	// Active is the status of an offer that is currently in use.
 	Active
 )
@@ -118,35 +117,6 @@ type Offer struct {
 // IsEmpty evaluates whether or not an on offer is empty
 func (o Offer) IsEmpty() bool {
 	return o.Name == ""
-}
-
-// GetActiveOffer returns an offer that is active based on its type
-func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
-	if len(offers) < 1 {
-		return nil, NoCurrentOfferErr.New("no active offers")
-	}
-	switch offerType {
-	case Partner:
-		if partnerID == "" {
-			return nil, errs.New("partner ID is empty")
-		}
-		partnerInfo, ok := LoadPartnerInfos()[partnerID]
-		if !ok {
-			return nil, NoMatchPartnerIDErr.New("no partnerInfo found")
-		}
-		for i := range offers {
-			if offers[i].Name == partnerInfo.Name {
-				offer = &offers[i]
-			}
-		}
-	default:
-		if len(offers) > 1 {
-			return nil, errs.New("multiple active offers found")
-		}
-		offer = &offers[0]
-	}
-
-	return offer, nil
 }
 
 // IsDefault checks if a offer's status is default

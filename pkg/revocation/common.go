@@ -27,7 +27,6 @@ func NewDB(dbURL string) (*DB, error) {
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
-
 	var db *DB
 	switch driver {
 	case "bolt":
@@ -43,7 +42,6 @@ func NewDB(dbURL string) (*DB, error) {
 	default:
 		return nil, extensions.ErrRevocationDB.New("database scheme not supported: %s", driver)
 	}
-
 	return db, nil
 }
 
