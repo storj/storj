@@ -20,6 +20,7 @@ export const APP_STATE_ACTIONS = {
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
     TOGGLE_PAYMENT_SELECTION: 'TOGGLE_PAYMENT_SELECTION',
+    SET_SATELLITE_NAME: 'SET_SATELLITE_NAME',
 };
 
 export const NOTIFICATION_ACTIONS = {
@@ -56,12 +57,4 @@ export const API_KEYS_ACTIONS = {
     SET_SORT_DIRECTION: 'setApiKeysSortingDirection',
     TOGGLE_SELECTION: 'toggleApiKeySelection',
     CLEAR_SELECTION: 'clearApiKeySelection',
-};
-
-export const PROJECT_PAYMENT_METHODS_ACTIONS = {
-    ADD: 'addProjectPaymentMethod',
-    FETCH: 'fetchProjectPaymentMethods',
-    CLEAR: 'clearProjectPaymentMethods',
-    SET_DEFAULT: 'setDefaultPaymentMethod',
-    DELETE: 'deletePaymentMethod',
 };
