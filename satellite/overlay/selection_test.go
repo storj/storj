@@ -315,15 +315,17 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		var excludedNodes storj.NodeIDList
-		addrs := make(map[storj.NodeID]struct{})
+		addrs := make(map[string]struct{})
+		var excludedNodeAddr string
 		for _, node := range planet.StorageNodes {
-			if _, ok := addrs[node.ID()]; ok {
-				addrs[node.ID()] = struct{}{}
+			if _, ok := addrs[node.Addr()]; !ok {
+				addrs[node.Addr()] = struct{}{}
 			} else {
-				// Add one ID to the excluded nodes list.
-				// The FindStorageNodesDistinctIPs function should
-				// also exclude the other nodes that share the same IP.
+				// Add a node with a duplicate IP address to the excluded nodes list.
+				// The FindStorageNodesDistinctIPs function should also exclude the
+				// other nodes that share the same IP.
 				excludedNodes = append(excludedNodes, node.ID())
+				excludedNodeAddr = node.Addr()
 				break
 			}
 		}
@@ -337,10 +339,12 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
+		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 4,
-			RequestedCount:       4,
+			MinimumRequiredNodes: 3,
+			RequestedCount:       3,
 			ExcludedNodes:        excludedNodes,
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
