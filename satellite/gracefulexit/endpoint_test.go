@@ -387,7 +387,7 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 	})
 }
 
-func TestExitDisqualifiedNode(t *testing.T) {
+func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 2,
@@ -410,8 +410,114 @@ func TestExitDisqualifiedNode(t *testing.T) {
 		response, err := processClient.Recv()
 		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		require.Nil(t, response)
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 
+}
+
+func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		disqualifyNode(exitingNode)
+		var pieceID storj.PieceID
+		failedCount := 0
+		deletedCount := 0
+		for {
+			response, err := processClient.Recv()
+			if errs.Is(err, io.EOF) {
+				// Done
+				break
+			}
+			require.NoError(t, err)
+
+			switch m := response.GetMessage().(type) {
+			case *pb.SatelliteMessage_TransferPiece:
+				require.NotNil(t, m)
+
+				// pick the first one to fail
+				if pieceID.IsZero() {
+					pieceID = m.TransferPiece.OriginalPieceId
+				}
+
+				if failedCount > 0 || pieceID != m.TransferPiece.OriginalPieceId {
+
+					pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+					require.NoError(t, err)
+
+					header, err := pieceReader.GetPieceHeader()
+					require.NoError(t, err)
+
+					orderLimit := header.OrderLimit
+					originalPieceHash := &pb.PieceHash{
+						PieceId:   orderLimit.PieceId,
+						Hash:      header.GetHash(),
+						PieceSize: pieceReader.Size(),
+						Timestamp: header.GetCreationTime(),
+						Signature: header.GetSignature(),
+					}
+
+					newPieceHash := &pb.PieceHash{
+						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+						Hash:      originalPieceHash.Hash,
+						PieceSize: originalPieceHash.PieceSize,
+						Timestamp: time.Now(),
+					}
+
+					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+					require.NotNil(t, receivingNodeID)
+					signer := signing.SignerFromFullIdentity(receivingNodeID)
+
+					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+					require.NoError(t, err)
+
+					success := &pb.StorageNodeMessage{
+						Message: &pb.StorageNodeMessage_Succeeded{
+							Succeeded: &pb.TransferSucceeded{
+								OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+								OriginalPieceHash:    originalPieceHash,
+								OriginalOrderLimit:   &orderLimit,
+								ReplacementPieceHash: signedNewPieceHash,
+							},
+						},
+					}
+					err = processClient.Send(success)
+					require.NoError(t, err)
+				} else {
+					failedCount++
+					failed := &pb.StorageNodeMessage{
+						Message: &pb.StorageNodeMessage_Failed{
+							Failed: &pb.TransferFailed{
+								OriginalPieceId: m.TransferPiece.OriginalPieceId,
+								Error:           pb.TransferFailed_UNKNOWN,
+							},
+						},
+					}
+					err = processClient.Send(failed)
+					require.NoError(t, err)
+				}
+			case *pb.SatelliteMessage_DeletePiece:
+				deletedCount++
+			case *pb.SatelliteMessage_ExitFailed:
+				require.NotNil(t, m)
+			default:
+				t.FailNow()
+			}
+		}
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.EqualValues(t, numPieces, progress.PiecesTransferred)
+		require.EqualValues(t, numPieces, deletedCount)
+		// disqualified node should fail graceful exit
+		require.EqualValues(t, 1, progress.PiecesFailed)
+	})
 }
 
 func TestFailureHashMismatch(t *testing.T) {

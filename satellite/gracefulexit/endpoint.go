@@ -210,6 +210,28 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 	if nodeInfo.Disqualified != nil {
+		// update graceful exit status to be failed
+		exitStatusRequest := &overlay.ExitStatusRequest{
+			NodeID:         nodeID,
+			ExitFinishedAt: time.Now().UTC(),
+			ExitSuccess:    false,
+		}
+
+		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		// remove remaining items from the queue after notifying nodes about their exit status
+		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+		if err != nil {
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
 	}
 
@@ -359,6 +381,28 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 			if nodeInfo.Disqualified != nil {
+				// update graceful exit status to be failed
+				exitStatusRequest := &overlay.ExitStatusRequest{
+					NodeID:         nodeID,
+					ExitFinishedAt: time.Now().UTC(),
+					ExitSuccess:    false,
+				}
+
+				err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+				if err != nil {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
+				}
+
+				_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+				if err != nil {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
+				}
+
+				// remove remaining items from the queue after notifying nodes about their exit status
+				err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+				if err != nil {
+					return rpcstatus.Error(rpcstatus.Internal, err.Error())
+				}
 				return rpcstatus.Error(rpcstatus.PermissionDenied, "Only undisqualified node allowed for graceful exit")
 			}
 
@@ -481,7 +525,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 					if err != nil {
-						return Error.Wrap(err)
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
 					mon.Meter("graceful_exit_fail_validation").Mark(1)
