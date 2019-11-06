@@ -14,7 +14,7 @@ func new_caveat(cerr **C.char) C.Caveat {
 	caveat, err := macaroon.NewCaveat()
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return nil
+		return C.Caveat{}
 	}
 	return newCaveat(&caveat)
 }
