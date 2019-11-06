@@ -423,7 +423,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 
 func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		disqualifyNode(exitingNode)
+		disqualifyNode(t, ctx, satellite, exitingNode.ID())
 		var pieceID storj.PieceID
 		failedCount := 0
 		deletedCount := 0
