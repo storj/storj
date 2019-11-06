@@ -541,7 +541,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer to have PieceHashesVerified false
-		err = satellite.Metainfo.Service.Delete(ctx, path)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, path)
 		require.NoError(t, err)
 		pointer.PieceHashesVerified = false
 		err = satellite.Metainfo.Service.Put(ctx, path, pointer)

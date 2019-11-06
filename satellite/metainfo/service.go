@@ -259,8 +259,8 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 	return nil
 }
 
-// Delete deletes from item from db
-func (s *Service) Delete(ctx context.Context, path string) (err error) {
+// UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
+func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.DB.Delete(ctx, []byte(path))
 }

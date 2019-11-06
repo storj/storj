@@ -400,7 +400,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1149,7 +1149,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
-	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, lastSegmentPath)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1724,7 +1724,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 
 	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
 	// call FinishDeleteSegment on uplink side
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

@@ -95,7 +95,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		errDelete := verifier.metainfo.Delete(ctx, path)
+		errDelete := verifier.metainfo.UnsynchronizedDelete(ctx, path)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
@@ -369,7 +369,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		errDelete := verifier.metainfo.Delete(ctx, path)
+		errDelete := verifier.metainfo.UnsynchronizedDelete(ctx, path)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
@@ -437,7 +437,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
-				errDelete := verifier.metainfo.Delete(ctx, pending.Path)
+				errDelete := verifier.metainfo.UnsynchronizedDelete(ctx, pending.Path)
 				if errDelete != nil {
 					verifier.log.Debug("Reverify: error deleting expired segment", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 				}
