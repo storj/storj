@@ -926,6 +926,10 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		default:
 			t.FailNow()
 		}
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 0)
 	})
 }
 

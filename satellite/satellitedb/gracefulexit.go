@@ -111,9 +111,6 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(item.FailedCount),
 	}
 
-	if !item.RootPieceID.IsZero() {
-		update.RootPieceId = dbx.GracefulExitTransferQueue_RootPieceId(item.RootPieceID.Bytes())
-	}
 	if item.RequestedAt != nil {
 		update.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(item.RequestedAt)
 	}

@@ -1552,7 +1552,6 @@ type GracefulExitTransferQueue_Create_Fields struct {
 }
 
 type GracefulExitTransferQueue_Update_Fields struct {
-	RootPieceId     GracefulExitTransferQueue_RootPieceId_Field
 	DurabilityRatio GracefulExitTransferQueue_DurabilityRatio_Field
 	RequestedAt     GracefulExitTransferQueue_RequestedAt_Field
 	LastFailedAt    GracefulExitTransferQueue_LastFailedAt_Field
@@ -9359,11 +9358,6 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
-
-	if update.RootPieceId._set {
-		__values = append(__values, update.RootPieceId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("root_piece_id = ?"))
-	}
 
 	if update.DurabilityRatio._set {
 		__values = append(__values, update.DurabilityRatio.value())

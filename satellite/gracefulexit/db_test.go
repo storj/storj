@@ -113,7 +113,6 @@ func TestTransferQueueItem(t *testing.T) {
 				require.Equal(t, tqi.DurabilityRatio, item.DurabilityRatio)
 
 				now := time.Now().UTC()
-				item.RootPieceID = testrand.PieceID()
 				item.DurabilityRatio = 1.2
 				item.RequestedAt = &now
 
