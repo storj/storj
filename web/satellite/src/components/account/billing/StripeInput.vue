@@ -15,8 +15,6 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-
 // StripeInput encapsulates Stripe add card addition logic
 @Component
 export default class StripeInput extends Vue {
@@ -29,9 +27,9 @@ export default class StripeInput extends Vue {
     // Stripe library
     private stripe: any;
 
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         if (!window['Stripe']) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Stripe library not loaded');
+            await this.$notify.error('Stripe library not loaded');
 
             return;
         }
@@ -39,7 +37,7 @@ export default class StripeInput extends Vue {
         this.stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
 
         if (!this.stripe) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to initialize stripe');
+            await this.$notify.error('Unable to initialize stripe');
 
             return;
         }
@@ -47,7 +45,7 @@ export default class StripeInput extends Vue {
         const elements = this.stripe.elements();
 
         if (!elements) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to instantiate elements');
+            await this.$notify.error('Unable to instantiate elements');
 
             return;
         }
@@ -55,7 +53,7 @@ export default class StripeInput extends Vue {
         this.cardElement = elements.create('card');
 
         if (!this.cardElement) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to create card');
+            await this.$notify.error('Unable to create card');
 
             return;
         }
@@ -77,7 +75,7 @@ export default class StripeInput extends Vue {
         }
 
         if (result.token.card.funding === 'prepaid') {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards are not supported');
+            await this.$notify.error('Prepaid cards are not supported');
 
             return;
         }

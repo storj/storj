@@ -24,13 +24,6 @@
                     {{balance}}
                 </b>
             </span>
-            <VButton
-                class="button"
-                label="Earn Credits"
-                width="153px"
-                height="48px"
-                :on-press="onEarnCredits"
-            />
         </div>
     </div>
 </template>
@@ -38,7 +31,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -51,15 +43,14 @@ const {
 @Component({
     components: {
         VInfo,
-        VButton,
     },
 })
 export default class AccountBalance extends Vue {
-    public async mounted() {
+    public mounted() {
         try {
-            // await this.$store.dispatch(GET_BALANCE);
+            this.$store.dispatch(GET_BALANCE);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
     }
 
@@ -94,30 +85,22 @@ export default class AccountBalance extends Vue {
         color: #354049;
     }
 
-    .button {
-
-        &:hover {
-            background-color: #0059D0;
-            box-shadow: none;
-        }
-    }
-
     .account-balance-area {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 40px;
-        margin-bottom: 32px;
-        background-color: #FFFFFF;
+        margin: 55px 0 32px 0;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__title-area {
             display: flex;
             align-items: center;
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
@@ -131,11 +114,11 @@ export default class AccountBalance extends Vue {
                 &:hover {
 
                     .account-balance-svg-path {
-                        fill: #FFFFFF;
+                        fill: #fff;
                     }
 
                     .account-balance-svg-rect {
-                        fill: #2683FF;
+                        fill: #2683ff;
                     }
                 }
             }
@@ -146,7 +129,6 @@ export default class AccountBalance extends Vue {
             align-items: center;
 
             &__balance {
-                margin-right: 27px;
                 font-size: 18px;
                 color: rgba(53, 64, 73, 0.5);
 
@@ -173,7 +155,7 @@ export default class AccountBalance extends Vue {
             margin-top: 20px;
 
             &__bold-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 color: #354049;
             }
         }

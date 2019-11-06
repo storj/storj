@@ -8,13 +8,9 @@
             <div class="save-api-popup__copy-area__key-area">
                 <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
             </div>
-            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick" v-if="!isCopiedButtonShown">
+            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick">
                 <CopyButtonLabelIcon/>
                 <p class="copy-button__label">Copy</p>
-            </div>
-            <div class="copied-button" v-if="isCopiedButtonShown">
-                <CopyButtonLabelIcon/>
-                <p class="copied-button__label">Copied</p>
             </div>
         </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
@@ -32,8 +28,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import CopyButtonLabelIcon from '@/../static/images/apiKeys/copyButtonLabel.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-
 @Component({
     components: {
         HeaderlessInput,
@@ -47,16 +41,12 @@ export default class ApiKeysCopyPopup extends Vue {
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
-    public isCopiedButtonShown: boolean = false;
-
     public onCloseClick(): void {
-        this.isCopiedButtonShown = false;
         this.$emit('closePopup');
     }
 
-    public onCopyClick(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-        this.isCopiedButtonShown = true;
+    public async onCopyClick(): Promise<void> {
+        await this.$notify.success('Key saved to clipboard');
     }
 }
 </script>
@@ -64,26 +54,27 @@ export default class ApiKeysCopyPopup extends Vue {
 <style scoped lang="scss">
     .save-api-popup {
         padding: 32px 40px 60px 40px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         border-radius: 24px;
         margin-top: 29px;
         max-width: 94.8%;
         height: auto;
         position: relative;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 24px;
             line-height: 29px;
             margin-bottom: 26px;
+            user-select: none;
         }
 
         &__copy-area {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             padding: 29px 32px 29px 24px;
             border-radius: 12px;
             position: relative;
@@ -96,37 +87,6 @@ export default class ApiKeysCopyPopup extends Vue {
                     line-height: 21px;
                     word-break: break-all;
                 }
-            }
-
-            .copy-button,
-            .copied-button {
-                display: flex;
-                background-color: #2683FF;
-                padding: 13px 36px;
-                cursor: pointer;
-                align-items: center;
-                justify-content: space-between;
-                color: #FFFFFF;
-                border: 1px solid #2683FF;
-                box-sizing: border-box;
-                border-radius: 8px;
-                font-size: 14px;
-                font-family: 'font_bold';
-                margin-left: 10px;
-
-                &__label {
-                    margin: 0;
-                }
-
-                &:hover {
-                    background-color: #196CDA;
-                }
-            }
-
-            .copied-button {
-                padding: 13px 28.5px;
-                background-color: #196CDA;
-                cursor: default;
             }
         }
 
@@ -142,7 +102,7 @@ export default class ApiKeysCopyPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
 
@@ -150,11 +110,36 @@ export default class ApiKeysCopyPopup extends Vue {
             position: absolute;
             top: 100%;
             left: 0;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             width: 100%;
             height: 70vh;
             z-index: 100;
             opacity: 0.3;
+        }
+    }
+
+    .copy-button {
+        display: flex;
+        background-color: #2683ff;
+        padding: 13px 36px;
+        cursor: pointer;
+        align-items: center;
+        justify-content: space-between;
+        color: #fff;
+        border: 1px solid #2683ff;
+        box-sizing: border-box;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'font_bold', sans-serif;
+        margin-left: 10px;
+
+        &__label {
+            margin: 0 0 0 5px;
+            user-select: none;
+        }
+
+        &:hover {
+            background-color: #196cda;
         }
     }
 </style>

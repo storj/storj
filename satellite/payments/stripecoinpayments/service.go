@@ -5,41 +5,49 @@ package stripecoinpayments
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
 
-var mon = monkit.Package()
+var (
+	// Error defines stripecoinpayments service error.
+	Error = errs.Class("stripecoinpayments service error")
 
-// Error defines stripecoinpayments service error.
-var Error = errs.Class("stripecoinpayments service error")
+	mon = monkit.Package()
+)
 
 // Config stores needed information for payment service initialization.
 type Config struct {
-	StripeSecretKey           string        `help:"stripe API secret key" default:""`
-	CoinpaymentsPublicKey     string        `help:"coinpayments API public key" default:""`
-	CoinpaymentsPrivateKey    string        `help:"coinpayments API preivate key key" default:""`
-	TransactionUpdateInterval time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	StripeSecretKey              string        `help:"stripe API secret key" default:""`
+	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
+	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
+//
+// architecture: Service
 type Service struct {
-	log            *zap.Logger
-	customers      CustomersDB
-	transactionsDB TransactionsDB
-	stripeClient   *client.API
-	coinPayments   *coinpayments.Client
+	log          *zap.Logger
+	db           DB
+	projectsDB   console.Projects
+	stripeClient *client.API
+	coinPayments *coinpayments.Client
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, customers CustomersDB, transactionsDB TransactionsDB) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -50,11 +58,11 @@ func NewService(log *zap.Logger, config Config, customers CustomersDB, transacti
 	)
 
 	return &Service{
-		log:            log,
-		customers:      customers,
-		transactionsDB: transactionsDB,
-		stripeClient:   stripeClient,
-		coinPayments:   coinPaymentsClient,
+		log:          log,
+		db:           db,
+		projectsDB:   projectsDB,
+		stripeClient: stripeClient,
+		coinPayments: coinPaymentsClient,
 	}
 }
 
@@ -67,13 +75,10 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const (
-		limit = 25
-	)
-
+	const limit = 25
 	before := time.Now()
 
-	txsPage, err := service.transactionsDB.ListPending(ctx, 0, limit, before)
+	txsPage, err := service.db.Transactions().ListPending(ctx, 0, limit, before)
 	if err != nil {
 		return err
 	}
@@ -83,13 +88,11 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 	}
 
 	for txsPage.Next {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 
-		txsPage, err = service.transactionsDB.ListPending(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, limit, before)
 		if err != nil {
 			return err
 		}
@@ -117,6 +120,8 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 	}
 
 	var updates []TransactionUpdate
+	var applies coinpayments.TransactionIDList
+
 	for id, info := range infos {
 		updates = append(updates,
 			TransactionUpdate{
@@ -126,8 +131,330 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 			},
 		)
 
-		// TODO: update stripe customer balance
+		// moment of transition to received state, which indicates
+		// that customer funds were accepted, so we can apply this
+		// amount to customer balance. So we create intent to update
+		// customer balance in the future.
+		if info.Status == coinpayments.StatusReceived {
+			applies = append(applies, id)
+		}
 	}
 
-	return service.transactionsDB.Update(ctx, updates)
+	return service.db.Transactions().Update(ctx, updates, applies)
+}
+
+// applyAccountBalanceLoop fetches all unapplied transaction in a loop, applying transaction
+// received amount to stripe customer balance.
+func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, limit, before)
+	if err != nil {
+		return err
+	}
+
+	for _, tx := range txsPage.Transactions {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.applyTransactionBalance(ctx, tx); err != nil {
+			return err
+		}
+	}
+
+	for txsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		txsPage, err := service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, limit, before)
+		if err != nil {
+			return err
+		}
+
+		for _, tx := range txsPage.Transactions {
+			if err = ctx.Err(); err != nil {
+				return err
+			}
+
+			if err = service.applyTransactionBalance(ctx, tx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// applyTransactionBalance applies transaction received amount to stripe customer balance.
+func (service *Service) applyTransactionBalance(ctx context.Context, tx Transaction) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cusID, err := service.db.Customers().GetCustomerID(ctx, tx.AccountID)
+	if err != nil {
+		return err
+	}
+
+	if err = service.db.Transactions().Consume(ctx, tx.ID); err != nil {
+		return err
+	}
+
+	// TODO: add conversion logic
+	amount, _ := tx.Received.Int64()
+
+	params := &stripe.CustomerBalanceTransactionParams{
+		Amount:      stripe.Int64(amount),
+		Customer:    stripe.String(cusID),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Description: stripe.String("storj token deposit"),
+	}
+
+	params.AddMetadata("txID", tx.ID.String())
+
+	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
+	return err
+}
+
+// PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
+// none exists.
+func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+
+	now := time.Now().UTC()
+	utc := period.UTC()
+
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("prepare is for past periods only")
+	}
+
+	projsPage, err := service.projectsDB.List(ctx, 0, limit, end)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err = service.createProjectRecords(ctx, projsPage.Projects, start, end); err != nil {
+		return Error.Wrap(err)
+	}
+
+	for projsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, limit, end)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.createProjectRecords(ctx, projsPage.Projects, start, end); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// createProjectRecords creates invoice project record if none exists.
+func (service *Service) createProjectRecords(ctx context.Context, projects []console.Project, start, end time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var records []CreateProjectRecord
+	for _, project := range projects {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
+			if err == ErrProjectRecordExists {
+				continue
+			}
+
+			return err
+		}
+
+		// TODO: account for usage data.
+		records = append(records,
+			CreateProjectRecord{
+				ProjectID: project.ID,
+				Storage:   0,
+				Egress:    0,
+				Objects:   0,
+			},
+		)
+	}
+
+	return service.db.ProjectRecords().Create(ctx, records, start, end)
+}
+
+// InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
+// for stripe customer.
+func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
+		return Error.Wrap(err)
+	}
+
+	for recordsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// applyProjectRecords applies invoice intents as invoice line items to stripe customer.
+func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, record := range records {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
+		if err != nil {
+			return err
+		}
+
+		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
+		if err != nil {
+			if err == ErrNoCustomer {
+				continue
+			}
+
+			return err
+		}
+
+		if err = service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// createInvoiceItems consumes invoice project record and creates invoice line items for stripe customer.
+func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
+		return err
+	}
+
+	// TODO: add and apply pricing.
+	projectItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(0),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(cusID),
+		Description: stripe.String(fmt.Sprintf("project %s", projName)),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(record.PeriodEnd.Unix()),
+			Start: stripe.Int64(record.PeriodStart.Unix()),
+		},
+	}
+
+	projectItem.AddMetadata("projectID", record.ProjectID.String())
+
+	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	return err
+}
+
+// CreateInvoices lists through all customers and creates invoices.
+func (service *Service) CreateInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	cusPage, err := service.db.Customers().List(ctx, 0, limit, before)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, cus := range cusPage.Customers {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.createInvoice(ctx, cus.ID); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	for cusPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		for _, cus := range cusPage.Customers {
+			if err = ctx.Err(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if err = service.createInvoice(ctx, cus.ID); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// createInvoice creates invoice for stripe customer. Returns nil error if there are no
+// pending invoice line items for customer.
+func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = service.stripeClient.Invoices.New(
+		&stripe.InvoiceParams{
+			Customer:    stripe.String(cusID),
+			AutoAdvance: stripe.Bool(true),
+		},
+	)
+
+	if err != nil {
+		if stripeErr, ok := err.(*stripe.Error); ok {
+			switch stripeErr.Code {
+			case stripe.ErrorCodeInvoiceNoCustomerLineItems:
+				return nil
+			default:
+				return err
+			}
+		}
+	}
+
+	return nil
 }

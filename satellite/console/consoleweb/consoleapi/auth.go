@@ -62,17 +62,18 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tokenResponse struct {
-		Token string `json:"token"`
-	}
-
-	tokenResponse.Token, err = a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(tokenResponse)
+	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -85,27 +86,46 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var request struct {
-		UserInfo       console.CreateUser `json:"userInfo"`
-		SecretInput    string             `json:"secret"`
-		ReferrerUserID string             `json:"referrerUserID"`
+	var registerData struct {
+		FullName       string `json:"fullName"`
+		ShortName      string `json:"shortName"`
+		Email          string `json:"email"`
+		PartnerID      string `json:"partnerId"`
+		Password       string `json:"password"`
+		SecretInput    string `json:"secret"`
+		ReferrerUserID string `json:"referrerUserID"`
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err = json.NewDecoder(r.Body).Decode(&registerData)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	secret, err := console.RegistrationSecretFromBase64(request.SecretInput)
+	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	user, err := a.service.CreateUser(ctx, request.UserInfo, secret, request.ReferrerUserID)
+	user, err := a.service.CreateUser(ctx,
+		console.CreateUser{
+			FullName:  registerData.FullName,
+			ShortName: registerData.ShortName,
+			Email:     registerData.Email,
+			PartnerID: registerData.PartnerID,
+			Password:  registerData.Password,
+		},
+		secret,
+		registerData.ReferrerUserID,
+	)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -115,7 +135,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ExternalAddress + consoleql.ActivationPath + token
+	link := a.ExternalAddress + "activation/?token=" + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
@@ -137,23 +157,79 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Delete - authorizes user and deletes account by password.
-func (a *Auth) Delete(w http.ResponseWriter, r *http.Request) {
+// UpdateAccount updates user's full name and short name.
+func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var request struct {
-		Password string `json:"password"`
+	var updatedInfo struct {
+		FullName  string `json:"fullName"`
+		ShortName string `json:"shortName"`
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.service.DeleteAccount(ctx, request.Password)
+	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
+		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GetAccount gets authorized user and take it's params.
+func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var user struct {
+		ID        uuid.UUID `json:"id"`
+		FullName  string    `json:"fullName"`
+		ShortName string    `json:"shortName"`
+		Email     string    `json:"email"`
+		PartnerID uuid.UUID `json:"partnerId"`
+	}
+
+	auth, err := console.GetAuth(ctx)
+	if err != nil {
+		a.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	user.ShortName = auth.User.ShortName
+	user.FullName = auth.User.FullName
+	user.Email = auth.User.Email
+	user.ID = auth.User.ID
+	user.PartnerID = auth.User.PartnerID
+
+	err = json.NewEncoder(w).Encode(&user)
+	if err != nil {
+		a.log.Error("could not encode user info", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// DeleteAccount - authorizes user and deletes account by password.
+func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var deleteRequest struct {
+		Password string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&deleteRequest)
+	if err != nil {
+		a.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.service.DeleteAccount(ctx, deleteRequest.Password)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(w, http.StatusUnauthorized, err)
@@ -184,12 +260,17 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
+		if console.ErrConsoleInternal.Has(err) {
+			a.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(w, http.StatusUnauthorized, err)
 			return
 		}
 
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 }
@@ -220,8 +301,8 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
-	cancelPasswordRecoveryLink := a.ExternalAddress + consoleql.CancelPasswordRecoveryPath + recoveryToken
+	passwordRecoveryLink := a.ExternalAddress + "password-recovery/?token=" + recoveryToken
+	cancelPasswordRecoveryLink := a.ExternalAddress + "cancel-password-recovery/?token=" + recoveryToken
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName
@@ -253,13 +334,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := mux.Vars(r)
-	val, ok := params["id"]
+	id, ok := params["id"]
 	if !ok {
 		a.serveJSONError(w, http.StatusBadRequest, errs.New("id expected"))
 		return
 	}
 
-	userID, err := uuid.Parse(val)
+	userID, err := uuid.Parse(id)
 	if err != nil {
 		a.serveJSONError(w, http.StatusBadRequest, err)
 		return
@@ -277,7 +358,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ExternalAddress + consoleql.ActivationPath + token
+	link := a.ExternalAddress + "activation/?token=" + token
 	userName := user.ShortName
 	if user.ShortName == "" {
 		userName = user.FullName

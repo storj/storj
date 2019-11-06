@@ -5,23 +5,26 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { AuthHttpApi } from '@/api/auth';
 import { BucketsApiGql } from '@/api/buckets';
 import { CreditsApiGql } from '@/api/credits';
 import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
-import { UsersApiGql } from '@/api/users';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { notProjectRelatedRoutes, router } from '@/router';
+import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeCreditsModule } from '@/store/modules/credits';
-import { makeNotificationsModule } from '@/store/modules/notifications';
-import { makePaymentsModule } from '@/store/modules/payments';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { makeUsageModule } from '@/store/modules/usage';
-import { makeUsersModule } from '@/store/modules/users';
+import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
+import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
+import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeUsageModule, UsageState } from '@/store/modules/usage';
+import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
+import { CreditUsage } from '@/types/credits';
+import { User } from '@/types/users';
 
 Vue.use(Vuex);
 
@@ -33,7 +36,7 @@ export class StoreModule<S> {
 }
 
 // TODO: remove it after we will use modules as classes and use some DI framework
-const usersApi = new UsersApiGql();
+const authApi = new AuthHttpApi();
 const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
 const bucketsApi = new BucketsApiGql();
@@ -42,8 +45,20 @@ const projectsApi = new ProjectsApiGql();
 const projectUsageApi = new ProjectUsageApiGql();
 const paymentsApi = new PaymentsHttpApi();
 
+class ModulesState {
+    public notificationsModule: NotificationsState;
+    public apiKeysModule: ApiKeysState;
+    public appStateModule;
+    public creditsModule: CreditUsage;
+    public projectMembersModule: ProjectMembersState;
+    public paymentsModule: PaymentsState;
+    public usersModule: User;
+    public projectsModule: ProjectsState;
+    public usageModule: UsageState;
+}
+
 // Satellite store (vuex)
-const store = new Vuex.Store({
+export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
@@ -51,11 +66,27 @@ const store = new Vuex.Store({
         creditsModule: makeCreditsModule(creditsApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
-        usersModule: makeUsersModule(usersApi),
+        usersModule: makeUsersModule(authApi),
         projectsModule: makeProjectsModule(projectsApi),
         usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
     },
+});
+
+store.subscribe((mutation, state) => {
+    const currentRouteName = router.currentRoute.name;
+    const satelliteName = state.appStateModule.satelliteName;
+
+    switch (mutation.type) {
+        case PROJECTS_MUTATIONS.REMOVE:
+            document.title = `${router.currentRoute.name} | ${satelliteName}`;
+
+            break;
+        case PROJECTS_MUTATIONS.SELECT_PROJECT:
+            if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
+                document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
+            }
+    }
 });
 
 export default store;

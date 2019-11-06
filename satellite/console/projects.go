@@ -28,6 +28,8 @@ type Projects interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating project entity.
 	Update(ctx context.Context, project *Project) error
+	// List returns paginated projects, created before provided timestamp.
+	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
 }
 
 // Project is a database object that describes Project entity
@@ -49,4 +51,13 @@ type ProjectInfo struct {
 	Description string `json:"description"`
 
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// ProjectsPage returns paginated projects,
+// providing next offset if there are more projects
+// to retrieve.
+type ProjectsPage struct {
+	Projects   []Project
+	Next       bool
+	NextOffset int64
 }

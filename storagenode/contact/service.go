@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/overlay"
 )
@@ -25,7 +26,7 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 
 	// Chore config values
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"5s"`
+	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
 // Service is the contact service between storage nodes and satellites
@@ -34,6 +35,8 @@ type Service struct {
 
 	mu   sync.Mutex
 	self *overlay.NodeDossier
+
+	initialized sync2.Fence
 }
 
 // NewService creates a new contact service
@@ -58,4 +61,6 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	if capacity != nil {
 		service.self.Capacity = *capacity
 	}
+
+	service.initialized.Release()
 }

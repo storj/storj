@@ -36,9 +36,7 @@ import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
@@ -46,6 +44,7 @@ const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -61,34 +60,35 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             AuthToken.remove();
             await this.$router.push(RouteConfig.Login.path);
 
             return;
         }
 
-        // try {
-        //     await this.$store.dispatch(SETUP_ACCOUNT);
-        //     await this.$store.dispatch(GET_BALANCE);
-        //     await this.$store.dispatch(GET_CREDIT_CARDS);
-        // } catch (error) {
-        //     if (error instanceof ErrorUnauthorized) {
-        //         AuthToken.remove();
-        //         await this.$router.push(RouteConfig.Login.path);
-        //
-        //         return;
-        //     }
-        //
-        //     await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-        // }
+        try {
+            await this.$store.dispatch(SETUP_ACCOUNT);
+            await this.$store.dispatch(GET_BALANCE);
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            if (error instanceof ErrorUnauthorized) {
+                AuthToken.remove();
+                await this.$router.push(RouteConfig.Login.path);
+
+                return;
+            }
+
+            await this.$notify.error(error.message);
+        }
 
         let projects: Project[] = [];
 
         try {
             projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
@@ -113,25 +113,25 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -157,14 +157,14 @@ export default class DashboardArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-	.dashboard-container {
+    .dashboard-container {
         position: fixed;
         max-width: 100%;
-		width: 100%;
-		height: 100%;
-		left: 0;
-		top: 0;
-        background-color: #F5F6FA;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        background-color: #f5f6fa;
         z-index: 10;
 
         &__wrap {
@@ -184,16 +184,18 @@ export default class DashboardArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px)  {
+    @media screen and (max-width: 1024px) {
+
         .regular-navigation {
             display: none;
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .dashboard-container {
 
-            &__main-area{
+            &__main-area {
                 left: 60px;
             }
         }

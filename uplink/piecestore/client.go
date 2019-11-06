@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
@@ -79,6 +80,11 @@ func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err er
 // Close closes the underlying connection.
 func (client *Client) Close() error {
 	return client.conn.Close()
+}
+
+// GetPeerIdentity gets the connection's peer identity
+func (client *Client) GetPeerIdentity() (*identity.PeerIdentity, error) {
+	return client.conn.PeerIdentity()
 }
 
 // next allocation step find the next trusted step.

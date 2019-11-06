@@ -79,7 +79,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 130
+		cfg.Volatile.RedundancyScheme.TotalShares = 95
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
@@ -197,9 +197,9 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	if err != nil {
 		return nil, err
 	}
-	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
+	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs)
 
-	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 	if err != nil {
 		return nil, err
 	}

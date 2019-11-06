@@ -55,8 +55,9 @@ import (
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
-	Peer *satellite.Peer
-	API  *satellite.API
+	Core     *satellite.Core
+	API      *satellite.API
+	Repairer *satellite.Repairer
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -175,7 +176,7 @@ func (system *SatelliteSystem) URL() storj.NodeURL {
 
 // Close closes all the subsystems in the Satellite system
 func (system *SatelliteSystem) Close() error {
-	return errs.Combine(system.API.Close(), system.Peer.Close())
+	return errs.Combine(system.API.Close(), system.Core.Close(), system.Repairer.Close())
 }
 
 // Run runs all the subsystems in the Satellite system
@@ -183,10 +184,13 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(system.Peer.Run(ctx))
+		return errs2.IgnoreCanceled(system.Core.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.API.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -286,14 +290,15 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{
-					MaxSegmentSize:   64 * memory.MiB,
-					MaxBufferMem:     memory.Size(256),
-					ErasureShareSize: memory.Size(256),
-					MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
-					RepairThreshold:  (planet.config.StorageNodeCount * 2 / 5),
-					SuccessThreshold: (planet.config.StorageNodeCount * 3 / 5),
-					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
-					Validate:         false,
+					MaxSegmentSize:    64 * memory.MiB,
+					MaxBufferMem:      memory.Size(256),
+					ErasureShareSize:  memory.Size(256),
+					MinThreshold:      (planet.config.StorageNodeCount * 1 / 5),
+					RepairThreshold:   (planet.config.StorageNodeCount * 2 / 5),
+					SuccessThreshold:  (planet.config.StorageNodeCount * 3 / 5),
+					MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
+					MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
+					Validate:          false,
 				},
 				Loop: metainfo.LoopConfig{
 					CoalesceDuration: 1 * time.Second,
@@ -311,6 +316,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxRepair:                     10,
 				Interval:                      time.Hour,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				DownloadTimeout:               1 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
 				MaxExcessRateOptimalThreshold: 0.05,
 			},
@@ -360,6 +366,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Version: planet.NewVersionConfig(),
 			GracefulExit: gracefulexit.Config{
+				Enabled: true,
+
 				ChoreBatchSize: 10,
 				ChoreInterval:  defaultInterval,
 
@@ -367,6 +375,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxFailuresPerPiece:          5,
 				MaxInactiveTimeFrame:         time.Second * 10,
 				OverallMaxFailuresPercentage: 10,
+				RecvTimeout:                  time.Minute * 1,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
@@ -408,9 +417,15 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, err
 		}
+
+		repairerPeer, err := planet.newRepairer(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := createNewSystem(log, peer, api)
+		system := createNewSystem(log, peer, api, repairerPeer)
 		xs = append(xs, system)
 	}
 	return xs, nil
@@ -420,10 +435,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
 	system := &SatelliteSystem{
-		Peer: peer,
-		API:  api,
+		Core:     peer,
+		API:      api,
+		Repairer: repairerPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -449,7 +465,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) 
 	system.Orders.Service = peer.Orders.Service
 
 	system.Repair.Checker = peer.Repair.Checker
-	system.Repair.Repairer = peer.Repair.Repairer
+	system.Repair.Repairer = repairerPeer.Repairer
 	system.Repair.Inspector = api.Repair.Inspector
 
 	system.Audit.Queue = peer.Audit.Queue
@@ -495,4 +511,17 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	planet.databases = append(planet.databases, liveAccounting)
 
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
+}
+
+func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config,
+	versionInfo version.Info) (*satellite.Repairer, error) {
+	prefix := "satellite-repairer" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, &config)
 }

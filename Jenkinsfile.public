@@ -113,6 +113,13 @@ pipeline {
                     }
                 }
 
+               stage('Build [gomobile]') {
+                    steps {
+                        // just to verify its building with recent changes
+                        sh '(cd .build && ./../lib/uplink-gomobile/build.sh)'
+                    }
+                }
+
                 stage('npm') {
                     steps {
                         dir("web/satellite") {

@@ -16,12 +16,13 @@ import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
+import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import DashboardArea from '@/views/DashboardArea.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import LoginArea from '@/views/login/LoginArea.vue';
-import RegisterArea from '@/views/register/RegisterArea.vue';
+const DashboardArea = () => import('@/views/DashboardArea.vue');
+const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const LoginArea = () => import('@/views/login/LoginArea.vue');
+const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 
 Vue.use(Router);
 
@@ -51,7 +52,15 @@ export abstract class RouteConfig {
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
-const router = new Router({
+export const notProjectRelatedRoutes = [
+    RouteConfig.Login.name,
+    RouteConfig.Register.name,
+    RouteConfig.Billing.name,
+    RouteConfig.BillingHistory.name,
+    RouteConfig.Profile.name,
+];
+
+export const router = new Router({
     mode: 'history',
     routes: [
         {
@@ -175,6 +184,23 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
+router.afterEach(({name}, from) => {
+    if (!name) {
+        return;
+    }
+
+    if (notProjectRelatedRoutes.includes(name)) {
+        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+
+        return;
+    }
+
+    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
+
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+});
+
 /**
  * if our route is a tab and has no sub tab route - we will navigate to default subtab.
  * F.E. /account/ -> /account/profile/; /project-overview/ -> /project-overview/details/
@@ -185,5 +211,3 @@ router.beforeEach((to, from, next) => {
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
-
-export default router;

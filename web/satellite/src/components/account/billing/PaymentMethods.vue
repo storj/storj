@@ -20,7 +20,6 @@
                         width="123px"
                         height="48px"
                         :on-press="onAddCard"
-                        :is-disabled="true"
                     />
                 </div>
                 <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
@@ -96,12 +95,13 @@ interface StripeForm {
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+    private isLoading: boolean = false;
 
-    public async mounted() {
+    public mounted() {
         try {
-            // await this.$store.dispatch(GET_CREDIT_CARDS);
+            this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
     }
 
@@ -148,15 +148,33 @@ export default class PaymentMethods extends Vue {
     }
 
     public async addCard(token: string) {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
         try {
-            // await this.$store.dispatch(ADD_CREDIT_CARD, token);
+            await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+
+            this.isLoading = false;
 
             return;
         }
 
-        // await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.isLoading = false;
+        }
+
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+        this.isLoading = false;
     }
 }
 </script>
@@ -178,27 +196,26 @@ export default class PaymentMethods extends Vue {
         }
 
         &:hover {
-            background-color: #0059D0;
+            background-color: #0059d0;
             box-shadow: none;
         }
     }
 
     .payment-methods-area {
         padding: 40px;
-        margin-bottom: 47px;
-        background-color: #FFFFFF;
+        margin-bottom: 32px;
+        background-color: #fff;
         border-radius: 8px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__top-container {
-            display: flex;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
         }
@@ -215,7 +232,7 @@ export default class PaymentMethods extends Vue {
             &__cancel {
 
                 &__text {
-                    font-family: 'font_medium';
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     text-decoration: underline;
                     color: #354049;
@@ -233,7 +250,7 @@ export default class PaymentMethods extends Vue {
             align-items: center;
 
             &__label {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 21px;
             }
 
