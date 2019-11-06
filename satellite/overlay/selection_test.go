@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,21 +315,22 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
+		// select one of the nodes that shares an IP with others to exclude
 		var excludedNodes storj.NodeIDList
-		addrs := make(map[string]struct{})
+		addrCounts := make(map[string]int)
 		var excludedNodeAddr string
 		for _, node := range planet.StorageNodes {
-			if _, ok := addrs[node.Addr()]; !ok {
-				addrs[node.Addr()] = struct{}{}
-			} else {
-				// Add a node with a duplicate IP address to the excluded nodes list.
-				// The FindStorageNodesDistinctIPs function should also exclude the
-				// other nodes that share the same IP.
+			addrNoPort := strings.Split(node.Addr(), ":")[0]
+			if addrCounts[addrNoPort] > 0 && len(excludedNodes) == 0 {
 				excludedNodes = append(excludedNodes, node.ID())
-				excludedNodeAddr = node.Addr()
 				break
 			}
+			addrCounts[addrNoPort]++
 		}
+		require.Len(t, excludedNodes, 1)
+		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
+		require.NoError(t, err)
+		excludedNodeAddr = res.LastIp
 
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
