@@ -315,7 +315,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			}
 			ec.log.Debug("Repair to storage node failed",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", limits[info.i].GetLimit().StorageNodeId),
+				zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 				zap.Error(info.err),
 			)
 			continue
@@ -380,8 +380,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -392,8 +392,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -416,11 +416,11 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		if parent.Err() == context.Canceled {
 			ec.log.Info("Upload to node canceled by user",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", storageNodeID))
+				zap.Stringer("Node ID", storageNodeID))
 		} else {
 			ec.log.Debug("Node cut from upload due to slow connection",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", storageNodeID))
+				zap.Stringer("Node ID", storageNodeID))
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -431,8 +431,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 
 		ec.log.Debug("Failed uploading piece to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.String("Node Address", nodeAddress),
 			zap.Error(err),
 		)

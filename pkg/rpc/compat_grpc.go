@@ -45,6 +45,9 @@ type (
 	// OverlayInspectorClient is an alias to the grpc client interface
 	OverlayInspectorClient = pb.OverlayInspectorClient
 
+	// PaymentsClient is an alias to the grpc client interface
+	PaymentsClient = pb.PaymentsClient
+
 	// PieceStoreInspectorClient is an alias to the grpc client interface
 	PieceStoreInspectorClient = pb.PieceStoreInspectorClient
 
@@ -156,6 +159,16 @@ func NewOverlayInspectorClient(rc *RawConn) OverlayInspectorClient {
 // OverlayInspectorClient returns a OverlayInspectorClient for this connection
 func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
+}
+
+// NewPaymentsClient returns the grpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
 }
 
 // NewPieceStoreInspectorClient returns the grpc version of a PieceStoreInspectorClient
