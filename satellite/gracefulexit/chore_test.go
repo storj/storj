@@ -66,11 +66,6 @@ func TestChore(t *testing.T) {
 		require.NoError(t, err)
 		nodeIDs := make(storj.NodeIDList, 0, len(exitingNodes))
 		for _, exitingNode := range exitingNodes {
-			// exiting node should not be disqualified
-			node, err := satellite.Overlay.Service.Get(ctx, exitingNode.NodeID)
-			require.NoError(t, err)
-			require.Nil(t, node.Disqualified)
-
 			if exitingNode.ExitLoopCompletedAt == nil {
 				nodeIDs = append(nodeIDs, exitingNode.NodeID)
 			}
