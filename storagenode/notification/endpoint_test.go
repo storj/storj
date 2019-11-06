@@ -34,8 +34,8 @@ func TestProcessNotification(t *testing.T) {
 
 	_, err = exitingSatellite.Notification.Endpoint.ProcessNotification(ctx, &pb.NotificationMessage{
 		NodeId:   storagenode.ID(),
-		Loglevel: pb.LogLevel_INFO,
-		Message:  []byte("test"),
+		Loglevel: pb.LogLevel_WARN,
+		Message:  []byte("test message"),
 		Address:  storagenode.Addr(),
 	})
 	require.NoError(t, err)
