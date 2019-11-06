@@ -6,6 +6,8 @@ package marketingweb
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -39,8 +41,14 @@ func (server *Server) OrganizeOffersByStatus(offers rewards.Offers) OrganizedOff
 	for _, offer := range offers {
 		switch offer.Status {
 		case rewards.Active:
+			if !oo.Active.IsZero() {
+				server.log.Error("duplicate active")
+			}
 			oo.Active = offer
 		case rewards.Default:
+			if !oo.Active.IsZero() {
+				server.log.Error("duplicate default")
+			}
 			oo.Default = offer
 		case rewards.Done:
 			oo.Done = append(oo.Done, offer)
@@ -77,7 +85,11 @@ func (server *Server) OrganizeOffersByType(offers rewards.Offers) OfferSet {
 
 // createPartnerSet generates a PartnerSet from the config file.
 func (server *Server) createPartnerSet() PartnerSet {
-	all, _ := server.partners.All(context.TODO()) // TODO: don't ignore error
+	all, err := server.partners.All(context.TODO()) // TODO: don't ignore error
+	if err != nil {
+		server.log.Error("failed to load all partners", zap.Error(err))
+		return nil
+	}
 
 	var ps PartnerSet
 	for _, partner := range all {
