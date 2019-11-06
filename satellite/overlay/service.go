@@ -260,7 +260,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	excludedNodes := req.ExcludedNodes
 	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
 	var excludedIPs []string
-	if preferences.DistinctIP {
+	if preferences.DistinctIP && len(excludedNodes) > 0 {
 		excludedIPs, err = service.db.GetNodeIPs(ctx, excludedNodes)
 		if err != nil {
 			return nil, Error.Wrap(err)
