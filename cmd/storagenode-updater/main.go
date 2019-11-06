@@ -179,60 +179,60 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 		return errs.Wrap(err)
 	}
 
-	if currentVersion.Compare(suggestedVersion) < 0 {
-		if version.ShouldUpdate(processVersion.Rollout, nodeID) {
-			tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
-			if err != nil {
-				return errs.New("cannot create temporary archive: %v", err)
-			}
-			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+	if currentVersion.Compare(suggestedVersion) >= 0 {
+		log.Printf("%s version is up to date\n", serviceName)
+		return nil
+	}
 
-			downloadURL := parseDownloadURL(processVersion.Suggested.URL)
-			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
-			err = downloadArchive(ctx, tempArchive, downloadURL)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
-
-			err = renameBinary(currentVersion)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			err = unpackBinary(ctx, tempArchive.Name(), binPath)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			// TODO add here recovery even before starting service (if version command cannot be executed)
-
-			downloadedVersion, err := binaryVersion(binPath)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			if suggestedVersion.Compare(downloadedVersion) != 0 {
-				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
-			}
-
-			log.Println("restarting service", serviceName)
-			err = restartService(serviceName)
-			if err != nil {
-				// TODO: should we try to recover from this?
-				return errs.New("unable to restart service: %v", err)
-			}
-			log.Println("service", serviceName, "restarted successfully")
-
-			// TODO remove old binary ??
-			return nil
-		}
-
+	if !version.ShouldUpdate(processVersion.Rollout, nodeID) {
 		log.Printf("new %s version available but not rolled out to this nodeID yet\n", serviceName)
 		return nil
 	}
 
-	log.Printf("%s version is up to date\n", serviceName)
+	tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
+	if err != nil {
+		return errs.New("cannot create temporary archive: %v", err)
+	}
+	defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+
+	downloadURL := parseDownloadURL(processVersion.Suggested.URL)
+	log.Println("start downloading", downloadURL, "to", tempArchive.Name())
+	err = downloadArchive(ctx, tempArchive, downloadURL)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
+
+	err = renameBinary(currentVersion)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	err = unpackBinary(ctx, tempArchive.Name(), binPath)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// TODO add here recovery even before starting service (if version command cannot be executed)
+
+	downloadedVersion, err := binaryVersion(binPath)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if suggestedVersion.Compare(downloadedVersion) != 0 {
+		return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+	}
+
+	log.Println("restarting service", serviceName)
+	err = restartService(serviceName)
+	if err != nil {
+		// TODO: should we try to recover from this?
+		return errs.New("unable to restart service: %v", err)
+	}
+	log.Println("service", serviceName, "restarted successfully")
+
+	// TODO remove old binary ??
 	return nil
 }
 
