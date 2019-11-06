@@ -60,6 +60,7 @@ Output of `segment-reaper detect` command should be CSV with list of segments. E
     projectID/segmentIndex/bucketName/encrypted_path1;creation_date
     projectID/segmentIndex/bucketName/encrypted_path3;creation_date
 ```
+**NOTE**: Separator `;` is a valid symbol in paths. When splitting these lines into path and date, we should be careful to make the split on the last `;` in the string instead of on the first one. Alternatively separator symbol can be changed to symbol that is not occuring in segment path.
 
 Two major steps for deleting segment is verification if the segment is newer than detected earlier and delete segment in one atomic operation. For deleting segment we should use `CompareAndSwap` method. Sample code:
 ```
