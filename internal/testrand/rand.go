@@ -115,3 +115,92 @@ func UUID() uuid.UUID {
 	Read(uuid[:])
 	return uuid
 }
+
+// BucketName creates a random bucket name mostly confirming to the
+// restrictions of S3:
+// https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
+//
+// NOTE: This may not generate values that cover all valid values (for Storj or
+// S3). This is a best effort to cover most cases we believe our design
+// requires and will need to be revisited when a more explicit design spec is
+// created.
+func BucketName() string {
+	const (
+		edges = "abcdefghijklmnopqrstuvwxyz0123456789"
+		body  = "abcdefghijklmnopqrstuvwxyz0123456789-"
+		min   = 3
+		max   = 63
+	)
+
+	size := rand.Intn(max-min) + min
+
+	b := make([]byte, size)
+	for i := range b {
+		switch i {
+		case 0:
+			fallthrough
+		case size - 1:
+			b[i] = edges[rand.Intn(len(edges))]
+		default:
+			b[i] = body[rand.Intn(len(body))]
+		}
+	}
+
+	return string(b)
+}
+
+// Metadata creates random metadata mostly conforming to the restrictions of S3:
+// https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#object-metadata
+//
+// NOTE: This may not generate values that cover all valid values (for Storj or
+// S3). This is a best effort to cover most cases we believe our design
+// requires and will need to be revisited when a more explicit design spec is
+// created.
+func Metadata() map[string]string {
+	const (
+		max = 2 * 1024
+	)
+
+	total := rand.Intn(max)
+	metadata := make(map[string]string)
+
+	for used := 0; total-used > 1; {
+		keySize := rand.Intn(total-(used+1)) + 1
+		key := BytesInt(keySize)
+		used += len(key)
+
+		valueSize := rand.Intn(total - used)
+		value := BytesInt(valueSize)
+		used += len(value)
+
+		metadata[string(key)] = string(value)
+	}
+
+	return metadata
+}
+
+// Path creates a random path mostly conforming to the retrictions of S3:
+// https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#object-keys
+//
+// NOTE: This may not generate values that cover all valid values (for Storj or
+// S3). This is a best effort to cover most cases we believe our design
+// requires and will need to be revisited when a more explicit design spec is
+// created.
+func Path() string {
+	const (
+		max = 1 * 1024
+	)
+
+	total := rand.Intn(max)
+	path := ""
+
+	for used := 0; len(path) < total; {
+		if used != 0 {
+			path += "/"
+		}
+
+		path += SegmentID(rand.Intn(total - used)).String()
+	}
+
+	return path[:total]
+}
