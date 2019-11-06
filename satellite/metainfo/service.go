@@ -23,13 +23,13 @@ import (
 // architecture: Service
 type Service struct {
 	logger    *zap.Logger
-	DB        PointerDB
+	db        PointerDB
 	bucketsDB BucketsDB
 }
 
 // NewService creates new metainfo service
 func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service {
-	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
+	return &Service{logger: logger, db: db, bucketsDB: bucketsDB}
 }
 
 // Put puts pointer to db under specific path
@@ -45,7 +45,7 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	}
 
 	// CompareAndSwap is used instead of Put to avoid overwriting existing pointers
-	err = s.DB.CompareAndSwap(ctx, []byte(path), nil, pointerBytes)
+	err = s.db.CompareAndSwap(ctx, []byte(path), nil, pointerBytes)
 	return Error.Wrap(err)
 }
 
@@ -69,7 +69,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 
 	for {
 		// read the pointer
-		oldPointerBytes, err := s.DB.Get(ctx, []byte(path))
+		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -149,7 +149,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		}
 
 		// write the pointer using compare-and-swap
-		err = s.DB.CompareAndSwap(ctx, []byte(path), oldPointerBytes, newPointerBytes)
+		err = s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, newPointerBytes)
 		if storage.ErrValueChanged.Has(err) {
 			continue
 		}
@@ -163,7 +163,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 // Get gets pointer from db
 func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	pointerBytes, err := s.DB.Get(ctx, []byte(path))
+	pointerBytes, err := s.db.Get(ctx, []byte(path))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -175,6 +175,24 @@ func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, er
 	}
 
 	return pointer, nil
+}
+
+// GetWithBytes gets pointer from db
+func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pointerBytes, err = s.db.Get(ctx, []byte(path))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	pointer = &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	return pointerBytes, pointer, nil
 }
 
 // List returns all Path keys in the pointers bucket
@@ -190,7 +208,7 @@ func (s *Service) List(ctx context.Context, prefix string, startAfter string, en
 		}
 	}
 
-	rawItems, more, err := storage.ListV2(ctx, s.DB, storage.ListOptions{
+	rawItems, more, err := storage.ListV2(ctx, s.db, storage.ListOptions{
 		Prefix:       prefixKey,
 		StartAfter:   storage.Key(startAfter),
 		EndBefore:    storage.Key(endBefore),
@@ -259,10 +277,17 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 	return nil
 }
 
-// Delete deletes from item from db
-func (s *Service) Delete(ctx context.Context, path string) (err error) {
+// Delete deletes a pointer bytes when it matches oldPointerBytes, otherwise it'll fail.
+func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.Delete(ctx, []byte(path))
+
+	return Error.Wrap(s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil))
+}
+
+// UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
+func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.db.Delete(ctx, []byte(path))
 }
 
 // CreateBucket creates a new bucket in the buckets db
