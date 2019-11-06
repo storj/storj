@@ -16,6 +16,7 @@ import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
+import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
 const DashboardArea = () => import('@/views/DashboardArea.vue');
@@ -50,6 +51,14 @@ export abstract class RouteConfig {
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
+
+export const notProjectRelatedRoutes = [
+    RouteConfig.Login.name,
+    RouteConfig.Register.name,
+    RouteConfig.Billing.name,
+    RouteConfig.BillingHistory.name,
+    RouteConfig.Profile.name,
+];
 
 export const router = new Router({
     mode: 'history',
@@ -173,6 +182,23 @@ router.beforeEach((to, from, next) => {
     }
 
     next();
+});
+
+router.afterEach(({name}, from) => {
+    if (!name) {
+        return;
+    }
+
+    if (notProjectRelatedRoutes.includes(name)) {
+        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+
+        return;
+    }
+
+    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
+
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
 });
 
 /**
