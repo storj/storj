@@ -424,8 +424,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		disqualifyNode(t, ctx, satellite, exitingNode.ID())
-		var pieceID storj.PieceID
-		failedCount := 0
+
 		deletedCount := 0
 		for {
 			response, err := processClient.Recv()
@@ -445,67 +444,47 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 			case *pb.SatelliteMessage_TransferPiece:
 				require.NotNil(t, m)
 
-				// pick the first one to fail
-				if pieceID.IsZero() {
-					pieceID = m.TransferPiece.OriginalPieceId
+				pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+				require.NoError(t, err)
+
+				header, err := pieceReader.GetPieceHeader()
+				require.NoError(t, err)
+
+				orderLimit := header.OrderLimit
+				originalPieceHash := &pb.PieceHash{
+					PieceId:   orderLimit.PieceId,
+					Hash:      header.GetHash(),
+					PieceSize: pieceReader.Size(),
+					Timestamp: header.GetCreationTime(),
+					Signature: header.GetSignature(),
 				}
 
-				if failedCount > 0 || pieceID != m.TransferPiece.OriginalPieceId {
-
-					pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-					require.NoError(t, err)
-
-					header, err := pieceReader.GetPieceHeader()
-					require.NoError(t, err)
-
-					orderLimit := header.OrderLimit
-					originalPieceHash := &pb.PieceHash{
-						PieceId:   orderLimit.PieceId,
-						Hash:      header.GetHash(),
-						PieceSize: pieceReader.Size(),
-						Timestamp: header.GetCreationTime(),
-						Signature: header.GetSignature(),
-					}
-
-					newPieceHash := &pb.PieceHash{
-						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-						Hash:      originalPieceHash.Hash,
-						PieceSize: originalPieceHash.PieceSize,
-						Timestamp: time.Now(),
-					}
-
-					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-					require.NotNil(t, receivingNodeID)
-					signer := signing.SignerFromFullIdentity(receivingNodeID)
-
-					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-					require.NoError(t, err)
-
-					success := &pb.StorageNodeMessage{
-						Message: &pb.StorageNodeMessage_Succeeded{
-							Succeeded: &pb.TransferSucceeded{
-								OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-								OriginalPieceHash:    originalPieceHash,
-								OriginalOrderLimit:   &orderLimit,
-								ReplacementPieceHash: signedNewPieceHash,
-							},
-						},
-					}
-					err = processClient.Send(success)
-					require.NoError(t, err)
-				} else {
-					failedCount++
-					failed := &pb.StorageNodeMessage{
-						Message: &pb.StorageNodeMessage_Failed{
-							Failed: &pb.TransferFailed{
-								OriginalPieceId: m.TransferPiece.OriginalPieceId,
-								Error:           pb.TransferFailed_UNKNOWN,
-							},
-						},
-					}
-					err = processClient.Send(failed)
-					require.NoError(t, err)
+				newPieceHash := &pb.PieceHash{
+					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+					Hash:      originalPieceHash.Hash,
+					PieceSize: originalPieceHash.PieceSize,
+					Timestamp: time.Now(),
 				}
+
+				receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+				require.NotNil(t, receivingNodeID)
+				signer := signing.SignerFromFullIdentity(receivingNodeID)
+
+				signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+				require.NoError(t, err)
+
+				success := &pb.StorageNodeMessage{
+					Message: &pb.StorageNodeMessage_Succeeded{
+						Succeeded: &pb.TransferSucceeded{
+							OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+							OriginalPieceHash:    originalPieceHash,
+							OriginalOrderLimit:   &orderLimit,
+							ReplacementPieceHash: signedNewPieceHash,
+						},
+					},
+				}
+				err = processClient.Send(success)
+				require.NoError(t, err)
 			case *pb.SatelliteMessage_DeletePiece:
 				deletedCount++
 			case *pb.SatelliteMessage_ExitFailed:
