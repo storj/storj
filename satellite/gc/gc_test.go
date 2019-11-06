@@ -74,7 +74,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, deletedEncPath)
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
