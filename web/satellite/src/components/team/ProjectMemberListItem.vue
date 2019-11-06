@@ -8,8 +8,8 @@
             <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <div class="user-container__base-info__name-area">
-                <p class="user-container__base-info__name-area__user-name">{{itemName}}</p>
+            <div class="user-container__base-info__name-area" :title="itemData.name">
+                <p class="user-container__base-info__name-area__user-name">{{formattedName}}</p>
                 <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
             </div>
         </div>
@@ -44,7 +44,7 @@ export default class ProjectMemberListItem extends Vue {
         };
     }
 
-    public get itemName(): string {
+    public get formattedName(): string {
         return this.itemData.formattedFullName();
     }
 
