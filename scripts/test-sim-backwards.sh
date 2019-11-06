@@ -54,7 +54,9 @@ echo client.segment-size: 6 MiB >> `storj-sim network env GATEWAY_0_DIR`/config.
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
 # replace any 140XX port with 100XX port to fix, satellite.API part removal from satellite.Core
-sed -i -e "s#$STORJ_NETWORK_HOST4:100#$STORJ_NETWORK_HOST4:140#g" `storj-sim network env SATELLITE_0_DIR`/config.yaml
+sed -i -e "s#$STORJ_NETWORK_HOST4:140#$STORJ_NETWORK_HOST4:100#g" `storj-sim network env SATELLITE_0_DIR`/config.yaml
+
+# create redis config if it's missing
 REDIS_CONFIG=$(storj-sim network env REDIS_0_DIR)/redis.conf
 if [ ! -f "$REDIS_CONFIG" ] ; then
     echo "daemonize no" >> $REDIS_CONFIG
