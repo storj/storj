@@ -12,10 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -311,6 +313,9 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			// will create 3 storage nodes with same IP; 2 will have unique
 			UniqueIPCount: 2,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.DistinctIP = true
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -337,7 +342,7 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 			RequestedCount:       2,
 			ExcludedNodes:        excludedNodes,
 		}
-		nodes, err := satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
@@ -349,7 +354,7 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 			RequestedCount:       3,
 			ExcludedNodes:        excludedNodes,
 		}
-		_, err = satellite.Overlay.Service.FindStorageNodesDistinctIPs(ctx, req)
+		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.Error(t, err)
 	})
 }
