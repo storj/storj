@@ -812,7 +812,7 @@ func TestReverifyExpired1(t *testing.T) {
 		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.PointerDB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
@@ -930,7 +930,7 @@ func TestReverifyExpired2(t *testing.T) {
 		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.PointerDB.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		// reverify with path 2. Since the selected node was put in containment for path1,
