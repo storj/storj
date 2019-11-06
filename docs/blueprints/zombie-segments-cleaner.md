@@ -27,15 +27,17 @@ How detect zombie segment:
 
 Different kind of bad segment is a case where all segments are available on satellite but were deleted from storage nodes.
 
-General idea is to create cli command to verify all segment paths and delete bad segments. With this command user should be able to specify flags like DB connection string, dry run (only listing bad segments) and how old segments should be verified. During iteration, each segment path will be processed and assigned to a struct that will collect segments from the same object. All segments from object where at least one segment is not old enough should be skipped. When the last segment (`l`) will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes, then helper struct will be removed from memory. If not, then all related segments will be moved to delete or only printed in case of dry run.
+We should create two cli commands. One for detecting bad segments, second one for deleting segments reported by first comamnd.
 
-Command can be run agains production database or in case of performance concerns agains backup of pointerDB.
+The first command for detecting bad segments should iterate over pointerDB and verify each segment. The command should allow specifying flags like DB connection string, and how old segments should be verified. During processing, segment should be assigned to a struct that will collect segments from the same object. All segments from an object where at least one segment is not old enough should be skipped. When the last segment (`l`) will be reached or iteration will be finished each object will be checked if it contains all segments (according to rules from the beginning of this part). If yes, then helper struct will be removed from memory. If not, then all related segments should be printed out. Each entry in such a report should contain segment path, creation/modification date. This command should be **ONLY** executed against pointerDB snapshot to avoid problems with constant changes in the production database.
+
+The second command for deleting bad segments should use the result of first command. The command should allow specifying flags like DB connection string, file with results from the first command, and dry run mode. Each reported segment should be verified if it's not changed since detection report was done. If segment was not changed it should be deleted from pointerDB. Verification and deletion should be done as atomic operation to avoid race conditions. Command should print the report at the end: number of deleted segments, number of segments skipped because of being newer than reported, skipped segments paths. Execution with dry run flag should only print results but without deleting segments from the database. This command should be executed against production database.
 
 ## Implementation
 
-Code should be placed in package `cmd/segment-reaper`.
+Code should be placed in package `cmd/segment-reaper`. The first command for detecting bad segments should be named `detect`. The second command for deleting bad segments should be named `delete`.
 
-Implementation can incorporate `metainfo.PointerDB` and `Iterate` method to go over all segments in DB.
+Implementation can incorporate `metainfo.PointerDB` and `Iterate` method to go over all segments in DB. 
 
 Proposal for keeping segments structures:
 ```
@@ -45,13 +47,51 @@ map[string]Object
 type Object struct {
     // big.Int represents a bitmask of unlimited size
     segments big.Int
-    // if skip is true segments from object should be removed from memory 
-    // when last segment is found or iteration is finished
+    // if skip is true segments from object should be removed from memory when last segment is found 
+    // or iteration is finished,
+    // mark it as true if one of the segments from this object is newer then specified threshold
     skip     bool 
 }
+```
+
+Output of `segment-reaper detect` command should be CSV with list of segments. Each row will contain segment path and creation/modification date, and serialized pointer for CompareAndSwap function:
+```
+    projectID/segmentIndex/bucketName/encrypted_path;creation_date
+    projectID/segmentIndex/bucketName/encrypted_path1;creation_date
+    projectID/segmentIndex/bucketName/encrypted_path3;creation_date
+```
+
+Two major steps for deleting segment is verification if the segment is newer than detected earlier and delete segment in one atomic operation. For deleting segment we should use `CompareAndSwap` method. Sample code:
+```
+    // read the pointer
+    pointerBytes, err := s.DB.Get(ctx, []byte(path))
+    if err != nil {
+        return err
+    }
+    // unmarshal the pointer
+    pointer = &pb.Pointer{}
+    err = proto.Unmarshal(pointerBytes, pointer)
+    if err != nil {
+        return err
+    }
+    // check if pointer has been replaced
+    if !pointer.GetCreationDate().Equal(creationDateFromReport) {
+        // pointer has been replaced since detection, do not delete it.
+        return nil
+    }
+    // delete the pointer using compare-and-swap
+    err = s.DB.CompareAndSwap(ctx, []byte(path), pointerBytes, nil)
+    if storage.ErrValueChanged.Has(err) {
+        // race detected while deleting the pointer, do not try deleting it again.
+        return nil
+    }
+    if err != nil {
+        return err
+    }
 ```
 
 ## Open issues (if applicable)
 
 * how detect segments deleted from storage nodes but existing on satellite?
+* what to do with segments lost because of bucket deletion?
 * should we try also to delete zombie segments from storage nodes or leave it for garbage collection?
