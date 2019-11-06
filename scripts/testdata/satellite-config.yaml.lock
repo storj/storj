@@ -64,9 +64,6 @@
 # path to static resources
 # console.static-dir: ""
 
-# stripe api key
-# console.stripe-key: ""
-
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
@@ -333,6 +330,24 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
+
+# payments provider to use
+# payments.provider: ""
+
+# amount of time we wait before running next account balance update loop
+# payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+
+# coinpayments API private key key
+# payments.stripe-coin-payments.coinpayments-private-key: ""
+
+# coinpayments API public key
+# payments.stripe-coin-payments.coinpayments-public-key: ""
+
+# stripe API secret key
+# payments.stripe-coin-payments.stripe-secret-key: ""
+
+# amount of time we wait before running next transaction update loop
+# payments.stripe-coin-payments.transaction-update-interval: 30m0s
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s

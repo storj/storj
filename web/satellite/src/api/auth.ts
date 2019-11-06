@@ -12,6 +12,7 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
+
     /**
      * Used to resend an registration confirmation email
      *
@@ -46,7 +47,7 @@ export class AuthHttpApi {
             return await response.json();
         }
 
-        if (response.status === 400) {
+        if (response.status === 401) {
             throw new Error('your email or password was incorrect, please try again');
         }
 
