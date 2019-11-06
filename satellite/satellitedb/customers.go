@@ -5,6 +5,8 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -16,6 +18,8 @@ import (
 var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.
+//
+// architecture: Database
 type customers struct {
 	db *dbx.DB
 }
@@ -39,8 +43,59 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 
 	idRow, err := customers.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", stripecoinpayments.ErrNoCustomer
+		}
+
 		return "", err
 	}
 
 	return idRow.CustomerId, nil
+}
+
+// List returns paginated customers id list, with customers created before specified date.
+func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CustomersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var page stripecoinpayments.CustomersPage
+
+	dbxCustomers, err := customers.db.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx,
+		dbx.StripeCustomer_CreatedAt(before),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return stripecoinpayments.CustomersPage{}, err
+	}
+
+	if len(dbxCustomers) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit) + 1
+
+		dbxCustomers = dbxCustomers[:len(dbxCustomers)-1]
+	}
+
+	for _, dbxCustomer := range dbxCustomers {
+		cus, err := fromDBXCustomer(dbxCustomer)
+		if err != nil {
+			return stripecoinpayments.CustomersPage{}, err
+		}
+
+		page.Customers = append(page.Customers, *cus)
+	}
+
+	return page, nil
+}
+
+// fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
+func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
+	userID, err := bytesToUUID(dbxCustomer.UserId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stripecoinpayments.Customer{
+		ID:     dbxCustomer.CustomerId,
+		UserID: userID,
+	}, nil
 }

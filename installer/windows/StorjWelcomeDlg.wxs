@@ -41,7 +41,7 @@
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
                 </Control>
-                <Control Id="LearnMoreLink" Type="Hyperlink" X="135" Y="181" Width="320" Height="16" Transparent="yes">
+                <Control Id="LearnMoreLink" Type="Hyperlink" X="135" Y="181" Width="320" Height="16">
                     <Text><![CDATA[<a href="https://documentation.storj.io/setup/gui-windows">Learn more</a>]]></Text>
                     <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
                     <Condition Action="hide">Installed AND PATCH</Condition>
