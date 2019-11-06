@@ -11,6 +11,8 @@ import (
 )
 
 // PartnersStaticDB implements partner lookup based on a static definition.
+//
+// architecture: Database Implementation
 type PartnersStaticDB struct {
 	list        *PartnerList
 	byName      map[string]PartnerInfo
@@ -36,20 +38,20 @@ func NewPartnersStaticDB(list *PartnerList) (*PartnersStaticDB, error) {
 	var errg errs.Group
 	for _, p := range list.Partners {
 		if _, exists := db.byName[p.Name]; exists {
-			errg.Add(Error.New("name %q already exists", p.Name))
+			errg.Add(ErrPartners.New("name %q already exists", p.Name))
 		} else {
 			db.byName[p.Name] = p
 		}
 
 		if _, exists := db.byID[p.ID]; exists {
-			errg.Add(Error.New("id %q already exists", p.ID))
+			errg.Add(ErrPartners.New("id %q already exists", p.ID))
 		} else {
 			db.byID[p.ID] = p
 		}
 
 		useragent := CanonicalUserAgentProduct(p.UserAgent())
 		if _, exists := db.byUserAgent[useragent]; exists {
-			errg.Add(Error.New("user agent %q already exists", useragent))
+			errg.Add(ErrPartners.New("user agent %q already exists", useragent))
 		} else {
 			db.byUserAgent[useragent] = p
 		}
@@ -67,7 +69,7 @@ func (db *PartnersStaticDB) All(ctx context.Context) ([]PartnerInfo, error) {
 func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInfo, error) {
 	partner, ok := db.byName[name]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", name)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", name)
 	}
 	return partner, nil
 }
@@ -76,7 +78,7 @@ func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInf
 func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (PartnerInfo, error) {
 	partner, ok := db.byID[id]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", id)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", id)
 	}
 	return partner, nil
 }
@@ -85,7 +87,7 @@ func (db *PartnersStaticDB) ByID(ctx context.Context, id string) (PartnerInfo, e
 func (db *PartnersStaticDB) ByUserAgent(ctx context.Context, agent string) (PartnerInfo, error) {
 	partner, ok := db.byUserAgent[CanonicalUserAgentProduct(agent)]
 	if !ok {
-		return PartnerInfo{}, ErrNotExist.New("%q", agent)
+		return PartnerInfo{}, ErrPartnerNotExist.New("%q", agent)
 	}
 	return partner, nil
 }
