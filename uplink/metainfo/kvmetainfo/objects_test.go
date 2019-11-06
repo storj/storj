@@ -268,11 +268,11 @@ func TestDeleteObject(t *testing.T) {
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
 		{
-			invalidPahtCipherBucket := storj.Bucket{
+			invalidPathCipherBucket := storj.Bucket{
 				Name:       bucket.Name,
 				PathCipher: bucket.PathCipher + 1,
 			}
-			err = db.DeleteObject(ctx, invalidPahtCipherBucket, TestFile)
+			err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
 			assert.True(t, storj.ErrObjectNotFound.Has(err))
 		}
 
