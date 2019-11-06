@@ -433,7 +433,13 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 				// Done
 				break
 			}
-			require.NoError(t, err)
+			if deletedCount >= numPieces {
+				// when a disqualified node has finished transfer all pieces, it should receive an error
+				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				break
+			} else {
+				require.NoError(t, err)
+			}
 
 			switch m := response.GetMessage().(type) {
 			case *pb.SatelliteMessage_TransferPiece:
@@ -515,8 +521,13 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
 		require.EqualValues(t, numPieces, deletedCount)
-		// disqualified node should fail graceful exit
 		require.EqualValues(t, 1, progress.PiecesFailed)
+
+		// disqualified node should fail graceful exit
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.False(t, exitStatus.ExitSuccess)
 	})
 }
 
