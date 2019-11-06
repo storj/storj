@@ -178,7 +178,7 @@ func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer)
 	return endpoint.doProcess(stream)
 }
 
-// Process is called by storage nodes to receive pieceIDs to transfer pieces to new nodes and get exit status.
+// Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
 func (endpoint *drpcEndpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStream) error {
 	return endpoint.doProcess(stream)
 }
@@ -267,7 +267,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return nil
 	}
 
-	// maps pieceIDs to pendingTransfer
+	// maps pieceIDs to pendingTransfers to keep track of ongoing piece transfer requests
 	pending := newPendingMap()
 
 	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
