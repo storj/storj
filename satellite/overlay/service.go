@@ -281,7 +281,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		}
 	}
 
-	var excludedIPs []string
+	excludedIPs := req.ExcludedIPs
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		excludedNodes = append(excludedNodes, newNode.Id)
