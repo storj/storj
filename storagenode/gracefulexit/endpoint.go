@@ -64,13 +64,13 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 		// get domain name
 		domain, err := e.trust.GetAddress(ctx, trusted)
 		if err != nil {
-			e.log.Debug("graceful exit: get satellite domian name", zap.Stringer("satelliteID", trusted), zap.Error(err))
+			e.log.Debug("graceful exit: get satellite domian name", zap.Stringer("Satellite ID", trusted), zap.Error(err))
 			continue
 		}
 		// get space usage by satellites
 		spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, trusted)
 		if err != nil {
-			e.log.Debug("graceful exit: get space used by satellite", zap.Stringer("satelliteID", trusted), zap.Error(err))
+			e.log.Debug("graceful exit: get space used by satellite", zap.Stringer("Satellite ID", trusted), zap.Error(err))
 			continue
 		}
 		availableSatellites = append(availableSatellites, &pb.NonExitingSatellite{
@@ -87,7 +87,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 
 // InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
-	e.log.Debug("initialize graceful exit: start", zap.Stringer("satellite ID", req.NodeId))
+	e.log.Debug("initialize graceful exit: start", zap.Stringer("Satellite ID", req.NodeId))
 
 	domain, err := e.trust.GetAddress(ctx, req.NodeId)
 	if err != nil {
@@ -128,7 +128,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 	for _, progress := range exitProgress {
 		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
 		if err != nil {
-			e.log.Debug("graceful exit: get satellite domain name", zap.Stringer("satelliteID", progress.SatelliteID), zap.Error(err))
+			e.log.Debug("graceful exit: get satellite domain name", zap.Stringer("Satellite ID", progress.SatelliteID), zap.Error(err))
 			continue
 		}
 

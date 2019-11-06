@@ -43,7 +43,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/mockpayments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
@@ -366,15 +365,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup payments
-		config := paymentsconfig.Config{}
+		log.Debug("Satellite API Process setting up payments")
+		pc := config.Payments
 
-		switch config.Provider {
+		switch pc.Provider {
 		default:
 			peer.Payments.Accounts = mockpayments.Accounts()
 		case "stripecoinpayments":
 			service := stripecoinpayments.NewService(
 				peer.Log.Named("stripecoinpayments service"),
-				config.StripeCoinPayments,
+				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects())
 

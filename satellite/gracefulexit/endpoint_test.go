@@ -681,17 +681,17 @@ func TestSuccessPointerUpdate(t *testing.T) {
 
 func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-
-		var recNodeID storj.NodeID
-
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
+		var firstRecNodeID storj.NodeID
+		var pieceID storj.PieceID
 		switch m := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_TransferPiece:
-			require.NotNil(t, m)
+			firstRecNodeID = m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId
+			pieceID = m.TransferPiece.OriginalPieceId
 
-			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), pieceID)
 			require.NoError(t, err)
 
 			header, err := pieceReader.GetPieceHeader()
@@ -713,11 +713,23 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				Timestamp: time.Now(),
 			}
 
-			receivingIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingIdentity)
+			receivingNodeIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNodeIdentity)
+			signer := signing.SignerFromFullIdentity(receivingNodeIdentity)
 
-			// get the receiving node piece count before processing
-			recNodeID = receivingIdentity.ID
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+			require.NoError(t, err)
+
+			success := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      pieceID,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
+					},
+				},
+			}
 
 			// update pointer to include the new receiving node before responding to satellite
 			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -739,39 +751,31 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				}
 			}
 
-			// create a piece with deleted piece number and receiving node ID from the pointer
 			pieceToAdd[0] = &pb.RemotePiece{
 				PieceNum: pieceToRemove[0].PieceNum,
-				NodeId:   recNodeID,
+				NodeId:   firstRecNodeID,
 			}
 
 			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
 			require.NoError(t, err)
 
-			signer := signing.SignerFromFullIdentity(receivingIdentity)
-
-			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-			require.NoError(t, err)
-
-			success := &pb.StorageNodeMessage{
-				Message: &pb.StorageNodeMessage_Succeeded{
-					Succeeded: &pb.TransferSucceeded{
-						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-						OriginalPieceHash:    originalPieceHash,
-						OriginalOrderLimit:   &orderLimit,
-						ReplacementPieceHash: signedNewPieceHash,
-					},
-				},
-			}
 			err = processClient.Send(success)
 			require.NoError(t, err)
 		default:
 			t.FailNow()
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.Internal))
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			// validate we get a new node to transfer too
+			require.True(t, m.TransferPiece.OriginalPieceId == pieceID)
+			require.True(t, m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId != firstRecNodeID)
+		default:
+			t.FailNow()
+		}
 
 		// check exiting node is still in the pointer
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -793,7 +797,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		count, ok := pieceMap[exitingNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
-		count, ok = pieceMap[recNodeID]
+		count, ok = pieceMap[firstRecNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
 	})

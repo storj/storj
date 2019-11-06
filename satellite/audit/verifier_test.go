@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -19,11 +20,13 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
 
@@ -375,6 +378,56 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+func TestVerifierExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		// set pointer's expiration date to be already expired
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		oldPointerBytes, err := proto.Marshal(pointer)
+		require.NoError(t, err)
+		newPointer := &pb.Pointer{}
+		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		require.NoError(t, err)
+		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointerBytes, err := proto.Marshal(newPointer)
+		require.NoError(t, err)
+		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.Error(t, err)
+		require.True(t, audit.ErrSegmentExpired.Has(err))
+
+		// Verify should delete the expired segment
+		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		require.Error(t, err)
+		require.Nil(t, pointer)
+
+		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
