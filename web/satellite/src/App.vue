@@ -35,7 +35,7 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
-    public mounted() {
+    public mounted(): void {
         const meta = document.querySelector("meta[name='satellite-name']");
         let satelliteName;
 
@@ -45,7 +45,6 @@ export default class App extends Vue {
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
-            document.title = satelliteName;
         }
     }
 

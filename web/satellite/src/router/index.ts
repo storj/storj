@@ -189,7 +189,6 @@ router.afterEach(({name}, from) => {
         return;
     }
 
-    // tslint:disable-next-line:prefer-switch
     if (notProjectRelatedRoutes.includes(name)) {
         document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
 
