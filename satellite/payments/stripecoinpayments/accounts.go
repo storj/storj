@@ -5,12 +5,16 @@ package stripecoinpayments
 
 import (
 	"context"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
 	"storj.io/storj/satellite/payments"
 )
+
+// ensures that accounts implements payments.Accounts.
+var _ payments.Accounts = (*accounts)(nil)
 
 // accounts is an implementation of payments.Accounts.
 type accounts struct {
@@ -65,6 +69,27 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	}
 
 	return c.Balance, nil
+}
+
+// ProjectCharges returns how much money current user will be charged for each project.
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, project := range projects {
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, time.Now(), time.Now())
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		
+	}
+
+	return nil, nil
 }
 
 // StorjTokens exposes all storj token related functionality.

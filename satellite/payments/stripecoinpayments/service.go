@@ -42,6 +42,7 @@ type Service struct {
 	log          *zap.Logger
 	db           DB
 	projectsDB   console.Projects
+	usageDB      console.UsageRollups
 	stripeClient *client.API
 	coinPayments *coinpayments.Client
 }
