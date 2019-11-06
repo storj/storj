@@ -115,7 +115,7 @@ func TestShouldUpdate(t *testing.T) {
 	tolerance := total * 2 / 100 // 2%
 
 	for p := 10; p < 100; p += 10 {
-		var updates int
+		var rollouts int
 		percentage := p
 		cursor := version.PercentageToCursor(percentage)
 
@@ -131,12 +131,12 @@ func TestShouldUpdate(t *testing.T) {
 			require.NoError(t, err)
 
 			if version.ShouldUpdate(rollout, nodeID) {
-				updates++
+				rollouts++
 			}
 		}
 
 		assert.Condition(t, func() bool {
-			diff := updates - (total * percentage / 100)
+			diff := rollouts - (total * percentage / 100)
 			return int(math.Abs(float64(diff))) < tolerance
 		})
 	}

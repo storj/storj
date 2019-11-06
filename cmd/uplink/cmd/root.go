@@ -80,7 +80,6 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !cliCfg.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = cliCfg.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
-	libuplinkCfg.Volatile.RequestTimeout = cliCfg.Client.RequestTimeout
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

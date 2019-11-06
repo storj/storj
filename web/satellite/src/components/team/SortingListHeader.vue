@@ -97,16 +97,17 @@ export default class SortingListHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
+        user-select: none;
 
         &__name-container,
         &__added-container,
         &__email-container {
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: #2A2A32;
+                color: #2a2a32;
                 margin: 0;
             }
         }

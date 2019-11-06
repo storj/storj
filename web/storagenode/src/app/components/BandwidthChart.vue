@@ -18,6 +18,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
+
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
@@ -50,6 +51,9 @@ class BandwidthTooltip {
     },
 })
 export default class BandwidthChart extends Vue {
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
+
     private get allBandwidth(): BandwidthUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
@@ -131,8 +135,8 @@ export default class BandwidthChart extends Vue {
         const bandwidthChart = document.getElementById('bandwidth-chart');
         if (bandwidthChart) {
             const position = bandwidthChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
             tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
@@ -153,17 +157,17 @@ export default class BandwidthChart extends Vue {
             font-size: 13px;
             color: #586c86;
             margin: 0 0 5px 30px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
         }
     }
 
     #bandwidth-tooltip {
-        background-color: #FFFFFF;
+        background-color: #fff;
         width: auto;
         font-size: 12px;
         border-radius: 8px;
-        box-shadow: 0 2px 10px #D2D6DE;
-        color: #535F77;
+        box-shadow: 0 2px 10px #d2d6de;
+        color: #535f77;
         padding: 6px;
         pointer-events: none;
     }
@@ -182,7 +186,7 @@ export default class BandwidthChart extends Vue {
 
         &__info {
             display: flex;
-            background-color: #EBECF0;
+            background-color: #ebecf0;
             border-radius: 12px;
             padding: 14px 17px 14px 14px;
             align-items: center;

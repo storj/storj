@@ -1,14 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
-import { User } from '@/types/users';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { UpdatedUser, User } from '@/types/users';
+import { HttpClient } from '@/utils/httpClient';
 
 /**
- * AuthApiGql is a graphql implementation of Auth API.
+ * AuthHttpApi is a console Auth API.
  * Exposes all auth-related functionality
  */
-export class AuthApi extends BaseGql {
+export class AuthHttpApi {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/auth';
+
     /**
      * Used to resend an registration confirmation email
      *
@@ -16,16 +20,13 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async resendEmail(userId: string): Promise<void> {
-        const query =
-            `query ($userId: String!){
-                resendAccountActivationEmail(id: $userId)
-            }`;
+        const path = `${this.ROOT_PATH}/resend-email/${userId}`;
+        const response = await this.http.post(path, userId, false);
+        if (response.ok) {
+            return;
+        }
 
-        const variables = {
-            userId,
-        };
-
-        await this.query(query, variables);
+        throw new Error('can not resend Email');
     }
 
     /**
@@ -36,21 +37,21 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async token(email: string, password: string): Promise<string> {
-        const query =
-            ` query ($email: String!, $password: String!) {
-                token(email: $email, password: $password) {
-                    token
-                }
-            }`;
-
-        const variables = {
-            email,
-            password,
+        const path = `${this.ROOT_PATH}/token`;
+        const body = {
+            email: email,
+            password: password,
         };
+        const response = await this.http.post(path, JSON.stringify(body), false);
+        if (response.ok) {
+            return await response.json();
+        }
 
-        const response = await this.query(query, variables);
+        if (response.status === 401) {
+            throw new Error('your email or password was incorrect, please try again');
+        }
 
-        return response.data.token.token;
+        throw new Error('can not receive authentication token');
     }
 
     /**
@@ -60,16 +61,48 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async forgotPassword(email: string): Promise<void> {
-        const query =
-            `query($email: String!) {
-                forgotPassword(email: $email)
-            }`;
+        const path = `${this.ROOT_PATH}/forgot-password/${email}`;
+        const response = await this.http.post(path, email, false);
+        if (response.ok) {
+            return;
+        }
 
-        const variables = {
-            email,
+        throw new Error('can not resend password');
+    }
+
+    /**
+     * Used to update user full and short name
+     *
+     * @param userInfo - full name and short name of the user
+     * @throws Error
+     */
+    public async update(userInfo: UpdatedUser): Promise<void> {
+        const path = `${this.ROOT_PATH}/account`;
+        const body = {
+            fullName: userInfo.fullName,
+            shortName: userInfo.shortName,
         };
+        const response = await this.http.patch(path, JSON.stringify(body), true);
+        if (response.ok) {
+            return;
+        }
 
-        await this.query(query, variables);
+        throw new Error('can not update user data');
+    }
+
+    /**
+     * Used to get user data
+     *
+     * @throws Error
+     */
+    public async get(): Promise<User> {
+        const path = `${this.ROOT_PATH}/account`;
+        const response = await this.http.get(path, true);
+        if (response.ok) {
+            return await response.json();
+        }
+
+        throw new Error('can not get user data');
     }
 
     /**
@@ -80,22 +113,27 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async changePassword(password: string, newPassword: string): Promise<void> {
-        const query =
-            `mutation($password: String!, $newPassword: String!) {
-                changePassword (
-                    password: $password,
-                    newPassword: $newPassword
-                ) {
-                   email
-                }
-            }`;
-
-        const variables = {
-            password,
-            newPassword,
+        const path = `${this.ROOT_PATH}/account/change-password`;
+        const body = {
+            password: password,
+            newPassword: newPassword,
         };
+        const response = await this.http.post(path, JSON.stringify(body), true);
+        if (response.ok) {
+            return;
+        }
 
-        await this.mutate(query, variables);
+        switch (response.status) {
+            case 401: {
+                throw new ErrorUnauthorized();
+            }
+            case 500: {
+                throw new Error('can not change password');
+            }
+            default: {
+                throw new Error('old password is incorrect, please try again');
+            }
+        }
     }
 
     /**
@@ -105,59 +143,53 @@ export class AuthApi extends BaseGql {
      * @throws Error
      */
     public async delete(password: string): Promise<void> {
-        const query =
-            `mutation ($password: String!){
-                deleteAccount(password: $password) {
-                    email
-                }
-            }`;
-
-        const variables = {
-            password,
+        const path = `${this.ROOT_PATH}/account/delete`;
+        const body = {
+            password: password,
         };
+        const response = await this.http.post(path, JSON.stringify(body), true);
+        if (response.ok) {
+            return;
+        }
 
-        await this.mutate(query, variables);
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not delete user');
     }
 
     // TODO: remove secret after Vanguard release
     /**
-     * Used to create account
+     * Used to register account
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
-     * @param refUserId - referral id to participate in bonus program
+     * @param referrerUserId - referral id to participate in bonus program
      * @returns id of created user
      * @throws Error
      */
-    public async create(user: User, password: string, secret: string, referrerUserId: string = ''): Promise<string> {
-        const query =
-            `mutation($email: String!, $password: String!, $fullName: String!, $shortName: String!,
-                     $partnerID: String!, $referrerUserId: String!, $secret: String!) {
-                createUser(
-                    input: {
-                        email: $email,
-                        password: $password,
-                        fullName: $fullName,
-                        shortName: $shortName,
-                        partnerId: $partnerID
-                    },
-                    referrerUserId: $referrerUserId,
-                    secret: $secret,
-                ) {email, id}
-            }`;
-
-        const variables = {
-            email: user.email,
+    public async register(user: {fullName: string; shortName: string; email: string; partnerId: string; password: string}, secret: string, referrerUserId: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/register`;
+        const body = {
+            secret: secret,
+            referrerUserId: referrerUserId ? referrerUserId : '',
+            password: user.password,
             fullName: user.fullName,
             shortName: user.shortName,
-            partnerID: user.partnerId ? user.partnerId : '',
-            referrerUserId: referrerUserId ? referrerUserId : '',
-            password,
-            secret,
+            email: user.email,
+            partnerId: user.partnerId ? user.partnerId : '',
         };
 
-        const response = await this.mutate(query, variables);
+        const response = await this.http.post(path, JSON.stringify(body), false);
+        if (!response.ok) {
+            if (response.status === 400) {
+                throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+            }
 
-        return response.data.createUser.id;
+            throw new Error('can not register user');
+        }
+
+        return await response.json();
     }
 }

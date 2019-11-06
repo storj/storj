@@ -78,22 +78,22 @@ export default class VSearch extends Vue {
         right: 0;
         bottom: 0;
         padding: 0 38px 0 18px;
-        border: 1px solid #F2F2F2;
+        border: 1px solid #f2f2f2;
         box-sizing: border-box;
         box-shadow: 0 4px 4px rgba(231, 232, 238, 0.6);
         outline: none;
         border-radius: 36px;
         height: 56px;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
         font-size: 16px;
         transition: all 0.4s ease-in-out;
-        background-image: url('../../../static/images/team/searchIcon.svg');
+        background-image: url('../../../static/images/common/search.png');
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px right 16px;
     }
 
     ::-webkit-input-placeholder {
-        color: #AFB7C1;
+        color: #afb7c1;
     }
 </style>

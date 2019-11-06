@@ -20,6 +20,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AllocatedStorageConfig.wxs" />
+    <Compile Include="StorjValidateUpgradeDlg.wxs" />
+    <Compile Include="StorjWelcomeDlg.wxs" />
     <Compile Include="ValidationError.wxs" />
     <Compile Include="InstallDirConfig.wxs" />
     <Compile Include="CustomInstallDir.wxs" />

@@ -6,18 +6,32 @@ a {
     outline: none;
 }
 
+::-webkit-scrollbar,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb {
+    width: 3px;
+    margin-top: 100px;
+    background-color: #fff;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #afb7c1;
+}
+
 .navigation-area {
     position: relative;
     min-width: 280px;
     max-width: 280px;
-    height: 100vh;
+    height: calc(97vh + 5px);
+    overflow-y: scroll;
     left: 0;
     background-color: #fff;
     padding-top: 20px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    font-family: 'font_regular';
+    font-family: 'font_regular', sans-serif;
+    user-select: none;
 
     &__logo {
         display: flex;
@@ -69,7 +83,7 @@ a {
             cursor: pointer;
 
             &:hover {
-                color: #5E6978;
+                color: #5e6978;
             }
         }
     }
@@ -92,10 +106,10 @@ a {
 
         &.router-link-active,
         &:hover {
-            border-left: 3px solid #2683FF;
+            border-left: 3px solid #2683ff;
 
             .svg .navigation-svg-path:not(.white) {
-                fill: #2683FF !important;
+                fill: #2683ff !important;
             }
         }
 
@@ -106,7 +120,7 @@ a {
             align-items: center;
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;
@@ -129,15 +143,15 @@ a {
         &.router-link-active {
 
             .account-item {
-                color: #2683FF;
+                color: #2683ff;
             }
         }
     }
 }
 
 .disabled {
-    pointer-events:none;
-    opacity:0.6;
+    pointer-events: none;
+    opacity: 0.6;
 }
 
 .divider {
@@ -154,6 +168,13 @@ a {
 }
 
 @media screen and (max-width: 1024px) {
+
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin-top: 0;
+    }
+
     .divider {
         margin-left: 42px;
     }
@@ -185,5 +206,33 @@ a {
             display: block;
             margin-left: 35px;
         }
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 790px) {
+
+    .navigation-area {
+        height: 84vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 700px) {
+
+    .navigation-area {
+        height: 83vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 660px) {
+
+    .navigation-area {
+        height: 82vh;
+    }
+}
+
+@media screen and (max-width: 1024px) and (max-height: 620px) {
+
+    .navigation-area {
+        height: 81vh;
     }
 }

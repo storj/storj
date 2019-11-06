@@ -27,7 +27,7 @@ const { CLEAR, SET_PAGE } = API_KEYS_MUTATIONS;
 const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {
-    const project = new Project('id', 'projectName', 'projectDescription', 'test', true);
+    const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
 
     const apiKey = new ApiKey('testId', 'test', 'test', 'test');
