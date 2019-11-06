@@ -194,7 +194,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	// TODO should we error if the node is DQ'd?
 
 	nodeID := peer.ID
-	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", nodeID))
 
 	// ensure that only one connection can be opened for a single node at a time
 	if !endpoint.connections.tryAdd(nodeID) {
@@ -206,7 +206,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
-			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
+			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("Node ID", nodeID))
 			return nil
 		}
 		if err != nil {
@@ -308,7 +308,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				if len(incomplete) == 0 {
-					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
+					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
 					processMu.Lock()
 					morePiecesFlag = false
 					processMu.Unlock()
@@ -521,7 +521,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	if nodePiece == nil {
-		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		endpoint.log.Debug("piece no longer held by node", zap.Stringer("Node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
@@ -537,7 +537,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	if len(remote.GetRemotePieces()) > redundancy.OptimalThreshold() {
-		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("Node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
@@ -742,12 +742,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	endpoint.log.Warn("transfer failed", zap.Stringer("Piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
 	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("piece ID", pieceID))
+		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("Piece ID", pieceID))
 
 		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
 	}
