@@ -476,6 +476,19 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
+CREATE TABLE stripecoinpayments_invoice_project_records (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	storage double precision NOT NULL,
+	egress bigint NOT NULL,
+	objects bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, period_start, period_end )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -4078,6 +4091,199 @@ func (f StripeCustomer_CreatedAt_Field) value() interface{} {
 
 func (StripeCustomer_CreatedAt_Field) _Column() string { return "created_at" }
 
+type StripecoinpaymentsInvoiceProjectRecord struct {
+	Id          []byte
+	ProjectId   []byte
+	Storage     float64
+	Egress      int64
+	Objects     int64
+	PeriodStart time.Time
+	PeriodEnd   time.Time
+	State       int
+	CreatedAt   time.Time
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord) _Table() string {
+	return "stripecoinpayments_invoice_project_records"
+}
+
+type StripecoinpaymentsInvoiceProjectRecord_Update_Fields struct {
+	State StripecoinpaymentsInvoiceProjectRecord_State_Field
+}
+
+type StripecoinpaymentsInvoiceProjectRecord_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Id(v []byte) StripecoinpaymentsInvoiceProjectRecord_Id_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Id_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_Id_Field) _Column() string { return "id" }
+
+type StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_ProjectId(v []byte) StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) _Column() string { return "project_id" }
+
+type StripecoinpaymentsInvoiceProjectRecord_Storage_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Storage(v float64) StripecoinpaymentsInvoiceProjectRecord_Storage_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Storage_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Storage_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_Storage_Field) _Column() string { return "storage" }
+
+type StripecoinpaymentsInvoiceProjectRecord_Egress_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Egress(v int64) StripecoinpaymentsInvoiceProjectRecord_Egress_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Egress_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Egress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_Egress_Field) _Column() string { return "egress" }
+
+type StripecoinpaymentsInvoiceProjectRecord_Objects_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Objects(v int64) StripecoinpaymentsInvoiceProjectRecord_Objects_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Objects_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_Objects_Field) _Column() string { return "objects" }
+
+type StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_PeriodStart(v time.Time) StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) _Column() string {
+	return "period_start"
+}
+
+type StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(v time.Time) StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) _Column() string { return "period_end" }
+
+type StripecoinpaymentsInvoiceProjectRecord_State_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_State(v int) StripecoinpaymentsInvoiceProjectRecord_State_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_State_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_State_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_State_Field) _Column() string { return "state" }
+
+type StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_CreatedAt(v time.Time) StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id              []byte
 	Email           string
@@ -6451,6 +6657,42 @@ func (obj *postgresImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx context
 
 }
 
+func (obj *postgresImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
+	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
+	stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := stripecoinpayments_invoice_project_record_id.value()
+	__project_id_val := stripecoinpayments_invoice_project_record_project_id.value()
+	__storage_val := stripecoinpayments_invoice_project_record_storage.value()
+	__egress_val := stripecoinpayments_invoice_project_record_egress.value()
+	__objects_val := stripecoinpayments_invoice_project_record_objects.value()
+	__period_start_val := stripecoinpayments_invoice_project_record_period_start.value()
+	__period_end_val := stripecoinpayments_invoice_project_record_period_end.value()
+	__state_val := stripecoinpayments_invoice_project_record_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -6944,6 +7186,42 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field,
+	limit int, offset int64) (
+	rows []*Project, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, project_created_at_less.value())
+
+	__values = append(__values, limit, offset)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7939,6 +8217,42 @@ func (obj *postgresImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Con
 
 }
 
+func (obj *postgresImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
+	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
+	limit int, offset int64) (
+	rows []*StripeCustomer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_created_at_less_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		stripe_customer := &StripeCustomer{}
+		err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, stripe_customer)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
@@ -7968,6 +8282,66 @@ func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqua
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, coinpayments_transaction)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *postgresImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
+	stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	limit int, offset int64) (
+	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.created_at <= ? AND stripecoinpayments_invoice_project_records.state = ? ORDER BY stripecoinpayments_invoice_project_records.created_at DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_invoice_project_record_created_at_less_or_equal.value(), stripecoinpayments_invoice_project_record_state.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		stripecoinpayments_invoice_project_record := &StripecoinpaymentsInvoiceProjectRecord{}
+		err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, stripecoinpayments_invoice_project_record)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -9081,6 +9455,46 @@ func (obj *postgresImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx
 	return stripecoinpayments_apply_balance_intent, nil
 }
 
+func (obj *postgresImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_invoice_project_record_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+}
+
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -9554,6 +9968,32 @@ func (obj *postgresImpl) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx
 
 }
 
+func (obj *postgresImpl) Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_invoice_project_record_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -9648,6 +10088,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_invoice_project_records;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -10437,6 +10887,24 @@ func (rx *Rx) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
+	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
+	stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StripecoinpaymentsInvoiceProjectRecord(ctx, stripecoinpayments_invoice_project_record_id, stripecoinpayments_invoice_project_record_project_id, stripecoinpayments_invoice_project_record_storage, stripecoinpayments_invoice_project_record_egress, stripecoinpayments_invoice_project_record_objects, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -10647,6 +11115,16 @@ func (rx *Rx) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Co
 		return
 	}
 	return tx.Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id)
+}
+
+func (rx *Rx) Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx, stripecoinpayments_invoice_project_record_id)
 }
 
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
@@ -10940,6 +11418,18 @@ func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
+func (rx *Rx) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx, stripecoinpayments_invoice_project_record_project_id, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end)
+}
+
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
@@ -11049,6 +11539,40 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 		return
 	}
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
+}
+
+func (rx *Rx) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field,
+	limit int, offset int64) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx, project_created_at_less, limit, offset)
+}
+
+func (rx *Rx) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
+	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
+	limit int, offset int64) (
+	rows []*StripeCustomer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx, stripe_customer_created_at_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
+	stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	limit int, offset int64) (
+	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx, stripecoinpayments_invoice_project_record_created_at_less_or_equal, stripecoinpayments_invoice_project_record_state, limit, offset)
 }
 
 func (rx *Rx) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
@@ -11217,6 +11741,17 @@ func (rx *Rx) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Co
 		return
 	}
 	return tx.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx, stripecoinpayments_apply_balance_intent_tx_id, update)
+}
+
+func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx, stripecoinpayments_invoice_project_record_id, update)
 }
 
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
@@ -11501,6 +12036,17 @@ type Methods interface {
 		stripecoinpayments_apply_balance_intent_state StripecoinpaymentsApplyBalanceIntent_State_Field) (
 		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
 
+	Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
+		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+		stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
+		stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
+		stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
+		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
@@ -11591,6 +12137,10 @@ type Methods interface {
 
 	Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
 		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
+		deleted bool, err error)
+
+	Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field) (
 		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
@@ -11716,6 +12266,12 @@ type Methods interface {
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
 
+	Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) (
+		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
@@ -11766,6 +12322,22 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field,
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
+
+	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+		project_created_at_less Project_CreatedAt_Field,
+		limit int, offset int64) (
+		rows []*Project, err error)
+
+	Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
+		stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
+		limit int, offset int64) (
+		rows []*StripeCustomer, err error)
+
+	Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
+		stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+		limit int, offset int64) (
+		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)
 
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
@@ -11844,6 +12416,11 @@ type Methods interface {
 		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field,
 		update StripecoinpaymentsApplyBalanceIntent_Update_Fields) (
 		stripecoinpayments_apply_balance_intent *StripecoinpaymentsApplyBalanceIntent, err error)
+
+	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+		update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
+		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,
