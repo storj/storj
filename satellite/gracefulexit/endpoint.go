@@ -557,7 +557,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		ExcludedNodes:  excludedNodeIDs,
 	}
 
-	newNodes, err := endpoint.overlay.FindStorageNodesDistinctIPs(ctx, request)
+	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return Error.Wrap(err)
 	}

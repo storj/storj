@@ -104,7 +104,6 @@ type FindStorageNodesRequest struct {
 	FreeBandwidth        int64
 	FreeDisk             int64
 	ExcludedNodes        []storj.NodeID
-	ExcludedIPs          []string
 	MinimumVersion       string // semver or empty
 }
 
@@ -259,6 +258,14 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	excludedNodes := req.ExcludedNodes
+	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
+	var excludedIPs []string
+	if preferences.DistinctIP {
+		excludedIPs, err = service.db.GetNodeIPs(ctx, excludedNodes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -281,7 +288,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		}
 	}
 
-	excludedIPs := req.ExcludedIPs
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		excludedNodes = append(excludedNodes, newNode.Id)
@@ -438,30 +444,6 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 		}
 	}
 	return missingPieces, nil
-}
-
-// FindStorageNodesDistinctIPs takes a list of excluded nodes, finds their IPs, and returns a list of nodes with distinct IPs.
-// Using this method is different from just calling SelectStorageNodes with DistinctIP=true, because SelectStorageNodes will not account
-// for IPs of excluded nodes. Excluding the IPs of excluded nodes is currently only necessary for graceful exit and repair,
-// which is why we're choosing to create a separate method instead of adding filtering to SelectStorageNodes.
-// TODO: instead, should we make it so excluding IPs of excluded nodes also occurs when DistinctIP=true?
-func (service *Service) FindStorageNodesDistinctIPs(ctx context.Context, req FindStorageNodesRequest) (nodes []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodeIPs, err := service.db.GetNodeIPs(ctx, req.ExcludedNodes)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	req.ExcludedIPs = nodeIPs
-	preferences := &service.config.Node
-	preferences.DistinctIP = true
-
-	newNodes, err := service.FindStorageNodesWithPreferences(ctx, req, preferences)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return newNodes, nil
 }
 
 func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
