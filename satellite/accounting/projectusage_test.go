@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -39,38 +40,28 @@ func TestProjectUsageStorage(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Rollup.MaxAlphaUsage = 2 * memory.MB
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		saDB := planet.Satellites[0].DB
-		acctDB := saDB.ProjectAccounting()
-
-		// Setup: create a new project to use the projectID
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
-		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		for _, ttc := range cases {
 			testCase := ttc
 			t.Run(testCase.name, func(t *testing.T) {
 
-				// Setup: create BucketStorageTally records to test exceeding storage project limit
+				// Setup: create some bytes for the uplink to upload
+				expectedData := testrand.Bytes(1 * memory.MB)
+
+				// Setup: upload data to test exceeding storage project limit
 				if testCase.expectedResource == "storage" {
-					now := time.Now()
-					err := setUpStorageTallies(ctx, projectID, acctDB, 25, now)
+					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", expectedData)
 					require.NoError(t, err)
 				}
 
-				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID)
-				require.NoError(t, err)
-				require.Equal(t, testCase.expectedExceeded, actualExceeded)
-
-				// Setup: create some bytes for the uplink to upload
-				expectedData := testrand.Bytes(50 * memory.KiB)
-
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
-				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
 				if testCase.expectedResource == "storage" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
