@@ -19,6 +19,12 @@ import (
 func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if d.DialTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.DialTimeout)
+		defer cancel()
+	}
+
 	creds := &captureStateCreds{TransportCredentials: credentials.NewTLS(tlsConfig)}
 	conn, err := grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(creds),
@@ -44,6 +50,12 @@ func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config)
 // dialUnencrypted performs dialing to the grpc endpoint with no tls.
 func (d Dialer) dialUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if d.DialTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.DialTimeout)
+		defer cancel()
+	}
 
 	conn, err := grpc.DialContext(ctx, address,
 		grpc.WithInsecure(),
