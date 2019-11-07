@@ -8,48 +8,20 @@ namespace Storj
 {
     public class CustomActions
     {
-        private const long GB = 1000 * 1000 * 1000;
-        private const long TB = (long) 1000 * 1000 * 1000 * 1000;
-        private const long MinFreeSpace = 550 * GB; // (500 GB + 10% overhead)
 
         [CustomAction]
         public static ActionResult ValidateIdentityDir(Session session)
         {
             string identityDir = session["IDENTITYDIR"];
 
-            if (string.IsNullOrEmpty(identityDir))
+            try
             {
-                session["STORJ_IDENTITYDIR_VALID"] = "You must select an identity folder.";
-                return ActionResult.Success;
+                CustomActionRunner.ValidateIdentityDir(identityDir);
             }
-
-            if (!Directory.Exists(identityDir))
+            catch (ArgumentException e)
             {
-                session["STORJ_IDENTITYDIR_VALID"] = string.Format("Folder '{0}' does not exist.", identityDir);
-                return ActionResult.Success;
-            }
-
-            if (!File.Exists(Path.Combine(identityDir, "ca.cert")))
-            {
-                session["STORJ_IDENTITYDIR_VALID"] = "File 'ca.cert' not found in the selected folder.";
-                return ActionResult.Success;
-            }
-
-            if (!File.Exists(Path.Combine(identityDir, "ca.key")))
-            {
-                session["STORJ_IDENTITYDIR_VALID"] = "File 'ca.key' not found in the selected folder.";
-                return ActionResult.Success;
-            }
-
-            if (!File.Exists(Path.Combine(identityDir, "identity.cert")))
-            {
-                session["STORJ_IDENTITYDIR_VALID"] = "File 'identity.cert' not found in the selected folder.";
-                return ActionResult.Success;
-            }
-
-            if (!File.Exists(Path.Combine(identityDir, "identity.key")))
-            {
-                session["STORJ_IDENTITYDIR_VALID"] = "File 'identity.key' not found in the selected folder.";
+                // Identity dir is invalid
+                session["STORJ_IDENTITYDIR_VALID"] = e.Message;
                 return ActionResult.Success;
             }
 
@@ -81,22 +53,16 @@ namespace Storj
         [CustomAction]
         public static ActionResult ValidateStorageDir(Session session)
         {
-            string identityDir = session["STORAGEDIR"];
+            string storageDir = session["STORAGEDIR"];
 
-            if (string.IsNullOrEmpty(identityDir))
+            try
             {
-                session["STORJ_STORAGEDIR_VALID"] = "You must select a storage folder.";
-                return ActionResult.Success;
+                CustomActionRunner.ValidateStorageDir(storageDir);
             }
-
-            DirectoryInfo dir = new DirectoryInfo(identityDir);
-            DriveInfo drive = new DriveInfo(dir.Root.FullName);
-
-            // TODO: Find a way to calculate the available free space + total size of existing pieces
-            if (drive.TotalSize < MinFreeSpace)
+            catch (ArgumentException e)
             {
-                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB disk size. The minimum required is 550 GB.",
-                    drive.Name, decimal.Divide(drive.TotalSize, GB));
+                // Storage dir is invalid
+                session["STORJ_STORAGEDIR_VALID"] = e.Message;
                 return ActionResult.Success;
             }
 
@@ -109,33 +75,16 @@ namespace Storj
         public static ActionResult ValidateStorage(Session session)
         {
             string storageStr = session["STORJ_STORAGE"];
+            string storageDir = session["STORAGEDIR"];
 
-            if (string.IsNullOrEmpty(storageStr))
+            try
             {
-                session["STORJ_STORAGE_VALID"] = "The value cannot be empty.";
-                return ActionResult.Success;
+                CustomActionRunner.ValidateStorage(storageStr, storageDir);
             }
-
-            if (!double.TryParse(storageStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double storage))
+            catch (ArgumentException e)
             {
-                session["STORJ_STORAGE_VALID"] = string.Format("'{0}' is not a valid number.", storageStr);
-                return ActionResult.Success;
-            }
-
-            if (storage < 0.5) {
-                session["STORJ_STORAGE_VALID"] = "The allocated disk space cannot be less than 0.5 TB.";
-                return ActionResult.Success;
-            }
-
-            DirectoryInfo dir = new DirectoryInfo(session["STORAGEDIR"]);
-            DriveInfo drive = new DriveInfo(dir.Root.FullName);
-            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
-
-            // TODO: Find a way to calculate the available free space + total size of existing pieces
-            if (drive.TotalSize < storagePlusOverhead)
-            {
-                session["STORJ_STORAGE_VALID"] = string.Format("The disk size ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
-                    decimal.Divide(drive.TotalSize, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB));
+                // Allocated Storage is invalid
+                session["STORJ_STORAGE_VALID"] = e.Message;
                 return ActionResult.Success;
             }
 
@@ -155,7 +104,7 @@ namespace Storj
             }
             catch (ArgumentException e)
             {
-                // Wallet is invalid
+                // Allocated Bandwidth is invalid
                 session["STORJ_BANDWIDTH_VALID"] = e.Message;
                 return ActionResult.Success;
             }
@@ -181,6 +130,43 @@ namespace Storj
 
     public class CustomActionRunner
     {
+        private const long GB = 1000 * 1000 * 1000;
+        private const long TB = (long)1000 * 1000 * 1000 * 1000;
+        private const long MinFreeSpace = 550 * GB; // (500 GB + 10% overhead)
+
+        public static void ValidateIdentityDir(string identityDir)
+        {
+            if (string.IsNullOrEmpty(identityDir))
+            {
+                throw new ArgumentException("You must select an identity folder.");
+            }
+
+            if (!Directory.Exists(identityDir))
+            {
+                throw new ArgumentException(string.Format("Folder '{0}' does not exist.", identityDir));
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "ca.cert")))
+            {
+                throw new ArgumentException("File 'ca.cert' not found in the selected folder.");
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "ca.key")))
+            {
+                throw new ArgumentException("File 'ca.key' not found in the selected folder.");
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "identity.cert")))
+            {
+                throw new ArgumentException("File 'identity.cert' not found in the selected folder.");
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "identity.key")))
+            {
+                throw new ArgumentException("File 'identity.key' not found in the selected folder.");
+            }
+        }
+
         public static void ValidateWallet(string wallet)
         {
             if (string.IsNullOrEmpty(wallet))
@@ -202,6 +188,58 @@ namespace Storj
             }
 
             // TODO validate address checksum
+        }
+
+        public static void ValidateStorageDir(string storageDir)
+        { 
+            if (string.IsNullOrEmpty(storageDir))
+            {
+                throw new ArgumentException("You must select a storage folder.");
+            }
+
+            DirectoryInfo dir = new DirectoryInfo(storageDir);
+            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+
+            // TODO: Find a way to calculate the available free space + total size of existing pieces
+            if (drive.TotalSize < MinFreeSpace)
+            {
+                throw new ArgumentException(string.Format("The selected drive '{0}' has only {1:0.##} GB disk size. The minimum required is 550 GB.",
+                    drive.Name, decimal.Divide(drive.TotalSize, GB)));
+            }
+        }
+
+        public static void ValidateStorage(string storageStr, string storageDir)
+        {
+            if (string.IsNullOrEmpty(storageStr))
+            {
+                throw new ArgumentException("The value cannot be empty.");
+            }
+
+            if (!double.TryParse(storageStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double storage))
+            {
+                throw new ArgumentException(string.Format("'{0}' is not a valid number.", storageStr));
+            }
+
+            if (storage < 0.5)
+            {
+                throw new ArgumentException("The allocated disk space cannot be less than 0.5 TB.");
+            }
+
+            if (storageDir == null)
+            {
+                throw new ArgumentException("The storage directory cannot be null");
+            }
+
+            DirectoryInfo dir = new DirectoryInfo(storageDir);
+            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
+
+            // TODO: Find a way to calculate the available free space + total size of existing pieces
+            if (drive.TotalSize < storagePlusOverhead)
+            {
+                throw new ArgumentException(string.Format("The disk size ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
+                    decimal.Divide(drive.TotalSize, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB)));
+            }
         }
 
         public static void ValidateBandwidth(string bandwidthStr)
