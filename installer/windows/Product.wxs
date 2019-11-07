@@ -60,11 +60,12 @@
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
             <util:ServiceConfig
               ServiceName="storagenode-updater"
-              RestartServiceDelayInSeconds="5"
+              ResetPeriodInDays="1"
+              RestartServiceDelayInSeconds="60"
               FirstFailureActionType="restart"
-              SecondFailureActionType="restart"
+              SecondFailureActionType="runCommand"
               ThirdFailureActionType="runCommand"
-              ProgramCommandLine="&quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; recover --config-dir &quot;[INSTALLFOLDER]\&quot; --log &quot;[INSTALLFOLDER]storagenode-updater.log&quot;"
+              ProgramCommandLine="cmd /k &quot;copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; net start storagenode-updater&quot;"
             />
           </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="both" Name="storagenode-updater" Wait="yes" />
