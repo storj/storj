@@ -59,13 +59,6 @@ var (
 		RunE:  cmdRun,
 	}
 
-	recoverCmd = &cobra.Command{
-		Use:   "recover",
-		Short: "Recover the storagenode-updater binary from a bad update using an old binary",
-		Args:  cobra.OnlyValidArgs,
-		RunE:  cmdRecover,
-	}
-
 	runCfg struct {
 		// TODO: check interval default has changed from 6 hours to 15 min.
 		checker.Config
@@ -74,10 +67,6 @@ var (
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		// NB: can't use `log.output` because windows service command args containing "." are bugged.
-		Log string `help:"path to log file, if empty standard output will be used" default:""`
-	}
-
-	recoverCfg struct {
 		Log string `help:"path to log file, if empty standard output will be used" default:""`
 	}
 
@@ -96,10 +85,8 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(recoverCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(recoverCmd, &recoverCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -384,22 +371,6 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return info.Mode().IsRegular()
-}
-
-func cmdRecover(cmd *cobra.Command, args []string) (err error) {
-	closeLog, err := openLog()
-	defer func() { err = errs.Combine(err, closeLog()) }()
-
-	log.Println("storagenode-updater recovering!")
-
-	updaterBinName := os.Args[0]
-	badExec := strings.Replace(updaterBinName, ".old", "", 1)
-
-	log.Printf("restoring backup binary from: %s\n", updaterBinName)
-	if err := os.Rename(updaterBinName, badExec); err != nil {
-		return errs.Wrap(err)
-	}
-	return nil
 }
 
 // TODO: improve logging; other commands use zap but due to an apparent
