@@ -969,7 +969,7 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 			return true, Error.Wrap(err)
 		}
 
-		// remove remaining items from the queue after notifying nodes about their exit status
+		// remove remaining items from the queue
 		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
 		if err != nil {
 			return true, Error.Wrap(err)
