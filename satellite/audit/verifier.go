@@ -87,7 +87,7 @@ func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, dialer rpc.Dialer,
 func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := verifier.metainfo.Get(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return Report{}, ErrSegmentDeleted.New("%q", path)
@@ -95,11 +95,11 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		errDelete := verifier.metainfo.Delete(ctx, path)
+		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("Segment expired before Verify")
+		return Report{}, ErrSegmentExpired.New("segment expired before Verify")
 	}
 
 	defer func() {
@@ -361,7 +361,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		err          error
 	}
 
-	pointer, err := verifier.metainfo.Get(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return Report{}, ErrSegmentDeleted.New("%q", path)
@@ -369,7 +369,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		errDelete := verifier.metainfo.Delete(ctx, path)
+		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
@@ -420,7 +420,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		containedInSegment++
 
 		go func(pending *PendingAudit) {
-			pendingPointer, err := verifier.metainfo.Get(ctx, pending.Path)
+			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, pending.Path)
 			if err != nil {
 				if storage.ErrKeyNotFound.Has(err) {
 					// segment has been deleted since node was contained
@@ -437,7 +437,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
-				errDelete := verifier.metainfo.Delete(ctx, pending.Path)
+				errDelete := verifier.metainfo.Delete(ctx, pending.Path, pendingPointerBytes)
 				if errDelete != nil {
 					verifier.log.Debug("Reverify: error deleting expired segment", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 				}

@@ -88,7 +88,14 @@ build-npm:
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/versioncontrol storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
+	@go install -race -v -tags=grpc storj.io/storj/cmd/storj-sim
+	@go install -race -v -tags=grpc storj.io/storj/cmd/versioncontrol
+	@go install -race -v -tags=grpc storj.io/storj/cmd/satellite
+	@go install -race -v -tags=grpc storj.io/storj/cmd/storagenode
+	@go install -race -v storj.io/storj/cmd/uplink
+	@go install -race -v storj.io/storj/cmd/gateway
+	@go install -race -v -tags=grpc storj.io/storj/cmd/identity
+	@go install -race -v -tags=grpc storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -162,7 +169,7 @@ storagenode-console:
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
-	echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
+	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images

@@ -114,7 +114,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 				return errs.Wrap(err)
 			}
 
-			return rewards.MaxRedemptionErr.Wrap(err)
+			return rewards.ErrReachedMaxCapacity.Wrap(err)
 		}
 
 		return errs.Wrap(err)
@@ -126,7 +126,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("failed to create new credit")
+		return rewards.ErrReachedMaxCapacity.New("failed to create new credit")
 	}
 
 	return nil

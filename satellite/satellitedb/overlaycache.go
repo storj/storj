@@ -146,6 +146,32 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	return nodes, nil
 }
 
+// GetNodeIPs returns a list of node IP addresses. Warning: these node IP addresses might be returned out of order.
+func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows *sql.Rows
+	rows, err = cache.db.Query(cache.db.Rebind(`
+		SELECT last_net FROM nodes
+			WHERE id = any($1::bytea[])
+		`), postgresNodeIDList(nodeIDs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			return nil, err
+		}
+		nodeIPs = append(nodeIPs, ip)
+	}
+	return nodeIPs, nil
+}
+
 func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
