@@ -267,6 +267,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return nil
 	}
 
+	// maps pieceIDs to pendingTransfers to keep track of ongoing piece transfer requests
 	pending := newPendingMap()
 
 	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
