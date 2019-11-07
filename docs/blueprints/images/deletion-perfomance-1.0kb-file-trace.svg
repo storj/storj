@@ -1,0 +1,578 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 1200 560"
+  width="1200" height="560">
+
+  <style type="text/css">
+    .func .parent { visibility: hidden; }
+    .func.asParent { stroke: green; stroke-width: 0.5; cursor: pointer; }
+    .func.selected { stroke: black; stroke-width: 0.5; cursor: pointer; }
+    .func.selected .parent { stroke: green; visibility: visible; }
+    .func.selected .parent line { marker-end: url(#head-green); }
+    .func.asChild { stroke: purple; stroke-width: 0.5; cursor: pointer; }
+    .func.asChild .parent { stroke: purple; visibility: visible; }
+    .func.asChild .parent line { marker-end: url(#head-purple); }
+  </style>
+  <script>
+  //<![CDATA[
+    function select(el, classname) {
+      if (el) { el.classList.add(classname); }
+    }
+    function deselect(el, classname) {
+      if (el) { el.classList.remove(classname); }
+    }
+    function mouseApply(fn, self, parent) {
+      fn(document.getElementById("id-" + parent), "asParent");
+      fn(document.getElementById("id-" + self), "selected");
+      var children = document.getElementsByClassName("parent-" + self);
+      for (var i = 0; i < children.length; i++) {
+        fn(children[i], "asChild");
+      }
+    }
+    function mouseover(self, parent) {
+      mouseApply(select, self, parent);
+    }
+    function mouseout(self, parent) {
+      mouseApply(deselect, self, parent);
+    }
+  //]]>
+  </script>
+  <defs>
+    <marker id="head-green" orient="auto" markerWidth="2" markerHeight="4"
+        refX="0.1" refY="2" fill="green">
+      <path d="M0,0 V4 L2,2 Z"/>
+    </marker>
+    <marker id="head-purple" orient="auto" markerWidth="2" markerHeight="4"
+        refX="0.1" refY="2" fill="purple">
+      <path d="M0,0 V4 L2,2 Z"/>
+    </marker>
+  </defs>
+  <g id="id-4802367573953365964" class="func parent-7655222516649685929"
+    onmouseover="mouseover('4802367573953365964', '7655222516649685929');"
+    onmouseout="mouseout('4802367573953365964', '7655222516649685929');">
+    <rect x="0" y="0"
+        width="1200" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="12" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/process.root-TRACED() (857.648077ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="0" x2="-62"
+          y1="7" y2="7" />
+    </g>
+  </g>
+  <g id="id-5467174782719181877" class="func parent-4802367573953365964"
+    onmouseover="mouseover('5467174782719181877', '4802367573953365964');"
+    onmouseout="mouseout('5467174782719181877', '4802367573953365964');">
+    <rect x="1" y="16"
+        width="16" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="28" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/lib/uplink.NewUplink() (11.415971ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1" x2="0"
+          y1="23" y2="7" />
+    </g>
+  </g>
+  <g id="id-2614319840022861912" class="func parent-5467174782719181877"
+    onmouseover="mouseover('2614319840022861912', '5467174782719181877');"
+    onmouseout="mouseout('2614319840022861912', '5467174782719181877');">
+    <rect x="1" y="32"
+        width="15" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="44" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.NewCA() (10.774259ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1" x2="1"
+          y1="39" y2="23" />
+    </g>
+  </g>
+  <g id="id-8984836934181317755" class="func parent-2614319840022861912"
+    onmouseover="mouseover('8984836934181317755', '2614319840022861912');"
+    onmouseout="mouseout('8984836934181317755', '2614319840022861912');">
+    <rect x="1" y="48"
+        width="14" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="60" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.GenerateKeys() (10.022321ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1" x2="1"
+          y1="55" y2="39" />
+    </g>
+  </g>
+  <g id="id-6131981991484997790" class="func parent-8984836934181317755"
+    onmouseover="mouseover('6131981991484997790', '8984836934181317755');"
+    onmouseout="mouseout('6131981991484997790', '8984836934181317755');">
+    <rect x="2" y="64"
+        width="12" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="76" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.GenerateKey() (9.187268ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="2" x2="1"
+          y1="71" y2="55" />
+    </g>
+  </g>
+  <g id="id-93868501709449904" class="func parent-8984836934181317755"
+    onmouseover="mouseover('93868501709449904', '8984836934181317755');"
+    onmouseout="mouseout('93868501709449904', '8984836934181317755');">
+    <rect x="14" y="80"
+        width="1" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="92" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.GenerateKey() (100.733µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="14" x2="1"
+          y1="87" y2="55" />
+    </g>
+  </g>
+  <g id="id-3279127048788677825" class="func parent-8984836934181317755"
+    onmouseover="mouseover('3279127048788677825', '8984836934181317755');"
+    onmouseout="mouseout('3279127048788677825', '8984836934181317755');">
+    <rect x="15" y="96"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="108" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.GenerateKey() (108.204µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="15" x2="1"
+          y1="103" y2="55" />
+    </g>
+  </g>
+  <g id="id-6464385595867905747" class="func parent-8984836934181317755"
+    onmouseover="mouseover('6464385595867905747', '8984836934181317755');"
+    onmouseout="mouseout('6464385595867905747', '8984836934181317755');">
+    <rect x="15" y="112"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="124" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/identity.GenerateKey() (115.276µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="15" x2="1"
+          y1="119" y2="55" />
+    </g>
+  </g>
+  <g id="id-3611530653171585782" class="func parent-4802367573953365964"
+    onmouseover="mouseover('3611530653171585782', '4802367573953365964');"
+    onmouseout="mouseout('3611530653171585782', '4802367573953365964');">
+    <rect x="17" y="128"
+        width="388" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="140" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/lib/uplink.(*Uplink).OpenProject() (277.449922ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="17" x2="0"
+          y1="135" y2="7" />
+    </g>
+  </g>
+  <g id="id-758675710475265817" class="func parent-3611530653171585782"
+    onmouseover="mouseover('758675710475265817', '3611530653171585782');"
+    onmouseout="mouseout('758675710475265817', '3611530653171585782');">
+    <rect x="17" y="144"
+        width="388" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="156" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc.Dialer.DialAddressInsecureBestEffort() (277.269562ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="17" x2="17"
+          y1="151" y2="135" />
+    </g>
+  </g>
+  <g id="id-7129192804633721660" class="func parent-758675710475265817"
+    onmouseover="mouseover('7129192804633721660', '758675710475265817');"
+    onmouseout="mouseout('7129192804633721660', '758675710475265817');">
+    <rect x="17" y="160"
+        width="388" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="172" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc.Dialer.dial() (277.229586ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="17" x2="17"
+          y1="167" y2="151" />
+    </g>
+  </g>
+  <g id="id-4276337861937401695" class="func parent-7129192804633721660"
+    onmouseover="mouseover('4276337861937401695', '7129192804633721660');"
+    onmouseout="mouseout('4276337861937401695', '7129192804633721660');">
+    <rect x="17" y="176"
+        width="387" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="188" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc.Dialer.dialTransport() (276.900375ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="17" x2="17"
+          y1="183" y2="167" />
+    </g>
+  </g>
+  <g id="id-4941145070703217608" class="func parent-4802367573953365964"
+    onmouseover="mouseover('4941145070703217608', '4802367573953365964');"
+    onmouseout="mouseout('4941145070703217608', '4802367573953365964');">
+    <rect x="405" y="192"
+        width="208" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="204" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/lib/uplink.(*Project).OpenBucket() (148.251978ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="0"
+          y1="199" y2="7" />
+    </g>
+  </g>
+  <g id="id-2088290128006897643" class="func parent-4941145070703217608"
+    onmouseover="mouseover('2088290128006897643', '4941145070703217608');"
+    onmouseout="mouseout('2088290128006897643', '4941145070703217608');">
+    <rect x="405" y="208"
+        width="192" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="220" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/lib/uplink.(*Project).GetBucketInfo() (137.044441ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="405"
+          y1="215" y2="199" />
+    </g>
+  </g>
+  <g id="id-8458807222165353486" class="func parent-2088290128006897643"
+    onmouseover="mouseover('8458807222165353486', '2088290128006897643');"
+    onmouseout="mouseout('8458807222165353486', '2088290128006897643');">
+    <rect x="405" y="224"
+        width="192" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="236" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo/kvmetainfo.(*Project).GetBucket() (137.019271ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="405"
+          y1="231" y2="215" />
+    </g>
+  </g>
+  <g id="id-5605952279469033521" class="func parent-8458807222165353486"
+    onmouseover="mouseover('5605952279469033521', '8458807222165353486');"
+    onmouseout="mouseout('5605952279469033521', '8458807222165353486');">
+    <rect x="405" y="240"
+        width="192" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="252" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo.(*Client).GetBucket() (136.983295ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="405"
+          y1="247" y2="231" />
+    </g>
+  </g>
+  <g id="id-2753097336772713556" class="func parent-5605952279469033521"
+    onmouseover="mouseover('2753097336772713556', '5605952279469033521');"
+    onmouseout="mouseout('2753097336772713556', '5605952279469033521');">
+    <rect x="405" y="256"
+        width="192" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="268" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).Invoke() (136.936125ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="405"
+          y1="263" y2="247" />
+    </g>
+  </g>
+  <g id="id-9123614430931169399" class="func parent-2753097336772713556"
+    onmouseover="mouseover('9123614430931169399', '2753097336772713556');"
+    onmouseout="mouseout('9123614430931169399', '2753097336772713556');">
+    <rect x="405" y="272"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="284" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).getConn() (4.589µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="405" x2="405"
+          y1="279" y2="263" />
+    </g>
+  </g>
+  <g id="id-6270759488234849434" class="func parent-4802367573953365964"
+    onmouseover="mouseover('6270759488234849434', '4802367573953365964');"
+    onmouseout="mouseout('6270759488234849434', '4802367573953365964');">
+    <rect x="613" y="288"
+        width="586" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="300" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/lib/uplink.(*Bucket).DeleteObject() (419.220319ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="0"
+          y1="295" y2="7" />
+    </g>
+  </g>
+  <g id="id-3417904545538529469" class="func parent-6270759488234849434"
+    onmouseover="mouseover('3417904545538529469', '6270759488234849434');"
+    onmouseout="mouseout('3417904545538529469', '6270759488234849434');">
+    <rect x="613" y="304"
+        width="586" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="316" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo/kvmetainfo.(*DB).DeleteObject() (419.189601ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="613"
+          y1="311" y2="295" />
+    </g>
+  </g>
+  <g id="id-6603163092617757390" class="func parent-3417904545538529469"
+    onmouseover="mouseover('6603163092617757390', '3417904545538529469');"
+    onmouseout="mouseout('6603163092617757390', '3417904545538529469');">
+    <rect x="613" y="320"
+        width="188" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="332" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo/kvmetainfo.(*Project).GetBucket() (134.700909ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="613"
+          y1="327" y2="311" />
+    </g>
+  </g>
+  <g id="id-565049602842209504" class="func parent-6603163092617757390"
+    onmouseover="mouseover('565049602842209504', '6603163092617757390');"
+    onmouseout="mouseout('565049602842209504', '6603163092617757390');">
+    <rect x="613" y="336"
+        width="188" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="348" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo.(*Client).GetBucket() (134.670637ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="613"
+          y1="343" y2="327" />
+    </g>
+  </g>
+  <g id="id-3750308149921437425" class="func parent-565049602842209504"
+    onmouseover="mouseover('3750308149921437425', '565049602842209504');"
+    onmouseout="mouseout('3750308149921437425', '565049602842209504');">
+    <rect x="613" y="352"
+        width="188" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="364" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).Invoke() (134.62078ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="613"
+          y1="359" y2="343" />
+    </g>
+  </g>
+  <g id="id-6935566697000665347" class="func parent-3750308149921437425"
+    onmouseover="mouseover('6935566697000665347', '3750308149921437425');"
+    onmouseout="mouseout('6935566697000665347', '3750308149921437425');">
+    <rect x="613" y="368"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="380" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).getConn() (6.741µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="613" x2="613"
+          y1="375" y2="359" />
+    </g>
+  </g>
+  <g id="id-4082711754304345382" class="func parent-3417904545538529469"
+    onmouseover="mouseover('4082711754304345382', '3417904545538529469');"
+    onmouseout="mouseout('4082711754304345382', '3417904545538529469');">
+    <rect x="801" y="384"
+        width="398" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="396" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo/kvmetainfo.(*prefixedObjStore).Delete() (284.429665ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="801" x2="613"
+          y1="391" y2="311" />
+    </g>
+  </g>
+  <g id="id-1229856811608025417" class="func parent-4082711754304345382"
+    onmouseover="mouseover('1229856811608025417', '4082711754304345382');"
+    onmouseout="mouseout('1229856811608025417', '4082711754304345382');">
+    <rect x="801" y="400"
+        width="398" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="412" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/storage/objects.(*objStore).Delete() (284.388812ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="801" x2="801"
+          y1="407" y2="391" />
+    </g>
+  </g>
+  <g id="id-7600373905766481260" class="func parent-1229856811608025417"
+    onmouseover="mouseover('7600373905766481260', '1229856811608025417');"
+    onmouseout="mouseout('7600373905766481260', '1229856811608025417');">
+    <rect x="801" y="416"
+        width="398" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="428" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/storage/streams.(*shimStore).Delete() (284.36233ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="801" x2="801"
+          y1="423" y2="407" />
+    </g>
+  </g>
+  <g id="id-4747518963070161295" class="func parent-7600373905766481260"
+    onmouseover="mouseover('4747518963070161295', '7600373905766481260');"
+    onmouseout="mouseout('4747518963070161295', '7600373905766481260');">
+    <rect x="801" y="432"
+        width="398" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="444" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/storage/streams.(*streamStore).Delete() (284.331757ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="801" x2="801"
+          y1="439" y2="423" />
+    </g>
+  </g>
+  <g id="id-1894664020373841330" class="func parent-4747518963070161295"
+    onmouseover="mouseover('1894664020373841330', '4747518963070161295');"
+    onmouseout="mouseout('1894664020373841330', '4747518963070161295');">
+    <rect x="802" y="448"
+        width="202" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="460" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo.(*Client).Batch() (144.465277ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="802" x2="801"
+          y1="455" y2="439" />
+    </g>
+  </g>
+  <g id="id-5079922567453069251" class="func parent-1894664020373841330"
+    onmouseover="mouseover('5079922567453069251', '1894664020373841330');"
+    onmouseout="mouseout('5079922567453069251', '1894664020373841330');">
+    <rect x="802" y="464"
+        width="202" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="476" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).Invoke() (144.430946ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="802" x2="802"
+          y1="471" y2="455" />
+    </g>
+  </g>
+  <g id="id-8265181114532297173" class="func parent-5079922567453069251"
+    onmouseover="mouseover('8265181114532297173', '5079922567453069251');"
+    onmouseout="mouseout('8265181114532297173', '5079922567453069251');">
+    <rect x="802" y="480"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="492" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).getConn() (5.909µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="802" x2="802"
+          y1="487" y2="471" />
+    </g>
+  </g>
+  <g id="id-5412326171835977208" class="func parent-4747518963070161295"
+    onmouseover="mouseover('5412326171835977208', '4747518963070161295');"
+    onmouseout="mouseout('5412326171835977208', '4747518963070161295');">
+    <rect x="1004" y="496"
+        width="195" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="508" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/storage/segments.(*segmentStore).Delete() (139.602659ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1004" x2="801"
+          y1="503" y2="439" />
+    </g>
+  </g>
+  <g id="id-2559471229139657243" class="func parent-5412326171835977208"
+    onmouseover="mouseover('2559471229139657243', '5412326171835977208');"
+    onmouseout="mouseout('2559471229139657243', '5412326171835977208');">
+    <rect x="1004" y="512"
+        width="195" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="524" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/uplink/metainfo.(*Client).BeginDeleteSegment() (139.576725ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1004" x2="1004"
+          y1="519" y2="503" />
+    </g>
+  </g>
+  <g id="id-5744729776218885164" class="func parent-2559471229139657243"
+    onmouseover="mouseover('5744729776218885164', '2559471229139657243');"
+    onmouseout="mouseout('5744729776218885164', '2559471229139657243');">
+    <rect x="1004" y="528"
+        width="195" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="540" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).Invoke() (139.550188ms)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1004" x2="1004"
+          y1="535" y2="519" />
+    </g>
+  </g>
+  <g id="id-8929988323298113086" class="func parent-5744729776218885164"
+    onmouseover="mouseover('8929988323298113086', '5744729776218885164');"
+    onmouseout="mouseout('8929988323298113086', '5744729776218885164');">
+    <rect x="1004" y="544"
+        width="0" height="15"
+        fill="rgb(128,128,255)" />
+    <text x="0" y="556" fill="rgb(0,0,0)" font-size="9">
+      storj.io/storj/pkg/rpc/rpcpool.(*Conn).getConn() (7.219µs)
+    </text>
+    <g class="parent">
+      <line stroke-width="2"
+          x1="1004" x2="1004"
+          y1="551" y2="535" />
+    </g>
+  </g>
+</svg>
