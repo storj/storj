@@ -161,7 +161,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				if rewards.NoMatchPartnerIDErr.Has(err) {
+				if rewards.ErrPartnerNotExist.Has(err) {
 					assert.Error(t, err)
 				}
 				assert.NoError(t, err)
@@ -211,7 +211,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				if rewards.NoMatchPartnerIDErr.Has(err) {
+				if rewards.ErrPartnerNotExist.Has(err) {
 					assert.Error(t, err)
 				}
 				assert.NoError(t, err)

@@ -23,6 +23,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -192,10 +193,15 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 
 	ts := httptest.NewServer(&mux)
 
+	var randSeed version.RolloutBytes
+	testrand.Read(randSeed[:])
+	storagenodeSeed := fmt.Sprintf("%x", randSeed)
+
+	testrand.Read(randSeed[:])
+	updaterSeed := fmt.Sprintf("%x", randSeed)
+
 	config := &versioncontrol.Config{
-		// TODO: add STORJ_VERSION_SERVER_ADDR property to Product.wxs for testing
-		// TODO: set address back to `127.0.0.1:0`
-		Address: "127.0.0.1:10000",
+		Address: "127.0.0.1:0",
 		// NB: this config field is required for versioncontrol to run.
 		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
@@ -204,7 +210,6 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
-		// TODO use random seed
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
@@ -212,7 +217,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   storagenodeSeed,
 					Cursor: 100,
 				},
 			},
@@ -222,7 +227,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode-updater",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   updaterSeed,
 					Cursor: 100,
 				},
 			},

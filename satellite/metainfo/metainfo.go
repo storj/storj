@@ -400,7 +400,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1118,6 +1118,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	segmentIndex := int64(0)
+	var lastSegmentPointerBytes []byte
 	var lastSegmentPointer *pb.Pointer
 	var lastSegmentPath string
 	for {
@@ -1126,7 +1127,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %v", err)
 		}
 
-		pointer, err := endpoint.metainfo.Get(ctx, path)
+		pointerBytes, pointer, err := endpoint.metainfo.GetWithBytes(ctx, path)
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
 				break
@@ -1134,6 +1135,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			return nil, rpcstatus.Errorf(rpcstatus.Internal, "unable to create get segment: %v", err)
 		}
 
+		lastSegmentPointerBytes = pointerBytes
 		lastSegmentPointer = pointer
 		lastSegmentPath = path
 		segmentIndex++
@@ -1149,7 +1151,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
-	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
+	err = endpoint.metainfo.Delete(ctx, lastSegmentPath, lastSegmentPointerBytes)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1724,7 +1726,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 
 	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
 	// call FinishDeleteSegment on uplink side
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
