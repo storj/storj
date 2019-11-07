@@ -293,22 +293,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if !morePiecesFlag && pendingCount == 0 {
 			processMu.Unlock()
 
-			progress, err := endpoint.db.GetProgress(ctx, nodeID)
-			if err != nil {
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-
-			mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
-			mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
-			mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred)
-
 			// update exit status
-			exitStatusRequest, err := endpoint.generateExitStatusRequest(ctx, progress)
+			exitStatusRequest, exitFailedReason, err := endpoint.generateExitStatusRequest(ctx)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
-			err = endpoint.handleFinished(ctx, stream, exitStatusRequest, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
+			err = endpoint.handleFinished(ctx, stream, exitStatusRequest, exitFailedReason)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -413,15 +404,24 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	nodePiece, err := validatePointer(ctx, pointer, incomplete)
 	if err != nil {
 		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
-		err := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
-		if err != nil {
-			return Error.Wrap(err)
+		deleteErr := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
+		if deleteErr != nil {
+			return Error.Wrap(deleteErr)
 		}
 		return Error.Wrap(err)
 	}
 
 	pieceSize, err := endpoint.calculatePieceSize(ctx, pointer, incomplete, nodePiece)
 	if ErrAboveOptimalThreshold.Has(err) {
+		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
 		return nil
 	}
 	if err != nil {
@@ -429,7 +429,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	// populate excluded node IDs
-	pieces := pointer.GetRemote().RemotePieces
+	remote := pointer.GetRemote()
+	pieces := remote.RemotePieces
 	excludedNodeIDs := make([]storj.NodeID, len(pieces))
 	for i, piece := range pieces {
 		excludedNodeIDs[i] = piece.NodeId
@@ -456,7 +457,6 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.Id),
 		zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
-	remote := pointer.GetRemote()
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
 
 	parts := storj.SplitPath(storj.Path(incomplete.Path))
@@ -674,7 +674,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 }
 
 func (endpoint *Endpoint) handleFinished(ctx context.Context, stream processStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {
-	finishedMsg, err := endpoint.getFinishedMessage(ctx, endpoint.signer, exitStatusRequest.NodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, failedReason)
+	finishedMsg, err := endpoint.getFinishedMessage(ctx, exitStatusRequest.NodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, failedReason)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -698,7 +698,7 @@ func (endpoint *Endpoint) handleFinished(ctx context.Context, stream processStre
 	return nil
 }
 
-func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, signer signing.Signer, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	if success {
 		unsigned := &pb.ExitCompleted{
 			SatelliteId: endpoint.signer.ID(),
@@ -778,6 +778,11 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	return nil
 }
 
+// checkExitStatus returns a satellite message based on a node current graceful exit status
+// if a node hasn't started graceful exit, it will initialize the process
+// if a node has finished graceful exit, it will return a finished message
+// if a node has started graceful exit, but no transfer item is available yet, it will return an not ready message
+// otherwise, the returned message will be nil
 func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.NodeID) (*pb.SatelliteMessage, error) {
 	exitStatus, err := endpoint.overlaydb.GetExitStatus(ctx, nodeID)
 	if err != nil {
@@ -786,7 +791,7 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 
 	if exitStatus.ExitFinishedAt != nil {
 		// TODO maybe we should store the reason in the DB so we know how it originally failed.
-		return endpoint.getFinishedMessage(ctx, endpoint.signer, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess, -1)
+		return endpoint.getFinishedMessage(ctx, nodeID, *exitStatus.ExitFinishedAt, exitStatus.ExitSuccess, -1)
 	}
 
 	if exitStatus.ExitInitiatedAt == nil {
@@ -817,13 +822,22 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 	return nil, nil
 }
 
-func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, progress *Progress) (*overlay.ExitStatusRequest, error) {
+func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context) (*overlay.ExitStatusRequest, *pb.ExitFailed_Reason, error) {
+	progress, err := endpoint.db.GetProgress(ctx, nodeID)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
+	mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
+	mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred)
 	processed := progress.PiecesFailed + progress.PiecesTransferred
 
 	if processed > 0 {
 		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed)
 	}
 
+	var exitFailedReason *pb.ExitFailed_Reason
 	exitStatusRequest := &overlay.ExitStatusRequest{
 		NodeID:         progress.NodeID,
 		ExitFinishedAt: time.Now().UTC(),
@@ -831,6 +845,7 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, progres
 	// check node's exiting progress to see if it has failed passed max failure threshold
 	if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 		exitStatusRequest.ExitSuccess = false
+		exitFailedReason = &pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 	} else {
 		exitStatusRequest.ExitSuccess = true
 	}
@@ -841,7 +856,7 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, progres
 		mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1)
 	}
 
-	return exitStatusRequest, nil
+	return exitStatusRequest, exitFailedReason, nil
 
 }
 
@@ -854,18 +869,10 @@ func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, pointer *pb.Po
 		return 0, Error.Wrap(err)
 	}
 
-	if !validateRedundancyThreshold(ctx, pointer, redundancy) {
+	pieces := pointer.GetRemote().GetRemotePieces()
+	if len(pieces) > redundancy.OptimalThreshold() {
 		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
-		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
-		if err != nil {
-			return 0, Error.Wrap(err)
-		}
-
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
-		if err != nil {
-			return 0, Error.Wrap(err)
-		}
 		return 0, ErrAboveOptimalThreshold.New("")
 	}
 

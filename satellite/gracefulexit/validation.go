@@ -10,7 +10,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
-	"storj.io/storj/uplink/eestream"
 )
 
 func validatePointer(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*pb.RemotePiece, error) {
@@ -30,15 +29,6 @@ func validatePointer(ctx context.Context, pointer *pb.Pointer, incomplete *Trans
 	}
 
 	return nodePiece, nil
-}
-
-func validateRedundancyThreshold(ctx context.Context, pointer *pb.Pointer, redundancy eestream.RedundancyStrategy) bool {
-	pieces := pointer.GetRemote().GetRemotePieces()
-	if len(pieces) > redundancy.OptimalThreshold() {
-		return false
-	}
-
-	return true
 }
 
 func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
@@ -64,7 +54,7 @@ func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) err
 	return nil
 }
 
-func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, satellite signing.Signer, nodeID *identity.PeerIdentity) error {
+func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, satellite signing.Signer, receivingNodePeerID *identity.PeerIdentity) error {
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -105,7 +95,7 @@ func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_
 		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}
 
-	signee := signing.SigneeFromPeerIdentity(nodeID)
+	signee := signing.SigneeFromPeerIdentity(receivingNodePeerID)
 
 	// verify that the new node signed the replacement piece hash
 	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
