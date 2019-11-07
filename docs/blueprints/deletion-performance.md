@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This document describes design for improvments to deletion speed.
+This document describes design for improvements to deletion speed.
 
 ## Background
 
