@@ -838,6 +838,103 @@ func TestExitDisabled(t *testing.T) {
 	})
 }
 
+func TestPointerChangedOrDeleted(t *testing.T) {
+	successThreshold := 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 2)
+		require.NoError(t, err)
+
+		exitRequest := &overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+
+		_, err = satellite.DB.OverlayCache().UpdateExitStatus(ctx, exitRequest)
+		require.NoError(t, err)
+		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		require.NoError(t, err)
+
+		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		// trigger the metainfo loop chore so we can get some pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		// make sure all the pieces are in the transfer queue
+		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, incomplete, 2)
+
+		// updating the first object and deleting the second. this will cause a root piece ID change which will result in
+		// a successful graceful exit instead of a request to transfer pieces since the root piece IDs will have changed.
+		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path1")
+		require.NoError(t, err)
+
+		// reconnect to the satellite.
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(c.CloseSend)
+
+		response, err := c.Recv()
+		require.NoError(t, err)
+
+		// we expect an exit completed b/c there is nothing to do here
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitCompleted:
+			signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+			err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+			require.NoError(t, err)
+
+			exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+			require.NoError(t, err)
+			require.NotNil(t, exitStatus.ExitFinishedAt)
+			require.True(t, exitStatus.ExitSuccess)
+		default:
+			t.FailNow()
+		}
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 0)
+	})
+}
+
 func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
