@@ -74,15 +74,44 @@ The package could then be distributed:
 
 When building our package, we can execute  pre-installation and post-installation scripts. We could retrieve the storage node configuration (from command line for instance) from the user using one of these scripts.
 
-#### Snap
+#### Agnostic Packaging
+There are 3 major agnostic packaging system for linux: AppImage, FlatPak and Snap. As AppImage and FlatPak are more desktop application oriented, we choose to focus on Snap.
+
+##### Snap
 [Snaps](https://snapcraft.io/first-snap#go) are containerised software packages. They auto-update daily and work on a variety of Linux distributions. They also revert to the previous version if an update fails. This feature would make it necessary to find out how to implement the rollout versioning.
 
 From the [snap documentation](https://snapcraft.io/docs/go-applications), it seems pretty straightforward to package an application. Snaps are defined in a yaml file. Running an application as a service is done only by specifying "daemon: simple" in the application description. 
 This would make us save the work of building a storage node service.
 
-Snaps can then be published in an [app store](https://snapcraft.io/). In the store, we would able to monitor the number of installed snaps. Snaps integrate well with github. 
+Snaps can then be published in the snapcraft [app store](https://snapcraft.io/). In the store, we would able to monitor the number of installed snaps. We could also [host our own store](https://ubuntu.com/blog/howto-host-your-own-snap-store). Snaps integrate well with [github](https://snapcraft.io/build).
+A snap inside the store can be published in multiple versions in different [channels](https://snapcraft.io/docs/channels).
 
+Snaps have been known for suffering a long start-up time, but it has been [improved](https://snapcraft.io/blog/snap-startup-time-improvements).
 
+#### Comparison between the package and the snap solutions
+Here is a table summarizing the differences between debian packaging system and snaps taken ([source](https://snapcraft.io/blog/a-technical-comparison-between-snaps-and-debs))
+
+| Package	| Debian	| Snap
+| --- | --- | ----
+| Format	| Ar archive	| SquashFS archive
+| Signature verification	| Y (often not used)	| Y
+| Package manager	| dpkg (low-level) Different higher-level  managers available	| snap
+| Front-end	| Many	| Snap Store
+| Installation	| Files copied to /	| Snap uncompressed and mounted as loopback device
+| Dependencies	| Shared	| Inside each snap or content snaps
+| Automatic updates	| semi-automatic	| Y
+| Transactional updates	| N	| Y
+| Multiple installs in parallel	| N	| Y
+| Multiple versions	| N	| Y
+| Security confinement	| Limited	| Y
+| Disk footprint	| Smaller	| Larger
+| Application startup time	| Default	| Typically longer
+
+We are thinking to use snap for the following reasons:
+- platform agnostic
+- support for daemons
+- auto-update with failure recovery
+One major drawback is Canonical central's repository.
 
 ### Updater
 The updater could either be a service or a cron job.
@@ -94,7 +123,7 @@ The updater could either be a service or a cron job.
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
 - Implement the storage node update
 - Implement the script that gathers the storage node configuration and save it as config.yaml 
-
+- ...
 ## Wrapup
 
 [Who will archive the blueprint when completed? What documentation needs to be updated to preserve the relevant information from the blueprint?]
