@@ -75,12 +75,6 @@ Two major steps for deleting segment is verification if the segment is newer tha
     if err != nil {
         return err
     }
-    // unmarshal the pointer
-    pointer = &pb.Pointer{}
-    err = proto.Unmarshal(pointerBytes, pointer)
-    if err != nil {
-        return err
-    }
     // check if pointer has been replaced
     if !pointer.GetCreationDate().Equal(creationDateFromReport) {
         // pointer has been replaced since detection, do not delete it.
