@@ -12,25 +12,6 @@ import (
 	"storj.io/storj/pkg/signing"
 )
 
-func validatePointer(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*pb.RemotePiece, error) {
-	remote := pointer.GetRemote()
-	nodeID := incomplete.NodeID
-
-	pieces := remote.GetRemotePieces()
-	var nodePiece *pb.RemotePiece
-	for _, piece := range pieces {
-		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
-			nodePiece = piece
-		}
-	}
-
-	if nodePiece == nil {
-		return nil, Error.New("piece no longer held by node")
-	}
-
-	return nodePiece, nil
-}
-
 func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
 	if transfer.satelliteMessage == nil {
 		return Error.New("Satellite message cannot be nil")

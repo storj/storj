@@ -859,7 +859,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	return Error.Wrap(err)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
+// GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.
 func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -867,6 +867,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
+		AND disqualified is NULL
 		`),
 	)
 	if err != nil {
