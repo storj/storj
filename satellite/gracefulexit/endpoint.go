@@ -310,7 +310,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 
 			// update exit status
-			exitStatusRequest, exitFailedReason, err := endpoint.generateExitStatusRequest(ctx)
+			exitStatusRequest, exitFailedReason, err := endpoint.generateExitStatusRequest(ctx, nodeID)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -426,12 +426,12 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		if err != nil {
 			return Error.Wrap(err)
 		}
+
+		return nil
 	}
 
-	// validate pointer state
 	nodePiece, err := endpoint.getNodePiece(ctx, pointer, incomplete)
 	if err != nil {
-		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 		deleteErr := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if deleteErr != nil {
 			return Error.Wrap(deleteErr)
@@ -443,12 +443,12 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if ErrAboveOptimalThreshold.Has(err) {
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
-			return 0, Error.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
-			return 0, Error.Wrap(err)
+			return Error.Wrap(err)
 		}
 		return nil
 	}
@@ -535,7 +535,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.New("Could not find transfer item in pending queue")
 	}
 
-	err = validatePendingTransfer(ctx, transfer)
+	err = endpoint.validatePendingTransfer(ctx, transfer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -547,7 +547,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 	// verify transferred piece
-	err = verifyPieceTransferred(ctx, message, transfer, endpoint.signer, peerID)
+	err = endpoint.verifyPieceTransferred(ctx, message, transfer, peerID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -882,10 +882,11 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 	return nil, nil
 }
 
-func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context) (*overlay.ExitStatusRequest, *pb.ExitFailed_Reason, error) {
+func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID storj.NodeID) (*overlay.ExitStatusRequest, pb.ExitFailed_Reason, error) {
+	var exitFailedReason pb.ExitFailed_Reason = -1
 	progress, err := endpoint.db.GetProgress(ctx, nodeID)
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, exitFailedReason, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
@@ -897,7 +898,6 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context) (*overl
 		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed)
 	}
 
-	var exitFailedReason *pb.ExitFailed_Reason
 	exitStatusRequest := &overlay.ExitStatusRequest{
 		NodeID:         progress.NodeID,
 		ExitFinishedAt: time.Now().UTC(),
@@ -905,7 +905,7 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context) (*overl
 	// check node's exiting progress to see if it has failed passed max failure threshold
 	if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
 		exitStatusRequest.ExitSuccess = false
-		exitFailedReason = &pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
+		exitFailedReason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 	} else {
 		exitStatusRequest.ExitSuccess = true
 	}
@@ -971,6 +971,7 @@ func (endpoint *Endpoint) getNodePiece(ctx context.Context, pointer *pb.Pointer,
 	}
 
 	if nodePiece == nil {
+		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 		return nil, Error.New("piece no longer held by node")
 	}
 

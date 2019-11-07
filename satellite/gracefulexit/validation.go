@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/signing"
 )
 
-func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
+func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
 	if transfer.satelliteMessage == nil {
 		return Error.New("Satellite message cannot be nil")
 	}
@@ -35,7 +35,7 @@ func validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) err
 	return nil
 }
 
-func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, satellite signing.Signer, receivingNodePeerID *identity.PeerIdentity) error {
+func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, receivingNodePeerID *identity.PeerIdentity) error {
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -55,7 +55,7 @@ func verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_
 	}
 
 	// verify that the satellite signed the original order limit
-	err := signing.VerifyOrderLimitSignature(ctx, satellite, originalOrderLimit)
+	err := signing.VerifyOrderLimitSignature(ctx, endpoint.signer, originalOrderLimit)
 	if err != nil {
 		return ErrInvalidArgument.Wrap(err)
 	}
