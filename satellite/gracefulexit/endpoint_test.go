@@ -411,12 +411,11 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		require.Nil(t, response)
 
-		// check that the exit has completed and we have the correct transferred/failed values
-		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		// disqualified node should fail graceful exit
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
 		require.NoError(t, err)
-
-		require.Equal(t, int64(0), progress.PiecesTransferred)
-		require.Equal(t, int64(1), progress.PiecesFailed)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.False(t, exitStatus.ExitSuccess)
 	})
 
 }
@@ -500,7 +499,6 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
 		require.EqualValues(t, numPieces, deletedCount)
-		require.EqualValues(t, 1, progress.PiecesFailed)
 
 		// disqualified node should fail graceful exit
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())

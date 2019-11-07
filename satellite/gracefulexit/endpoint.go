@@ -959,11 +959,6 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 			ExitSuccess:    false,
 		}
 
-		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
-		if err != nil {
-			return true, Error.Wrap(err)
-		}
-
 		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 		if err != nil {
 			return true, Error.Wrap(err)
