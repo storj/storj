@@ -104,15 +104,19 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
+
 	self := chore.service.Local()
 	address, err := chore.trust.GetAddress(ctx, id)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
+
 	conn, err := chore.dialer.DialAddressID(ctx, address, id)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
 	_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address.GetAddress(),
 		Version:  &self.Version,

@@ -13,12 +13,10 @@ import (
 )
 
 var (
-	// MaxRedemptionErr is the error class used when an offer has reached its redemption capacity
-	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
-	// NoCurrentOfferErr is the error class used when no current offer is set
-	NoCurrentOfferErr = errs.Class("no current offer")
-	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
-	NoMatchPartnerIDErr = errs.Class("partner not exist")
+	// ErrReachedMaxCapacity is the error class used when an offer has reached its redemption capacity.
+	ErrReachedMaxCapacity = errs.Class("offer redemption has reached its capacity")
+	// ErrOfferNotExist is the error class used when no current offer is set.
+	ErrOfferNotExist = errs.Class("no current offer")
 )
 
 // DB holds information about offer
@@ -114,9 +112,14 @@ type Offer struct {
 	Type   OfferType
 }
 
-// IsEmpty evaluates whether or not an on offer is empty
-func (o Offer) IsEmpty() bool {
-	return o.Name == ""
+// IsEmpty evaluates whether or not an on offer is empty.
+func (offer Offer) IsEmpty() bool {
+	return offer.Name == ""
+}
+
+// IsZero returns whether it's equivalent to empty struct.
+func (offer Offer) IsZero() bool {
+	return offer == Offer{}
 }
 
 // IsDefault checks if a offer's status is default
