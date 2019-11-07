@@ -38,7 +38,7 @@ func (endpoint *Endpoint) DRPC() pb.DRPCNotificationServer {
 // ProcessNotification sends message to the specified set of nodes (ids)
 func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (msg *pb.NotificationResponse, err error) {
 	var eSent, rSent = false, false
-	endpoint.log.Debug("Sending Notification to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
+	endpoint.log.Debug("sending to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
 	if endpoint.service.CheckRPCLimit(message.NodeId.String()) {
 		msg, err = endpoint.processNotificationRPC(ctx, message)
 		if err != nil {
@@ -65,7 +65,7 @@ func (endpoint *Endpoint) processNotificationRPC(ctx context.Context, message *p
 		if ok {
 			return &pb.NotificationResponse{}, Error.New("failed to connect to %s: %v", message.Address, err)
 		}
-		endpoint.log.Info("notification internal error", zap.String("error", err.Error()))
+		endpoint.log.Warn("internal error", zap.String("error", err.Error()))
 		return &pb.NotificationResponse{}, Error.New("couldn't connect to client at addr: %s due to internal error.", message.Address)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
@@ -98,6 +98,6 @@ func (endpoint *Endpoint) sendBroadcastNotification(ctx context.Context, message
 		sentCount++
 	}
 
-	endpoint.log.Info("Sent Notification to nodes", zap.Int("count", sentCount))
-	//endpoint.log.Debug("Notification to the following nodes failed", zap.Array("nodeIDs", failed))
+	endpoint.log.Info("sent to nodes", zap.Int("count", sentCount))
+	endpoint.log.Debug("notification to the following nodes failed", zap.Strings("nodeIDs", failed))
 }
