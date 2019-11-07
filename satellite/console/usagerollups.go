@@ -23,7 +23,7 @@ type UsageRollups interface {
 // and objects count per hour for certain Project
 type ProjectUsage struct {
 	Storage     float64
-	Egress      float64
+	Egress      int64
 	ObjectCount float64
 
 	Since  time.Time
