@@ -198,3 +198,13 @@ export class DateGenerator {
         }
     }
 }
+
+export class DateFormat {
+    public static getUSDate(date: Date, separator: string): string {
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const year = date.getFullYear();
+
+        return [month, day, year].join(separator);
+    }
+}
