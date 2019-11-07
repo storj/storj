@@ -204,6 +204,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		endpoint.connections.delete(nodeID)
 	}()
 
+	isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	if isDisqualified {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
+	}
+
 	eofHandler := func(err error) error {
 		if err == io.EOF {
 			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("Node ID", nodeID))
@@ -345,6 +353,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		if !morePiecesFlag && pendingCount == 0 {
 			processMu.Unlock()
 
+			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+			if isDisqualified {
+				return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
+			}
+
 			exitStatusRequest := &overlay.ExitStatusRequest{
 				NodeID:         nodeID,
 				ExitFinishedAt: time.Now().UTC(),
@@ -462,7 +478,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
+					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+					if err != nil {
+						return rpcstatus.Error(rpcstatus.Internal, err.Error())
+					}
+
 					mon.Meter("graceful_exit_fail_validation").Mark(1)
+
 					_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -926,6 +948,38 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	}
 
 	return nil
+}
+
+func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID) (isDisqualified bool, err error) {
+	// check if node is disqualified
+	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	if nodeInfo.Disqualified != nil {
+		// update graceful exit status to be failed
+		exitStatusRequest := &overlay.ExitStatusRequest{
+			NodeID:         nodeID,
+			ExitFinishedAt: time.Now().UTC(),
+			ExitSuccess:    false,
+		}
+
+		_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+		if err != nil {
+			return true, Error.Wrap(err)
+		}
+
+		// remove remaining items from the queue
+		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+		if err != nil {
+			return true, Error.Wrap(err)
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (endpoint *Endpoint) getValidPointer(ctx context.Context, path string, pieceNum int32, originalRootPieceID storj.PieceID) (*pb.Pointer, error) {
