@@ -131,7 +131,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 				cancellationCount++
 			}
 			ec.log.Debug("Upload to storage node failed",
-				zap.String("NodeID", limits[info.i].GetLimit().StorageNodeId.String()),
+				zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 				zap.Error(info.err),
 			)
 			continue
@@ -200,8 +200,8 @@ func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, nil, err
@@ -211,7 +211,7 @@ func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	peerID, err = ps.GetPeerIdentity()
 	if err != nil {
 		ec.log.Debug("Failed getting peer identity from node connection",
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, nil, err
@@ -220,8 +220,8 @@ func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.String("PieceID", pieceID.String()),
-			zap.String("NodeID", storageNodeID.String()),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, nil, err
@@ -242,9 +242,9 @@ func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	if err != nil {
 		if errs2.IsCanceled(err) {
 			if parent.Err() == context.Canceled {
-				ec.log.Info("Upload to node canceled by user", zap.Stringer("NodeID", storageNodeID))
+				ec.log.Info("Upload to node canceled by user", zap.Stringer("Node ID", storageNodeID))
 			} else {
-				ec.log.Debug("Node cut from upload due to slow connection", zap.Stringer("NodeID", storageNodeID))
+				ec.log.Debug("Node cut from upload due to slow connection", zap.Stringer("Node ID", storageNodeID))
 			}
 		} else {
 			nodeAddress := ""
@@ -253,8 +253,8 @@ func (ec *ecClient) PutPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			}
 
 			ec.log.Debug("Failed uploading piece to node",
-				zap.Stringer("PieceID", pieceID),
-				zap.Stringer("NodeID", storageNodeID),
+				zap.Stringer("Piece ID", pieceID),
+				zap.Stringer("Node ID", storageNodeID),
 				zap.String("Node Address", nodeAddress),
 				zap.Error(err),
 			)
@@ -330,8 +330,8 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 			})
 			if err != nil {
 				ec.log.Debug("Failed dialing for deleting piece from node",
-					zap.String("PieceID", limit.PieceId.String()),
-					zap.String("NodeID", limit.StorageNodeId.String()),
+					zap.Stringer("Piece ID", limit.PieceId),
+					zap.Stringer("Node ID", limit.StorageNodeId),
 					zap.Error(err),
 				)
 				errch <- err
@@ -342,8 +342,8 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				ec.log.Debug("Failed deleting piece from node",
-					zap.String("PieceID", limit.PieceId.String()),
-					zap.String("NodeID", limit.StorageNodeId.String()),
+					zap.Stringer("Piece ID", limit.PieceId),
+					zap.Stringer("Node ID", limit.StorageNodeId),
 					zap.Error(err),
 				)
 			}

@@ -194,7 +194,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	// TODO should we error if the node is DQ'd?
 
 	nodeID := peer.ID
-	endpoint.log.Debug("graceful exit process", zap.Stringer("node ID", nodeID))
+	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", nodeID))
 
 	// ensure that only one connection can be opened for a single node at a time
 	if !endpoint.connections.tryAdd(nodeID) {
@@ -206,7 +206,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	eofHandler := func(err error) error {
 		if err == io.EOF {
-			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("node ID", nodeID))
+			endpoint.log.Debug("received EOF when trying to receive messages from storage node", zap.Stringer("Node ID", nodeID))
 			return nil
 		}
 		if err != nil {
@@ -267,6 +267,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return nil
 	}
 
+	// maps pieceIDs to pendingTransfers to keep track of ongoing piece transfer requests
 	pending := newPendingMap()
 
 	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
@@ -308,7 +309,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				if len(incomplete) == 0 {
-					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("node ID", nodeID))
+					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
 					processMu.Lock()
 					morePiecesFlag = false
 					processMu.Unlock()
@@ -410,9 +411,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			default:
 			}
 
-			pendingCount = pending.length()
 			// if pending count is still 0 and the loop has exited, return
-			if pendingCount == 0 && !loopRunningFlag {
+			if pending.length() == 0 && !loopRunningFlag {
 				processMu.Unlock()
 				continue
 			}
@@ -443,6 +443,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		case *pb.StorageNodeMessage_Succeeded:
 			err = endpoint.handleSucceeded(ctx, stream, pending, nodeID, m)
 			if err != nil {
+				if metainfo.ErrNodeAlreadyExists.Has(err) {
+					// this will get retried
+					endpoint.log.Warn("node already exists in pointer.", zap.Error(err))
+
+					continue
+				}
 				if ErrInvalidArgument.Has(err) {
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
 					exitStatusRequest := &overlay.ExitStatusRequest{
@@ -516,7 +522,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	if nodePiece == nil {
-		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		endpoint.log.Debug("piece no longer held by node", zap.Stringer("Node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 		if err != nil {
@@ -532,7 +538,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	if len(remote.GetRemotePieces()) > redundancy.OptimalThreshold() {
-		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("Node ID", nodeID), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
@@ -695,6 +701,9 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 	err = endpoint.updatePointer(ctx, transfer.originalPointer, exitingNodeID, receivingNodeID, transfer.path, transfer.pieceNum)
 	if err != nil {
+		// remove the piece from the pending queue so it gets retried
+		pending.delete(originalPieceID)
+
 		return Error.Wrap(err)
 	}
 
@@ -734,12 +743,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.log.Warn("transfer failed", zap.Stringer("piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	endpoint.log.Warn("transfer failed", zap.Stringer("Piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
 	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
 	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("piece ID", pieceID))
+		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("Piece ID", pieceID))
 
 		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
 	}
@@ -755,7 +764,63 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap,
 
 	errorCode := int(pb.TransferFailed_Error_value[message.Failed.Error.String()])
 
-	// TODO if error code is NOT_FOUND, the node no longer has the piece. remove the queue item and the pointer
+	// If the error code is NOT_FOUND, the node no longer has the piece.
+	// Remove the queue item and remove the node from the pointer.
+	// If the pointer is not piece hash verified, do not count this as a failure.
+	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
+		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("path", transfer.path), zap.Int32("piece num", transfer.pieceNum))
+		pointer, err := endpoint.metainfo.Get(ctx, string(transfer.path))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		remote := pointer.GetRemote()
+		if remote == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
+			return nil
+		}
+		pieces := remote.GetRemotePieces()
+
+		var nodePiece *pb.RemotePiece
+		for _, piece := range pieces {
+			if piece.NodeId == nodeID && piece.PieceNum == transfer.pieceNum {
+				nodePiece = piece
+			}
+		}
+		if nodePiece == nil {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			pending.delete(pieceID)
+			return nil
+		}
+
+		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// If the pointer was piece hash verified, we know this node definitely should have the piece
+		// Otherwise, no penalty.
+		if pointer.PieceHashesVerified {
+			err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path, transfer.pieceNum)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		pending.delete(pieceID)
+
+		return nil
+	}
 
 	transferQueueItem.LastFailedAt = &now
 	transferQueueItem.FailedCount = &failedCount
@@ -844,18 +909,13 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 	delete(pieceMap, exitingNodeID)
 
 	var toAdd []*pb.RemotePiece
-	// check receiving node id is not already in the pointer
-	_, ok = pieceMap[receivingNodeID]
-	if ok {
-		return Error.New("node id already exists in piece. Path: %s, NodeID: %s", path, receivingNodeID.String())
-	}
 	if !receivingNodeID.IsZero() {
 		toAdd = []*pb.RemotePiece{{
 			PieceNum: pieceNum,
 			NodeId:   receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePieces(ctx, string(path), originalPointer, toAdd, toRemove)
+	_, err = endpoint.metainfo.UpdatePiecesCheckDuplicates(ctx, string(path), originalPointer, toAdd, toRemove, true)
 	if err != nil {
 		return Error.Wrap(err)
 	}

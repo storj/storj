@@ -24,8 +24,8 @@ random_bytes_file () {
 
 random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
 random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-random_bytes_file "128MiB"  "$SRC_DIR/multisegment-upload-testfile"   # create 128mb file of random bytes (remote) 
-random_bytes_file "73MiB"   "$SRC_DIR/diff-size-segments"             # create 73mb file of random bytes (remote)
+random_bytes_file "12MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 2 x 6mb file of random bytes (remote) 
+random_bytes_file "9MiB"    "$SRC_DIR/diff-size-segments"             # create 9mb file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 

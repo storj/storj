@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -106,7 +107,10 @@ type Config struct {
 	Rollup         rollup.Config
 	LiveAccounting live.Config
 
-	Mail    mailservice.Config
+	Mail mailservice.Config
+
+	Payments paymentsconfig.Config
+
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
