@@ -140,7 +140,7 @@ func TestAuthorizationDB_Create_error(t *testing.T) {
 		},
 		{
 			"negative count",
-			"user@mail.example", -1,
+			"user@mail.test", -1,
 			&ErrDB,
 			ErrCount,
 		},
@@ -176,19 +176,19 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.db.Put(ctx, storage.Key("user@mail.example"), authsBytes)
+	err = authDB.db.Put(ctx, storage.Key("user@mail.test"), authsBytes)
 	require.NoError(t, err)
 
 	{
 		t.Log("Non-existent email")
-		auths, err := authDB.Get(ctx, "nouser@mail.example")
+		auths, err := authDB.Get(ctx, "nouser@mail.test")
 		require.Error(t, err, ErrAuthorizationNotFound)
 		require.Empty(t, auths)
 	}
 
 	{
 		t.Log("Existing email")
-		auths, err := authDB.Get(ctx, "user@mail.example")
+		auths, err := authDB.Get(ctx, "user@mail.test")
 		require.NoError(t, err)
 		assert.NotEmpty(t, auths)
 		assert.Len(t, auths, len(expectedAuths))
