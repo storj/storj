@@ -893,6 +893,8 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, incomplete, 2)
 
+		// updating the first object and deleting the second. this will cause a root piece ID change which will result in
+		// a successful graceful exit instead of a request to transfer pieces since the root piece IDs will have changed.
 		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path1")
