@@ -33,6 +33,11 @@ The first command for detecting bad segments should iterate over pointerDB and v
 
 The second command for deleting bad segments should use the result of first command. The command should allow specifying flags like DB connection string, file with results from the first command, and dry run mode. Each reported segment should be verified if it's not changed since detection report was done. If segment was not changed it should be deleted from pointerDB. Verification and deletion should be done as atomic operation to avoid race conditions. Command should print the report at the end: number of deleted segments, number of segments skipped because of being newer than reported, skipped segments paths. Execution with dry run flag should only print results but without deleting segments from the database. This command should be executed against production database.
 
+## Non Goals
+
+* deal with segments inaccessible because of bucket deletion
+* deal with segments inaccessible because of project deletion
+
 ## Implementation
 
 Code should be placed in package `cmd/segment-reaper`. The first command for detecting bad segments should be named `detect`. The second command for deleting bad segments should be named `delete`.
@@ -54,18 +59,19 @@ type Object struct {
 }
 ```
 
-Output of `segment-reaper detect` command should be CSV with list of segments. Each row will contain segment path and creation/modification date, and serialized pointer for CompareAndSwap function:
+Output of `segment-reaper detect` command should be CSV with list of segments. Each row will contain project ID, segment index, bucket name, encoded encrypted path (encoded with base64 or base58) and creation/modification date. Encrypted path should be encoded to avoid printing invalid characters. 
+
+Example:
 ```
-    projectID/segmentIndex/bucketName/encrypted_path;creation_date
-    projectID/segmentIndex/bucketName/encrypted_path1;creation_date
-    projectID/segmentIndex/bucketName/encrypted_path3;creation_date
+    projectID;segmentIndex;bucketName;encoded(encrypted_path1);creation_date
+    projectID;segmentIndex;bucketName;encoded(encrypted_path2);creation_date
+    projectID;segmentIndex;bucketName;encoded(encrypted_path3);creation_date
 ```
-**NOTE**: Separator `;` is a valid symbol in paths. When splitting these lines into path and date, we should be careful to make the split on the last `;` in the string instead of on the first one. Alternatively separator symbol can be changed to symbol that is not occuring in segment path.
 
 Two major steps for deleting segment is verification if the segment is newer than detected earlier and delete segment in one atomic operation. For deleting segment we should use `CompareAndSwap` method. Sample code:
 ```
     // read the pointer
-    pointerBytes, err := s.DB.Get(ctx, []byte(path))
+    pointerBytes, pointer, err := s.GetWithBytes(ctx, []byte(path))
     if err != nil {
         return err
     }
@@ -94,5 +100,4 @@ Two major steps for deleting segment is verification if the segment is newer tha
 ## Open issues (if applicable)
 
 * how detect segments deleted from storage nodes but existing on satellite?
-* what to do with segments lost because of bucket deletion?
 * should we try also to delete zombie segments from storage nodes or leave it for garbage collection?
