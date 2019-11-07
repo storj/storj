@@ -486,8 +486,6 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 				require.NoError(t, err)
 			case *pb.SatelliteMessage_DeletePiece:
 				deletedCount++
-			case *pb.SatelliteMessage_ExitFailed:
-				require.NotNil(t, m)
 			default:
 				t.FailNow()
 			}
