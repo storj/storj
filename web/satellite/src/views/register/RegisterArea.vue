@@ -141,6 +141,9 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
+        this.$segment.track(EVENTS.EMAIL_VERIFIED);
+
+
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;

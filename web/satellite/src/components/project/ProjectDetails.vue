@@ -67,6 +67,8 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
+
 
 @Component({
     components: {
@@ -84,6 +86,7 @@ export default class ProjectDetailsArea extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            this.$segment.track(EVENTS.PROJECT_VIEWED);
         } catch (error) {
             await this.$notify.error(error.message);
         }

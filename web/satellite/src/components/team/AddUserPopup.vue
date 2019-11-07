@@ -86,6 +86,7 @@ import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
@@ -124,6 +125,7 @@ export default class AddUserPopup extends Vue {
 
             if (isEmail) {
                 emailArray.push(element.value);
+                this.$segment.track(EVENTS.EMAIL_VERIFIED);
             }
 
             if (isEmail || element.value === '') {

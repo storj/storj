@@ -124,7 +124,7 @@ import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
 
@@ -219,6 +219,7 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(DELETE);
             await this.$notify.success(`API keys deleted successfully`);
+            this.$segment.track(EVENTS.API_KEY_DELETED);
         } catch (error) {
             await this.$notify.error(error.message);
         }

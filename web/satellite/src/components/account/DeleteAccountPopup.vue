@@ -10,8 +10,8 @@
             </div>
             <div class='delete-account__form-container'>
                 <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever (drop from the satellite).</p>
-                <HeaderedInput 
-                    label='Enter your password' 
+                <HeaderedInput
+                    label='Enter your password'
                     placeholder='Your Password'
                     class='full-input'
                     width='100%'
@@ -55,6 +55,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
 import { validatePassword } from '@/utils/validation';
 
 @Component({
@@ -94,6 +95,8 @@ export default class DeleteAccountPopup extends Vue {
         try {
             await this.auth.delete(this.password);
             await this.$notify.success('Account was successfully deleted');
+            this.$segment.track(EVENTS.USER_DELETED);
+
 
             AuthToken.remove();
 

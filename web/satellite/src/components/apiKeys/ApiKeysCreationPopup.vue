@@ -35,6 +35,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { ApiKey } from '@/types/apiKeys';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { EVENTS } from '@/utils/constants/analyticsEventNames';
 
 const CREATE = API_KEYS_ACTIONS.CREATE;
 
@@ -83,6 +84,7 @@ export default class ApiKeysCreationPopup extends Vue {
 
         try {
             createdApiKey = await this.$store.dispatch(CREATE, this.name);
+            this.$segment.track(EVENTS.API_KEY_CREATED);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
