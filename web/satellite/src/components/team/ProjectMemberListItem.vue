@@ -9,12 +9,12 @@
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
             <div class="user-container__base-info__name-area" :title="itemData.name">
-                <p class="user-container__base-info__name-area__user-name">{{formattedName}}</p>
+                <p class="user-container__base-info__name-area__user-name">{{ itemData.formattedFullName() }}</p>
                 <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
             </div>
         </div>
-        <p class="user-container__date">{{itemDate}}</p>
-        <p class="user-container__user-email">{{itemEmail}}</p>
+        <p class="user-container__date">{{ itemData.joinedAtLocal() }}</p>
+        <p class="user-container__user-email">{{ itemData.formattedEmail() }}</p>
     </div>
 </template>
 
@@ -42,18 +42,6 @@ export default class ProjectMemberListItem extends Vue {
             letter,
             style,
         };
-    }
-
-    public get formattedName(): string {
-        return this.itemData.formattedFullName();
-    }
-
-    public get itemDate(): string {
-        return this.itemData.joinedAtLocal();
-    }
-
-    public get itemEmail(): string {
-        return this.itemData.formattedEmail();
     }
 
     public get isProjectOwner(): boolean {

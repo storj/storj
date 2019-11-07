@@ -11,10 +11,10 @@
                 <AvatarIcon class="avatar__image"/>
             </div>
             <div :title="itemData.name">
-                <p class="name">{{formattedApiKeyName}}</p>
+                <p class="name">{{ itemData.formattedName() }}</p>
             </div>
         </div>
-        <p class="date">{{apiKeyDate}}</p>
+        <p class="date">{{ itemData.getDate() }}</p>
     </div>
 </template>
 
@@ -35,14 +35,6 @@ import { ApiKey } from '@/types/apiKeys';
 export default class ApiKeysItem extends Vue {
     @Prop({default: () => new ApiKey('', '', '', '')})
     private readonly itemData: ApiKey;
-
-    public get formattedApiKeyName(): string {
-        return this.itemData.formattedName();
-    }
-
-    public get apiKeyDate(): string {
-        return this.itemData.getDate();
-    }
 }
 </script>
 
