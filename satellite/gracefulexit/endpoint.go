@@ -867,10 +867,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 
 		// graceful exit initiation metrics
 		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount)
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                           //locked
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount) //locked
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)          //locked
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                           //locked
 
 		return &pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}}, nil
 	}
