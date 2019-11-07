@@ -511,6 +511,11 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 			}
 		default:
+			// increment failure count to prevent mallicious node sending unknown message
+			err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+			if err != nil {
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
 			return rpcstatus.Error(rpcstatus.Unknown, Error.New("unknown storage node message: %v", m).Error())
 		}
 	}

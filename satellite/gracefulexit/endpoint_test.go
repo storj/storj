@@ -314,6 +314,32 @@ func TestRecvTimeout(t *testing.T) {
 	})
 }
 
+func TestUndefinedMessageError(t *testing.T) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+			message := &pb.StorageNodeMessage{}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+		response, err = processClient.Recv()
+		require.True(t, errs2.IsRPC(err, rpcstatus.Unknown))
+
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
+
+	})
+}
+
 func TestInvalidStorageNodeSignature(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
