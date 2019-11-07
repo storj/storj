@@ -14,7 +14,7 @@ import (
 // StorjTokens defines all payments STORJ token related functionality.
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount.
-	Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (*Transaction, error)
+	Deposit(ctx context.Context, userID uuid.UUID, amount *TokenAmount) (*Transaction, error)
 	// ListTransactionInfos returns all transaction associated with user.
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 }
@@ -50,8 +50,8 @@ func (id TransactionID) String() string {
 type Transaction struct {
 	ID        TransactionID
 	AccountID uuid.UUID
-	Amount    big.Float
-	Received  big.Float
+	Amount    TokenAmount
+	Received  TokenAmount
 	Address   string
 	Status    TransactionStatus
 	CreatedAt time.Time
@@ -61,11 +61,54 @@ type Transaction struct {
 // such as links and expiration time.
 type TransactionInfo struct {
 	ID        TransactionID
-	Amount    big.Float
-	Received  big.Float
+	Amount    TokenAmount
+	Received  TokenAmount
 	Address   string
 	Status    TransactionStatus
 	Link      string
 	ExpiresAt time.Time
 	CreatedAt time.Time
+}
+
+// TokenAmount is a wrapper type for STORJ token amount.
+// Uses big.Float as inner representation. Precision is set to 32
+// so it can properly handle 8 digits after point which is STORJ token
+// decimal set.
+type TokenAmount struct {
+	inner big.Float
+}
+
+// precision defines STORJ token precision.
+const precision = 32
+
+// NewTokenAmount creates new zeroed TokenAmount with fixed precision.
+func NewTokenAmount() *TokenAmount {
+	return &TokenAmount{inner: *new(big.Float).SetPrec(precision)}
+}
+
+// BigFloat returns inner representation of TokenAmount.
+func (amount *TokenAmount) BigFloat() *big.Float {
+	f := new(big.Float).Set(&amount.inner)
+	return f
+}
+
+// String representation of TokenValue.
+func (amount *TokenAmount) String() string {
+	return amount.inner.Text('f', -1)
+}
+
+// ParseTokenAmount parses string representing floating point and returns
+// TokenAmount.
+func ParseTokenAmount(s string) (*TokenAmount, error) {
+	inner, _, err := big.ParseFloat(s, 10, precision, big.ToNearestEven)
+	if err != nil {
+		return nil, err
+	}
+	return &TokenAmount{inner: *inner}, nil
+}
+
+// TokenAmountFromBigFloat converts big.Float to TokenAmount.
+func TokenAmountFromBigFloat(f *big.Float) *TokenAmount {
+	inner := (*f).SetMode(big.ToNearestEven).SetPrec(precision)
+	return &TokenAmount{inner: *inner}
 }

@@ -26,7 +26,7 @@ type storjTokens struct {
 // ETH wallet address where funds should be sent. There is one
 // hour limit to complete the transaction. Transaction is saved to DB with
 // reference to the user who made the deposit.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	customerID, err := tokens.service.db.Customers().GetCustomerID(ctx, userID)
@@ -40,8 +40,8 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 	}
 
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
-		coinpayments.CreateTX{
-			Amount:      amount,
+		&coinpayments.CreateTX{
+			Amount:      *amount.BigFloat(),
 			CurrencyIn:  coinpayments.CurrencyLTCT,
 			CurrencyOut: coinpayments.CurrencyLTCT,
 			BuyerEmail:  c.Email,
@@ -74,8 +74,8 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 	return &payments.Transaction{
 		ID:        payments.TransactionID(tx.ID),
 		AccountID: userID,
-		Amount:    tx.Amount,
-		Received:  big.Float{},
+		Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
+		Received:  *payments.NewTokenAmount(),
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
 		CreatedAt: cpTX.CreatedAt,
@@ -111,8 +111,8 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 		infos = append(infos,
 			payments.TransactionInfo{
 				ID:       []byte(tx.ID),
-				Amount:   tx.Amount,
-				Received: tx.Received,
+				Amount:   *payments.TokenAmountFromBigFloat(&tx.Amount),
+				Received: *payments.TokenAmountFromBigFloat(&tx.Received),
 				Address:  tx.Address,
 				Status:   status,
 				Link:     link,

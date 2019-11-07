@@ -6,7 +6,6 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"math/big"
 	"sort"
 	"time"
 
@@ -244,7 +243,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *big.Float) (_ *payments.Transaction, err error) {
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -252,7 +251,7 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *big.Fl
 		return nil, err
 	}
 
-	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, *amount)
+	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 	return tx, errs.Wrap(err)
 }
 

@@ -6,7 +6,6 @@ package consoleapi
 import (
 	"encoding/json"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -15,6 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -215,7 +215,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 	}
 
-	amount, _, err := big.ParseFloat(requestData.Amount, 10, big.MaxPrec, big.ToNearestEven)
+	amount, err := payments.ParseTokenAmount(requestData.Amount)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 	}
@@ -236,7 +236,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 		Amount  string `json:"amount"`
 	}
 
-	responseData.Amount = tx.Amount.Text('f', -1)
+	responseData.Amount = tx.Amount.String()
 	responseData.Address = tx.Address
 
 	err = json.NewEncoder(w).Encode(responseData)
