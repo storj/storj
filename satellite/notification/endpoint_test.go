@@ -23,11 +23,13 @@ func TestProcessNotification(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+	satellite := planet.Satellites[0]
 	storagenode := planet.StorageNodes[0]
-	_, err = storagenode.Notification.Endpoint.ProcessNotification(ctx, &pb.NotificationMessage{
+
+	_, err = satellite.Notification.Endpoint.ProcessNotification(ctx, &pb.NotificationMessage{
 		NodeId:   storagenode.ID(),
-		Loglevel: pb.LogLevel_INFO,
-		Message:  []byte("test"),
+		Loglevel: pb.LogLevel_WARN,
+		Message:  []byte("test message"),
 		Address:  storagenode.Addr(),
 	})
 	require.NoError(t, err)

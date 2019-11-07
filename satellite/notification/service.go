@@ -49,9 +49,9 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overl
 	}
 }
 
-// Run runs a notification cycle every 5 Seconds
+// Run sets the Rate Limiter up to ensure we dont spam
 func (service *Service) Run(ctx context.Context) (err error) {
-	service.log.Debug("Starting Limiter")
+	service.log.Debug("Starting Rate Limiter")
 	service.loop = sync2.NewCycle(1 * time.Hour)
 
 	err = service.loop.Run(ctx, service.resetLimiter)
