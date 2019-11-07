@@ -14,9 +14,10 @@ import (
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -34,27 +35,29 @@ var (
 //
 // architecture: Service
 type Service struct {
-	log *zap.Logger
-
+	log            *zap.Logger
 	trust          *trust.Pool
 	bandwidthDB    bandwidth.DB
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
-	kademlia       *kademlia.Kademlia
-	version        *version.Service
+	contact        *contact.Service
+
+	version   *checker.Service
+	pingStats *contact.PingStats
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
-	walletAddress      string
-	startedAt          time.Time
-	versionInfo        version.Info
+
+	walletAddress string
+	startedAt     time.Time
+	versionInfo   version.Info
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
+func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -71,10 +74,13 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		return nil, errs.New("version can't be nil")
 	}
 
-	if kademlia == nil {
-		return nil, errs.New("kademlia can't be nil")
+	if pingStats == nil {
+		return nil, errs.New("pingStats can't be nil")
 	}
 
+	if contact == nil {
+		return nil, errs.New("contact service can't be nil")
+	}
 	return &Service{
 		log:                log,
 		trust:              trust,
@@ -82,10 +88,11 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		reputationDB:       reputationDB,
 		storageUsageDB:     storageUsageDB,
 		pieceStore:         pieceStore,
-		kademlia:           kademlia,
 		version:            version,
+		pingStats:          pingStats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
+		contact:            contact,
 		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
@@ -108,11 +115,14 @@ type Dashboard struct {
 	DiskSpace DiskSpaceInfo `json:"diskSpace"`
 	Bandwidth BandwidthInfo `json:"bandwidth"`
 
-	LastPinged  time.Time `json:"lastPinged"`
-	LastQueried time.Time `json:"lastQueried"`
+	LastPinged          time.Time    `json:"lastPinged"`
+	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
+	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
+
+	StartedAt time.Time `json:"startedAt"`
 }
 
 // GetDashboardData returns stale dashboard data.
@@ -120,12 +130,13 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	defer mon.Task()(&ctx)(&err)
 	data := new(Dashboard)
 
-	data.NodeID = s.kademlia.Local().Id
+	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
-	data.UpToDate = s.version.IsAllowed()
-	data.LastPinged = s.kademlia.LastPinged()
-	data.LastQueried = s.kademlia.LastQueried()
+	data.UpToDate = s.version.IsAllowed(ctx)
+	data.StartedAt = s.startedAt
+
+	data.LastPinged = s.pingStats.WhenLastPinged()
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
@@ -146,19 +157,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsage).GB(),
-		Available: s.allocatedDiskSpace.GB(),
+		Used:      spaceUsage,
+		Available: s.allocatedDiskSpace.Int64(),
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage.Total()).GB(),
-		Available: s.allocatedBandwidth.GB(),
+		Used:      bandwidthUsage,
+		Available: s.allocatedBandwidth.Int64(),
 	}
 
 	return data, nil

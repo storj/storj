@@ -31,6 +31,8 @@ type StorageNodeFlags struct {
 	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
+
+	Deprecated
 }
 
 var (
@@ -67,6 +69,18 @@ var (
 		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	gracefulExitInitCmd = &cobra.Command{
+		Use:         "exit-satellite",
+		Short:       "Initiate graceful exit",
+		RunE:        cmdGracefulExitInit,
+		Annotations: map[string]string{"type": "helper"},
+	}
+	gracefulExitStatusCmd = &cobra.Command{
+		Use:         "exit-status",
+		Short:       "Display graceful exit status",
+		RunE:        cmdGracefulExitStatus,
+		Annotations: map[string]string{"type": "helper"},
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
@@ -98,28 +112,33 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
+	rootCmd.AddCommand(gracefulExitInitCmd)
+	rootCmd.AddCommand(gracefulExitStatusCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
 	return storagenodedb.Config{
-		Storage:  config.Storage.Path,
-		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:    filepath.Join(config.Storage.Path, "info.db"),
-		Pieces:   config.Storage.Path,
-		Kademlia: config.Kademlia.DBPath,
+		Storage: config.Storage.Path,
+		Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:   filepath.Join(config.Storage.Path, "info.db"),
+		Pieces:  config.Storage.Path,
 	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
+
+	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
@@ -164,7 +183,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CreateTables()
+	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
@@ -236,7 +255,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	diagDir, err := filepath.Abs(confDir)
 	if err != nil {

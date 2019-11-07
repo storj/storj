@@ -12,13 +12,12 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )
 
 const defaultUplinkDialTimeout = 20 * time.Second
-const defaultUplinkRequestTimeout = 20 * time.Second
 
 // Config represents configuration options for an Uplink
 type Config struct {
@@ -70,10 +69,6 @@ type Config struct {
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
 		DialTimeout time.Duration
-
-		// RequestTimeout is the maximum time to wait for a request response from another node.
-		// If not set, the library default (20 seconds) will be used.
-		RequestTimeout time.Duration
 	}
 }
 
@@ -97,9 +92,6 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
 	}
-	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
-		cfg.Volatile.RequestTimeout = defaultUplinkRequestTimeout
-	}
 	return nil
 }
 
@@ -107,9 +99,9 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	ident *identity.FullIdentity
-	tc    transport.Client
-	cfg   *Config
+	ident  *identity.FullIdentity
+	dialer rpc.Dialer
+	cfg    *Config
 }
 
 // NewUplink creates a new Uplink. This is the first step to create an uplink
@@ -137,21 +129,19 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
 		PeerIDVersions:      "0",
 	}
-	tlsOpts, err := tlsopts.NewOptions(ident, tlsConfig, nil)
+
+	tlsOptions, err := tlsopts.NewOptions(ident, tlsConfig, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	timeouts := transport.Timeouts{
-		Dial:    cfg.Volatile.DialTimeout,
-		Request: cfg.Volatile.RequestTimeout,
-	}
-	tc := transport.NewClientWithTimeouts(tlsOpts, timeouts)
+	dialer := rpc.NewDefaultDialer(tlsOptions)
+	dialer.DialTimeout = cfg.Volatile.DialTimeout
 
 	return &Uplink{
-		ident: ident,
-		tc:    tc,
-		cfg:   cfg,
+		ident:  ident,
+		dialer: dialer,
+		cfg:    cfg,
 	}, nil
 }
 
@@ -161,7 +151,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +163,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 
 	return &Project{
 		uplinkCfg:     u.cfg,
-		tc:            u.tc,
+		dialer:        u.dialer,
 		metainfo:      m,
 		project:       project,
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,

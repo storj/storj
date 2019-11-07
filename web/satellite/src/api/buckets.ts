@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 
 /**
  * BucketsApiGql is a graphql implementation of Buckets API.
@@ -35,7 +35,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
                         offset,
                         pageCount,
                         currentPage,
-                        totalCount 
+                        totalCount
                     }
                 }
             }`;
@@ -50,10 +50,16 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
 
         const response = await this.query(query, variables);
 
-        return this.fromJson(response.data.project.bucketUsages);
+        return this.getBucketPage(response.data.project.bucketUsages);
     }
 
-    private fromJson(bucketPage): BucketPage {
-        return new BucketPage(bucketPage.bucketUsages, bucketPage.search, bucketPage.limit, bucketPage.offset, bucketPage.pageCount, bucketPage.currentPage, bucketPage.totalCount);
+    private getBucketPage(page: any): BucketPage {
+        if (!page) {
+            return new BucketPage();
+        }
+
+        const buckets: Bucket[] = page.bucketUsages.map(key => new Bucket(key.bucketName, key.storage, key.egress, key.objectCount, key.since, key.before));
+
+        return new BucketPage(buckets, page.search, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
 }

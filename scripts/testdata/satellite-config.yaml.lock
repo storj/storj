@@ -1,9 +1,6 @@
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
-# how frequently segments are audited
-# audit.interval: 30s
-
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
@@ -14,7 +11,7 @@
 # audit.min-bytes-per-second: 128 B
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 25s
+# audit.min-download-timeout: 5m0s
 
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
@@ -34,6 +31,9 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
+# override value for repair threshold
+# checker.repair-override: 0
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
@@ -43,14 +43,32 @@
 # secret used to sign auth tokens
 # console.auth-token-secret: ""
 
+# url link to contacts page
+# console.contact-info-url: https://forum.storj.io
+
 # external endpoint of the satellite if hosted
 # console.external-address: ""
+
+# url link to let us know page
+# console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
+
+# used to display at web satellite console
+# console.satellite-name: Storj
+
+# name of organization which set up satellite
+# console.satellite-operator: Storj Labs
+
+# used to communicate with web crawlers and other web robots
+# console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
 # path to static resources
 # console.static-dir: ""
 
-# stripe api key
-# console.stripe-key: ""
+# url link to terms and conditions page
+# console.terms-and-conditions-url: https://storj.io/storage-sla/
+
+# the public address of the node, useful for nodes behind NAT
+contact.external-address: ""
 
 # satellite database connection string
 # database: postgres://
@@ -73,18 +91,6 @@
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the interval at which the satellite attempts to find new nodes via random node ID lookups
-# discovery.discovery-interval: 1s
-
-# the amount of nodes refreshed in parallel
-# discovery.refresh-concurrency: 8
-
-# the interval at which the cache refreshes itself in seconds
-# discovery.refresh-interval: 1s
-
-# the amount of nodes read from the overlay in a single pagination call
-# discovery.refresh-limit: 100
-
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 
@@ -100,8 +106,29 @@
 # the time between each send of garbage collection filters to storage nodes
 # garbage-collection.interval: 120h0m0s
 
-# help for setup
-# help: false
+# size of the buffer used to batch inserts into the transfer queue.
+# graceful-exit.chore-batch-size: 500
+
+# how often to run the transfer queue chore.
+# graceful-exit.chore-interval: 30s
+
+# whether or not graceful exit is enabled on the satellite side.
+# graceful-exit.enabled: false
+
+# size of the buffer used to batch transfer queue reads and sends to the storage node.
+# graceful-exit.endpoint-batch-size: 100
+
+# maximum number of transfer failures per piece.
+# graceful-exit.max-failures-per-piece: 3
+
+# maximum inactive time frame of transfer activities per node.
+# graceful-exit.max-inactive-time-frame: 500h0m0s
+
+# maximum percentage of transfer failures per node.
+# graceful-exit.overall-max-failures-percentage: 10
+
+# the minimum duration for receiving a stream from a storage node before timing out
+# graceful-exit.recv-timeout: 10m0s
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
@@ -109,38 +136,8 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
-# alpha is a system wide concurrency parameter
-# kademlia.alpha: 5
-
-# the Kademlia node to bootstrap against
-# kademlia.bootstrap-addr: bootstrap.storj.io:8888
-
-# the base interval to wait when retrying bootstrap
-# kademlia.bootstrap-backoff-base: 1s
-
-# the maximum amount of time to wait when retrying bootstrap
-# kademlia.bootstrap-backoff-max: 30s
-
-# size of each Kademlia bucket
-# kademlia.bucket-size: 20
-
-# the path for storage node db services to be created on
-# kademlia.db-path: testdata/kademlia
-
-# the public address of the Kademlia node, useful for nodes behind NAT
-kademlia.external-address: ""
-
-# operator email address
-kademlia.operator.email: ""
-
-# operator wallet address
-kademlia.operator.wallet: ""
-
-# size of Kademlia replacement cache
-# kademlia.replacement-cache-size: 5
-
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: plainmemory
+# live-accounting.storage-backend: memory
 
 # if true, log function filename and line number
 # log.caller: false
@@ -205,6 +202,9 @@ kademlia.operator.wallet: ""
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
+# maximum time allowed to pass between creating and committing a segment
+# metainfo.max-commit-interval: 48h0m0s
+
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB
 
@@ -223,11 +223,14 @@ kademlia.operator.wallet: ""
 # maximum segment size
 # metainfo.rs.max-segment-size: 64.0 MiB
 
-# the largest amount of pieces to encode to. n.
-# metainfo.rs.max-threshold: 130
+# the largest amount of pieces to encode to. n (upper bound for validation).
+# metainfo.rs.max-total-threshold: 130
 
 # the minimum pieces required to recover a segment. k.
 # metainfo.rs.min-threshold: 29
+
+# the largest amount of pieces to encode to. n (lower bound for validation).
+# metainfo.rs.min-total-threshold: 95
 
 # the minimum safe pieces before a repair is triggered. m.
 # metainfo.rs.repair-threshold: 35
@@ -246,6 +249,9 @@ kademlia.operator.wallet: ""
 
 # application suffix
 # metrics.app-suffix: -release
+
+# the time between each metrics chore run
+# metrics.chore-interval: 15m0s
 
 # instance id prefix
 # metrics.instance-prefix: ""
@@ -296,7 +302,7 @@ kademlia.operator.wallet: ""
 # overlay.node.new-node-percentage: 0.05
 
 # the amount of time without seeing a node before its considered offline
-# overlay.node.online-window: 1h0m0s
+# overlay.node.online-window: 4h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
@@ -325,6 +331,27 @@ kademlia.operator.wallet: ""
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# payments provider to use
+# payments.provider: ""
+
+# amount of time we wait before running next account balance update loop
+# payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+
+# coinpayments API private key key
+# payments.stripe-coin-payments.coinpayments-private-key: ""
+
+# coinpayments API public key
+# payments.stripe-coin-payments.coinpayments-public-key: ""
+
+# stripe API secret key
+# payments.stripe-coin-payments.stripe-secret-key: ""
+
+# amount of time we wait before running next transaction update loop
+# payments.stripe-coin-payments.transaction-update-interval: 30m0s
+
+# time limit for downloading pieces from a node for repair
+# repairer.download-timeout: 5m0s
+
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 
@@ -338,7 +365,7 @@ kademlia.operator.wallet: ""
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 2h0m0s
+# repairer.timeout: 10m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false
@@ -386,4 +413,4 @@ server.private-address: 127.0.0.1:7778
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-# version.server-address: https://version.alpha.storj.io
+# version.server-address: https://version.storj.io

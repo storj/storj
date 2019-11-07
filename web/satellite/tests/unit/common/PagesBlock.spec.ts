@@ -27,8 +27,8 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(PagesBlock, {
             propsData: {
                 pages: pagesArray,
-                checkSelected: (i: number) => i === SELECTED_PAGE_INDEX
-            }
+                isSelected: (i: number) => i === SELECTED_PAGE_INDEX,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -47,8 +47,8 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(PagesBlock, {
             propsData: {
                 pages: pagesArray,
-                checkSelected: () => false
-            }
+                isSelected: () => false,
+            },
         });
 
         wrapper.findAll('span').at(1).trigger('click');

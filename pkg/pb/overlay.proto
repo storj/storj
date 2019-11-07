@@ -6,34 +6,8 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
-import "vouchers.proto";
 
 package overlay;
-
-service Nodes {
-    rpc Query(QueryRequest) returns (QueryResponse);
-    rpc Ping(PingRequest) returns (PingResponse);
-    rpc RequestInfo(InfoRequest) returns (InfoResponse);
-}
-
-message QueryRequest {
-    node.Node sender = 1;
-    node.Node target = 2;
-    int64 limit = 3;
-    bool pingback = 4;
-    repeated vouchers.Voucher vouchers = 5;
-}
-
-message QueryResponse {
-    node.Node sender = 1;
-    repeated node.Node response = 2;
-}
-
-message PingRequest {};
-message PingResponse {};
-
-// TODO: add fields that validate who is requesting the info
-message InfoRequest {}
 
 message InfoResponse {
     node.NodeType type = 2;

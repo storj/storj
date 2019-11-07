@@ -7,7 +7,7 @@
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
-Storj is building a decentralized cloud storage network. 
+Storj is building a decentralized cloud storage network.
 [Check out our white paper for more info!](https://storj.io/white-paper)
 
 ----
@@ -29,7 +29,7 @@ retrieve those files!
 
 All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along! Make sure to sign our [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) first. See our [license section](#license) for more details.
 
-Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team. 
+Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [forum](https://forum.storj.io) and join the [Engineering Discussions](https://forum.storj.io/c/engineer-amas) to say hi to the developer community and to talk to the Storj core team.
 
 Want to vote on or suggest new features? Post it on [ideas.storj.io](https://ideas.storj.io).
 
@@ -42,7 +42,7 @@ See the breakdown of what we're building by checking out the following resources
 
 ### Install required packages
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.12) at [golang.org](https://golang.org).
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.13) at [golang.org](https://golang.org).
 
 You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
 If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
@@ -81,7 +81,7 @@ go test -v ./...
 ```
 
 You can also execute only a single test package if you like. For example:
-`go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
+`go test ./pkg/identity`. Add `-v` for more informations about the executed unit
 tests.
 
 ### Push up a pull request
@@ -118,5 +118,5 @@ code under Apache v2, or other licenses in the future.
 # Support
 
 If you have any questions or suggestions please reach out to us on
-[Rocketchat](https://community.storj.io/) or
+[our community forum](https://forum.storj.io/) or
 email us at support@tardigrade.io.

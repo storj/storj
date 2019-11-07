@@ -52,7 +52,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 	if err != nil {
-		return nil, rewards.NoCurrentOfferErr.Wrap(err)
+		return nil, rewards.ErrOfferNotExist.Wrap(err)
 	}
 
 	var (
@@ -86,7 +86,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	}
 
 	if len(results) < 1 {
-		return results, rewards.NoCurrentOfferErr.New("offerType: %d", offerType)
+		return results, rewards.ErrOfferNotExist.New("offerType: %d", offerType)
 	}
 	return results, nil
 }
@@ -153,19 +153,12 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
 func (db *offersDB) Finish(ctx context.Context, oID int) error {
-	updateFields := dbx.Offer_Update_Fields{
-		Status:    dbx.Offer_Status(int(rewards.Done)),
-		ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
-	}
-
-	offerID := dbx.Offer_Id(oID)
-
-	_, err := db.db.Update_Offer_By_Id(ctx, offerID, updateFields)
-	if err != nil {
-		return offerErr.Wrap(err)
-	}
-
-	return nil
+	return offerErr.Wrap(
+		db.db.UpdateNoReturn_Offer_By_Id(ctx,
+			dbx.Offer_Id(oID), dbx.Offer_Update_Fields{
+				Status:    dbx.Offer_Status(int(rewards.Done)),
+				ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
+			}))
 }
 
 func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {

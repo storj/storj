@@ -6,18 +6,16 @@ package inspector
 import (
 	"context"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -35,31 +33,37 @@ var (
 type Endpoint struct {
 	log        *zap.Logger
 	pieceStore *pieces.Store
-	kademlia   *kademlia.Kademlia
+	contact    *contact.Service
+	pingStats  *contact.PingStats
 	usageDB    bandwidth.DB
 
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
 	dashboardAddress net.Addr
+	externalAddress  string
 }
 
 // NewEndpoint creates piecestore inspector instance
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
-	kademlia *kademlia.Kademlia,
+	contact *contact.Service,
+	pingStats *contact.PingStats,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
-	dashbaordAddress net.Addr) *Endpoint {
+	dashbaordAddress net.Addr,
+	externalAddress string) *Endpoint {
 
 	return &Endpoint{
 		log:              log,
 		pieceStore:       pieceStore,
-		kademlia:         kademlia,
+		contact:          contact,
+		pingStats:        pingStats,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
 		dashboardAddress: dashbaordAddress,
 		startTime:        time.Now(),
+		externalAddress:  externalAddress,
 	}
 }
 
@@ -94,14 +98,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	inspector.log.Debug("Getting Stats...")
-
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	inspector.log.Info("Successfully retrieved Stats...")
 
 	return statsSummary, nil
 }
@@ -114,26 +114,13 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		return &pb.DashboardResponse{}, Error.Wrap(err)
 	}
 
-	// TODO: querying all nodes is slow, find a more performant way to do this.
-	nodes, err := inspector.kademlia.FindNear(ctx, storj.NodeID{}, 10000000)
-	if err != nil {
-		return &pb.DashboardResponse{}, Error.Wrap(err)
-	}
-
-	bootstrapNodes := inspector.kademlia.GetBootstrapNodes()
-	bsNodes := make([]string, len(bootstrapNodes))
-	for i, node := range bootstrapNodes {
-		bsNodes[i] = node.Address.Address
-	}
+	lastPingedAt := inspector.pingStats.WhenLastPinged()
 
 	return &pb.DashboardResponse{
-		NodeId:           inspector.kademlia.Local().Id,
-		NodeConnections:  int64(len(nodes)),
-		BootstrapAddress: strings.Join(bsNodes, ", "),
+		NodeId:           inspector.contact.Local().Id,
 		InternalAddress:  "",
-		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		LastPinged:       inspector.kademlia.LastPinged(),
-		LastQueried:      inspector.kademlia.LastQueried(),
+		ExternalAddress:  inspector.contact.Local().Address.Address,
+		LastPinged:       lastPingedAt,
 		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,

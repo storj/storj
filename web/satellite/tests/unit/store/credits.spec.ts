@@ -45,7 +45,7 @@ describe('actions', () => {
         const credits = new CreditUsage(3, 4, 5);
 
         jest.spyOn(api, 'get').mockReturnValue(
-            Promise.resolve(credits)
+            Promise.resolve(credits),
         );
 
         await store.dispatch(FETCH);

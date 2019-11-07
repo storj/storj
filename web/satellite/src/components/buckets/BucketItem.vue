@@ -3,7 +3,7 @@
 
 <template>
     <div class="container">
-        <div class="container__item">{{ itemData.bucketName }}</div>
+        <div class="container__item">{{ name }}</div>
         <div class="container__item">{{ storage }}</div>
         <div class="container__item">{{ egress }}</div>
         <div class="container__item">{{ objectCount }}</div>
@@ -18,8 +18,12 @@ import { Bucket } from '@/types/buckets';
 // TODO: should it be functional?
 @Component
 export default class BucketItem extends Vue {
-    @Prop()
+    @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
     private readonly itemData: Bucket;
+
+    public get name(): string {
+        return this.itemData.formattedBucketName();
+    }
 
     public get storage(): string {
         return this.itemData.storage.toFixed(4);
@@ -28,7 +32,7 @@ export default class BucketItem extends Vue {
     public get egress(): string {
         return this.itemData.egress.toFixed(4);
     }
-    
+
     public get objectCount(): string {
         return this.itemData.objectCount.toString();
     }
@@ -37,7 +41,7 @@ export default class BucketItem extends Vue {
 
 <style scoped lang="scss">
     .container {
-        padding: 25px 0px;
+        padding: 25px 0;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
@@ -46,11 +50,11 @@ export default class BucketItem extends Vue {
         display: flex;
         background: #fff;
         margin-bottom: 1px;
-        
+
         &__item {
             width: 25%;
             padding-left: 26px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             margin: 0;
         }

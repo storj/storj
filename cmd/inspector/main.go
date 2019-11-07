@@ -12,19 +12,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -55,11 +53,7 @@ var (
 	// Commander CLI
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
-		Short: "CLI for interacting with Storj Kademlia network",
-	}
-	kadCmd = &cobra.Command{
-		Use:   "kad",
-		Short: "commands for kademlia/overlay",
+		Short: "CLI for interacting with Storj network",
 	}
 	statsCmd = &cobra.Command{
 		Use:   "statdb",
@@ -74,39 +68,6 @@ var (
 		Short: "list segments in irreparable database",
 		RunE:  getSegments,
 	}
-	countNodeCmd = &cobra.Command{
-		Use:   "count",
-		Short: "count nodes in kademlia and overlay",
-		RunE:  CountNodes,
-	}
-	pingNodeCmd = &cobra.Command{
-		Use:   "ping <node_id> <ip:port>",
-		Short: "ping node at provided ID",
-		Args:  cobra.MinimumNArgs(2),
-		RunE:  PingNode,
-	}
-	lookupNodeCmd = &cobra.Command{
-		Use:   "lookup <node_id>",
-		Short: "lookup a node by ID only",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  LookupNode,
-	}
-	nodeInfoCmd = &cobra.Command{
-		Use:   "node-info <node_id>",
-		Short: "get node info directly from node",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  NodeInfo,
-	}
-	dumpNodesCmd = &cobra.Command{
-		Use:   "dump-nodes",
-		Short: "dump all nodes in the routing table",
-		RunE:  DumpNodes,
-	}
-	drawTableCmd = &cobra.Command{
-		Use:   "routing-graph",
-		Short: "Dumps a graph of the routing table in the dot format",
-		RunE:  DrawTableAsGraph,
-	}
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
 		Short: "Get stats about an object's health",
@@ -119,18 +80,39 @@ var (
 		Args:  cobra.MinimumNArgs(4),
 		RunE:  SegmentHealth,
 	}
+	paymentsCmd = &cobra.Command{
+		Use:   "payments",
+		Short: "commands for payments",
+	}
+	prepareInvoiceRecordsCmd = &cobra.Command{
+		Use:   "prepare-invoice-records <period>",
+		Short: "Prepares invoice project records that will be used during invoice line items creation",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  prepareInvoiceRecords,
+	}
+	createInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-invoice-items",
+		Short: "Creates stripe invoice line items for not consumed project records",
+		RunE:  createInvoiceItems,
+	}
+	createInvoicesCmd = &cobra.Command{
+		Use:   "create-invoices",
+		Short: "Creates stripe invoices for all stripe customers known to satellite",
+		RunE:  createInvoices,
+	}
 )
 
-// Inspector gives access to kademlia and overlay.
+// Inspector gives access to overlay.
 type Inspector struct {
-	identity      *identity.FullIdentity
-	kadclient     pb.KadInspectorClient
-	overlayclient pb.OverlayInspectorClient
-	irrdbclient   pb.IrreparableInspectorClient
-	healthclient  pb.HealthInspectorClient
+	conn           *rpc.Conn
+	identity       *identity.FullIdentity
+	overlayclient  rpc.OverlayInspectorClient
+	irrdbclient    rpc.IrreparableInspectorClient
+	healthclient   rpc.HealthInspectorClient
+	paymentsClient rpc.PaymentsClient
 }
 
-// NewInspector creates a new gRPC inspector client for access to kademlia and overlay.
+// NewInspector creates a new gRPC inspector client for access to overlay.
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
@@ -142,166 +124,23 @@ func NewInspector(address, path string) (*Inspector, error) {
 		return nil, ErrIdentity.Wrap(err)
 	}
 
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
 	return &Inspector{
-		identity:      id,
-		kadclient:     pb.NewKadInspectorClient(conn),
-		overlayclient: pb.NewOverlayInspectorClient(conn),
-		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
-		healthclient:  pb.NewHealthInspectorClient(conn),
+		conn:           conn,
+		identity:       id,
+		overlayclient:  conn.OverlayInspectorClient(),
+		irrdbclient:    conn.IrreparableInspectorClient(),
+		healthclient:   conn.HealthInspectorClient(),
+		paymentsClient: conn.PaymentsClient(),
 	}, nil
 }
 
-// CountNodes returns the number of nodes in kademlia
-func CountNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Kademlia node count: %+v\n", kadcount.Count)
-	return nil
-}
-
-// LookupNode starts a Kademlia lookup for the provided Node ID
-func LookupNode(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(n))
-
-	return nil
-}
-
-// NodeInfo get node info directly from the node with provided Node ID
-func NodeInfo(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// first lookup the node to get its address
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	// now ask the node directly for its node info
-	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
-		Id:      n.GetNode().Id,
-		Address: n.GetNode().GetAddress(),
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(info))
-
-	return nil
-}
-
-// DrawTableAsGraph outputs the table routing as a graph
-func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-	// retrieve buckets
-	info, err := i.kadclient.GetBucketList(context.Background(), &pb.GetBucketListRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	err = routinggraph.Draw(os.Stdout, info)
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	return nil
-}
-
-// DumpNodes outputs a json list of every node in every bucket in the satellite
-func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
-		Start: storj.NodeID{},
-		Limit: 100000,
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(prettyPrint(nodes))
-
-	return nil
-}
-
-func prettyPrint(unformatted proto.Message) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
-	formatted, err := m.MarshalToString(unformatted)
-	if err != nil {
-		fmt.Println("Error", err)
-		os.Exit(1)
-	}
-	return formatted
-}
-
-// PingNode sends a PING RPC across the Kad network to check node availability
-func PingNode(cmd *cobra.Command, args []string) (err error) {
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	fmt.Printf("Pinging node %s at %s", args[0], args[1])
-
-	p, err := i.kadclient.PingNode(context.Background(), &pb.PingNodeRequest{
-		Id:      nodeID,
-		Address: args[1],
-	})
-
-	var okayString string
-	if p != nil && p.Ok {
-		okayString = "OK"
-	} else {
-		okayString = "Error"
-	}
-	fmt.Printf("\n -- Ping response: %s\n", okayString)
-	if err != nil {
-		fmt.Printf(" -- Error: %v\n", err)
-	}
-	return nil
-}
+// Close closes the inspector.
+func (i *Inspector) Close() error { return i.conn.Close() }
 
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
@@ -311,6 +150,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
 
 	startAfterSegment := int64(0) // start from first segment
 	endBeforeSegment := int64(0)  // No end, so we stop when we've hit limit or arrived at the last segment
@@ -390,6 +230,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
 
 	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
@@ -552,6 +393,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
 	var lastSeenSegmentPath = []byte{}
 
 	// query DB and paginate results
@@ -603,21 +446,103 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 	return objects
 }
 
+func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.PrepareInvoiceRecords(context.Background(),
+		&pb.PrepareInvoiceRecordsRequest{
+			Period: period,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice project records")
+	return nil
+}
+
+func createInvoiceItems(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.ApplyInvoiceRecords(context.Background(), &pb.ApplyInvoiceRecordsRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice line items")
+	return nil
+}
+
+func createInvoices(cmd *cobra.Command, args []string) error {
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.CreateInvoices(context.Background(), &pb.CreateInvoicesRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoices")
+	return nil
+}
+
+// parseDateString parses provided date string and returns corresponding time.Time.
+func parseDateString(s string) (time.Time, error) {
+	values := strings.Split(s, "/")
+
+	if len(values) != 2 {
+		return time.Time{}, errs.New("invalid date format %s, use mm/yyyy", s)
+	}
+
+	month, err := strconv.ParseInt(values[0], 10, 64)
+	if err != nil {
+		return time.Time{}, errs.New("can not parse month: %v", err)
+	}
+	year, err := strconv.ParseInt(values[1], 10, 64)
+	if err != nil {
+		return time.Time{}, errs.New("can not parse year: %v", err)
+	}
+
+	date := time.Date(int(year), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	if date.Year() != int(year) || date.Month() != time.Month(month) || date.Day() != 1 {
+		return date, errs.New("dates mismatch have %s result %s", s, date)
+	}
+
+	return date, nil
+}
+
 func init() {
-	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
-
-	kadCmd.AddCommand(countNodeCmd)
-	kadCmd.AddCommand(pingNodeCmd)
-	kadCmd.AddCommand(lookupNodeCmd)
-	kadCmd.AddCommand(nodeInfoCmd)
-	kadCmd.AddCommand(dumpNodesCmd)
-	kadCmd.AddCommand(drawTableCmd)
+	rootCmd.AddCommand(paymentsCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
+
+	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
+	paymentsCmd.AddCommand(createInvoiceItemsCmd)
+	paymentsCmd.AddCommand(createInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
 

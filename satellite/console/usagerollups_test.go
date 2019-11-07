@@ -100,14 +100,10 @@ func TestUsageRollups(t *testing.T) {
 
 				tally1 := &accounting.BucketTally{
 					BucketName:     []byte(bucket),
-					ProjectID:      project1[:],
-					Segments:       value1,
+					ProjectID:      project1,
+					ObjectCount:    value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
-					Files:          value1,
-					InlineFiles:    value1,
-					RemoteFiles:    value1,
-					Bytes:          value1,
 					InlineBytes:    value1,
 					RemoteBytes:    value1,
 					MetadataSize:   value1,
@@ -115,14 +111,10 @@ func TestUsageRollups(t *testing.T) {
 
 				tally2 := &accounting.BucketTally{
 					BucketName:     []byte(bucket),
-					ProjectID:      project2[:],
-					Segments:       value2,
+					ProjectID:      project2,
+					ObjectCount:    value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,
-					Files:          value2,
-					InlineFiles:    value2,
-					RemoteFiles:    value2,
-					Bytes:          value2,
 					InlineBytes:    value2,
 					RemoteBytes:    value2,
 					MetadataSize:   value2,
@@ -132,9 +124,8 @@ func TestUsageRollups(t *testing.T) {
 				bucketTallies[bucketID2] = tally2
 			}
 
-			tallies, err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
+			err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
 			require.NoError(t, err)
-			require.Equal(t, len(tallies), len(buckets)*2)
 		}
 
 		usageRollups := db.Console().UsageRollups()

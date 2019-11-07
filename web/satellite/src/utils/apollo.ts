@@ -23,12 +23,12 @@ const authLink = setContext((_, {headers}) => {
         headers: {
             ...headers,
             authorization: token ? `Bearer ${token}` : '',
-        }
+        },
     };
 });
 
 // Creating apollo client
-export default new ApolloClient({
+export const apollo = new ApolloClient({
     link: authLink.concat(satelliteUrl),
     cache: new InMemoryCache(),
     connectToDevTools: true,

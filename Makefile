@@ -1,6 +1,7 @@
-GO_VERSION ?= 1.13.0
+GO_VERSION ?= 1.13.4
 GOOS ?= linux
 GOARCH ?= amd64
+GOPATH ?= $(shell go env GOPATH)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},master)
@@ -45,7 +46,9 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.18.0
+	go get github.com/go-bindata/go-bindata/go-bindata
+	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -85,7 +88,14 @@ build-npm:
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/versioncontrol storj.io/storj/cmd/bootstrap storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
+	@go install -race -v -tags=grpc storj.io/storj/cmd/storj-sim
+	@go install -race -v -tags=grpc storj.io/storj/cmd/versioncontrol
+	@go install -race -v -tags=grpc storj.io/storj/cmd/satellite
+	@go install -race -v -tags=grpc storj.io/storj/cmd/storagenode
+	@go install -race -v storj.io/storj/cmd/uplink
+	@go install -race -v storj.io/storj/cmd/gateway
+	@go install -race -v -tags=grpc storj.io/storj/cmd/identity
+	@go install -race -v -tags=grpc storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -109,6 +119,10 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
+.PHONY: test-libuplink-gomobile
+test-libuplink-gomobile: ## Run gomobile tests
+	@./lib/uplink-gomobile/test-sim.sh
+
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
@@ -131,22 +145,37 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@echo "Running ${@}"
 	@./scripts/test-sim-backwards.sh
 
+.PHONY: check-monitoring
+check-monitoring: ## Check for locked monkit calls that have changed
+	@echo "Running ${@}"
+	@go run ./scripts/check-monitoring.go | diff -U0 ./monkit.lock - \
+	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go generate ./scripts/check-monitoring.go\` to update monkit.lock file." \
+	&& exit 1)
+
 ##@ Build
 
+.PHONY: storagenode-console
+storagenode-console:
+	# build web assets
+	rm -rf web/storagenode/dist
+	# install npm dependencies and build the binaries
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/web/storagenode \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
+		node:10.15.1 \
+	  /bin/bash -c "npm ci && npm run build"
+	# embed web assets into go
+	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
+	# configure existing go code to know about the new assets
+	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
+	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
+
 .PHONY: images
-images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images
+images: gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build gateway, satellite, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
-.PHONY: bootstrap-image
-bootstrap-image: bootstrap_linux_arm bootstrap_linux_arm64 bootstrap_linux_amd64 ## Build bootstrap Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-amd64 \
-		-f cmd/bootstrap/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/bootstrap/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
-		-f cmd/bootstrap/Dockerfile .
 .PHONY: gateway-image
 gateway-image: gateway_linux_arm gateway_linux_arm64 gateway_linux_amd64 ## Build gateway Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 \
@@ -207,70 +236,87 @@ binary:
 	mkdir -p /tmp/go-cache /tmp/go-pkg
 	rm -f cmd/${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
-	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
+	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-build 9 -ver-build 9 \
-	-product-version "alpha9" \
+	-product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+	        -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+	-product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+	        -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+	-product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
+	        -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
+	-product-version "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" || echo "dev" )" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
-	scripts/release.sh build -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
+	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
 
-.PHONY: bootstrap_%
-bootstrap_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=bootstrap $(MAKE) binary
-	$(MAKE) binary-check COMPONENT=bootstrap GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: gateway_%
-gateway_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=gateway $(MAKE) binary
-	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: satellite_%
-satellite_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
-	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: storagenode_%
-storagenode_%:
-	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: binary-check
 binary-check:
-	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} ]; then echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; else $(MAKE) binary; fi
-.PHONY: uplink_%
-uplink_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
-	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: identity_%
-identity_%:
-	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	@if [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} ] || [ -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.exe ]; \
+	then \
+		echo "release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH} exists"; \
+	else \
+		echo "Making ${COMPONENT}"; \
+		$(MAKE) binary; \
+	fi
+
 .PHONY: certificates_%
 certificates_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=certificates $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
+.PHONY: gateway_%
+gateway_%:
+	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: identity_%
+identity_%:
+	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: inspector_%
 inspector_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=inspector $(MAKE) binary
-.PHONY: versioncontrol_%
-versioncontrol_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=versioncontrol $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 .PHONY: linksharing_%
 linksharing_%:
-	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=linksharing $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=linksharing GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: satellite_%
+satellite_%:
+	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
+.PHONY: storagenode_%
+storagenode_%: storagenode-console
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
+.PHONY: storagenode-updater_%
+storagenode-updater_%:
+	$(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
+.PHONY: uplink_%
+uplink_%:
+	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: versioncontrol_%
+versioncontrol_%:
+	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@)) EXTRA_ARGS=-tags=grpc
 
-COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64
+
+COMPONENTLIST := certificates gateway identity inspector linksharing satellite storagenode storagenode-updater uplink versioncontrol
+OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+
+.PHONY: sign-windows-installer
+sign-windows-installer:
+	storj-sign release/${TAG}/storagenode_windows_amd64.msi
 
 .PHONY: libuplink
 libuplink:
 	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
 	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
+
+.PHONY: libuplink-gomobile
+libuplink-gomobile:
+	@./lib/uplink-gomobile/build.sh
 
 ##@ Deploy
 
@@ -285,7 +331,7 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
-	for c in bootstrap gateway satellite storagenode uplink versioncontrol ; do \
+	for c in gateway satellite storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
@@ -317,7 +363,6 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-	-docker rmi storjlabs/bootstrap:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
@@ -345,7 +390,7 @@ diagrams-graphml:
 update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
-		-v $(shell pwd):/storj \
+		-v ${CURDIR}:/storj \
 		-v $(shell go env GOCACHE):/go-cache \
 		-e "GOCACHE=/go-cache" \
 		-u root:root \

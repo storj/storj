@@ -8,16 +8,19 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import { AuthApi } from '@/api/auth';
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import LogoIcon from '@/../static/images/Logo.svg';
+
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import EVENTS from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
     components: {
         HeaderlessInput,
+        AuthIcon,
+        LogoIcon,
     },
 })
 export default class ForgotPassword extends Vue {
@@ -25,7 +28,7 @@ export default class ForgotPassword extends Vue {
     private email: string = '';
     private emailError: string = '';
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public setEmail(value: string): void {
         this.email = value;
@@ -41,19 +44,17 @@ export default class ForgotPassword extends Vue {
 
         try {
             await this.auth.forgotPassword(this.email);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
+            await this.$notify.success('Please look for instructions at your email');
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
         }
     }
 
     public onBackToLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
 

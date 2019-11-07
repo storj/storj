@@ -74,7 +74,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, deletedEncPath)
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
@@ -117,7 +117,7 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
+func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.SatelliteSystem, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
 	projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 	require.NoError(t, err)
 	require.Len(t, projects, 1)

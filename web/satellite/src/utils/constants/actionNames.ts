@@ -19,6 +19,8 @@ export const APP_STATE_ACTIONS = {
     CLOSE_DELETE_PAYMENT_METHOD_POPUP: 'closeDeletePaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
+    TOGGLE_PAYMENT_SELECTION: 'TOGGLE_PAYMENT_SELECTION',
+    SET_SATELLITE_NAME: 'SET_SATELLITE_NAME',
 };
 
 export const NOTIFICATION_ACTIONS = {
@@ -42,22 +44,17 @@ export const PM_ACTIONS = {
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
     SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
-    CLEAR_OFFSET: 'clearProjectMembersOffset'
+    CLEAR_OFFSET: 'clearProjectMembersOffset',
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'setAPIKeys',
-    CREATE: 'createAPIKey',
-    DELETE: 'deleteAPIKey',
-    CLEAR: 'clearAPIKeys',
-    TOGGLE_SELECTION: 'toggleAPIKeySelection',
-    CLEAR_SELECTION: 'clearAPIKeySelection'
-};
-
-export const PROJECT_PAYMENT_METHODS_ACTIONS = {
-    ADD: 'addProjectPaymentMethod',
-    FETCH: 'fetchProjectPaymentMethods',
-    CLEAR: 'clearProjectPaymentMethods',
-    SET_DEFAULT: 'setDefaultPaymentMethod',
-    DELETE: 'deletePaymentMethod'
+    FETCH: 'fetchApiKeys',
+    CREATE: 'createApiKey',
+    DELETE: 'deleteApiKey',
+    CLEAR: 'clearApiKeys',
+    SET_SEARCH_QUERY: 'setApiKeysSearchQuery',
+    SET_SORT_BY: 'setApiKeysSortingBy',
+    SET_SORT_DIRECTION: 'setApiKeysSortingDirection',
+    TOGGLE_SELECTION: 'toggleApiKeySelection',
+    CLEAR_SELECTION: 'clearApiKeySelection',
 };

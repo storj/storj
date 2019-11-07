@@ -5,10 +5,9 @@ import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
-import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/BillingHistory.vue';
-import Profile from '@/components/account/Profile.vue';
+import ProfileArea from '@/components/account/ProfileArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -17,15 +16,19 @@ import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
+import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import Dashboard from '@/views/Dashboard.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Login from '@/views/login/Login.vue';
-import Register from '@/views/register/Register.vue';
+const DashboardArea = () => import('@/views/DashboardArea.vue');
+const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const LoginArea = () => import('@/views/login/LoginArea.vue');
+const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 
 Vue.use(Router);
 
+/**
+ * RouteConfig contains information about all routes and subroutes
+ */
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
@@ -41,7 +44,6 @@ export abstract class RouteConfig {
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
     public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
-    public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
@@ -50,30 +52,38 @@ export abstract class RouteConfig {
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
-const router = new Router({
+export const notProjectRelatedRoutes = [
+    RouteConfig.Login.name,
+    RouteConfig.Register.name,
+    RouteConfig.Billing.name,
+    RouteConfig.BillingHistory.name,
+    RouteConfig.Profile.name,
+];
+
+export const router = new Router({
     mode: 'history',
     routes: [
         {
             path: RouteConfig.Login.path,
             name: RouteConfig.Login.name,
-            component: Login
+            component: LoginArea,
         },
         {
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
-            component: Register
+            component: RegisterArea,
         },
         {
             path: RouteConfig.ForgotPassword.path,
             name: RouteConfig.ForgotPassword.name,
-            component: ForgotPassword
+            component: ForgotPassword,
         },
         {
             path: RouteConfig.Root.path,
             meta: {
-                requiresAuth: true
+                requiresAuth: true,
             },
-            component: Dashboard,
+            component: DashboardArea,
             children: [
                 {
                     path: RouteConfig.Account.path,
@@ -83,7 +93,7 @@ const router = new Router({
                         {
                             path: RouteConfig.Profile.path,
                             name: RouteConfig.Profile.name,
-                            component: Profile,
+                            component: ProfileArea,
                         },
                         {
                             path: RouteConfig.Billing.path,
@@ -91,16 +101,11 @@ const router = new Router({
                             component: AccountBilling,
                         },
                         {
-                            path: RouteConfig.PaymentMethods.path,
-                            name: RouteConfig.PaymentMethods.name,
-                            component: AccountPaymentMethods,
-                        },
-                        {
                             path: RouteConfig.BillingHistory.path,
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.ProjectOverview.path,
@@ -115,38 +120,38 @@ const router = new Router({
                         {
                             path: RouteConfig.ProjectDetails.path,
                             name: RouteConfig.ProjectDetails.name,
-                            component: ProjectDetails
+                            component: ProjectDetails,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: ProjectOverviewArea
+                    component: ProjectOverviewArea,
                 },
                 {
                     path: RouteConfig.Team.path,
                     name: RouteConfig.Team.name,
-                    component: ProjectMembersArea
+                    component: ProjectMembersArea,
                 },
                 {
                     path: RouteConfig.ApiKeys.path,
                     name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea
+                    component: ApiKeysArea,
                 },
                 {
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
-                    component: BucketArea
+                    component: BucketArea,
                 },
-            ]
+            ],
         },
         {
             path: '*',
             name: '404',
-            component: Page404
+            component: Page404,
         },
-    ]
+    ],
 });
 
 router.beforeEach((to, from, next) => {
@@ -158,13 +163,13 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.Account, RouteConfig.Profile)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Profile).path);
 
         return;
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview, RouteConfig.ProjectDetails)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectOverview)) {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
         return;
@@ -172,9 +177,28 @@ router.beforeEach((to, from, next) => {
 
     if (to.name === 'default') {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+        return;
     }
 
     next();
+});
+
+router.afterEach(({name}, from) => {
+    if (!name) {
+        return;
+    }
+
+    if (notProjectRelatedRoutes.includes(name)) {
+        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+
+        return;
+    }
+
+    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
+
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
 });
 
 /**
@@ -183,10 +207,7 @@ router.beforeEach((to, from, next) => {
  * @param routes - array of RouteRecord from vue-router
  * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
- * @param subTabRoute - default sub route of the tabNavigator
  */
-function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
-
-export default router;

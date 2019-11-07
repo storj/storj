@@ -3,54 +3,105 @@
 
 <template>
     <div class="api-keys-area">
-        <h1>API Keys</h1>
+        <h1 class="api-keys-area__title">API Keys</h1>
         <div class="api-keys-area__container">
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
                 @showCopyPopup="showCopyApiKeyPopup"
-                :isPopupShown="isNewApiKeyPopupShown"/>
+                :is-popup-shown="isNewApiKeyPopupShown"
+            />
             <ApiKeysCopyPopup
-                :isPopupShown="isCopyApiKeyPopupShown"
-                :apiKeySecret="apiKeySecret"
-                @closePopup="closeCopyNewApiKeyPopup"/>
-            <div v-if="!isEmpty" class="api-keys-header">
-                <HeaderComponent ref="headerComponent" placeHolder="API Key">
-                    <div class="header-default-state" v-if="headerState === 0">
-                        <Button class="button" label="+Create API Key" width="180px" height="48px" :onPress="onCreateApiKeyClick"/>
+                :is-popup-shown="isCopyApiKeyPopupShown"
+                :api-key-secret="apiKeySecret"
+                @closePopup="closeCopyNewApiKeyPopup"
+            />
+            <div v-if="isHeaderShown" class="api-keys-header">
+                <VHeader
+                    ref="headerComponent"
+                    placeholder="API Key"
+                    :search="onSearchQueryCallback">
+                    <div class="header-default-state" v-if="isDefaultHeaderState">
+                        <VButton
+                            class="button"
+                            label="+Create API Key"
+                            width="180px"
+                            height="48px"
+                            :on-press="onCreateApiKeyClick"
+                        />
                     </div>
-                    <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
-                        <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
-                        <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                    <div class="header-selected-api-keys" v-if="areApiKeysSelected">
+                        <VButton
+                            class="button deletion"
+                            label="Delete"
+                            width="122px"
+                            height="48px"
+                            :on-press="onFirstDeleteClick"
+                        />
+                        <VButton
+                            class="button"
+                            label="Cancel"
+                            width="122px"
+                            height="48px"
+                            is-white="true"
+                            :on-press="onClearSelection"
+                        />
+                        <span class="header-selected-api-keys__info-text"><b>{{selectedAPIKeysCount}}</b> API Keys selected</span>
                     </div>
-                    <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
+                    <div class="header-after-delete-click" v-if="areSelectedApiKeysBeingDeleted">
+                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete <b>{{selectedAPIKeysCount}}</b> {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
-                            <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
-                            <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                            <VButton
+                                class="button deletion"
+                                label="Delete"
+                                width="122px"
+                                height="48px"
+                                :on-press="onDelete"
+                            />
+                            <VButton
+                                class="button"
+                                label="Cancel"
+                                width="122px"
+                                height="48px"
+                                is-white="true"
+                                :on-press="onClearSelection"
+                            />
                         </div>
                     </div>
-                </HeaderComponent>
+                </VHeader>
                 <div class="blur-content" v-if="isDeleteClicked"></div>
                 <div class="blur-search" v-if="isDeleteClicked"></div>
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
-                <SortingHeader/>
+                <SortingHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
                 <div class="api-keys-items__content">
-                    <List
-                        :dataSet="apiKeyList"
-                        :itemComponent="itemComponent"
-                        :onItemClick="toggleSelection"/>
+                    <VList
+                        :data-set="apiKeyList"
+                        :item-component="itemComponent"
+                        :on-item-click="toggleSelection"
+                    />
                 </div>
-                <p>Want to give limited access? <b>Use API Keys.</b></p>
+                <VPagination
+                    v-if="totalPageCount > 1"
+                    class="pagination-area"
+                    ref="pagination"
+                    :total-page-count="totalPageCount"
+                    :on-page-click-callback="onPageClick"
+                />
+                <p class="api-keys-items__additional-info">Want to give limited access? <b>Use API Keys.</b></p>
+            </div>
+            <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
+                <h1 class="empty-search-result-area__title">No results found</h1>
+                <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
             <EmptyState
-                :onButtonClick="onCreateApiKeyClick"
-                v-if="isEmpty && !isNewApiKeyPopupShown"
-                mainTitle="Let's create your first API Key"
+                :on-button-click="onCreateApiKeyClick"
+                v-if="isEmptyStateShown"
+                main-title="Let's create your first API Key"
                 additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
-                :imageSource="emptyImage"
-                buttonLabel="Create an API Key"
-                isButtonShown="true" />
+                :image-source="emptyImage"
+                button-label="Create an API Key"
+                is-button-shown="true"
+            />
         </div>
     </div>
 </template>
@@ -61,13 +112,17 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
-import Button from '@/components/common/Button.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderComponent from '@/components/common/HeaderComponent.vue';
-import List from '@/components/common/List.vue';
+import VButton from '@/components/common/VButton.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 
-import { ApiKey } from '@/types/apiKeys';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
+
+import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
+import { SortDirection } from '@/types/common';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
@@ -85,34 +140,54 @@ const {
     FETCH,
     DELETE,
     TOGGLE_SELECTION,
+    CLEAR,
     CLEAR_SELECTION,
+    SET_SEARCH_QUERY,
+    SET_SORT_BY,
+    SET_SORT_DIRECTION,
 } = API_KEYS_ACTIONS;
+
+declare interface ResetPagination {
+    resetPageIndex(): void;
+}
 
 @Component({
     components: {
-        List,
+        VList,
         EmptyState,
-        HeaderComponent,
+        VHeader,
         ApiKeysItem,
-        Button,
+        VButton,
         ApiKeysCreationPopup,
         ApiKeysCopyPopup,
+        VPagination,
         SortingHeader,
+        EmptySearchResultIcon,
     },
 })
 export default class ApiKeysArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+    private FIRST_PAGE = 1;
     private isDeleteClicked: boolean = false;
     private isNewApiKeyPopupShown: boolean = false;
     private isCopyApiKeyPopupShown: boolean = false;
     private apiKeySecret: string = '';
 
-    public mounted(): void {
-        this.$store.dispatch(FETCH);
+    public $refs!: {
+        pagination: HTMLElement & ResetPagination;
+    };
+
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
     }
 
-    public toggleSelection(apiKey: ApiKey): void {
-        this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
+    public async beforeDestroy(): Promise<void> {
+        this.onClearSelection();
+        await this.$store.dispatch(SET_SEARCH_QUERY, '');
+    }
+
+    public async toggleSelection(apiKey: ApiKey): Promise<void> {
+        await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
 
     public onCreateApiKeyClick(): void {
@@ -128,31 +203,38 @@ export default class ApiKeysArea extends Vue {
         this.isDeleteClicked = false;
     }
 
-    public closeNewApiKeyPopup() {
+    public closeNewApiKeyPopup(): void {
         this.isNewApiKeyPopupShown = false;
     }
 
-    public showCopyApiKeyPopup(secret: string) {
+    public showCopyApiKeyPopup(secret: string): void {
         this.isCopyApiKeyPopupShown = true;
         this.apiKeySecret = secret;
     }
 
-    public closeCopyNewApiKeyPopup() {
+    public closeCopyNewApiKeyPopup(): void {
         this.isCopyApiKeyPopupShown = false;
     }
 
     public async onDelete(): Promise<void> {
-        const selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => key.id);
-        const keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+        try {
+            await this.$store.dispatch(DELETE);
+            await this.$notify.success(`API keys deleted successfully`);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
 
         try {
-            await this.$store.dispatch(DELETE, selectedKeys);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.notifyFetchError(error);
         }
 
         this.isDeleteClicked = false;
+
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 
     public get itemComponent() {
@@ -161,6 +243,10 @@ export default class ApiKeysArea extends Vue {
 
     public get apiKeyList(): ApiKey[] {
         return this.$store.getters.apiKeys;
+    }
+
+    public get totalPageCount(): number {
+        return this.$store.state.apiKeysModule.page.pageCount;
     }
 
     public get apiKeyCountTitle(): string {
@@ -175,12 +261,12 @@ export default class ApiKeysArea extends Vue {
         return this.$store.getters.apiKeys.length === 0;
     }
 
-    public get isSelected(): boolean {
-        return this.$store.getters.selectedAPIKeys.length > 0;
+    public get hasSearchQuery(): boolean {
+        return this.$store.state.apiKeysModule.cursor.search;
     }
 
     public get selectedAPIKeysCount(): number {
-        return this.$store.getters.selectedAPIKeys.length;
+        return this.$store.state.apiKeysModule.selectedApiKeysIds.length;
     }
 
     public get headerState(): number {
@@ -190,6 +276,69 @@ export default class ApiKeysArea extends Vue {
 
         return HeaderState.DEFAULT;
     }
+
+    public get isHeaderShown(): boolean {
+        return !this.isEmpty || this.hasSearchQuery;
+    }
+
+    public get isDefaultHeaderState(): boolean {
+        return this.headerState === 0;
+    }
+
+    public get areApiKeysSelected(): boolean {
+        return this.headerState === 1 && !this.isDeleteClicked;
+    }
+
+    public get areSelectedApiKeysBeingDeleted(): boolean {
+        return this.headerState === 1 && this.isDeleteClicked;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return this.isEmpty && this.hasSearchQuery;
+    }
+
+    public get isEmptyStateShown(): boolean {
+        return this.isEmpty && !this.isNewApiKeyPopupShown && !this.hasSearchQuery;
+    }
+
+    public async onPageClick(index: number): Promise<void> {
+        try {
+            await this.$store.dispatch(FETCH, index);
+        } catch (error) {
+            await this.notifyFetchError(error);
+        }
+    }
+
+    public async onHeaderSectionClickCallback(sortBy: ApiKeyOrderBy, sortDirection: SortDirection): Promise<void> {
+        await this.$store.dispatch(SET_SORT_BY, sortBy);
+        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
+        try {
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.notifyFetchError(error);
+        }
+
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
+    }
+
+    public async onSearchQueryCallback(query: string): Promise<void> {
+        await this.$store.dispatch(SET_SEARCH_QUERY, query);
+        try {
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.notifyFetchError(error);
+        }
+
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
+    }
+
+    public async notifyFetchError(error: Error): Promise<void> {
+        await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
+    }
 }
 </script>
 
@@ -198,12 +347,14 @@ export default class ApiKeysArea extends Vue {
         position: relative;
         padding: 40px 65px 55px 64px;
         height: 85vh;
+        font-family: 'font_regular', sans-serif;
 
-        h1 {
-            font-family: 'font_bold';
+        &__title {
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
             margin: 0;
+            user-select: none;
         }
 
         .api-keys-header {
@@ -214,7 +365,7 @@ export default class ApiKeysArea extends Vue {
                 position: absolute;
                 top: 100%;
                 left: 0;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
                 width: 100%;
                 height: 70vh;
                 z-index: 100;
@@ -229,7 +380,7 @@ export default class ApiKeysArea extends Vue {
                 height: 56px;
                 z-index: 100;
                 opacity: 0.3;
-                background-color: #F5F6FA;
+                background-color: #f5f6fa;
             }
         }
 
@@ -246,38 +397,50 @@ export default class ApiKeysArea extends Vue {
                 height: 49.4vh;
             }
 
-            p {
-                font-family: 'font_regular';
+            &__additional-info {
                 font-size: 16px;
-                color: #AFB7C1;
+                color: #afb7c1;
             }
         }
+    }
+
+    .empty-search-result-area {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            margin-top: 104px;
+        }
+
+        &__image {
+            margin-top: 40px;
+        }
+    }
+
+    .pagination-area {
+        margin-left: -25px;
     }
 
     .header-default-state,
     .header-selected-api-keys {
         display: flex;
         align-items: center;
-        position: relative;
 
-        .button {
-            position: absolute;
-            top: -6px;
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
         }
     }
 
     .header-selected-api-keys {
 
-        .button {
-            position: absolute;
-            top: -7px;
-            left: 134px;
-        }
-
         .deletion {
-            position: absolute;
-            top: -6px;
-            left: 0
+            margin-right: 12px;
         }
     }
 
@@ -286,8 +449,8 @@ export default class ApiKeysArea extends Vue {
         flex-direction: column;
         margin-top: 2px;
 
-        span {
-            font-family: 'font_medium';
+        &__confirmation-label {
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 28px;
         }
@@ -307,23 +470,16 @@ export default class ApiKeysArea extends Vue {
     }
 
     .container.deletion {
-        background-color: #FF4F4D;
+        background-color: #ff4f4d;
 
         &.label {
-            color: #FFFFFF;
+            color: #fff;
         }
 
         &:hover {
-            background-color: #DE3E3D;
+            background-color: #de3e3d;
             box-shadow: none;
         }
-    }
-
-    h2 {
-        font-family: 'font_bold';
-        font-size: 24px;
-        line-height: 29px;
-        margin-bottom: 26px;
     }
 
     ::-webkit-scrollbar,
@@ -332,7 +488,15 @@ export default class ApiKeysArea extends Vue {
         width: 0;
     }
 
+    @media screen and (max-width: 1024px) {
+
+        .api-keys-area {
+            padding: 40px 40px 55px 40px;
+        }
+    }
+
     @media screen and (max-height: 800px) {
+
         .api-keys-items {
 
             &__content {

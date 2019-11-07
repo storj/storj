@@ -4,6 +4,7 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+echo "Running test-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
 # setup tmpdir for testfiles and cleanup
@@ -25,6 +26,9 @@ if [ -z ${STORJ_SIM_POSTGRES} ]; then
 else
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
+
+# set the segment size lower to make test run faster
+echo client.segment-size: "6 MiB" >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
 
 # run aws-cli tests
 storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-sim-aws.sh

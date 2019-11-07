@@ -3,7 +3,7 @@
 
 import gql from 'graphql-tag';
 
-import apollo from '@/utils/apollo';
+import { apollo } from '@/utils/apollo';
 
 /**
  * BaseGql is a graphql utility which allows to perform queries and mutations
@@ -23,7 +23,7 @@ export class BaseGql {
                 variables,
                 fetchPolicy: 'no-cache',
                 errorPolicy: 'all',
-            }
+            },
         );
 
         if (response.errors) {
@@ -47,7 +47,7 @@ export class BaseGql {
                 variables,
                 fetchPolicy: 'no-cache',
                 errorPolicy: 'all',
-            }
+            },
         );
 
         if (response.errors) {

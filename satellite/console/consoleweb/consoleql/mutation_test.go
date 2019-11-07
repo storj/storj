@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -50,12 +50,26 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		log := zaptest.NewLogger(t)
 
+		partnersService := rewards.NewPartnersService(
+			log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		paymentsConfig := stripecoinpayments.Config{}
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects())
+
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.Rewards(),
-			localpayments.NewService(nil),
+			partnersService,
+			payments.Accounts(),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)
@@ -68,18 +82,19 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 		rootObject[consoleql.SignInPath] = "login"
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John Roll",
-				ShortName: "Roll",
-				Email:     "test@mail.test",
-				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
-			},
-			Password: "123a123",
+			FullName:  "John Roll",
+			ShortName: "Roll",
+			Email:     "test@mail.test",
+			PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+			Password:  "123a123",
 		}
 		refUserID := ""
 
@@ -120,13 +135,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Create user mutation with partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Green Mickey",
-					ShortName: "Green",
-					Email:     "u1@mail.test",
-					PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
-				},
-				Password: "123a123",
+				FullName:  "Green Mickey",
+				ShortName: "Green",
+				Email:     "u1@mail.test",
+				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+				Password:  "123a123",
 			}
 
 			require.NoError(t, err)
@@ -148,7 +161,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				if rewards.NoMatchPartnerIDErr.Has(err) {
+				if rewards.ErrPartnerNotExist.Has(err) {
 					assert.Error(t, err)
 				}
 				assert.NoError(t, err)
@@ -172,13 +185,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Create user mutation without partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Red Mickey",
-					ShortName: "Red",
-					Email:     "u2@mail.test",
-					PartnerID: "",
-				},
-				Password: "123a123",
+				FullName:  "Red Mickey",
+				ShortName: "Red",
+				Email:     "u2@mail.test",
+				PartnerID: "",
+				Password:  "123a123",
 			}
 
 			require.NoError(t, err)
@@ -200,7 +211,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				if rewards.NoMatchPartnerIDErr.Has(err) {
+				if rewards.ErrPartnerNotExist.Has(err) {
 					assert.Error(t, err)
 				}
 				assert.NoError(t, err)
@@ -236,24 +247,6 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			return result.Data
 		}
-
-		t.Run("Update account mutation email only", func(t *testing.T) {
-			email := "new@mail.test"
-			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				email,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
-			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
-		})
 
 		t.Run("Update account mutation fullName only", func(t *testing.T) {
 			fullName := "George"
@@ -292,13 +285,11 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		t.Run("Update account mutation all info", func(t *testing.T) {
-			email := "test@newmail.com"
 			fullName := "Fill Goal"
 			shortName := "Goal"
 
 			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\",fullName:\"%s\",shortName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				email,
+				"mutation {updateAccount(input:{,fullName:\"%s\",shortName:\"%s\"}){id,fullName,shortName,createdAt}}",
 				fullName,
 				shortName,
 			)
@@ -309,7 +300,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
 
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, email, user[consoleql.FieldEmail])
 			assert.Equal(t, fullName, user[consoleql.FieldFullName])
 			assert.Equal(t, shortName, user[consoleql.FieldShortName])
 
@@ -415,10 +405,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u1@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u1@mail.test",
 			Password: "123a123",
 		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
@@ -441,10 +429,8 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u2@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u2@mail.test",
 			Password: "123a123",
 		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)

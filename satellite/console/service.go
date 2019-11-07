@@ -6,15 +6,13 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -47,6 +45,7 @@ const (
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
+	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -58,22 +57,31 @@ const (
 // ErrConsoleInternal describes internal console error
 var ErrConsoleInternal = errs.Class("internal error")
 
+// ErrNoMembership is error type of not belonging to a specific project
+var ErrNoMembership = errs.Class("no membership error")
+
 // Service is handling accounts related logic
 //
 // architecture: Service
 type Service struct {
 	Signer
 
-	log     *zap.Logger
-	pm      payments.Service
-	store   DB
-	rewards rewards.DB
+	log      *zap.Logger
+	store    DB
+	rewards  rewards.DB
+	partners *rewards.PartnersService
+	accounts payments.Accounts
 
 	passwordCost int
 }
 
+// PaymentsService separates all payment related functionality
+type PaymentsService struct {
+	service *Service
+}
+
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm payments.Service, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -92,9 +100,118 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 		Signer:       signer,
 		store:        store,
 		rewards:      rewards,
-		pm:           pm,
+		partners:     partners,
+		accounts:     accounts,
 		passwordCost: passwordCost,
 	}, nil
+}
+
+// Payments separates all payment related functionality
+func (s *Service) Payments() PaymentsService {
+	return PaymentsService{service: s}
+}
+
+// SetupAccount creates payment account for authorized user.
+func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+}
+
+// AccountBalance return account balance.
+func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return payments.service.accounts.Balance(ctx, auth.User.ID)
+}
+
+// AddCreditCard is used to save new credit card and attach it to payment account.
+func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+	defer mon.Task()(&ctx, creditCardToken)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+}
+
+// MakeCreditCardDefault makes a credit card default payment method.
+func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+}
+
+// ListCreditCards returns a list of credit cards for a given payment account.
+func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+}
+
+// RemoveCreditCard is used to detach a credit card from payment account.
+func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
+	defer mon.Task()(&ctx, cardID)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
+}
+
+// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add transactions, etc in future
+	for _, invoice := range invoices {
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          invoice.ID,
+			Description: invoice.Description,
+			Amount:      invoice.Amount,
+			Status:      invoice.Status,
+			Link:        invoice.Link,
+			End:         invoice.End,
+			Start:       invoice.Start,
+			Type:        Invoice,
+		})
+	}
+
+	return billingHistory, nil
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -113,12 +230,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	//TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
-	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+
+	currentReward, err := s.partners.GetActiveOffer(ctx, offers, offerType, user.PartnerID)
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
@@ -205,20 +323,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 				return err
 			}
 		}
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
-			Email: user.Email,
-			Name:  user.FullName,
-		})
-		if err != nil {
-			return err
-		}
 
-		_, err = tx.UserPayments().Create(ctx, UserPayment{
-			UserID:     u.ID,
-			CustomerID: cus.ID,
-		})
-
-		return err
+		return nil
 	})
 
 	if err != nil {
@@ -226,164 +332,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	return u, nil
-}
-
-// AddNewPaymentMethod adds new payment method for project
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	authorization, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	params := payments.AddPaymentMethodParams{
-		Token:      paymentMethodToken,
-		CustomerID: string(userPayments.CustomerID),
-	}
-
-	method, err := s.pm.AddPaymentMethod(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var pp *ProjectPayment
-	err = withTx(tx, func(tx DBTx) error {
-		if isDefault {
-			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-			if err != nil {
-				if err != sql.ErrNoRows {
-					return err
-				}
-			}
-			if projectPayment != nil {
-				projectPayment.IsDefault = false
-
-				err = tx.ProjectPayments().Update(ctx, *projectPayment)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		projectPaymentInfo := ProjectPayment{
-			ProjectID:       projectID,
-			PayerID:         authorization.User.ID,
-			PaymentMethodID: method.ID,
-			CreatedAt:       time.Now(),
-			IsDefault:       isDefault,
-		}
-
-		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
-		return err
-	})
-
-	return pp, nil
-}
-
-// SetDefaultPaymentMethod set default payment method for given project
-func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
-		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-		if err != nil {
-			return err
-		}
-		projectPayment.IsDefault = false
-
-		err = tx.ProjectPayments().Update(ctx, *projectPayment)
-		if err != nil {
-			return err
-		}
-
-		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
-		if err != nil {
-			return err
-		}
-		projectPayment.IsDefault = true
-
-		return tx.ProjectPayments().Update(ctx, *projectPayment)
-	})
-
-	return err
-}
-
-// DeleteProjectPaymentMethod deletes selected payment method
-func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.store.ProjectPayments().Delete(ctx, projectPayment)
-}
-
-// GetProjectPaymentMethods retrieves project payment methods
-func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var projectPayments []ProjectPayment
-	for _, payment := range projectPaymentInfos {
-		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
-		if err != nil {
-			return nil, err
-		}
-
-		projectPayment := ProjectPayment{
-			ID:              payment.ID,
-			CreatedAt:       pm.CreatedAt,
-			PaymentMethodID: pm.ID,
-			IsDefault:       payment.IsDefault,
-			PayerID:         payment.PayerID,
-			ProjectID:       projectID,
-			Card: Card{
-				LastFour:        pm.Card.LastFour,
-				Name:            pm.Card.Name,
-				Brand:           pm.Card.Brand,
-				Country:         pm.Card.Country,
-				ExpirationMonth: pm.Card.ExpMonth,
-				ExpirationYear:  pm.Card.ExpYear,
-			},
-		}
-
-		projectPayments = append(projectPayments, projectPayment)
-	}
-
-	return projectPayments, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -568,21 +516,22 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, er
 }
 
 // UpdateAccount updates User
-func (s *Service) UpdateAccount(ctx context.Context, info UserInfo) (err error) {
+func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = info.IsValid(); err != nil {
-		return err
+	// validate fullName
+	if fullName == "" {
+		return errs.New("full name can't be empty")
 	}
 
 	err = s.store.Users().Update(ctx, &User{
 		ID:           auth.User.ID,
-		FullName:     info.FullName,
-		ShortName:    info.ShortName,
+		FullName:     fullName,
+		ShortName:    shortName,
 		Email:        auth.User.Email,
 		PasswordHash: nil,
 		Status:       auth.User.Status,
@@ -687,7 +636,8 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
-	return offers.GetActiveOffer(offerType, "")
+
+	return s.partners.GetActiveOffer(ctx, offers, offerType, "")
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now
@@ -954,6 +904,11 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	if err == nil {
+		return nil, nil, errs.New(apiKeyWithNameExistsErrMsg)
+	}
+
 	secret, err := macaroon.NewSecret()
 	if err != nil {
 		return nil, nil, ErrConsoleInternal.Wrap(err)
@@ -1053,9 +1008,10 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	return nil
 }
 
-// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
-func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
+// GetAPIKeys returns paged api key list for given Project
+func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -1066,12 +1022,16 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	info, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
-	return info, nil
+	return
 }
 
 // GetProjectUsage retrieves project usage for a given period
@@ -1128,88 +1088,6 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
-}
-
-// CreateMonthlyProjectInvoices creates invoices for all created projects on monthly basis.
-// Edge Dates are derived from the date parameter taking UTC year and month, then adding first
-// and last date of the month accordingly
-func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	utc := date.UTC()
-	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
-
-	// disallow invoice generation for future periods
-	if endDate.After(time.Now()) {
-		return errs.New("can not create invoices for future periods")
-	}
-
-	projects, err := s.store.Projects().GetCreatedBefore(ctx, endDate)
-	if err != nil {
-		return
-	}
-
-	var invoiceError errs.Group
-	for _, proj := range projects {
-		// check if there is entry in the db for selected project and date
-		// range, if so skip project as invoice has already been created
-		// this way we can run this function for the second time to generate
-		// invoices only for project that failed before
-		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
-		if err == nil {
-			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp already exists", proj.ID))
-			continue
-		}
-
-		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		payerInfo, err := s.store.UserPayments().Get(ctx, paymentInfo.PayerID)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		totals, err := s.store.UsageRollups().GetProjectTotal(ctx, proj.ID, startDate, endDate)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		inv, err := s.pm.CreateProjectInvoice(ctx,
-			payments.CreateProjectInvoiceParams{
-				ProjectName:     proj.Name,
-				CustomerID:      payerInfo.CustomerID,
-				PaymentMethodID: paymentInfo.PaymentMethodID,
-				Storage:         totals.Storage,
-				Egress:          totals.Egress,
-				ObjectCount:     totals.ObjectCount,
-				StartDate:       startDate,
-				EndDate:         endDate,
-			},
-		)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		_, err = s.store.ProjectInvoiceStamps().Create(ctx,
-			ProjectInvoiceStamp{
-				ProjectID: proj.ID,
-				InvoiceID: inv.ID,
-				StartDate: startDate,
-				EndDate:   endDate,
-				CreatedAt: inv.CreatedAt,
-			},
-		)
-		invoiceError.Add(err)
-	}
-
-	return invoiceError.Err()
 }
 
 // Authorize validates token from context and returns authorized Authorization
@@ -1326,9 +1204,6 @@ type isProjectMember struct {
 	project    *Project
 	membership *ProjectMember
 }
-
-// ErrNoMembership is error type of not belonging to a specific project
-var ErrNoMembership = errs.Class("no membership error")
 
 // isProjectOwner checks if the user is an owner of a project
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {

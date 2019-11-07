@@ -13,7 +13,6 @@
     "align": [true, "parameters", "statements"],
     "array-type": [true, "array-simple"],
     "arrow-return-shorthand": true,
-    "check-format": true,
     "class-name": true,
     "comment-format": [true, "check-space"],
     "comment-type": [true, "doc", "singleline"],
@@ -52,12 +51,16 @@
           "order": 1
         }, {
           "name": "internal components",
-          "match": "^@/components",
+          "match": "^@/app/components",
           "order": 2
+        }, {
+          "name": "internal images",
+          "match": "^@/../static/images",
+          "order": 3
         }, {
           "name": "internal else",
           "match": "^@",
-          "order": 3
+          "order": 4
         }]
       }],
     "prefer-const": true,

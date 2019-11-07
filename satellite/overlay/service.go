@@ -29,9 +29,6 @@ var ErrNodeOffline = errs.Class("node is offline")
 // ErrNodeDisqualified is returned if a nodes is disqualified
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
-// ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
-var ErrBucketNotFound = errs.New("bucket not found")
-
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
@@ -56,8 +53,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// IsVetted returns whether or not the node reaches reputable thresholds
-	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -68,11 +63,38 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	// UpdateCheckIn updates a single storagenode's check-in stats.
+	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+
+	// UpdateExitStatus is used to update a node's graceful exit status.
+	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
+	// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
+	GetExitingNodes(ctx context.Context) (exitingNodes []*ExitStatus, err error)
+	// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
+	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error)
+	// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
+	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
+	// GetExitStatus returns a node's graceful exit status.
+	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
+
+	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
+	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
+}
+
+// NodeCheckInInfo contains all the info that will be updated when a node checkins
+type NodeCheckInInfo struct {
+	NodeID   storj.NodeID
+	Address  *pb.NodeAddress
+	LastIP   string
+	IsUp     bool
+	Operator *pb.NodeOperator
+	Capacity *pb.NodeCapacity
+	Version  *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -114,6 +136,24 @@ type UpdateRequest struct {
 	UptimeDQ     float64
 }
 
+// ExitStatus is used for reading graceful exit status.
+type ExitStatus struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     *time.Time
+	ExitLoopCompletedAt *time.Time
+	ExitFinishedAt      *time.Time
+	ExitSuccess         bool
+}
+
+// ExitStatusRequest is used to update a node's graceful exit status.
+type ExitStatusRequest struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     time.Time
+	ExitLoopCompletedAt time.Time
+	ExitFinishedAt      time.Time
+	ExitSuccess         bool
+}
+
 // NodeDossier is the complete info that the satellite tracks for a storage node
 type NodeDossier struct {
 	pb.Node
@@ -125,6 +165,8 @@ type NodeDossier struct {
 	Contained    bool
 	Disqualified *time.Time
 	PieceCount   int64
+	ExitStatus   ExitStatus
+	CreatedAt    time.Time
 }
 
 // NodeStats contains statistics about a node.
@@ -216,6 +258,14 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	excludedNodes := req.ExcludedNodes
+	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
+	var excludedIPs []string
+	if preferences.DistinctIP && len(excludedNodes) > 0 {
+		excludedIPs, err = service.db.GetNodeIPs(ctx, excludedNodes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -238,7 +288,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		}
 	}
 
-	var excludedIPs []string
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		excludedNodes = append(excludedNodes, newNode.Id)
@@ -304,8 +353,8 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// If we get a Node without an ID (i.e. bootstrap node)
-	// we don't want to add to the routing tbale
+	// If we get a Node without an ID
+	// we don't want to add to the database
 	if nodeID.IsZero() {
 		return nil
 	}
@@ -322,20 +371,6 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 		return Error.Wrap(err)
 	}
 	return service.db.UpdateAddress(ctx, &value, service.config.Node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		AuditCount:  service.config.Node.AuditCount,
-		UptimeCount: service.config.Node.UptimeCount,
-	}
-	reputable, err = service.db.IsVetted(ctx, nodeID, criteria)
-	if err != nil {
-		return false, err
-	}
-	return reputable, nil
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -383,42 +418,10 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
-// ConnFailure implements the Transport Observer `ConnFailure` function
-func (service *Service) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
-	var err error
+// UpdateCheckIn updates a single storagenode's check-in info.
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
-	// from our routing table, but this is the service so maybe we want to treat
-	// it differently.
-	_, err = service.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
-	if err != nil {
-		service.log.Debug("error updating uptime for node", zap.Error(err))
-	}
-}
-
-// ConnSuccess implements the Transport Observer `ConnSuccess` function
-func (service *Service) ConnSuccess(ctx context.Context, node *pb.Node) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	err = service.Put(ctx, node.Id, *node)
-	if err != nil {
-		service.log.Debug("error updating uptime for node", zap.Error(err))
-	}
-
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	_, err = service.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
-	if err != nil {
-		service.log.Debug("error updating node connection info", zap.Error(err))
-	}
+	return service.db.UpdateCheckIn(ctx, node, service.config.Node)
 }
 
 // GetMissingPieces returns the list of offline nodes

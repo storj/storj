@@ -1,6 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { SortDirection } from '@/types/common';
+
+export type OnHeaderClickCallback = (sortBy: ApiKeyOrderBy, sortDirection: SortDirection) => Promise<void>;
+
 /**
  * Exposes all apiKey-related functionality
  */
@@ -11,7 +15,8 @@ export interface ApiKeysApi {
      * @returns ApiKey[]
      * @throws Error
      */
-    get(projectId: string): Promise<ApiKey[]>;
+    get(projectId: string, cursor: ApiKeyCursor): Promise<ApiKeysPage>;
+
     /**
      * Create new apiKey
      *
@@ -19,13 +24,44 @@ export interface ApiKeysApi {
      * @throws Error
      */
     create(projectId: string, name: string): Promise<ApiKey>;
+
     /**
      * Delete existing apiKey
      *
      * @returns null
      * @throws Error
      */
-    delete(ids: string[]): Promise<null>;
+    delete(ids: string[]): Promise<void>;
+}
+
+export enum ApiKeyOrderBy {
+    NAME = 1,
+    CREATED_AT,
+}
+
+// ApiKeyCursor is a type, used to describe paged api keys list
+export class ApiKeyCursor {
+    public constructor(
+        public search: string = '',
+        public limit: number = 6,
+        public page: number = 1,
+        public order: ApiKeyOrderBy = ApiKeyOrderBy.NAME,
+        public orderDirection: SortDirection = SortDirection.ASCENDING) {
+    }
+}
+
+// ApiKeysPage is a type, used to describe paged api keys list
+export class ApiKeysPage {
+    public constructor(
+        public apiKeys: ApiKey[] = [],
+        public search: string = '',
+        public order: ApiKeyOrderBy = ApiKeyOrderBy.NAME,
+        public orderDirection: SortDirection = SortDirection.ASCENDING,
+        public limit: number = 6,
+        public pageCount: number = 0,
+        public currentPage: number = 1,
+        public totalCount: number = 0) {
+    }
 }
 
 /**

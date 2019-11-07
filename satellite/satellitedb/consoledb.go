@@ -8,10 +8,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensures that ConsoleDB implements console.DB.
+var _ console.DB = (*ConsoleDB)(nil)
 
 // ConsoleDB contains access to different satellite databases
 type ConsoleDB struct {
@@ -38,12 +40,7 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
-	return &apikeys{db.methods}
-}
-
-// BucketUsage is a getter for accounting.BucketUsage repository
-func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
-	return &bucketusage{db.methods}
+	return &apikeys{db.methods, db.db}
 }
 
 // RegistrationTokens is a getter for RegistrationTokens repository
@@ -64,21 +61,6 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 // UserCredits is a getter for console.UserCredits repository
 func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
-}
-
-// UserPayments is a getter for console.UserPayments repository
-func (db *ConsoleDB) UserPayments() console.UserPayments {
-	return &userpayments{db.methods}
-}
-
-// ProjectPayments is a getter for console.ProjectPayments repository
-func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectPayments{db.db, db.methods}
-}
-
-// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
-func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	return &projectinvoicestamps{db.methods}
 }
 
 // BeginTx is a method for opening transaction

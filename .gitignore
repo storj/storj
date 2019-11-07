@@ -19,6 +19,9 @@
 /.vscode
 debug
 
+# Visual Studio
+/.vs
+
 # Jetbrains
 .idea/
 

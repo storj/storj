@@ -8,7 +8,7 @@ import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
 import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 
-class NotificationsState {
+export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
 }
 
@@ -103,7 +103,7 @@ export function makeNotificationsModule(): StoreModule<NotificationsState> {
                 commit(NOTIFICATION_MUTATIONS.CLEAR);
             },
         },
-        getters: {}
+        getters: {},
     };
 }
 

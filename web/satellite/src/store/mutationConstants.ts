@@ -1,15 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export const API_KEYS_MUTATIONS = {
-    FETCH: 'setAPIKeys',
-    ADD: 'addAPIKey',
-    DELETE: 'deleteAPIKey',
-    TOGGLE_SELECTION: 'toggleSelection',
-    CLEAR_SELECTION: 'clearSelection',
-    CLEAR: 'clear',
-};
-
 export const NOTIFICATION_MUTATIONS = {
     ADD: 'ADD_NOTIFICATION',
     DELETE: 'DELETE_NOTIFICATION',
@@ -34,6 +25,8 @@ export const APP_STATE_MUTATIONS = {
     SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP',
     CLOSE_ALL: 'CLOSE_ALL',
     CHANGE_STATE: 'CHANGE_STATE',
+    TOGGLE_PAYMENT_SELECTION: 'TOGGLE_PAYMENT_SELECTION',
+    SET_NAME: 'SET_NAME',
 };
 
 export const PROJECT_PAYMENT_METHODS_MUTATIONS = {
