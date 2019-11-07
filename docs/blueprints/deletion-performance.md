@@ -52,11 +52,15 @@ We extracted the data of the table the following trace graph files:
 
 ## Design
 
-First we can do reduce timeouts for delete requests. Undeleted pieces will eventually get garbage collected, so we can allow some of them to get lost.
+First, we can do reduce timeouts for delete requests. Undeleted pieces will eventually get garbage collected, so we can allow some of them to get lost.
 
-The uplink should be able to issue the request without having to wait for the deletion to happen. Currently deletions is implemented as an RPC, instead, use a call without waiting for a response. For example, node could internally delete things async; alternatively we could use UDP for delete requests.
+The uplink should be able to issue the request without having to wait for the deletion to happen. Currently deletions are implemented as an RPC, instead, use a call without waiting for a response. For example, nodes could internally delete things async.
+
+To reduce dialing time we should use UDP for delete requests.
 
 Ensure we delete segments in parallel as much as possible.
+
+All these actions will reduce the time that the uplink spends deleting the pieces from the storage nodes.
 
 ## Rationale
 
