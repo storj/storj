@@ -5,8 +5,6 @@ package console
 
 import (
 	"context"
-
-	"storj.io/storj/satellite/accounting"
 )
 
 // DB contains access to different satellite databases
@@ -21,8 +19,6 @@ type DB interface {
 	ProjectMembers() ProjectMembers
 	// APIKeys is a getter for APIKeys repository
 	APIKeys() APIKeys
-	// BucketUsage is a getter for accounting.BucketUsage repository
-	BucketUsage() accounting.BucketUsage
 	// RegistrationTokens is a getter for RegistrationTokens repository
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository

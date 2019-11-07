@@ -20,6 +20,7 @@ import (
 )
 
 func init() {
+	// Check if session is interactive
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		panic("Failed to determine if session is interactive:" + err.Error())
@@ -28,7 +29,17 @@ func init() {
 	if interactive {
 		return
 	}
+	
+	// Check if the 'run' command is invoked
+	if len(os.Args) < 2 {
+		return
+	}
 
+	if os.Args[1] != "run" {
+		return
+	}
+
+	// Initialize the Windows Service handler
 	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
 		panic("Service failed: " + err.Error())

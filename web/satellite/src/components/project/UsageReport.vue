@@ -22,7 +22,7 @@
                 />
                 <DatePickerIcon
                     class="usage-report-container__options-area__option__image"
-                    @click.prevent.self="onCustomDateClick"
+                    @click.prevent="onCustomDateClick"
                 />
             </div>
         </div>
@@ -175,7 +175,7 @@ export default class UsageReport extends Vue {
 
         const url = new URL(location.origin);
 
-        url.pathname = 'usage-report';
+        url.pathname = 'usage-report/';
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', toUnixTimestamp(endDate).toString());
@@ -259,6 +259,7 @@ export default class UsageReport extends Vue {
                 color: #354049;
                 margin-block-start: 0.5em;
                 margin-block-end: 0.5em;
+                user-select: none;
             }
         }
 
@@ -288,6 +289,7 @@ export default class UsageReport extends Vue {
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
+                    user-select: none;
                 }
 
                 &__image {
@@ -347,6 +349,7 @@ export default class UsageReport extends Vue {
                         color: #354049;
                         margin-block-start: 0;
                         margin-block-end: 0;
+                        user-select: none;
                     }
 
                     &__amount {
@@ -397,6 +400,7 @@ export default class UsageReport extends Vue {
                         line-height: 21px;
                         color: #354049;
                         margin-right: 30px;
+                        user-select: none;
                     }
 
                     &__image {

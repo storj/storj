@@ -161,6 +161,7 @@ export default class ProjectDetailsArea extends Vue {
             font-size: 24px;
             line-height: 29px;
             color: #354049;
+            user-select: none;
         }
 
         &__button-area {
@@ -192,6 +193,7 @@ export default class ProjectDetailsArea extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: rgba(56, 75, 101, 0.4);
+                user-select: none;
             }
 
             &__project-name {
@@ -213,17 +215,25 @@ export default class ProjectDetailsArea extends Vue {
             padding: 28px;
             background-color: #fff;
 
+            ::-webkit-scrollbar,
+            ::-webkit-scrollbar-track,
+            ::-webkit-scrollbar-thumb {
+                margin-top: 0;
+            }
+
             &__text {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: flex-start;
                 margin-right: 20px;
+                width: 100%;
 
                 &__title {
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.4);
+                    user-select: none;
                 }
 
                 &__project-description {
@@ -234,6 +244,7 @@ export default class ProjectDetailsArea extends Vue {
                     max-height: 25vh;
                     overflow-y: scroll;
                     word-break: break-word;
+                    white-space: pre-line;
                 }
             }
 
