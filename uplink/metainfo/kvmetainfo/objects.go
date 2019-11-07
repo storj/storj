@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/objects"
@@ -130,19 +129,16 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 }
 
 // DeleteObject deletes an object from database
-func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
+func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
-		return err
+	if bucket.Name == "" {
+		return storj.ErrNoBucket.New("")
 	}
+
 	prefixed := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
-		prefix: bucket,
+		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		prefix: bucket.Name,
 	}
 	return prefixed.Delete(ctx, path)
 }
