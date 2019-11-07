@@ -155,6 +155,7 @@ export default class PaymentMethods extends Vue {
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.$segment.track(EVENTS.PAYMENT_METHODS_VIEWED);
+
             return;
         }
 

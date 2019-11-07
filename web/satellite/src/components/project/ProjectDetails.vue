@@ -69,7 +69,6 @@ import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { EVENTS } from '@/utils/constants/analyticsEventNames';
 
-
 @Component({
     components: {
         VButton,

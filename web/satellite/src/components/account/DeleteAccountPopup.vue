@@ -97,7 +97,6 @@ export default class DeleteAccountPopup extends Vue {
             await this.$notify.success('Account was successfully deleted');
             this.$segment.track(EVENTS.USER_DELETED);
 
-
             AuthToken.remove();
 
             this.isLoading = false;

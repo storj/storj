@@ -68,7 +68,6 @@ import {
 } from '@/utils/constants/actionNames';
 import { EVENTS } from '@/utils/constants/analyticsEventNames';
 
-
 @Component({
     components: {
         VButton,

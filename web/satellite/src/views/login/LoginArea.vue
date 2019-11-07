@@ -70,7 +70,6 @@ export default class Login extends Vue {
 
         const self = this;
 
-
         if (!self.validateFields()) {
             this.isLoading = false;
 
@@ -107,7 +106,6 @@ export default class Login extends Vue {
         }
 
         this.$segment.track(EVENTS.EMAIL_VERIFIED);
-
 
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';

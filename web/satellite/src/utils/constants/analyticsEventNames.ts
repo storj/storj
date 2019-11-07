@@ -13,4 +13,6 @@ export const EVENTS = {
     PROJECT_VIEWED: 'Project Viewed',
     API_KEY_CREATED: 'API Key Created',
     API_KEY_DELETED: 'API Key Deleted',
+    PAYMENT_METHODS_VIEWED: 'Payment Methods Viewed',
+    PAYMENT_METHOD_ADDED: 'Payment Method Added',
 };

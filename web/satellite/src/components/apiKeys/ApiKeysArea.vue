@@ -123,8 +123,9 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
 
