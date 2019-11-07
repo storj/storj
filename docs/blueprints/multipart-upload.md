@@ -83,8 +83,8 @@ Multipart uploads can also be implemented with a "temporary location." First, th
 
 The following requires Metainfo RPC changes to be completed since it will greatly simplify the integration.
 
-1. Decide how to handle the database, whether to design a new database or implement a new schema.
-2. Implement an appropriate interface for the database. https://github.com/storj/storj/pull/1874/files
+1. Decide how to handle the database, whether to design a new database or implement a new schema. (old draft notes https://github.com/storj/storj/pull/1773/files)
+2. Implement an appropriate interface for the database. (old draft notes https://github.com/storj/storj/pull/1874/files)
 3. Implement a backend corresponding to the interface.
 4. Implement a shim layer to decide whether to use old implementation or new implementation. Old buckets would use old implementation, and new buckets would use the new implementation.
 5. Implement live migration for old buckets to new data layout.
