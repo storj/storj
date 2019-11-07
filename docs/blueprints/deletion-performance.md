@@ -64,7 +64,59 @@ All these actions will reduce the time that the uplink spends deleting the piece
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+We have found some alternative approaches.
+We list them, presenting their advantages and trade-offs regarding the designed approach.
+
+### (1) Satellite delete pieces of the storage nodes reliably
+
+Uplink will communicate with the satellite as it currently does.
+
+The satellite will take care of communicating with the storage nodes for deleting the pieces using RPC.
+
+Advantages:
+
+- Uplink deletion operation will be independent of the size of the file, guaranteeing always being responsive.
+- It doesn't present a risk of leaving garbage in the storage nodes when deletion operation is interrupted.
+- In general, the storage nodes will have less garbage because of deletions.
+
+Disadvantages:
+
+- The satellite requires a new chore to delete the pieces of the storage nodes. The increment of network traffic, computation, and data to track the segments to delete will increase the running costs.
+- The satellite will have another component incrementing the cost of the operation as monitoring, replication, etc.
+
+
+### (2) Satellite delete pieces of the storage nodes unreliably
+
+Uplink will communicate with the satellite as it currently does.
+
+The satellite will take care of communicating with the storage nodes for deleting the pieces using a connectionless protocol like UDP.
+
+Advantages:
+
+- Uplink deletion operation will be independent of the size of the file, guaranteeing always being responsive.
+- It doesn't present a risk of leaving garbage in the storage nodes when deletion operation is interrupted.
+
+Disadvantages:
+
+- The satellite requires a new chore to delete the pieces of the storage nodes. The increment of network traffic, computation, and data to track the segments to delete will increase the running costs.
+- The satellite will have another component incrementing the cost of the operation as monitoring, replication, etc.
+
+### Conclusion
+
+Both alternative approaches are similar.
+
+Approach (1) has the advantage of guaranteeing less garbage left on the storage nodes at the expense of requiring more network traffic.
+
+Approach (2) requires less network traffic, but it may not require less computation considering that we may need to encrypt the data sent through UDP.
+
+Approach (2) may get rid of the satellite garbage faster.
+
+Both approaches present the problem of increasing garbage on the satellite side.
+
+Taking one of these approaches will require a study on how to keep the less amount of garbage as possible.
+
+Both approaches would make the uplink deletion operation to perform in less than 1 second independently of the file size.
+
 
 ## Implementation
 
