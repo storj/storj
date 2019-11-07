@@ -1,4 +1,4 @@
-FROM golang:1.13.3
+FROM golang:1.13.4
 
 # Postgres
 
@@ -53,7 +53,7 @@ RUN export JAXB=${ANDROID_HOME}/tools/bin/jaxb_lib/activation.jar:${ANDROID_HOME
 	&& sed -i '/^eval set -- $DEFAULT_JVM_OPTS.*/i CLASSPATH='$JAXB':$CLASSPATH' ${ANDROID_HOME}/tools/bin/avdmanager
 
 ENV PATH ${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools
- 
+
 # accept all licenses
 RUN yes | sdkmanager  --licenses
 RUN touch /root/.android/repositories.cfg

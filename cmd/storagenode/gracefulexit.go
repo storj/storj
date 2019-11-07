@@ -136,7 +136,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		}
 		resp, err := client.initGracefulExit(ctx, req)
 		if err != nil {
-			zap.S().Debug("initializing graceful exit failed", zap.String("Satellite ID", id.String()), zap.Error(err))
+			zap.S().Debug("initializing graceful exit failed", zap.Stringer("Satellite ID", id), zap.Error(err))
 			errgroup.Add(err)
 			continue
 		}
