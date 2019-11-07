@@ -380,7 +380,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
-					mon.Meter("graceful_exit_fail_validation").Mark(1)
+					mon.Meter("graceful_exit_fail_validation").Mark(1) //locked
 
 					exitStatusRequest := &overlay.ExitStatusRequest{
 						NodeID:         nodeID,
@@ -594,14 +594,14 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	mon.Meter("graceful_exit_transfer_piece_success").Mark(1)
+	mon.Meter("graceful_exit_transfer_piece_success").Mark(1) //locked
 	return nil
 }
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed", zap.Stringer("Piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
-	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1)
+	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //locked
 
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.get(pieceID)
@@ -889,13 +889,13 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 		return nil, exitFailedReason, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)
-	mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)
-	mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred)
+	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)         //locked
+	mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)  //locked
+	mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred) //locked
 	processed := progress.PiecesFailed + progress.PiecesTransferred
 
 	if processed > 0 {
-		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed)
+		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed) //locked
 	}
 
 	exitStatusRequest := &overlay.ExitStatusRequest{
@@ -911,9 +911,9 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 	}
 
 	if exitStatusRequest.ExitSuccess {
-		mon.Meter("graceful_exit_success").Mark(1)
+		mon.Meter("graceful_exit_success").Mark(1) //locked
 	} else {
-		mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1)
+		mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1) //locked
 	}
 
 	return exitStatusRequest, exitFailedReason, nil
