@@ -523,3 +523,117 @@ func TestStoreTraversals(t *testing.T) {
 	assert.Equal(t, err, expectedErr)
 	assert.Equal(t, 2, iterations)
 }
+
+func TestTrashAndRestore(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	require.NoError(t, err)
+	ctx.Check(store.Close)
+
+	size := memory.KB
+
+	type fileForTest struct {
+		data      []byte
+		formatVer storage.FormatVersion
+	}
+	type test struct {
+		ref   storage.BlobRef
+		files []fileForTest
+	}
+
+	tests := []test{
+		// Has both versions
+		{
+			ref: storage.BlobRef{
+				Namespace: testrand.Bytes(namespaceSize),
+				Key:       testrand.Bytes(keySize),
+			},
+			files: []fileForTest{
+				{
+					data:      testrand.Bytes(size),
+					formatVer: filestore.FormatV0,
+				},
+				{
+					data:      testrand.Bytes(size),
+					formatVer: filestore.FormatV1,
+				},
+			},
+		},
+		// Has v0 only
+		{
+			ref: storage.BlobRef{
+				Namespace: testrand.Bytes(namespaceSize),
+				Key:       testrand.Bytes(keySize),
+			},
+			files: []fileForTest{
+				{
+					data:      testrand.Bytes(size),
+					formatVer: filestore.FormatV0,
+				},
+			},
+		},
+		// Has v1 only
+		{
+			ref: storage.BlobRef{
+				Namespace: testrand.Bytes(namespaceSize),
+				Key:       testrand.Bytes(keySize),
+			},
+			files: []fileForTest{
+				{
+					data:      testrand.Bytes(size),
+					formatVer: filestore.FormatV1,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		for _, file := range test.files {
+			var w storage.BlobWriter
+			if file.formatVer == filestore.FormatV0 {
+				w, err = store.TestCreateV0(ctx, test.ref)
+			} else if file.formatVer == filestore.FormatV1 {
+				w, err = store.Create(ctx, test.ref, int64(size))
+			}
+			require.NoError(t, err)
+			require.NotNil(t, w)
+			_, err = w.Write(file.data)
+			require.NoError(t, err)
+
+			require.NoError(t, w.Commit(ctx))
+			requireFileMatches(ctx, t, store, file.data, test.ref, file.formatVer)
+		}
+
+		// Trash the ref
+		require.NoError(t, store.Trash(ctx, test.ref))
+
+		// Verify files are gone
+		for _, file := range test.files {
+			_, err = store.OpenWithStorageFormat(ctx, test.ref, file.formatVer)
+			require.Error(t, err)
+			require.True(t, os.IsNotExist(err))
+		}
+	}
+
+	// Restore the trash
+	require.NoError(t, store.RestoreTrash(ctx))
+
+	// Verify pieces are back and look good
+	for _, test := range tests {
+		for _, file := range test.files {
+			requireFileMatches(ctx, t, store, file.data, test.ref, file.formatVer)
+		}
+	}
+}
+
+func requireFileMatches(ctx context.Context, t *testing.T, store *filestore.Store, data []byte, ref storage.BlobRef, formatVer storage.FormatVersion) {
+	r, err := store.OpenWithStorageFormat(ctx, ref, formatVer)
+	require.NoError(t, err)
+
+	buf, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+
+	require.Equal(t, buf, data)
+}

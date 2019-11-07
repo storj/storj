@@ -101,6 +101,20 @@ func (store *Store) DeleteWithStorageFormat(ctx context.Context, ref storage.Blo
 	return Error.Wrap(err)
 }
 
+// Trash moves the ref to a trash directory
+func (store *Store) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.Trash(ctx, ref)
+	return Error.Wrap(err)
+}
+
+// RestoreTrash moves every piece in the trash back into the regular location
+func (store *Store) RestoreTrash(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.RestoreTrash(ctx)
+	return Error.Wrap(err)
+}
+
 // GarbageCollect tries to delete any files that haven't yet been deleted
 func (store *Store) GarbageCollect(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
