@@ -11,6 +11,7 @@
         <BillingItem
             v-for="item in billingHistoryItems"
             :billing-item="item"
+            :key="item.id"
         />
     </div>
 </template>
@@ -84,6 +85,20 @@ export default class DepositAndBilling extends Vue {
                     color: #fff;
                 }
             }
+        }
+    }
+
+    @media screen and (max-height: 850px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 50px;
+        }
+    }
+
+    @media screen and (max-height: 650px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 75px;
         }
     }
 </style>

@@ -24,6 +24,7 @@ export const appStateModule = {
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
         },
+        satelliteName: '',
     },
     mutations: {
         // Mutation changing add projectMembers members popup visibility
@@ -92,6 +93,9 @@ export const appStateModule = {
         // Mutation changing payment selection visibility
         [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any): void {
             state.appState.isPaymentSelectionShown = !state.appState.isPaymentSelectionShown;
+        },
+        [APP_STATE_MUTATIONS.SET_NAME](state: any, satelliteName: string): void {
+            state.satelliteName = satelliteName;
         },
     },
     actions: {
@@ -191,6 +195,9 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION);
+        },
+        [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: any, satelliteName: string): void {
+            commit(APP_STATE_MUTATIONS.SET_NAME, satelliteName);
         },
     },
 };
