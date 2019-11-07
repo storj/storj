@@ -265,7 +265,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
-		return nil, errs.New(emailUsedErrMsg)
+		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
