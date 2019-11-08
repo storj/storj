@@ -48,7 +48,7 @@ const {
     GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
-class PaymentsState {
+export class PaymentsState {
     /**
      * balance stores in cents
      */
