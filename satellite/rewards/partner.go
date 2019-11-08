@@ -22,7 +22,7 @@ type PartnerInfo struct {
 	ID   string
 }
 
-// UserAgent returns partners cano user agent.
+// UserAgent returns canonical user agent.
 func (p *PartnerInfo) UserAgent() string { return p.Name }
 
 // CanonicalUserAgentProduct returns canonicalizes the user agent product, which is suitable for lookups.
@@ -32,13 +32,13 @@ func CanonicalUserAgentProduct(product string) string { return strings.ToLower(p
 func PartnersListFromJSONFile(path string) (*PartnerList, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrPartners.Wrap(err)
 	}
 	defer func() {
-		err = errs.Combine(err, Error.Wrap(file.Close()))
+		err = errs.Combine(err, ErrPartners.Wrap(file.Close()))
 	}()
 
 	var list PartnerList
 	err = json.NewDecoder(file).Decode(&list)
-	return &list, Error.Wrap(err)
+	return &list, ErrPartners.Wrap(err)
 }
