@@ -11,7 +11,6 @@ import (
 	"time"
 
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/macaroon"
 )
 
 //export parse_api_key
@@ -36,48 +35,6 @@ func serialize_api_key(apikeyHandle C.APIKeyRef, cerr **C.char) *C.char {
 	}
 
 	return C.CString(apikey.Serialize())
-}
-
-//export restrict_api_key
-// restrict_api_key generates a new APIKey with the provided Caveat attached.
-func restrict_api_key(apikeyRef C.APIKeyRef, cCaveat C.Caveat, cerr **C.char) C.APIKeyRef {
-	apikey, ok := universe.Get(apikeyRef._handle).(libuplink.APIKey)
-	if !ok {
-		*cerr = C.CString("invalid apikey")
-		return C.APIKeyRef{}
-	}
-
-	allowedPaths, ok := universe.Get(cCaveat.allowed_paths._handle).([]*macaroon.Caveat_Path)
-	if !ok {
-		*cerr = C.CString("invalid allowed caveat paths")
-		return C.APIKeyRef{}
-	}
-
-	nonce, ok := universe.Get(cCaveat.nonce._handle).([]byte)
-	if !ok {
-		*cerr = C.CString("invalid caveat nonce")
-		return C.APIKeyRef{}
-	}
-
-	notAfter := time.Unix(int64(cCaveat.not_after), 0)
-	notBefore := time.Unix(int64(cCaveat.not_before), 0)
-
-	caveat := macaroon.Caveat{
-		DisallowReads:   bool(cCaveat.disallow_reads),
-		DisallowWrites:  bool(cCaveat.disallow_writes),
-		DisallowLists:   bool(cCaveat.disallow_lists),
-		DisallowDeletes: bool(cCaveat.disallow_deletes),
-		AllowedPaths:    allowedPaths,
-		NotAfter:        &notAfter,
-		NotBefore:       &notBefore,
-		Nonce:           nonce,
-	}
-	restrictedAPIKey, err := apikey.Restrict(caveat)
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.APIKeyRef{}
-	}
-	return C.APIKeyRef{universe.Add(restrictedAPIKey)}
 }
 
 //export free_api_key
