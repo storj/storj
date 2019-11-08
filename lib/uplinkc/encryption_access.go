@@ -76,6 +76,36 @@ func parse_encryption_access(encAccessStr *C.char, cerr **C.char) C.EncryptionAc
 	return C.EncryptionAccessRef{_handle: universe.Add(encAccess)}
 }
 
+//export restrict_encryption_access
+// restrict_encryption_access creates a new EncryptionAccess with no default key, where the key material
+// in the new access is just enough to allow someone to access all of the given
+// restrictions but no more.
+func restrict_encryption_access(encAccessRef C.EncryptionAccessRef, apikeyHandle C.APIKeyRef, restrictions **C.EncryptionRestriction, cerr **C.char) C.APIKeyRef {
+	encAccess, ok := universe.Get(encAccessRef._handle).(*libuplink.EncryptionAccess)
+	if !ok {
+		*cerr = C.CString("invalid encryption access")
+		return C.APIKeyRef{}
+	}
+	
+	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
+	if !ok {
+		*cerr = C.CString("invalid apikey")
+		return C.APIKeyRef{}
+	}
+	
+	restrictionsArray := (*[1 << 30 / unsafe.Sizeof(C.EncryptionRestriction{})]C.EncryptionRestriction)(unsafe.Pointer(restrictions))
+	restrictionsGo := make([]libuplink.EncryptionRestriction, 0)
+	for i := 0; i < int(len(restrictionsArray)); i++ {
+		restrictionsGo = append(restrictionsGo, &restrictionsArray[i])
+	}
+	apikeyRestricted, encAccess, err := encAccess.Restrict(apikey, restrictionsGo)
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return C.APIKeyRef{}
+	}
+	return C.APIKeyRef{universe.Add(apikeyRestricted)}
+}
+
 //export free_encryption_access
 func free_encryption_access(encAccessRef C.EncryptionAccessRef) {
 	universe.Del(encAccessRef._handle)
