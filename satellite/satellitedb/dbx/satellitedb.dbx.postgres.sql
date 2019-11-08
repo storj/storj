@@ -63,6 +63,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	node_id bytea NOT NULL,
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
+	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
 	queued_at timestamp NOT NULL,
 	requested_at timestamp,
