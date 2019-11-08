@@ -6,6 +6,8 @@ package stripecoinpayments
 import (
 	"context"
 	"fmt"
+	"math"
+	"math/big"
 	"time"
 
 	"github.com/stripe/stripe-go"
@@ -181,7 +183,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 				return err
 			}
 
-			if err = service.applyTransactionBalance(ctx, tx); err != nil {
+			if err = service.applyTransactionBalance(ctx, &tx); err != nil {
 				return err
 			}
 		}
@@ -191,10 +193,15 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 }
 
 // applyTransactionBalance applies transaction received amount to stripe customer balance.
-func (service *Service) applyTransactionBalance(ctx context.Context, tx Transaction) (err error) {
+func (service *Service) applyTransactionBalance(ctx context.Context, tx *Transaction) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cusID, err := service.db.Customers().GetCustomerID(ctx, tx.AccountID)
+	if err != nil {
+		return err
+	}
+
+	usdRatio, err := service.getUSDRatio(ctx, coinpayments.CurrencyLTCT)
 	if err != nil {
 		return err
 	}
@@ -203,11 +210,13 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	// TODO: add conversion logic
-	amount, _ := tx.Received.Int64()
+	amount := new(big.Float).Mul(usdRatio, &tx.Received)
+
+	f, _ := amount.Float64()
+	cents := int64(math.Floor(f * 100))
 
 	params := &stripe.CustomerBalanceTransactionParams{
-		Amount:      stripe.Int64(amount),
+		Amount:      stripe.Int64(cents),
 		Customer:    stripe.String(cusID),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Description: stripe.String("storj token deposit"),
@@ -215,8 +224,30 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 
 	params.AddMetadata("txID", tx.ID.String())
 
+	// TODO: 0 amount will return an error, how to handle that?
 	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
 	return err
+}
+
+// getUSDRatio get Currency/USD ratio for provided currency.
+func (service *Service) getUSDRatio(ctx context.Context, currency coinpayments.Currency) (_ *big.Float, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rates, err := service.coinPayments.ConversionRates().Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	curr, ok := rates[currency]
+	if !ok {
+		return nil, errs.New("no rate for currency %s", currency)
+	}
+	usd, ok := rates[coinpayments.CurrencyUSD]
+	if !ok {
+		return nil, errs.New("no rate for currency %s", coinpayments.CurrencyUSD)
+	}
+
+	return new(big.Float).Quo(&curr.RateBTC, &usd.RateBTC), nil
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
