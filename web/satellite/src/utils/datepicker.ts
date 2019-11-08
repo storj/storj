@@ -199,7 +199,17 @@ export class DateGenerator {
     }
 }
 
+/**
+ * DateFormat is utils class for date formatting to string
+ */
 export class DateFormat {
+
+    /**
+     * getUSDate transforms date into US date format string
+     * @param date - Date to format
+     * @param separator - symbol for joining date string
+     * @returns formatted date string
+     */
     public static getUSDate(date: Date, separator: string): string {
         const month = date.getMonth() + 1;
         const day = date.getDate();
