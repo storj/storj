@@ -5,4 +5,4 @@ rem build the test project
 msbuild installer\windows\StorjTests
 
 rem run the unit tests
-vstest.console StorjTests\bin\Debug\StorjTests.dll
+vstest.console installer\windows\StorjTests\bin\Debug\StorjTests.dll
