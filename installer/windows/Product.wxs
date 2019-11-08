@@ -65,7 +65,7 @@
               FirstFailureActionType="restart"
               SecondFailureActionType="runCommand"
               ThirdFailureActionType="runCommand"
-              ProgramCommandLine="cmd /k &quot;echo &quot;%date% %time% recovery command executed:&quot; &amp;&amp; copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; timeout 1800 &amp;&amp; net start storagenode-updater >> &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;&quot;"
+              ProgramCommandLine="cmd /c &quot;((timeout 1800 >NUL) &amp;&amp; echo %date% %time% recovery command executed: &amp;&amp; copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; net start storagenode-updater) >> &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;&quot;"
             />
           </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="both" Name="storagenode-updater" Wait="yes" />
