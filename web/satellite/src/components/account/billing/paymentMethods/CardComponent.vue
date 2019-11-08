@@ -40,7 +40,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CardDialog from '@/components/account/billing/CardDialog.vue';
+import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
