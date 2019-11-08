@@ -4,11 +4,9 @@
 <template>
     <div class="payment-methods-container__card-container">
         <div class="payment-methods-container__card-container__info-area">
-            <svg width="52" height="35" viewBox="0 0 52 35" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M31.1174 7.97095H20.1162V27.7581H31.1174V7.97095Z" fill="#FF5F00"/>
-                <path d="M20.8148 17.8645C20.8148 13.8442 22.7007 10.2783 25.5994 7.97095C23.4691 6.29289 20.7799 5.27905 17.8462 5.27905C10.8963 5.27905 5.27344 10.9076 5.27344 17.8645C5.27344 24.8215 10.8963 30.45 17.8462 30.45C20.7799 30.45 23.4691 29.4362 25.5994 27.7581C22.7007 25.4858 20.8148 21.8849 20.8148 17.8645Z" fill="#EB001B"/>
-                <path d="M45.9603 17.8645C45.9603 24.8215 40.3375 30.45 33.3875 30.45C30.4539 30.45 27.7647 29.4362 25.6343 27.7581C28.5679 25.4508 30.4189 21.8849 30.4189 17.8645C30.4189 13.8442 28.533 10.2783 25.6343 7.97095C27.7647 6.29289 30.4539 5.27905 33.3875 5.27905C40.3375 5.27905 45.9603 10.9425 45.9603 17.8645Z" fill="#F79E1B"/>
-            </svg>
+            <div class="payment-methods-container__card-container__info-area__card-logo">
+                <component :is="cardIcon"></component>
+            </div>
             <div class="payment-methods-container__card-container__info-area__info-container">
                 <h1 class="bold">**** **** **** {{creditCard.last4}}</h1>
             </div>
@@ -42,6 +40,15 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
+import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
+import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
+import DinersIcon from '@/../static/images/payments/cardIcons/dinersclub.svg';
+import DiscoverIcon from '@/../static/images/payments/cardIcons/discover.svg';
+import JCBIcon from '@/../static/images/payments/cardIcons/jcb.svg';
+import MastercardIcon from '@/../static/images/payments/cardIcons/mastercard.svg';
+import UnionPayIcon from '@/../static/images/payments/cardIcons/unionpay.svg';
+import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
+
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 
@@ -52,11 +59,40 @@ const {
 @Component({
     components: {
         CardDialog,
+        JCBIcon,
+        DinersIcon,
+        MastercardIcon,
+        AmericanExpressIcon,
+        DiscoverIcon,
+        UnionPayIcon,
+        VisaIcon,
+        DefaultIcon,
     },
 })
 export default class CardComponent extends Vue {
     @Prop({default: () => new CreditCard()})
     private readonly creditCard: CreditCard;
+
+    public get cardIcon() {
+        switch (this.creditCard.brand) {
+            case 'jcb':
+                return JCBIcon;
+            case 'diners':
+                return DinersIcon;
+            case 'mastercard':
+                return MastercardIcon;
+            case 'amex':
+                return AmericanExpressIcon;
+            case 'discover':
+                return DiscoverIcon;
+            case 'unionpay':
+                return UnionPayIcon;
+            case 'visa':
+                return VisaIcon;
+            default:
+                return DefaultIcon;
+        }
+    }
 
     public toggleSelection(): void {
         this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
@@ -99,6 +135,9 @@ export default class CardComponent extends Vue {
             justify-content: flex-start;
 
             &__card-logo {
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 height: 70px;
                 width: 85px;
             }
