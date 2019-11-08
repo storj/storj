@@ -41,7 +41,6 @@ typedef struct UplinkConfig {
         char *peer_id_version;
         int32_t max_inline_size;
         int32_t max_memory;
-        char *partner_id;
         int32_t dial_timeout;
     } Volatile;
 } UplinkConfig;
