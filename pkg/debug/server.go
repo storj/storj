@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/pkg/traces"
 	"storj.io/storj/private/version/checker"
@@ -108,12 +108,20 @@ func (server *Server) Close() error {
 
 // metrics writes https://prometheus.io/docs/instrumenting/exposition_formats/
 func (server *Server) metrics(w http.ResponseWriter, r *http.Request) {
-	// TODO(jt): deeper monkit integration so we can expose prometheus types
+	// writes https://prometheus.io/docs/instrumenting/exposition_formats/
 	// (https://prometheus.io/docs/concepts/metric_types/)
-	server.registry.Stats(func(name string, val float64) {
-		metric := sanitize(name)
-		_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %g\n",
-			metric, metric, val)
+	server.registry.Stats(func(key monkit.SeriesKey, field string, val float64) {
+		measurement := sanitize(key.Measurement)
+		var metrics []string
+		for tag, tagVal := range key.Tags.All() {
+			metric := sanitize(tag) + "=\"" + sanitize(tagVal) + "\""
+			metrics = append(metrics, metric)
+		}
+		fieldMetric := "field=\"" + sanitize(field) + "\""
+		metrics = append(metrics, fieldMetric)
+
+		_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s{"+
+			strings.Join(metrics, ",")+"} %g\n", measurement, measurement, val)
 	})
 }
 

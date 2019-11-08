@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	// load our cockroach sql driver for anywhere that uses this dbx.Open
 	_ "storj.io/storj/private/dbutil/cockroachutil"

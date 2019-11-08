@@ -9,9 +9,9 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/zeebo/admission"
-	"github.com/zeebo/admission/admproto"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/admission/v2"
+	"github.com/zeebo/admission/v2/admproto"
 )
 
 var (

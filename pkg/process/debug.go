@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/debug"
 )

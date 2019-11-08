@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"

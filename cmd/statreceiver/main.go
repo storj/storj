@@ -79,6 +79,7 @@ func Main(cmd *cobra.Command, args []string) error {
 		scope.RegisterVal("keyfilter", NewKeyFilter),
 		scope.RegisterVal("sanitize", NewSanitizer),
 		scope.RegisterVal("graphite", NewGraphiteDest),
+		scope.RegisterVal("influx", NewInfluxDest),
 		scope.RegisterVal("db", NewDBDest),
 		scope.RegisterVal("pbufprep", NewPacketBufPrep),
 		scope.RegisterVal("mbufprep", NewMetricBufPrep),

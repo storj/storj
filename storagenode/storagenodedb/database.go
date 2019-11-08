@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/sqliteutil"

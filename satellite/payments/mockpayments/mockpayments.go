@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments"

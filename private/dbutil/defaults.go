@@ -8,7 +8,7 @@ import (
 	"flag"
 	"time"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 var (
@@ -36,8 +36,8 @@ func Configure(db ConfigurableDB, mon *monkit.Scope) {
 	if *connMaxLifetime >= 0 {
 		db.SetConnMaxLifetime(*connMaxLifetime)
 	}
-	mon.Chain("db_stats", monkit.StatSourceFunc(
-		func(cb func(name string, val float64)) {
-			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
+	mon.Chain(monkit.StatSourceFunc(
+		func(cb func(key monkit.SeriesKey, field string, val float64)) {
+			monkit.StatSourceFromStruct(monkit.NewSeriesKey("db_stats"), db.Stats()).Stats(cb)
 		}))
 }

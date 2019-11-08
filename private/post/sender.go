@@ -11,8 +11,8 @@ import (
 	"net/mail"
 	"net/smtp"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // Address is alias of net/mail.Address

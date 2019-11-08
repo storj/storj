@@ -6,7 +6,7 @@ package satellite
 import (
 	"context"
 
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/identity"
 	"storj.io/storj/pkg/debug"

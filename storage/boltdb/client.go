@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )

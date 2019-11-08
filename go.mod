@@ -7,7 +7,6 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
-
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad
 )
@@ -52,8 +51,8 @@ require (
 	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
-	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
-	github.com/jtolds/tracetagger v0.0.0-20200112222712-32e72f1f7180
+	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
+	github.com/jtolds/tracetagger/v2 v2.0.0-rc0
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/lib/pq v1.3.0
@@ -84,21 +83,20 @@ require (
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/smartystreets/assertions v0.0.0-20180820201707-7c9eb446e3cf // indirect
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.1
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
-	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
+	github.com/zeebo/admission/v2 v2.0.0-20191108235419-c7982d45d29a
 	github.com/zeebo/errs v1.2.2
-	github.com/zeebo/float16 v0.1.0 // indirect
-	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.2
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191227163750-53104e6ec876
@@ -111,9 +109,8 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/ini.v1 v1.38.2 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
-	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190623001553-09813957f0a8
-	gopkg.in/yaml.v2 v2.2.2
+	gopkg.in/yaml.v2 v2.2.4
 	storj.io/common v0.0.0-20200130005211-04afbf4cd6a5
-	storj.io/drpc v0.0.7
-	storj.io/uplink v0.0.0-20200127130338-7a4b7876e16b
+	storj.io/drpc v0.0.8
+	storj.io/uplink v0.0.0-20200131143957-f3b6350b4add
 )
