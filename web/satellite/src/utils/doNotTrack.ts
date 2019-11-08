@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export function isDoNotTrackEnabled () {
+export function isDoNotTrackEnabled (): boolean {
     const doNotTrackOption = (
       window.doNotTrack ||
       window.navigator.doNotTrack
