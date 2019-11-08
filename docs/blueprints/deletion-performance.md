@@ -52,22 +52,55 @@ We extracted the data of the table the following trace graph files:
 
 ## Design
 
-First, we can do reduce timeouts for delete requests. Undeleted pieces will eventually get garbage collected, so we can allow some of them to get lost.
+Delegate to the satellite to make the delete requests to the storage nodes.
 
-The uplink should be able to issue the request without having to wait for the deletion to happen. Currently deletions are implemented as an RPC, instead, use a call without waiting for a response. For example, nodes could internally delete things async.
+Uplink will send the delete request to the satellite and wait for its response.
 
-To reduce dialing time we should use UDP for delete requests.
+The satellite will send the delete requests to all the storage nodes that have segments and delete the segments from the pointerDB. Finally, it will respond to the uplink.
 
-Ensure we delete segments in parallel as much as possible.
+The satellite will communicate with the storage nodes:
 
-All these actions will reduce the time that the uplink spends deleting the pieces from the storage nodes.
+- Using the current network protocol, RPC/TCP.
+- The request will be sent with long-time cancellation in the same way as upload.
+- It won't send requests to offline storage nodes.
+- It will send requests concurrently as much as possible.
+
+The satellite will use a backpressure mechanism for ensuring that it's responsive with uplink.
+The garbage collection will delete the pieces in those storage nodes that didn't receive the delete requests.
+
+The satellite could use a connectionless network protocol, like UDP, to send delete request to the storage nodes. We discard to introduce this change in the first implementation and consider it in the future if we struggle to accomplish the goals.
 
 ## Rationale
 
 We have found some alternative approaches.
 We list them, presenting their advantages and trade-offs regarding the designed approach.
 
-### (1) Satellite delete pieces of the storage nodes reliably
+### (1) Uplink delete pieces of the storage nodes more efficiently
+
+As it currently does, uplink would delete the pieces from the storage nodes but with the following changes:
+
+1. Reduce timeouts for delete requests.
+1. Undeleted pieces will eventually get garbage collected, so we can allow some of them to get lost.
+1. Uplink would send the request without waiting for the deletion to happen. For example, nodes could internally delete things async.
+1. Send delete segments request concurrently as much as possible.
+
+Additionally:
+
+- We could change transport protocol for delete requests to a connectionless protocol, like UDP, for reducing dialing time.
+- We could probabilistically skip deleting pieces to minimize the number of requests. For example, we could only send the deletion requests to only 50% of the pieces.
+
+Advantages:
+
+- No extra running and maintenance costs on the satellite side.
+
+Disadvantages:
+
+- Storage nodes will have more garbage than currently because of not waiting for storage nodes to confirm the operation.
+- Storage nodes will have more garbage if we use a connectionless transport protocol
+- Storage nodes will have more garbage if we use a probabilistic approach.
+
+
+### (2) Satellite delete pieces of the storage nodes reliably
 
 Uplink will communicate with the satellite as it currently does.
 
@@ -85,7 +118,7 @@ Disadvantages:
 - The satellite will have another component incrementing the cost of the operation as monitoring, replication, etc.
 
 
-### (2) Satellite delete pieces of the storage nodes unreliably
+### (3) Satellite delete pieces of the storage nodes unreliably
 
 Uplink will communicate with the satellite as it currently does.
 
@@ -103,20 +136,22 @@ Disadvantages:
 
 ### Conclusion
 
-Both alternative approaches are similar.
+The alternative approach (1):
 
-Approach (1) has the advantage of guaranteeing less garbage left on the storage nodes at the expense of requiring more network traffic.
+- It is similar to the current mechanism but with some improvements towards the goals.
+- It doesn't add more load to the satellite, but we cannot trust in the uplink in deleting the pieces or informing the non-deleted ones.
 
-Approach (2) requires less network traffic, but it may not require less computation considering that we may need to encrypt the data sent through UDP.
+The alternative approaches (2) and (3) are similar.
 
-Approach (2) may get rid of the satellite garbage faster.
+Approach (2) has the advantage of guaranteeing less garbage left on the storage nodes at the expense of requiring more network traffic.
 
-Both approaches present the problem of increasing garbage on the satellite side.
+Approach (3) requires less network traffic, but it may not require less computation considering that we may need to encrypt the data sent through UDP.
+
+Approach (3) may get rid of the satellite garbage faster.
+
+Both approaches, (2) and (3), present the problem of increasing garbage on the satellite side.
 
 Taking one of these approaches will require a study on how to keep the less amount of garbage as possible.
-
-Both approaches would make the uplink deletion operation to perform in less than 1 second independently of the file size.
-
 
 ## Implementation
 
@@ -124,6 +159,4 @@ Both approaches would make the uplink deletion operation to perform in less than
 
 ## Open issues (if applicable)
 
-We could probablistically skip deleting pieces. This would minimize the requests that the uplink has to make, at the same time not leaking too much pieces. For example we could only send the deletion requests to only 50%, leaking half of the data, but making half the requests.
-
-We could track how much each storage node is storing extra due not sending deletes. This would allow paying the storage nodes. However, this would still mean that garbage is being kept in the network.
+1. Should we track how much each storage node is storing extra due not sending deletes? For the storage nodes that accumulate too much garbage, we could send garbage collection request outside of the normal schedule.
