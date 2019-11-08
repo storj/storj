@@ -163,7 +163,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		if err = service.applyTransactionBalance(ctx, tx); err != nil {
+		if err = service.applyTransactionBalance(ctx, &tx); err != nil {
 			return err
 		}
 	}
