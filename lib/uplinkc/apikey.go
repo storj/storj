@@ -8,7 +8,6 @@ import "C"
 
 import (
 	"fmt"
-	"time"
 
 	libuplink "storj.io/storj/lib/uplink"
 )
