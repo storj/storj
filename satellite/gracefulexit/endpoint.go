@@ -627,6 +627,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	// TODO (nat): increment order_limit_send_count
 	pending.put(pieceID, &pendingTransfer{
 		path:             incomplete.Path,
 		pieceSize:        pieceSize,

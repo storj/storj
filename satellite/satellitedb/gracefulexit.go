@@ -248,6 +248,22 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 	return transferQueueItemRows, nil
 }
 
+// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
+func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sql := db.db.Rebind(
+		`UPDATE graceful_exit_transfer_queue SET order_limit_send_count = graceful_exit_transfer_queue.order_limit_send_count + 1
+		WHERE node_id=?`,
+	)
+	_, err = db.db.ExecContext(ctx, sql, nodeID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
 	for rows.Next() {
 		transferQueueItem := &gracefulexit.TransferQueueItem{}
@@ -277,11 +293,12 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 	}
 
 	item = &gracefulexit.TransferQueueItem{
-		NodeID:          nID,
-		Path:            dbxTransferQueue.Path,
-		PieceNum:        int32(dbxTransferQueue.PieceNum),
-		DurabilityRatio: dbxTransferQueue.DurabilityRatio,
-		QueuedAt:        dbxTransferQueue.QueuedAt,
+		NodeID:              nID,
+		Path:                dbxTransferQueue.Path,
+		PieceNum:            int32(dbxTransferQueue.PieceNum),
+		DurabilityRatio:     dbxTransferQueue.DurabilityRatio,
+		QueuedAt:            dbxTransferQueue.QueuedAt,
+		OrderLimitSendCount: dbxTransferQueue.OrderLimitSendCount,
 	}
 	if dbxTransferQueue.RootPieceId != nil {
 		item.RootPieceID, err = storj.PieceIDFromBytes(dbxTransferQueue.RootPieceId)
