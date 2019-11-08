@@ -5,6 +5,7 @@ package certificate
 
 import (
 	"context"
+	"storj.io/storj/internal/errs2"
 
 	"go.uber.org/zap"
 
@@ -17,7 +18,7 @@ import (
 
 // Endpoint implements pb.CertificatesServer.
 type Endpoint struct {
-	sanitizer       *rpcstatus.LoggingSanitizer
+	sanitizer       *errs2.LoggingSanitizer
 	log             *zap.Logger
 	ca              *identity.FullCertificateAuthority
 	authorizationDB *authorization.DB
@@ -26,7 +27,12 @@ type Endpoint struct {
 
 // NewEndpoint creates a new certificate signing gRPC server.
 func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, minDifficulty uint16) *Endpoint {
-	sanitizer := rpcstatus.NewLoggingSanitizer(&Error, log, &authorization.ErrDBInternal)
+	codeMap := errs2.CodeMap{
+		&authorization.ErrNotFound: rpcstatus.Unauthenticated,
+		&authorization.ErrInvalidClaim: rpcstatus.InvalidArgument,
+		&authorization.ErrAlreadyClaimed: rpcstatus.ResourceExhausted,
+	}
+	sanitizer := errs2.NewLoggingSanitizer(&Error, log, codeMap)
 
 	return &Endpoint{
 		sanitizer:       sanitizer,
