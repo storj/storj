@@ -37,6 +37,9 @@ func new_uplink(cfg C.UplinkConfig, tempDir *C.char, cerr **C.char) C.UplinkRef 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
 	// TODO: V3-2302, add a way to support logging
 	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.tls.skip_peer_ca_whitelist == C.bool(true)
+	libcfg.Volatile.TLS.PeerCAWhitelistPath = C.GoString(cfg.Volatile.tls.peer_ca_whitelist_path)
+	libcfg.Volatile.PeerIDVersion = C.GoString(cfg.Volatile.peer_id_version)
+	libcfg.Volatile.PartnerID = C.GoString(cfg.Volatile.partner_id)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
