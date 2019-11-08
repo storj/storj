@@ -230,9 +230,18 @@ namespace Storj
                 throw new ArgumentException("The storage directory cannot be null");
             }
 
+            long storagePlusOverhead;
+            try
+            {
+                storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
+            }
+            catch (OverflowException)
+            {
+                throw new ArgumentException(string.Format("{0} TB is too large value for allocated storage.", storage));
+            }
+
             DirectoryInfo dir = new DirectoryInfo(storageDir);
             DriveInfo drive = new DriveInfo(dir.Root.FullName);
-            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
 
             // TODO: Find a way to calculate the available free space + total size of existing pieces
             if (drive.TotalSize < storagePlusOverhead)

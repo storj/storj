@@ -38,6 +38,13 @@ namespace StorjTests
         }
 
         [TestMethod]
+        [ExpectedException(typeof(ArgumentException), "10000000 TB is too large value for allocated storage.")]
+        public void TooLarge()
+        {
+            CustomActionRunner.ValidateStorage("10000000", StorageDir);
+        }
+
+        [TestMethod]
         [ExpectedException(typeof(ArgumentException), "The storage directory cannot be null")]
         public void NullStorageDir()
         {
