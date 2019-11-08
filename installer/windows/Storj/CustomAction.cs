@@ -225,9 +225,9 @@ namespace Storj
                 throw new ArgumentException("The allocated disk space cannot be less than 0.5 TB.");
             }
 
-            if (storageDir == null)
+            if (string.IsNullOrEmpty(storageDir))
             {
-                throw new ArgumentException("The storage directory cannot be null");
+                throw new ArgumentException("The storage directory cannot be empty");
             }
 
             long storagePlusOverhead;

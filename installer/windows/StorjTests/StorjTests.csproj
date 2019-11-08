@@ -58,6 +58,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ExpectedExceptionWithMessage.cs" />
     <Compile Include="ExtractInstallDirTests.cs" />
     <Compile Include="ValidateIdentityDirTests.cs" />
     <Compile Include="ValidateStorageDirTests.cs" />
