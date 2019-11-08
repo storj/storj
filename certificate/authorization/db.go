@@ -25,8 +25,12 @@ var (
 	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
 	// ErrCount is used when attempting to create an invalid number of authorizations.
 	ErrCount = ErrDB.New("cannot add less than one authorizations")
-	// ErrAuthorizationNotFound is used when there is no matching authorization in the DB for a given userID and token.
-	ErrAuthorizationNotFound = ErrDB.New("authorization not found")
+	// ErrInvalidClaim is used when a claim is invalid due to some user input.
+	ErrInvalidClaim = errs.Class("authorization claim error")
+	// ErrAlreadyClaimed is used when a valid claim is attempted with a token that's been used already.
+	ErrAlreadyClaimed = errs.Class("authorization already claimed")
+	// ErrNotFound is used when there is no matching authorization in the DB for a given userID and token.
+	ErrNotFound = errs.Class("authorization not found")
 	// ErrDBInternal is used when an internal error occurs involving the authorization database.
 	ErrDBInternal = errs.Class("internal authorization db error")
 )
@@ -125,7 +129,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
 	if storage.ErrKeyNotFound.Has(err) {
-		return nil, ErrAuthorizationNotFound
+		return nil, ErrNotFound.New("userID: %s", userID)
 	}
 	if err != nil {
 		return nil, ErrDBInternal.Wrap(err)
@@ -183,26 +187,26 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	reqTime := time.Unix(opts.Req.Timestamp, 0)
 	if (now.Sub(reqTime) > MaxClockSkew) ||
 		(reqTime.Sub(now) > MaxClockSkew) {
-		return ErrDB.New("claim timestamp is outside of max skew window: %d", opts.Req.Timestamp)
+		return ErrInvalidClaim.New("claim timestamp is outside of max skew window: %d", opts.Req.Timestamp)
 	}
 
 	ident, err := identity.PeerIdentityFromPeer(opts.Peer)
 	if err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 
 	peerDifficulty, err := ident.ID.Difficulty()
 	if err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 
 	if peerDifficulty < opts.MinDifficulty {
-		return ErrDB.New("difficulty must be greater than: %d", opts.MinDifficulty)
+		return ErrInvalidClaim.New("difficulty must be greater than: %d", opts.MinDifficulty)
 	}
 
 	token, err := ParseToken(opts.Req.AuthToken)
 	if err != nil {
-		return err
+		return ErrInvalidClaim.Wrap(err)
 	}
 
 	auths, err := authDB.Get(ctx, token.UserID)
@@ -215,7 +219,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		if auth.Token.Equal(token) {
 			foundMatch = true
 			if auth.Claim != nil {
-				return ErrDB.New("authorization has already been claimed: %s", auth.String())
+				return ErrAlreadyClaimed.New(auth.String())
 			}
 
 			auths[i] = &Authorization{
@@ -234,7 +238,10 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		}
 	}
 	if !foundMatch {
-		return ErrAuthorizationNotFound
+		tokenFmt := Authorization{
+			Token: *token,
+		}
+		return ErrNotFound.New(tokenFmt.String())
 	}
 
 	mon.Meter("authorization_claim").Mark(1)
@@ -268,7 +275,7 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err e
 	defer mon.Task()(&ctx, userID)(&err)
 
 	auths, err := authDB.Get(ctx, userID)
-	if err != nil && err != ErrAuthorizationNotFound {
+	if err != nil && !ErrNotFound.Has(err) {
 		return err
 	}
 

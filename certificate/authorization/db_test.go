@@ -90,7 +90,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 
 			if testCase.startCount == 0 {
 				_, err := authDB.db.Get(ctx, emailKey)
-				require.Error(t, err, ErrAuthorizationNotFound)
+				require.Error(t, err, ErrNotFound)
 			} else {
 				v, err := authDB.db.Get(ctx, emailKey)
 				require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	{
 		t.Log("Non-existent email")
 		auths, err := authDB.Get(ctx, "nouser@mail.test")
-		require.Error(t, err, ErrAuthorizationNotFound)
+		require.Error(t, err, ErrNotFound)
 		require.Empty(t, auths)
 	}
 

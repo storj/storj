@@ -39,7 +39,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 	}
 
 	existingGroup, err := service.db.Get(ctx, userID)
-	if err != nil && err != ErrAuthorizationNotFound {
+	if err != nil && err != ErrNotFound {
 		msg := "error getting authorizations"
 		err = ErrService.Wrap(err)
 		service.log.Error(msg, zap.Error(err))
