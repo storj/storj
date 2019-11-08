@@ -419,6 +419,18 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, incomplete *TransferQueueItem) error {
 	nodeID := incomplete.NodeID
 
+	if incomplete.OrderLimitSendCount > endpoint.config.MaxOrderLimitSendCount {
+		err := endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	}
+
 	pointer, err := endpoint.getValidPointer(ctx, string(incomplete.Path), incomplete.PieceNum, incomplete.RootPieceID)
 	if err != nil {
 		endpoint.log.Warn("invalid pointer", zap.Error(err))
@@ -511,6 +523,12 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	err = endpoint.db.IncrementOrderLimitSendCount(ctx, nodeID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	// update pending queue with the transfer item
 	pending.put(pieceID, &pendingTransfer{
 		path:             incomplete.Path,
