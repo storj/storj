@@ -1207,6 +1207,226 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 }
 
+//func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
+//	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+//		var notRespondingPieceID storj.PieceID
+//		var deletedCount int
+//		// messages received for the piece that's not responding
+//		var messagesCount int
+//
+//		iterations := 3
+//		for i := 0; i < iterations; i++ {
+//			response, err := processClient.Recv()
+//			if errs.Is(err, io.EOF) {
+//				// Done
+//				break
+//			}
+//			require.NoError(t, err)
+//
+//			switch m := response.GetMessage().(type) {
+//			case *pb.SatelliteMessage_TransferPiece:
+//				require.NotNil(t, m)
+//
+//				// pick the first one to fail
+//				if notRespondingPieceID.IsZero() {
+//					notRespondingPieceID = m.TransferPiece.OriginalPieceId
+//				}
+//
+//				if notRespondingPieceID != m.TransferPiece.OriginalPieceId {
+//					fmt.Println("got here it's a good piece")
+//					pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+//					require.NoError(t, err)
+//
+//					header, err := pieceReader.GetPieceHeader()
+//					require.NoError(t, err)
+//
+//					orderLimit := header.OrderLimit
+//					originalPieceHash := &pb.PieceHash{
+//						PieceId:   orderLimit.PieceId,
+//						Hash:      header.GetHash(),
+//						PieceSize: pieceReader.Size(),
+//						Timestamp: header.GetCreationTime(),
+//						Signature: header.GetSignature(),
+//					}
+//
+//					newPieceHash := &pb.PieceHash{
+//						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+//						Hash:      originalPieceHash.Hash,
+//						PieceSize: originalPieceHash.PieceSize,
+//						Timestamp: time.Now(),
+//					}
+//
+//					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+//					require.NotNil(t, receivingNodeID)
+//					signer := signing.SignerFromFullIdentity(receivingNodeID)
+//
+//					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+//					require.NoError(t, err)
+//
+//					success := &pb.StorageNodeMessage{
+//						Message: &pb.StorageNodeMessage_Succeeded{
+//							Succeeded: &pb.TransferSucceeded{
+//								OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+//								OriginalPieceHash:    originalPieceHash,
+//								OriginalOrderLimit:   &orderLimit,
+//								ReplacementPieceHash: signedNewPieceHash,
+//							},
+//						},
+//					}
+//					err = processClient.Send(success)
+//					require.NoError(t, err)
+//				} else {
+//					messagesCount++
+//				}
+//			case *pb.SatelliteMessage_DeletePiece:
+//				deletedCount++
+//			case *pb.SatelliteMessage_ExitCompleted:
+//				signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+//				err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+//				require.NoError(t, err)
+//			default:
+//				t.FailNow()
+//			}
+//		}
+//
+//		// expect that satellite sent transfer message for unresponsive piece at least 5 times
+//		require.Equal(t, 5, messagesCount)
+//
+//		// check that the exit has completed and we have the correct transferred/failed values
+//		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+//		require.NoError(t, err)
+//
+//		require.EqualValues(t, numPieces-1, progress.PiecesTransferred)
+//		require.EqualValues(t, numPieces-1, deletedCount)
+//		require.EqualValues(t, 1, progress.PiecesFailed)
+//	})
+//}
+
+func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
+	successThreshold := 4
+	objects := 1
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			nodeFullIDs[node.ID()] = node.Identity
+		}
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		for i := 0; i < objects; i++ {
+			err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+		}
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, objects)
+		require.NoError(t, err)
+
+		// connect to satellite so we initiate the exit.
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		response, err := c.Recv()
+		require.NoError(t, err)
+
+		// should get a NotReady since the metainfo loop would not be finished at this point.
+		switch response.GetMessage().(type) {
+		case *pb.SatelliteMessage_NotReady:
+			// now check that the exiting node is initiated.
+			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			require.NoError(t, err)
+			require.Len(t, exitingNodes, 1)
+
+			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+		default:
+			t.FailNow()
+		}
+		// close the old client
+		require.NoError(t, c.CloseSend())
+
+		// trigger the metainfo loop chore so we can get some pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		// make sure all the pieces are in the transfer queue
+		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects, 0)
+		require.NoError(t, err)
+
+		var notRespondingPiece storj.PieceID
+		var messageCount int
+		for messageCount < 3 {
+			// connect to satellite again to start receiving transfers
+			// connect to satellite so we initiate the exit.
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
+
+			for {
+				response, err := c.Recv()
+				require.NoError(t, err)
+
+				// should get a NotReady since the metainfo loop would not be finished at this point.
+				switch m := response.GetMessage().(type) {
+				case *pb.SatelliteMessage_TransferPiece:
+					if notRespondingPiece.IsZero() {
+						notRespondingPiece = m.TransferPiece.OriginalPieceId
+						require.NoError(t, c.CloseSend())
+						break
+					}
+					if m.TransferPiece.OriginalPieceId == notRespondingPiece {
+						messageCount++
+						require.NoError(t, c.CloseSend())
+						break
+					}
+					// now check that the exiting node is initiated.
+					exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+					require.NoError(t, err)
+					require.Len(t, exitingNodes, 1)
+
+					require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+				default:
+					t.FailNow()
+				}
+			}
+		}
+		// make sure not responding piece not in queue
+		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+
+		for _, inc := range incompletes {
+			pieceID := inc.RootPieceID.Derive(exitingNode.ID(), inc.PieceNum)
+			require.NotEqual(t, notRespondingPiece, pieceID)
+		}
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, progress.PiecesFailed)
+	})
+}
+
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
