@@ -38,6 +38,10 @@ func Databases() []SatelliteDatabases {
 			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
 			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
 		},
+		{
+			MasterDB:  Database{"CockroachDB", "postgres://root@localhost:26257/master?sslmode=disable", ""},
+			PointerDB: Database{"Postgres", "", ""},
+		},
 	}
 }
 

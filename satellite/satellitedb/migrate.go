@@ -546,6 +546,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						status integer NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						partner_id BYTEA,
+						normalized_email TEXT,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE TABLE IF NOT EXISTS api_keys (
@@ -556,7 +557,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						secret bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						partner_id BYTEA,
-						normalized_email TEXT NOT NULL,
 						PRIMARY KEY ( id ),
 						UNIQUE ( name, project_id )
 					);`,

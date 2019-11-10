@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"math/rand"
-	"net/url"
 	"strconv"
 	"strings"
 )
@@ -25,21 +24,22 @@ func CreateRandomTestingSchemaName(n int) string {
 // ConnstrWithSchema adds schema to a  connection string
 func ConnstrWithSchema(connstr, schema string) string {
 	schema = strings.ToLower(schema)
-	return connstr + "&search_path=" + url.QueryEscape(schema)
+	// return connstr + "&search_path=" + url.QueryEscape(schema)
+	return connstr
 }
 
 // ParseSchemaFromConnstr returns the name of the schema parsed from the
 // connection string if one is provided
 func ParseSchemaFromConnstr(connstr string) (string, error) {
-	url, err := url.Parse(connstr)
-	if err != nil {
-		return "", err
-	}
-	queryValues := url.Query()
-	schema := queryValues["search_path"]
-	if len(schema) > 0 {
-		return schema[0], nil
-	}
+	// url, err := url.Parse(connstr)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// queryValues := url.Query()
+	// schema := queryValues["search_path"]
+	// if len(schema) > 0 {
+	// 	return schema[0], nil
+	// }
 	return "", nil
 }
 
@@ -55,12 +55,12 @@ type Execer interface {
 
 // CreateSchema creates a schema if it doesn't exist.
 func CreateSchema(db Execer, schema string) error {
-	_, err := db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
-	return err
+	// _, err := db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
+	return nil
 }
 
 // DropSchema drops the named schema
 func DropSchema(db Execer, schema string) error {
-	_, err := db.Exec(`drop schema ` + QuoteSchema(schema) + ` cascade;`)
-	return err
+	// _, err := db.Exec(`drop schema ` + QuoteSchema(schema) + ` cascade;`)
+	return nil
 }

@@ -23,8 +23,8 @@ const (
 		o.partner_id as partner_id, 
 		o.project_id as project_id, 
 		o.bucket_name as bucket_name, 
-		SUM(o.remote) / SUM(o.hours) as remote,
-		SUM(o.inline) / SUM(o.hours) as inline,
+		CAST(SUM(o.remote) / SUM(o.hours) AS INT) as remote,
+		CAST(SUM(o.inline) / SUM(o.hours) AS INT) as inline,
 		SUM(o.settled) as settled 
 	FROM 
 		(
@@ -62,7 +62,7 @@ const (
 						va.partner_id, 
 						bst.project_id, 
 						bst.bucket_name, 
-						hours 
+						date_trunc('hour', bst.interval_start) 
 					ORDER BY 
 						max_interval DESC
 				) bsti 
