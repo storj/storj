@@ -1377,40 +1377,86 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 
 		var notRespondingPiece storj.PieceID
 		var messageCount int
-		for messageCount < 3 {
-			// connect to satellite again to start receiving transfers
-			// connect to satellite so we initiate the exit.
+		for messageCount <= 3 {
+
+			var sentUnknownMsg bool
 			c, err := client.Process(ctx)
 			require.NoError(t, err)
+			if messageCount == 3 {
+				_, err := c.Recv()
+				require.NoError(t, err)
+				break
+			}
 
 			for {
 				response, err := c.Recv()
-				require.NoError(t, err)
+				if sentUnknownMsg {
+					require.Error(t, err)
+					break
+				} else {
+					require.NoError(t, err)
+				}
 
-				// should get a NotReady since the metainfo loop would not be finished at this point.
 				switch m := response.GetMessage().(type) {
 				case *pb.SatelliteMessage_TransferPiece:
 					if notRespondingPiece.IsZero() {
 						notRespondingPiece = m.TransferPiece.OriginalPieceId
-						require.NoError(t, c.CloseSend())
-						break
 					}
 					if m.TransferPiece.OriginalPieceId == notRespondingPiece {
 						messageCount++
+						sentUnknownMsg = true
+						c.Send(&pb.StorageNodeMessage{})
 						require.NoError(t, c.CloseSend())
-						break
-					}
-					// now check that the exiting node is initiated.
-					exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
-					require.NoError(t, err)
-					require.Len(t, exitingNodes, 1)
+					} else {
+						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+						require.NoError(t, err)
 
-					require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+						header, err := pieceReader.GetPieceHeader()
+						require.NoError(t, err)
+
+						orderLimit := header.OrderLimit
+						originalPieceHash := &pb.PieceHash{
+							PieceId:   orderLimit.PieceId,
+							Hash:      header.GetHash(),
+							PieceSize: pieceReader.Size(),
+							Timestamp: header.GetCreationTime(),
+							Signature: header.GetSignature(),
+						}
+
+						newPieceHash := &pb.PieceHash{
+							PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+							Hash:      originalPieceHash.Hash,
+							PieceSize: originalPieceHash.PieceSize,
+							Timestamp: time.Now(),
+						}
+
+						receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+						require.NotNil(t, receivingNodeID)
+						signer := signing.SignerFromFullIdentity(receivingNodeID)
+
+						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+						require.NoError(t, err)
+
+						success := &pb.StorageNodeMessage{
+							Message: &pb.StorageNodeMessage_Succeeded{
+								Succeeded: &pb.TransferSucceeded{
+									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+									OriginalPieceHash:    originalPieceHash,
+									OriginalOrderLimit:   &orderLimit,
+									ReplacementPieceHash: signedNewPieceHash,
+								},
+							},
+						}
+						err = c.Send(success)
+						require.NoError(t, err)
+					}
+
 				default:
 					t.FailNow()
 				}
 			}
 		}
+
 		// make sure not responding piece not in queue
 		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
 		require.NoError(t, err)

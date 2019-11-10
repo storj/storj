@@ -419,7 +419,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, incomplete *TransferQueueItem) error {
 	nodeID := incomplete.NodeID
 
-	if incomplete.OrderLimitSendCount > endpoint.config.MaxOrderLimitSendCount {
+	if incomplete.OrderLimitSendCount >= endpoint.config.MaxOrderLimitSendCount {
 		err := endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 		if err != nil {
 			return Error.Wrap(err)
@@ -428,6 +428,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		if err != nil {
 			return Error.Wrap(err)
 		}
+
 		return nil
 	}
 
@@ -524,7 +525,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.IncrementOrderLimitSendCount(ctx, nodeID)
+	incomplete.OrderLimitSendCount += 1
+	err = endpoint.db.UpdateTransferQueueItem(ctx, *incomplete)
 	if err != nil {
 		return Error.Wrap(err)
 	}
