@@ -94,6 +94,7 @@ read scalar (
 	where  accounting_timestamps.name  = ?
 )
 
+// TODO make sure to calculate the byte hours from tally (V3-3125)
 model accounting_rollup (
 	key id
 
@@ -532,6 +533,7 @@ read all (
 	where storagenode_bandwidth_rollup.interval_start >= ?
 )
 
+// TODO create a new table to use instead and store the data_total as bytes, not byte hours (V3-3125)
 model storagenode_storage_tally (
 	key   id
 

@@ -133,6 +133,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
 		//increment data at rest sum
+		// TODO make sure to calculate the byte hours from tally (V3-3125)
 		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 	}
 

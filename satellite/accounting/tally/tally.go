@@ -109,6 +109,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	finishTime := time.Now()
 
 	// calculate byte hours, not just bytes
+	// TODO remove this step and store the results as bytes, not byte hours (V3-3125)
 	hours := time.Since(lastTime).Hours()
 	for id := range observer.Node {
 		observer.Node[id] *= hours
