@@ -57,7 +57,7 @@ func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer
 // Run the contact chore on a regular interval with jitter
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Info("Storagenode contact chore starting up")
+	chore.log.Info("starting up")
 
 	var group errgroup.Group
 
