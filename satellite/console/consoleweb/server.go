@@ -523,6 +523,9 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 // gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
 func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
 		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
 		if !isGzipSupported {
 			fn.ServeHTTP(w, r)
@@ -531,7 +534,6 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
 		if err != nil {
-			w.Header().Set("Cache-Control", "public, max-age=31536000")
 			fn.ServeHTTP(w, r)
 			return
 		}
@@ -539,7 +541,6 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
 		w.Header().Set(contentType, mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
 
 		newRequest := new(http.Request)
 		*newRequest = *r
