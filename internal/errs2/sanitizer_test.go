@@ -71,12 +71,13 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 	}
 
 	for _, s := range scenarios {
+		s := s
 		t.Run(s.name, func(t *testing.T) {
 			sanitizer := NewLoggingSanitizer(s.wrapper, s.log, codeMap)
 
 			t.Log("exposed errors")
 			for errClass, code := range codeMap {
-				errInstance := errClass.New(strings.Replace(string(*errClass), "class", "error", 1))
+				errInstance := errClass.New("%s", strings.Replace(string(*errClass), "class", "error", 1))
 
 				sanitizedErr := sanitizer.Error(msg, errInstance)
 				require.Error(t, sanitizedErr)

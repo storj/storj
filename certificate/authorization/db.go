@@ -219,7 +219,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		if auth.Token.Equal(token) {
 			foundMatch = true
 			if auth.Claim != nil {
-				return ErrAlreadyClaimed.New(auth.String())
+				return ErrAlreadyClaimed.New("%s", auth.String())
 			}
 
 			auths[i] = &Authorization{
@@ -241,7 +241,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		tokenFmt := Authorization{
 			Token: *token,
 		}
-		return ErrNotFound.New(tokenFmt.String())
+		return ErrNotFound.New("%s", tokenFmt.String())
 	}
 
 	mon.Meter("authorization_claim").Mark(1)
