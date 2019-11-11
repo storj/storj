@@ -180,7 +180,7 @@ func TestTransferQueueItem(t *testing.T) {
 		}
 
 		// test increment order limit send count
-		err := geDB.IncrementOrderLimitSendCount(ctx, nodeID1)
+		err := geDB.IncrementOrderLimitSendCount(ctx, nodeID1, path2, 2)
 		require.NoError(t, err)
 
 		// get queue item for path2 since that still exists

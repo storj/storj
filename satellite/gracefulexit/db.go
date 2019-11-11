@@ -63,5 +63,5 @@ type DB interface {
 	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
 	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*TransferQueueItem, error)
 	// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
-	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID) error
+	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) error
 }

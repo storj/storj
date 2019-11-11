@@ -250,14 +250,16 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 }
 
 // IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
-func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sql := db.db.Rebind(
 		`UPDATE graceful_exit_transfer_queue SET order_limit_send_count = graceful_exit_transfer_queue.order_limit_send_count + 1
-		WHERE node_id=?`,
+		WHERE node_id = ?
+		AND path = ?
+		AND piece_num = ?`,
 	)
-	_, err = db.db.ExecContext(ctx, sql, nodeID)
+	_, err = db.db.ExecContext(ctx, sql, nodeID, path, pieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -525,8 +525,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		return Error.Wrap(err)
 	}
 
-	incomplete.OrderLimitSendCount += 1
-	err = endpoint.db.UpdateTransferQueueItem(ctx, *incomplete)
+	err = endpoint.db.IncrementOrderLimitSendCount(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
