@@ -63,7 +63,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 	// build real bin with old version, will be used for both storagenode and updater
 	oldBin := ctx.CompileWithVersion("", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
-	copy(ctx, t, oldBin, storagenodePath)
+	copyBin(ctx, t, oldBin, storagenodePath)
 
 	updaterPath := ctx.File("fake", "storagenode-updater.exe")
 	move(t, oldBin, updaterPath)
@@ -138,7 +138,7 @@ func move(t *testing.T, src, dst string) {
 	require.NoError(t, err)
 }
 
-func copy(ctx *testcontext.Context, t *testing.T, src, dst string) {
+func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
 	s, err := os.Open(src)
 	require.NoError(t, err)
 	defer ctx.Check(s.Close)
