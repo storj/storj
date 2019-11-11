@@ -58,13 +58,14 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
-		a.errorHandler(w, err)
+		a.serveJSONError(w, err)
+		return
 	}
 
 	err = json.NewEncoder(w).Encode(token)
@@ -92,13 +93,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -114,12 +115,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		registerData.ReferrerUserID,
 	)
 	if err != nil {
-		a.errorHandler(w, err)
+		a.serveJSONError(w, err)
 	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -158,13 +159,12 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
-		a.errorHandler(w, err)
+		a.serveJSONError(w, err)
 	}
 }
 
@@ -184,7 +184,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -213,13 +213,13 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&deleteRequest)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	err = a.service.DeleteAccount(ctx, deleteRequest.Password)
 	if err != nil {
-		a.errorHandler(w, err)
+		a.serveJSONError(w, err)
 	}
 }
 
@@ -236,7 +236,7 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&passwordChange)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -256,19 +256,19 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	email, ok := params["email"]
 	if !ok {
 		err = errs.New("email expected")
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	user, err := a.service.GetUserByEmail(ctx, email)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -307,25 +307,25 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id, ok := params["id"]
 	if !ok {
-		a.serveJSONError(w, http.StatusBadRequest, errs.New("id expected"))
+		a.serveJSONError(w, err)
 		return
 	}
 
 	userID, err := uuid.Parse(id)
 	if err != nil {
-		a.serveJSONError(w, http.StatusBadRequest, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	user, err := a.service.GetUser(ctx, *userID)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, err)
 		return
 	}
 
@@ -351,8 +351,8 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
+func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
+	w.WriteHeader(a.getStatusCode(err))
 
 	var response struct {
 		Error string `json:"error"`
@@ -366,20 +366,14 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, status int, err error) {
 	}
 }
 
-// errorHandler writes JSON error depends on its type.
-func (a *Auth) errorHandler(w http.ResponseWriter, err error) {
+// getStatusCode returns http.StatusCode depends on console error class.
+func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrConsoleInternal.Has(err):
-		a.serveJSONError(w, http.StatusInternalServerError, err)
-		return
+		return http.StatusInternalServerError
 	case console.ErrUnauthorized.Has(err):
-		a.serveJSONError(w, http.StatusUnauthorized, err)
-		return
-	case console.ErrValidation.Has(err):
-		a.serveJSONError(w, http.StatusBadRequest, err)
-		return
+		return http.StatusUnauthorized
 	default:
-		a.serveJSONError(w, http.StatusBadRequest, err)
-		return
+		return http.StatusBadRequest // includes console.ErrValidation error type.
 	}
 }
