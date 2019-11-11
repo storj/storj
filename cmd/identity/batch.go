@@ -41,7 +41,7 @@ var (
 	keyCfg struct {
 		// TODO: where is this used and should it be conistent with "latest" alias?
 		VersionNumber uint   `default:"0" help:"version of identity (0 is latest)"`
-		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
+		MinDifficulty int    `help:"minimum difficulty to output" default:"36"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
 	}

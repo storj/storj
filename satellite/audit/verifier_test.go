@@ -415,7 +415,7 @@ func TestVerifierExpired(t *testing.T) {
 		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -541,7 +541,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer to have PieceHashesVerified false
-		err = satellite.Metainfo.Service.Delete(ctx, path)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, path)
 		require.NoError(t, err)
 		pointer.PieceHashesVerified = false
 		err = satellite.Metainfo.Service.Put(ctx, path, pointer)

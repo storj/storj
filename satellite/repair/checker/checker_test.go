@@ -174,7 +174,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 		// update test pointer in db
-		err = metainfo.Delete(ctx, pointerPath)
+		err = metainfo.UnsynchronizedDelete(ctx, pointerPath)
 		require.NoError(t, err)
 		err = metainfo.Put(ctx, pointerPath, pointer)
 		require.NoError(t, err)
