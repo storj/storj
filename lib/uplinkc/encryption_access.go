@@ -96,7 +96,10 @@ func restrict_encryption_access(encAccessRef C.EncryptionAccessRef, apikeyHandle
 	restrictionsArray := (*[1 << 30 / unsafe.Sizeof(C.EncryptionRestriction{})]C.EncryptionRestriction)(unsafe.Pointer(restrictions))
 	restrictionsGo := make([]libuplink.EncryptionRestriction, 0)
 	for i := 0; i < int(len(restrictionsArray)); i++ {
-		restrictionsGo = append(restrictionsGo, &restrictionsArray[i])
+		restrictionsGo = append(restrictionsGo, uplink.EncryptionRestriction{
+			Bucket: C.GoString(&restrictionsArray[i].bucket),
+			PathPrefix: C.GoString(&restrictionsArray[i].path_prefix),
+		})
 	}
 	apikeyRestricted, encAccess, err := encAccess.Restrict(apikey, restrictionsGo)
 	if err != nil {
