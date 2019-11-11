@@ -111,7 +111,7 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
+	return b.metainfo.DeleteObject(ctx, b.bucket, path)
 }
 
 // ListOptions controls options for the ListObjects() call.

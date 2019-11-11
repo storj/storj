@@ -66,9 +66,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import CardComponent from '@/components/account/billing/CardComponent.vue';
-import StorjInput from '@/components/account/billing/StorjInput.vue';
-import StripeInput from '@/components/account/billing/StripeInput.vue';
+import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
+import StorjInput from '@/components/account/billing/paymentMethods/StorjInput.vue';
+import StripeInput from '@/components/account/billing/paymentMethods/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -203,7 +203,7 @@ export default class PaymentMethods extends Vue {
 
     .payment-methods-area {
         padding: 40px;
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;

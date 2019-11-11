@@ -249,19 +249,34 @@ func TestDeleteObject(t *testing.T) {
 
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
-		err = db.DeleteObject(ctx, "", "")
+		err = db.DeleteObject(ctx, storj.Bucket{}, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		err = db.DeleteObject(ctx, bucket.Name, "")
+		err = db.DeleteObject(ctx, bucket, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		err = db.DeleteObject(ctx, "non-existing-bucket", TestFile)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		{
+			unexistingBucket := storj.Bucket{
+				Name:       bucket.Name + "-not-exist",
+				PathCipher: bucket.PathCipher,
+			}
+			err = db.DeleteObject(ctx, unexistingBucket, TestFile)
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+		}
 
-		err = db.DeleteObject(ctx, bucket.Name, "non-existing-file")
+		err = db.DeleteObject(ctx, bucket, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		err = db.DeleteObject(ctx, bucket.Name, TestFile)
+		{
+			invalidPathCipherBucket := storj.Bucket{
+				Name:       bucket.Name,
+				PathCipher: bucket.PathCipher + 1,
+			}
+			err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+		}
+
+		err = db.DeleteObject(ctx, bucket, TestFile)
 		assert.NoError(t, err)
 	})
 }
