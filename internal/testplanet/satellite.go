@@ -374,7 +374,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				EndpointBatchSize:            100,
 				MaxFailuresPerPiece:          5,
 				MaxInactiveTimeFrame:         time.Second * 10,
-				OverallMaxFailuresPercentage: 10,
+				OverallMaxFailuresPercentage: 90,
 				RecvTimeout:                  time.Minute * 1,
 				MaxOrderLimitSendCount:       3,
 			},
