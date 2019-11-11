@@ -154,7 +154,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
+		a.log.Error("registration handler could not encode userID", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
