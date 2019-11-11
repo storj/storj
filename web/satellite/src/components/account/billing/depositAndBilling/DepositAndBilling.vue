@@ -11,6 +11,7 @@
         <BillingItem
             v-for="item in billingHistoryItems"
             :billing-item="item"
+            :key="item.id"
         />
     </div>
 </template>
@@ -18,8 +19,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import BillingItem from '@/components/account/billing/BillingItem.vue';
-import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+import BillingItem from '@/components/account/billing/depositAndBilling/BillingItem.vue';
+import SortingHeader from '@/components/account/billing/depositAndBilling/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { BillingHistoryItem } from '@/types/payments';
@@ -84,6 +85,20 @@ export default class DepositAndBilling extends Vue {
                     color: #fff;
                 }
             }
+        }
+    }
+
+    @media screen and (max-height: 850px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 50px;
+        }
+    }
+
+    @media screen and (max-height: 650px) {
+
+        .deposit-and-billing-area {
+            margin-bottom: 75px;
         }
     }
 </style>

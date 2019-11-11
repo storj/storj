@@ -80,9 +80,10 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 			NodeID:          piece.NodeId,
 			Path:            []byte(path.Raw),
 			PieceNum:        piece.PieceNum,
+			RootPieceID:     pointer.GetRemote().RootPieceId,
 			DurabilityRatio: float64(numPieces / pointer.GetRemote().GetRedundancy().GetTotal()),
 		}
-		collector.log.Debug("adding piece to transfer queue.", zap.String("node ID", piece.NodeId.String()),
+		collector.log.Debug("adding piece to transfer queue.", zap.Stringer("Node ID", piece.NodeId),
 			zap.String("path", path.Raw), zap.Int32("piece num", piece.GetPieceNum()),
 			zap.Int32("num pieces", numPieces), zap.Int32("total possible pieces", pointer.GetRemote().GetRedundancy().GetTotal()))
 
