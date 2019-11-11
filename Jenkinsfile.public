@@ -84,10 +84,11 @@ pipeline {
                 }
 
                 stage('Windows Tests') {
-                    node('windows') {
-                        steps {
-                            bat 'installer\\windows\\unittests.bat'
-                        }
+                    agent {
+                        label 'windows'
+                    }
+                    steps {
+                        bat 'installer\\windows\\unittests.bat'
                     }
                 }
 
