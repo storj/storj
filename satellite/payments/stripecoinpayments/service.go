@@ -163,7 +163,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		if err = service.applyTransactionBalance(ctx, &tx); err != nil {
+		if err = service.applyTransactionBalance(ctx, tx); err != nil {
 			return err
 		}
 	}
@@ -183,7 +183,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 				return err
 			}
 
-			if err = service.applyTransactionBalance(ctx, &tx); err != nil {
+			if err = service.applyTransactionBalance(ctx, tx); err != nil {
 				return err
 			}
 		}
@@ -193,7 +193,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 }
 
 // applyTransactionBalance applies transaction received amount to stripe customer balance.
-func (service *Service) applyTransactionBalance(ctx context.Context, tx *Transaction) (err error) {
+func (service *Service) applyTransactionBalance(ctx context.Context, tx Transaction) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cusID, err := service.db.Customers().GetCustomerID(ctx, tx.AccountID)

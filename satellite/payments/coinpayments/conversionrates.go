@@ -89,7 +89,7 @@ type ConversionRates struct {
 	client *Client
 }
 
-// GetUSDRate returns USD rate for specified currency.
+// Get returns USD rate for specified currency.
 func (rates ConversionRates) Get(ctx context.Context) (CurrencyRateInfos, error) {
 	values := make(url.Values)
 	values.Set("short", "1")
