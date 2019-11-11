@@ -1,6 +1,11 @@
 @echo off
-if "%1"=="" (
-    echo "missing required msi path argument"
+
+rem count # of args
+set argC=0
+for %%x in (%*) do Set /A argC+=1
+
+if not "%argC%"=="1" (
+    echo usage: %~nx0 ^<msi path^>
     exit /B 1
 )
 
