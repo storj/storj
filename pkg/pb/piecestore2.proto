@@ -15,6 +15,7 @@ service Piecestore {
     rpc Download(stream PieceDownloadRequest) returns (stream PieceDownloadResponse) {}
     rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {}
     rpc Retain(RetainRequest) returns (RetainResponse);
+    rpc RestoreTrash(RestoreTrashRequest) returns (RestoreTrashResponse) {}
 }
 
 // Expected order of messages from uplink:
@@ -62,7 +63,7 @@ message PieceDownloadRequest {
         int64 offset = 1;
         int64 chunk_size = 2;
     }
-    
+
     // request for the chunk
     Chunk chunk = 3;
 }
@@ -92,6 +93,9 @@ message RetainRequest {
 
 message RetainResponse {
 }
+
+message RestoreTrashRequest {}
+message RestoreTrashResponse {}
 
 // PieceHeader is used in piece storage to keep track of piece attributes.
 message PieceHeader {

@@ -183,6 +183,240 @@ func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.Store, sa
 	require.NoError(t, reader.Close())
 }
 
+func TestTrashAndRestore(t *testing.T) {
+	type testfile struct {
+		data      []byte
+		formatVer storage.FormatVersion
+	}
+	type testpiece struct {
+		pieceID    storj.PieceID
+		files      []testfile
+		expiration time.Time
+	}
+	type testsatellite struct {
+		satelliteID storj.NodeID
+		pieces      []testpiece
+	}
+
+	size := memory.KB
+
+	// Initialize pub/priv keys for signing piece hash
+	publicKeyBytes, err := hex.DecodeString("01eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+	require.NoError(t, err)
+	privateKeyBytes, err := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+	require.NoError(t, err)
+	publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+	require.NoError(t, err)
+	privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+	require.NoError(t, err)
+
+	satellites := []testsatellite{
+		{
+			satelliteID: testrand.NodeID(),
+			pieces: []testpiece{
+				{
+					expiration: time.Time{}, // no expiration
+					pieceID:    testrand.PieceID(),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+				{
+					pieceID:    testrand.PieceID(),
+					expiration: time.Now().Add(24 * time.Hour),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
+				},
+				{
+					pieceID:    testrand.PieceID(),
+					expiration: time.Now().Add(24 * time.Hour),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
+				},
+			},
+		},
+		{
+			satelliteID: testrand.NodeID(),
+			pieces: []testpiece{
+				{
+					pieceID:    testrand.PieceID(),
+					expiration: time.Now().Add(24 * time.Hour),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		blobs, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+		require.NoError(t, err)
+		defer ctx.Check(blobs.Close)
+
+		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
+
+		store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, db.PieceExpirationDB(), nil)
+		tStore := &pieces.StoreForTest{store}
+
+		for _, satellite := range satellites {
+			now := time.Now()
+			for _, piece := range satellite.pieces {
+				// If test has expiration, add to expiration db
+				if !piece.expiration.IsZero() {
+					require.NoError(t, store.SetExpiration(ctx, satellite.satelliteID, piece.pieceID, piece.expiration))
+				}
+
+				for _, file := range piece.files {
+					w, err := tStore.WriterForFormatVersion(ctx, satellite.satelliteID, piece.pieceID, file.formatVer)
+					require.NoError(t, err)
+
+					_, err = w.Write(file.data)
+					require.NoError(t, err)
+
+					// Create, sign, and commit piece hash (to piece or v0PieceInfo)
+					pieceHash := &pb.PieceHash{
+						PieceId:   piece.pieceID,
+						Hash:      w.Hash(),
+						PieceSize: w.Size(),
+						Timestamp: now,
+					}
+					signedPieceHash, err := signing.SignUplinkPieceHash(ctx, privateKey, pieceHash)
+					require.NoError(t, err)
+					require.NoError(t, w.Commit(ctx, &pb.PieceHeader{
+						Hash:         signedPieceHash.GetHash(),
+						CreationTime: signedPieceHash.GetTimestamp(),
+						Signature:    signedPieceHash.GetSignature(),
+					}))
+
+					if file.formatVer == filestore.FormatV0 {
+						err = v0PieceInfo.Add(ctx, &pieces.Info{
+							SatelliteID:     satellite.satelliteID,
+							PieceID:         piece.pieceID,
+							PieceSize:       signedPieceHash.GetPieceSize(),
+							PieceCreation:   signedPieceHash.GetTimestamp(),
+							OrderLimit:      &pb.OrderLimit{},
+							UplinkPieceHash: signedPieceHash,
+						})
+						require.NoError(t, err)
+					}
+
+					// Verify piece matches data, has correct signature and expiration
+					verifyPieceData(ctx, t, store, satellite.satelliteID, piece.pieceID, file.formatVer, file.data, piece.expiration, publicKey)
+
+				}
+
+				// Trash the piece
+				require.NoError(t, store.Trash(ctx, satellite.satelliteID, piece.pieceID))
+
+				// Confirm is missing
+				r, err := store.Reader(ctx, satellite.satelliteID, piece.pieceID)
+				require.Error(t, err)
+				require.Nil(t, r)
+
+				// Verify no expiry information is returned for this piece
+				if !piece.expiration.IsZero() {
+					infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
+					require.NoError(t, err)
+					var found bool
+					for _, info := range infos {
+						if info.SatelliteID == satellite.satelliteID && info.PieceID == piece.pieceID {
+							found = true
+						}
+					}
+					require.False(t, found)
+				}
+			}
+		}
+
+		// Restore all pieces in the first satellite
+		require.NoError(t, store.RestoreTrash(ctx, satellites[0].satelliteID))
+
+		// Check that each piece for first satellite is back, that they are
+		// MaxFormatVersionSupported (regardless of which version they began
+		// with), and that signature matches.
+		for _, piece := range satellites[0].pieces {
+			lastFile := piece.files[len(piece.files)-1]
+			verifyPieceData(ctx, t, store, satellites[0].satelliteID, piece.pieceID, filestore.MaxFormatVersionSupported, lastFile.data, piece.expiration, publicKey)
+		}
+
+		// Confirm 2nd satellite pieces are still missing
+		for _, piece := range satellites[1].pieces {
+			r, err := store.Reader(ctx, satellites[1].satelliteID, piece.pieceID)
+			require.Error(t, err)
+			require.Nil(t, r)
+		}
+
+	})
+}
+
+func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, formatVer storage.FormatVersion, expected []byte, expiration time.Time, publicKey storj.PiecePublicKey) {
+	r, err := store.ReaderWithStorageFormat(ctx, satelliteID, pieceID, formatVer)
+	require.NoError(t, err)
+
+	// Get piece hash, verify signature
+	var pieceHash *pb.PieceHash
+	if formatVer > filestore.FormatV0 {
+		header, err := r.GetPieceHeader()
+		require.NoError(t, err)
+		pieceHash = &pb.PieceHash{
+			PieceId:   pieceID,
+			Hash:      header.GetHash(),
+			PieceSize: r.Size(),
+			Timestamp: header.GetCreationTime(),
+			Signature: header.GetSignature(),
+		}
+	} else {
+		info, err := store.GetV0PieceInfo(ctx, satelliteID, pieceID)
+		require.NoError(t, err)
+		pieceHash = info.UplinkPieceHash
+	}
+	require.NoError(t, signing.VerifyUplinkPieceHashSignature(ctx, publicKey, pieceHash))
+
+	// Require piece data to match expected
+	buf, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	assert.True(t, bytes.Equal(buf, expected))
+
+	// Require expiration to match expected
+	infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
+	require.NoError(t, err)
+	var found bool
+	for _, info := range infos {
+		if info.SatelliteID == satelliteID && info.PieceID == pieceID {
+			found = true
+		}
+	}
+	if expiration.IsZero() {
+		require.False(t, found)
+	} else {
+		require.True(t, found)
+	}
+}
+
 func TestPieceVersionMigrate(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		const pieceSize = 1024
