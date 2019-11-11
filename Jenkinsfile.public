@@ -83,6 +83,14 @@ pipeline {
                     }
                 }
 
+                stage('Windows Tests') {
+                    node('windows') {
+                        steps {
+                            bat 'installer\\windows\\unittests.bat'
+                        }
+                    }
+                }
+
                 stage('Integration') {
                     environment {
                         // use different hostname to avoid port conflicts
