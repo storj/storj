@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alessio/shellescape"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
@@ -104,6 +105,20 @@ func networkExec(flags *Flags, args []string, command string) error {
 	return errs.Combine(err, closeErr)
 }
 
+func escapeEnv(env string) string {
+	// TODO(jeff): escape env variables appropriately on windows. perhaps the
+	// env output should be of the form `set KEY=VALUE` as well.
+	if runtime.GOOS == "windows" {
+		return env
+	}
+
+	parts := strings.SplitN(env, "=", 2)
+	if len(parts) != 2 {
+		return env
+	}
+	return parts[0] + "=" + shellescape.Quote(parts[1])
+}
+
 func networkEnv(flags *Flags, args []string) error {
 	flags.OnlyEnv = true
 
@@ -126,7 +141,7 @@ func networkEnv(flags *Flags, args []string) error {
 		// find the environment value that the environment variable is set to
 		for _, env := range processes.Env() {
 			if strings.HasPrefix(strings.ToUpper(env), envprefix) {
-				fmt.Println(env[len(envprefix):])
+				fmt.Println(escapeEnv(env[len(envprefix):]))
 				return nil
 			}
 		}
@@ -135,7 +150,7 @@ func networkEnv(flags *Flags, args []string) error {
 	}
 
 	for _, env := range processes.Env() {
-		fmt.Println(env)
+		fmt.Println(escapeEnv(env))
 	}
 
 	return nil
@@ -381,7 +396,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Executable: "gateway",
 			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
-			Extra:      []string{},
 		})
 
 		scopeData, err := (&uplink.Scope{
@@ -474,19 +488,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
-				process.Extra = append(process.Extra, "SCOPE="+runScopeData)
+				process.AddExtra("SCOPE", runScopeData)
 				if scope, err := uplink.ParseScope(runScopeData); err == nil {
-					process.Extra = append(process.Extra, "API_KEY="+scope.APIKey.Serialize())
+					process.AddExtra("API_KEY", scope.APIKey.Serialize())
 				}
 			}
 
-			accessKey := vip.GetString("minio.access-key")
-			secretKey := vip.GetString("minio.secret-key")
-
-			process.Extra = append(process.Extra,
-				"ACCESS_KEY="+accessKey,
-				"SECRET_KEY="+secretKey,
-			)
+			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))
+			process.AddExtra("SECRET_KEY", vip.GetString("minio.secret-key"))
 
 			return nil
 		}
