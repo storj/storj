@@ -322,7 +322,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrDB.Has(err))
+			assert.True(t, ErrAlreadyClaimed.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
@@ -351,7 +351,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrDB.Has(err))
+			assert.True(t, ErrInvalidClaim.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
@@ -375,7 +375,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2 + 1,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrDB.Has(err))
+			assert.True(t, ErrInvalidClaim.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
