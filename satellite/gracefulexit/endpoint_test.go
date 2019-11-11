@@ -1207,101 +1207,6 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 }
 
-//func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
-//	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-//		var notRespondingPieceID storj.PieceID
-//		var deletedCount int
-//		// messages received for the piece that's not responding
-//		var messagesCount int
-//
-//		iterations := 3
-//		for i := 0; i < iterations; i++ {
-//			response, err := processClient.Recv()
-//			if errs.Is(err, io.EOF) {
-//				// Done
-//				break
-//			}
-//			require.NoError(t, err)
-//
-//			switch m := response.GetMessage().(type) {
-//			case *pb.SatelliteMessage_TransferPiece:
-//				require.NotNil(t, m)
-//
-//				// pick the first one to fail
-//				if notRespondingPieceID.IsZero() {
-//					notRespondingPieceID = m.TransferPiece.OriginalPieceId
-//				}
-//
-//				if notRespondingPieceID != m.TransferPiece.OriginalPieceId {
-//					fmt.Println("got here it's a good piece")
-//					pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-//					require.NoError(t, err)
-//
-//					header, err := pieceReader.GetPieceHeader()
-//					require.NoError(t, err)
-//
-//					orderLimit := header.OrderLimit
-//					originalPieceHash := &pb.PieceHash{
-//						PieceId:   orderLimit.PieceId,
-//						Hash:      header.GetHash(),
-//						PieceSize: pieceReader.Size(),
-//						Timestamp: header.GetCreationTime(),
-//						Signature: header.GetSignature(),
-//					}
-//
-//					newPieceHash := &pb.PieceHash{
-//						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-//						Hash:      originalPieceHash.Hash,
-//						PieceSize: originalPieceHash.PieceSize,
-//						Timestamp: time.Now(),
-//					}
-//
-//					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-//					require.NotNil(t, receivingNodeID)
-//					signer := signing.SignerFromFullIdentity(receivingNodeID)
-//
-//					signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-//					require.NoError(t, err)
-//
-//					success := &pb.StorageNodeMessage{
-//						Message: &pb.StorageNodeMessage_Succeeded{
-//							Succeeded: &pb.TransferSucceeded{
-//								OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-//								OriginalPieceHash:    originalPieceHash,
-//								OriginalOrderLimit:   &orderLimit,
-//								ReplacementPieceHash: signedNewPieceHash,
-//							},
-//						},
-//					}
-//					err = processClient.Send(success)
-//					require.NoError(t, err)
-//				} else {
-//					messagesCount++
-//				}
-//			case *pb.SatelliteMessage_DeletePiece:
-//				deletedCount++
-//			case *pb.SatelliteMessage_ExitCompleted:
-//				signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
-//				err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
-//				require.NoError(t, err)
-//			default:
-//				t.FailNow()
-//			}
-//		}
-//
-//		// expect that satellite sent transfer message for unresponsive piece at least 5 times
-//		require.Equal(t, 5, messagesCount)
-//
-//		// check that the exit has completed and we have the correct transferred/failed values
-//		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-//		require.NoError(t, err)
-//
-//		require.EqualValues(t, numPieces-1, progress.PiecesTransferred)
-//		require.EqualValues(t, numPieces-1, deletedCount)
-//		require.EqualValues(t, 1, progress.PiecesFailed)
-//	})
-//}
-
 func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 	successThreshold := 4
 	objects := 1
@@ -1309,6 +1214,13 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				// We don't care whether a node gracefully exits or not in this test,
+				// so we set the max failures percentage extra high.
+				config.GracefulExit.OverallMaxFailuresPercentage = 101
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1377,20 +1289,19 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 
 		var notRespondingPiece storj.PieceID
 		var messageCount int
-		for messageCount <= 3 {
 
-			var sentUnknownMsg bool
+		// We need to label this outer loop so that we're able to exit it from the inner loop.
+		// The outer loop is for sending the request from node to satellite multiple times.
+		// The inner loop is for reading the response.
+	MessageLoop:
+		for messageCount <= 3 {
+			var unknownMsgSent bool
 			c, err := client.Process(ctx)
 			require.NoError(t, err)
-			if messageCount == 3 {
-				_, err := c.Recv()
-				require.NoError(t, err)
-				break
-			}
 
 			for {
 				response, err := c.Recv()
-				if sentUnknownMsg {
+				if unknownMsgSent {
 					require.Error(t, err)
 					break
 				} else {
@@ -1398,16 +1309,19 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				}
 
 				switch m := response.GetMessage().(type) {
+				case *pb.SatelliteMessage_ExitCompleted:
+					break MessageLoop
 				case *pb.SatelliteMessage_TransferPiece:
 					if notRespondingPiece.IsZero() {
 						notRespondingPiece = m.TransferPiece.OriginalPieceId
 					}
 					if m.TransferPiece.OriginalPieceId == notRespondingPiece {
 						messageCount++
-						sentUnknownMsg = true
-						// Send unknown message to terminate an API call so that we don't
-						// need to close the entire connection, but the pending queue
-						// can still be repopulated.
+						unknownMsgSent = true
+						// We send an unknown message because we want to fail the
+						// transfer message request we get from the satellite.
+						// This allows us to keep the conn open but repopulate
+						// the pending queue.
 						err = c.Send(&pb.StorageNodeMessage{})
 						require.NoError(t, c.CloseSend())
 					} else {
