@@ -61,7 +61,7 @@ The satellite will send the delete requests to all the storage nodes that have s
 The satellite will communicate with the storage nodes:
 
 - Using the current network protocol, RPC/TCP.
-- The request will be sent with long-time cancellation in the same way as upload.
+- The request will be sent with long-tail cancellation in the same way as upload.
 - It won't send requests to offline storage nodes.
 - It will send requests concurrently as much as possible.
 
