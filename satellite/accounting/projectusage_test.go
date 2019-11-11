@@ -4,17 +4,22 @@
 package accounting_test
 
 import (
+	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -46,28 +51,66 @@ func TestProjectUsageStorage(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+
+		var uploaded uint32
+
+		checkctx, checkcancel := context.WithCancel(ctx)
+		defer checkcancel()
+
+		var group errgroup.Group
+		group.Go(func() error {
+			// wait things to be uploaded
+			for atomic.LoadUint32(&uploaded) == 0 {
+				if !sync2.Sleep(checkctx, time.Microsecond) {
+					return nil
+				}
+			}
+
+			for {
+				if !sync2.Sleep(checkctx, time.Microsecond) {
+					return nil
+				}
+
+				total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				if total == 0 {
+					return errs.New("got 0 from GetProjectStorageTotals")
+				}
+			}
+		})
 
 		for _, ttc := range cases {
 			testCase := ttc
 			t.Run(testCase.name, func(t *testing.T) {
-
 				// Setup: create some bytes for the uplink to upload
 				expectedData := testrand.Bytes(1 * memory.MB)
 
 				// Setup: upload data to test exceeding storage project limit
 				if testCase.expectedResource == "storage" {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", expectedData)
+					atomic.StoreUint32(&uploaded, 1)
 					require.NoError(t, err)
 				}
 
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
+				atomic.StoreUint32(&uploaded, 1)
 				if testCase.expectedResource == "storage" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
 					require.NoError(t, actualErr)
 				}
+
+				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 			})
+		}
+
+		checkcancel()
+		if err := group.Wait(); err != nil {
+			t.Fatal(err)
 		}
 	})
 }

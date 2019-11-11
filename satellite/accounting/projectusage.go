@@ -108,7 +108,7 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	})
 	group.Go(func() error {
 		var err error
-		totalUsed, err = usage.getProjectStorageTotals(ctx, projectID)
+		totalUsed, err = usage.GetProjectStorageTotals(ctx, projectID)
 		return err
 	})
 	err = group.Wait()
@@ -124,7 +124,8 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	return false, limit, nil
 }
 
-func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+// GetProjectStorageTotals retursn how much storage has been used in total.
+func (usage *ProjectUsage) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
