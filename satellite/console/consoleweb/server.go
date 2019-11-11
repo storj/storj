@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -23,7 +24,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -522,41 +523,64 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var info os.FileInfo
+
 		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-		extension := filepath.Ext(r.RequestURI)
-		// we have gzipped only fonts, js and css bundles
-		formats := map[string]bool{
-			".js":  true,
-			".ttf": true,
-			".css": true,
+
+		if isGzipSupported {
+			l := strings.TrimLeft(r.URL.Path, "/static")
+			info, err = os.Stat(server.config.StaticDir + "/" + l + ".gz")
+			if err != nil {
+				if os.IsNotExist(err) {
+					info, err = os.Stat(server.config.StaticDir + "/" + l)
+				}
+			} else {
+				w.Header().Set("Content-Encoding", "gzip")
+
+				newRequest := new(http.Request)
+				*newRequest = *r
+				newRequest.URL = new(url.URL)
+				*newRequest.URL = *r.URL
+				newRequest.URL.Path += ".gz"
+
+				r = newRequest
+			}
+		} else {
+			info, err = os.Stat(r.URL.Path)
 		}
-		isNeededFormatToGzip := formats[extension]
 
-		// because we have some static content outside of console frontend app.
-		// for example: 404 page, account activation, password reset, etc.
-		// TODO: find better solution, its a temporary fix
-		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
-
-		w.Header().Set(contentType, mime.TypeByExtension(extension))
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-
-		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
-		// just return original file
-		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
-			fn.ServeHTTP(w, r)
+		if err != nil {
+			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Encoding", "gzip")
+		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		// updating request URL
-		newRequest := new(http.Request)
-		*newRequest = *r
-		newRequest.URL = new(url.URL)
-		*newRequest.URL = *r.URL
-		newRequest.URL.Path += ".gz"
+		lastModified := r.Header.Get("If-Last-Modified")
+		if lastModified != "" {
+			requestTime, err := time.Parse(time.RFC1123, lastModified)
+			if err != nil {
+				server.serveError(w, http.StatusInternalServerError)
+				return
+			}
 
-		fn.ServeHTTP(w, newRequest)
+			if requestTime.Before(info.ModTime()) {
+				w.Header().Set("Cache-Control", "public, max-age=604800")
+				w.Header().Set("Last-Modified", info.ModTime().String())
+				fn.ServeHTTP(w, r)
+				return
+			}
+
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("Cache-Control", "public, max-age=604800")
+		w.Header().Set("Last-Modified", info.ModTime().String())
+		fn.ServeHTTP(w, r)
 	})
 }
 

@@ -263,7 +263,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 	}
 
-	u, err = s.store.Users().GetByEmail(ctx, user.Email)
+	u, err = s.store.Users().GetByEmail(ctx, user.Email) // can return error with user existing in DB - refactor; is some repo's no rows affected error should be returned;
 	if err == nil {
 		return nil, errs.New(emailUsedErrMsg)
 	}

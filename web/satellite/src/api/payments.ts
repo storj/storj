@@ -24,9 +24,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (response.ok) {
-            const result = await response.json();
-
-            return result.balance;
+            return await response.json();
         }
 
         if (response.status === 401) {

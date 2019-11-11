@@ -62,11 +62,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tokenResponse struct {
-		Token string `json:"token"`
-	}
-
-	tokenResponse.Token, err = a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
 		if console.ErrConsoleInternal.Has(err) {
 			a.serveJSONError(w, http.StatusInternalServerError, err)
@@ -78,7 +74,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(&tokenResponse)
+	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -155,13 +151,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	var userIDResponse struct {
-		UserID uuid.UUID `json:"userId"`
-	}
-
-	userIDResponse.UserID = user.ID
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(&userIDResponse)
+	err = json.NewEncoder(w).Encode(user.ID)
 	if err != nil {
 		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
