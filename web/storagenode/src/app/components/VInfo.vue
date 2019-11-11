@@ -93,7 +93,7 @@ export default class VInfo extends Vue {
             align-items: center;
             text-align: center;
             background-image: url('../../../static/images/Message.png');
-            background-size:100% 100%;
+            background-size: 100% 100%;
             z-index: 101;
             padding: 11px 18px 20px 18px;
 
@@ -104,14 +104,14 @@ export default class VInfo extends Vue {
                 justify-content: center;
 
                 &__bold-text {
-                    color: #586C86;
+                    color: #586c86;
                     font-size: 12px;
                     line-height: 16px;
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                 }
 
                 &__regular-text {
-                    color: #5A6E87;
+                    color: #5a6e87;
                     font-size: 12px;
                     line-height: 16px;
                 }
@@ -120,8 +120,8 @@ export default class VInfo extends Vue {
             &__green-text {
                 font-size: 12px;
                 line-height: 16px;
-                font-family: 'font_medium';
-                color: #00CE7D;
+                font-family: 'font_medium', sans-serif;
+                color: #00ce7d;
                 width: auto;
                 margin-left: 10px;
             }

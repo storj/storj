@@ -41,8 +41,11 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -104,6 +107,11 @@ type API struct {
 		Service *mailservice.Service
 	}
 
+	Payments struct {
+		Accounts  payments.Accounts
+		Inspector *stripecoinpayments.Endpoint
+	}
+
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -111,6 +119,8 @@ type API struct {
 	}
 
 	Marketing struct {
+		PartnersService *rewards.PartnersService
+
 		Listener net.Listener
 		Endpoint *marketingweb.Server
 	}
@@ -354,6 +364,58 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		}
 	}
 
+	{ // setup payments
+		log.Debug("Satellite API Process setting up payments")
+		pc := config.Payments
+
+		switch pc.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects())
+
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+		}
+	}
+
+	{ // setup marketing portal
+		log.Debug("Satellite API Process setting up marketing server")
+
+		peer.Marketing.PartnersService = rewards.NewPartnersService(
+			peer.Log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			config.Marketing,
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
 	{ // setup console
 		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
@@ -365,14 +427,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			return nil, errs.New("Auth token secret required")
 		}
 
-		payments := stripecoinpayments.NewService(stripecoinpayments.Config{}, peer.DB.Customers(), peer.DB.CoinpaymentsTransactions())
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			payments.Accounts(),
+			peer.Marketing.PartnersService,
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 		if err != nil {
@@ -387,24 +448,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		)
 	}
 
-	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-		marketingConfig := config.Marketing
-		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			marketingConfig,
-			peer.DB.Rewards(),
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup node stats endpoint
 		log.Debug("Satellite API Process setting up node stats endpoint")
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
@@ -417,10 +460,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup graceful exit
-		log.Debug("Satellite API Process setting up graceful exit endpoint")
-		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(peer.Log.Named("gracefulexit:endpoint"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Overlay.Service, peer.Metainfo.Service, peer.Orders.Service, config.GracefulExit)
-		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		if config.GracefulExit.Enabled {
+			log.Debug("Satellite API Process setting up graceful exit endpoint")
+			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+				peer.Log.Named("gracefulexit:endpoint"),
+				signing.SignerFromFullIdentity(peer.Identity),
+				peer.DB.GracefulExit(),
+				peer.Overlay.DB,
+				peer.Overlay.Service,
+				peer.Metainfo.Service,
+				peer.Orders.Service,
+				peer.DB.PeerIdentities(),
+				config.GracefulExit)
+
+			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		}
 	}
 
 	return peer, nil

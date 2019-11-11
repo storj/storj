@@ -56,7 +56,7 @@ var (
 
 	//nolint
 	config struct {
-		Difficulty     uint64 `default:"30" help:"minimum difficulty for identity generation"`
+		Difficulty     uint64 `default:"36" help:"minimum difficulty for identity generation"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`

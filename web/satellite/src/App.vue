@@ -35,6 +35,19 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
+    public mounted(): void {
+        const meta = document.querySelector("meta[name='satellite-name']");
+        let satelliteName;
+
+        if (meta) {
+            satelliteName = meta.getAttribute('content');
+        }
+
+        if (satelliteName) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+        }
+    }
+
     public onClick(e: Event): void {
         let target: any = e.target;
         while (target) {
@@ -59,28 +72,24 @@ export default class App extends Vue {
     img,
     a {
         -webkit-user-drag: none;
-        -khtml-user-drag: none;
-        -moz-user-drag: none;
-        -o-user-drag: none;
-        user-drag: none;
     }
 
     @font-face {
-        font-family: "font_regular";
+        font-family: 'font_regular';
         font-display: swap;
-        src: url("../static/fonts/font_regular.ttf");
+        src: url('../static/fonts/font_regular.ttf');
     }
 
     @font-face {
-        font-family: "font_medium";
+        font-family: 'font_medium';
         font-display: swap;
-        src: url("../static/fonts/font_medium.ttf");
+        src: url('../static/fonts/font_medium.ttf');
     }
 
     @font-face {
-        font-family: "font_bold";
+        font-family: 'font_bold';
         font-display: swap;
-        src: url("../static/fonts/font_bold.ttf");
+        src: url('../static/fonts/font_bold.ttf');
     }
 
     a {
@@ -93,22 +102,25 @@ export default class App extends Vue {
         font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
-        caret-color: #2683FF;
+        caret-color: #2683ff;
     }
 
     /* width */
+
     ::-webkit-scrollbar {
         width: 4px;
     }
 
     /* Track */
+
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
     /* Handle */
+
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }

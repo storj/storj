@@ -57,6 +57,7 @@ export default class VChart extends Vue {
 
     public get chartOptions(): object {
         const filterCallback = this.filterDaysDisplayed;
+
         return {
             responsive: false,
             maintainAspectRatios: false,
@@ -151,5 +152,3 @@ export default class VChart extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss"></style>

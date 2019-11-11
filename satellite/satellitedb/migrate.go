@@ -44,6 +44,17 @@ func (db *DB) CreateTables() error {
 	}
 }
 
+// CheckVersion confirms confirms the database is at the desired version
+func (db *DB) CheckVersion() error {
+	switch db.driver {
+	case "postgres":
+		migration := db.PostgresMigration()
+		return migration.ValidateVersions(db.log)
+	default:
+		return nil
+	}
+}
+
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
@@ -1317,6 +1328,64 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     61,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD COLUMN exit_success boolean NOT NULL DEFAULT FALSE`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to have the piece_num as part of the primary key since it is possible for a node to have 2 pieces for a given segment.",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue DROP CONSTRAINT graceful_exit_transfer_queue_pkey;`,
+					`ALTER TABLE graceful_exit_transfer_queue ADD PRIMARY KEY ( node_id, path, piece_num );`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add payments update balance intents",
+				Version:     63,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Removing unused bucket_usages table",
+				Version:     64,
+				Action: migrate.SQL{
+					`DROP TABLE bucket_usages CASCADE;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_invoice_project_records",
+				Version:     65,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_invoice_project_records (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						storage double precision NOT NULL,
+						egress bigint NOT NULL,
+						objects bigint NOT NULL,
+						period_start timestamp with time zone NOT NULL,
+						period_end timestamp with time zone NOT NULL,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( project_id, period_start, period_end )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Version:     66,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
 				},
 			},
 		},

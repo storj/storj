@@ -146,6 +146,32 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	return nodes, nil
 }
 
+// GetNodeIPs returns a list of node IP addresses. Warning: these node IP addresses might be returned out of order.
+func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows *sql.Rows
+	rows, err = cache.db.Query(cache.db.Rebind(`
+		SELECT last_net FROM nodes
+			WHERE id = any($1::bytea[])
+		`), postgresNodeIDList(nodeIDs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			return nil, err
+		}
+		nodeIPs = append(nodeIPs, ip)
+	}
+	return nodeIPs, nil
+}
+
 func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -530,6 +556,11 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 		return failed, nil
 	}
 
+	// ensure updates happen in-order
+	sort.Slice(updateRequests, func(i, k int) bool {
+		return updateRequests[i].NodeID.Less(updateRequests[k].NodeID)
+	})
+
 	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
 		appendAll := func() {
 			for _, ur := range updateRequests {
@@ -828,14 +859,15 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	return Error.Wrap(err)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
-func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+// GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.
+func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
+		AND disqualified is NULL
 		`),
 	)
 	if err != nil {
@@ -846,41 +878,12 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes st
 	}()
 
 	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
+		var exitingNodeStatus overlay.ExitStatus
+		err = rows.Scan(&exitingNodeStatus.NodeID, &exitingNodeStatus.ExitInitiatedAt, &exitingNodeStatus.ExitLoopCompletedAt, &exitingNodeStatus.ExitFinishedAt, &exitingNodeStatus.ExitSuccess)
 		if err != nil {
 			return nil, err
 		}
-		exitingNodes = append(exitingNodes, id)
-	}
-	return exitingNodes, nil
-}
-
-// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
-func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rows, err := cache.db.Query(cache.db.Rebind(`
-		SELECT id FROM nodes
-		WHERE exit_initiated_at IS NOT NULL
-		AND exit_loop_completed_at IS NULL
-		AND exit_finished_at IS NULL
-		`),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
-		}
-		exitingNodes = append(exitingNodes, id)
+		exitingNodes = append(exitingNodes, &exitingNodeStatus)
 	}
 	return exitingNodes, nil
 }
@@ -966,7 +969,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.
-func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := request.NodeID
@@ -987,7 +990,12 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	err = tx.Commit()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return convertDBNode(ctx, dbNode)
 }
 
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {

@@ -101,7 +101,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create a bucket with a file using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
@@ -112,7 +112,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotEmpty{Bucket: TestBucket}, err)
 
 		// Delete the file using the Metainfo API, so the bucket becomes empty
-		err = m.DeleteObject(ctx, TestBucket, TestFile)
+		err = m.DeleteObject(ctx, bucket, TestFile)
 		assert.NoError(t, err)
 
 		// Delete the bucket info using the Minio API
@@ -701,7 +701,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(m, ec, rs)
 
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
@@ -710,7 +710,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold, 8*memory.MiB.Int64())
 	if err != nil {
 		return nil, nil, nil, err
 	}

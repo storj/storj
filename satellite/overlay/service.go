@@ -72,17 +72,18 @@ type DB interface {
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
-	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (stats *NodeStats, err error)
+	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
 	// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
-	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
-	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
-	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+	GetExitingNodes(ctx context.Context) (exitingNodes []*ExitStatus, err error)
 	// GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
 	GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error)
 	// GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
 	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
+
+	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
+	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -257,6 +258,14 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	excludedNodes := req.ExcludedNodes
+	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
+	var excludedIPs []string
+	if preferences.DistinctIP && len(excludedNodes) > 0 {
+		excludedIPs, err = service.db.GetNodeIPs(ctx, excludedNodes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -279,7 +288,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		}
 	}
 
-	var excludedIPs []string
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		excludedNodes = append(excludedNodes, newNode.Id)

@@ -14,8 +14,8 @@
     flex-direction: column;
     align-items: flex-start;
     padding: 60px 0 0 104px;
-    background-color: #F5F6FA;
-    font-family: 'font_regular';
+    background-color: #f5f6fa;
+    font-family: 'font_regular', sans-serif;
 
     &__wrapper {
         min-width: 50%;
@@ -42,13 +42,13 @@
         justify-content: center;
         background-color: transparent;
         border-radius: 6px;
-        border: 1px solid #AFB7C1;
+        border: 1px solid #afb7c1;
         cursor: pointer;
         width: 160px;
         height: 48px;
 
         &__label {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 14px;
             line-height: 19px;
             margin-block-start: 0;
@@ -57,8 +57,8 @@
         }
 
         &:hover {
-            background-color: #2683FF;
-            border: 1px solid #2683FF;
+            background-color: #2683ff;
+            border: 1px solid #2683ff;
 
             .login-container__register-button__label {
                 color: white;
@@ -95,9 +95,9 @@
         width: 100%;
 
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 22px;
-            color: #384B65;
+            color: #384b65;
             line-height: 27px;
             margin-block-start: 0;
             margin-block-end: 0;
@@ -120,7 +120,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #2683FF;
+            background-color: #2683ff;
             border-radius: 6px;
             cursor: pointer;
             width: 160px;
@@ -129,7 +129,7 @@
             z-index: 1;
 
             &__label {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 14px;
                 line-height: 19px;
                 margin-block-start: 0;
@@ -138,7 +138,7 @@
             }
 
             &:hover {
-                background-color: #0059D0;
+                background-color: #0059d0;
             }
         }
     }
@@ -157,32 +157,29 @@
             line-height: 18px;
             text-align: center;
             text-decoration: none;
-            color: #AFB7C1;
+            color: #afb7c1;
             margin-block-start: 0;
             margin-block-end: 0;
+            margin-right: 50px;
+        }
+
+        &__terms {
+            margin-right: 35px;
         }
 
         &__terms,
         &__help {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 15px;
             line-height: 18px;
             text-align: center;
-            color: #2683FF;
+            color: #2683ff;
             margin-block-start: 0;
             margin-block-end: 0;
 
             &:hover {
                 text-decoration: underline;
             }
-        }
-
-        &__signature {
-            margin-right: 50px;
-        }
-
-        &__terms {
-            margin-right: 35px;
         }
     }
 
@@ -201,20 +198,20 @@
         align-items: center;
 
         &__nav-link {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 20px;
             height: 48px;
             text-align: center;
             min-width: 140px;
-            color: #2683FF;
+            color: #2683ff;
 
             &:hover {
                 text-decoration: underline;
             }
 
             .bold {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
             }
         }
     }
@@ -226,6 +223,16 @@
     top: 0;
     bottom: 0;
     height: 100vh;
+
+    .st1 { fill: #2683ff; }
+    .st2 { fill: #007aff; }
+    .st3 { fill: #0062ff; }
+    .st4 { fill: #fff; }
+    .st5 { fill: #6cb9ff; }
+    .st6 { fill: #499ffc; }
+    .st7 { fill: #f7f9f9; }
+    .st8 { fill: #0f002d; }
+    .st9 { fill: #dedefc; }
 }
 
 .loading-overlay {
@@ -236,7 +243,7 @@
     height: 100vh;
     width: 0;
     z-index: 100;
-    background-color: #2683FF;
+    background-color: #2683ff;
     visibility: hidden;
     opacity: 0;
     -webkit-transition: all 0.5s linear;
@@ -245,13 +252,11 @@
     transition: all 0.5s linear;
 
     &__logo {
-        position: absolute;
-        left: calc(50% - 104px);
+        position: fixed;
+        left: 50%;
         top: calc(50% - 60px);
         transform: translate(-50%);
         display: block;
-        width: 240px;
-        height: 110px;
         z-index: 200;
         visibility: hidden;
         opacity: 0;
@@ -274,6 +279,7 @@
 }
 
 @media screen and (max-width: 1500px) {
+
     .login-container {
 
         &__wrapper {
@@ -283,6 +289,7 @@
 }
 
 @media screen and (max-width: 1300px) {
+
     .login-container {
 
         &__wrapper {
@@ -300,6 +307,7 @@
 }
 
 @media screen and (max-width: 1168px) {
+
     .login-container {
 
         &__wrapper {
@@ -317,6 +325,7 @@
 }
 
 @media screen and (max-width: 750px) {
+
     .login-container {
         padding: 60px 20px 20px 20px;
 
@@ -342,6 +351,7 @@
 }
 
 @media only screen and (max-width: 420px) {
+
     .login-container {
         padding: 40px 15px 50px 15px;
 
@@ -407,6 +417,7 @@
 }
 
 @media only screen and (max-width: 340px) {
+
     .login-container {
         padding: 40px 15px 50px 15px;
 
@@ -472,6 +483,7 @@
 }
 
 @media screen and (max-height: 850px) {
+
     .login-area {
 
         &__info-area {
@@ -481,6 +493,7 @@
 }
 
 @media screen and (max-height: 700px) {
+
     .login-area {
 
         &__info-area {
@@ -490,6 +503,7 @@
 }
 
 @media screen and (max-height: 610px) {
+
     .login-area {
 
         &__info-area {
