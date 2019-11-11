@@ -86,6 +86,7 @@ pipeline {
                 stage('Windows Installer Tests') {
                     agent {
                         label 'windows'
+                        dockerfile false
                     }
                     steps {
                         bat 'installer\\windows\\unittests.bat'
