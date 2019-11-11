@@ -544,12 +544,17 @@ func (server *Server) cacheControlMiddleware(fn http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		lastModified := r.Header.Get("If-Last-Modified")
-		if lastModified != "" {
-			requestTime, err := time.Parse(time.RFC1123, lastModified)
-			if err == nil && !requestTime.Before(info.ModTime()) {
-				w.WriteHeader(http.StatusNotModified)
-				return
-			}
+		if lastModified == "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000")
+			w.Header().Set("Last-Modified", info.ModTime().String())
+			fn.ServeHTTP(w, r)
+			return
+		}
+
+		requestTime, err := time.Parse(time.RFC1123, lastModified)
+		if err == nil && !requestTime.Before(info.ModTime()) {
+			w.WriteHeader(http.StatusNotModified)
+			return
 		}
 
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
@@ -567,12 +572,14 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 			return
 		}
 
-		_, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
+		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
 		if err != nil {
 			fn.ServeHTTP(w, r)
 			return
 		}
 
+		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
 		newRequest := new(http.Request)
