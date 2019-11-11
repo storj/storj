@@ -442,7 +442,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
 			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
+			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
 		})
 
 		// gateway must wait for the corresponding satellite to start up
@@ -522,8 +522,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				}
 			}
 
-			if runAccessData := vip.GetString("access"); runAccessData != accessData {
-				process.AddExtra("ACCESS", runAccessData)
+			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
+				process.AddExtra("SCOPE", runScopeData)
+				if scope, err := uplink.ParseScope(runScopeData); err == nil {
+					process.AddExtra("API_KEY", scope.APIKey.Serialize())
+				}
 			}
 
 			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))

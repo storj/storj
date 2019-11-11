@@ -90,7 +90,7 @@ type Info struct {
 	Extra      []EnvVar
 }
 
-// EnvVar represents an environment variable like Key=Value.
+// EnvVar represents an environment variable like Key=Value
 type EnvVar struct {
 	Key   string
 	Value string

@@ -73,22 +73,24 @@ build-storagenode-npm:
 
 ##@ Simulator
 
+.PHONY: go-install-grpc-and-drpc
+go-install-grpc-and-drpc:
+	@: $(if ${PACKAGE},,$(error PACKAGE must be defined for the go-install-grpc-and-drpc target))
+	go build -race -v -tags=grpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-grpc" "${PACKAGE}"
+	go build -race -v -tags=drpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-drpc" "${PACKAGE}"
+	go install -race -v "${PACKAGE}"
+
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	go install -race -v \
-		storj.io/storj/cmd/satellite \
-		storj.io/storj/cmd/storagenode \
-		storj.io/storj/cmd/storj-sim \
-		storj.io/storj/cmd/versioncontrol \
-		storj.io/storj/cmd/uplink \
-		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates
-
-	## install exact version of storj/gateway
-	mkdir -p .build/gateway-tmp
-	-cd .build/gateway-tmp && go mod init gatewaybuild
-	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@latest
+	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/storagenode
+	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/satellite
+	go install -race -v storj.io/storj/cmd/storj-sim
+	go install -race -v storj.io/storj/cmd/versioncontrol
+	go install -race -v storj.io/storj/cmd/uplink
+	go install -race -v storj.io/storj/cmd/gateway
+	go install -race -v storj.io/storj/cmd/identity
+	go install -race -v storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -245,24 +247,27 @@ binary-check:
 .PHONY: certificates_%
 certificates_%:
 	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: gateway_%
+gateway_%:
+	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: inspector_%
 inspector_%:
 	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: linksharing_%
+linksharing_%:
+	$(MAKE) binary-check COMPONENT=linksharing GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
 satellite_%:
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: segment-reaper_%
-segment-reaper_%:
-	$(MAKE) binary-check COMPONENT=segment-reaper GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
-	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: uplink_%
 uplink_%:
 	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
