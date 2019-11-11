@@ -1388,6 +1388,8 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
 		require.EqualValues(t, 1, progress.PiecesFailed)
+		status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NotNil(t, status.ExitFinishedAt)
 	})
 }
 
