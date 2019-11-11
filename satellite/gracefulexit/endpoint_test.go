@@ -1405,7 +1405,10 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 					if m.TransferPiece.OriginalPieceId == notRespondingPiece {
 						messageCount++
 						sentUnknownMsg = true
-						c.Send(&pb.StorageNodeMessage{})
+						// Send unknown message to terminate an API call so that we don't
+						// need to close the entire connection, but the pending queue
+						// can still be repopulated.
+						err = c.Send(&pb.StorageNodeMessage{})
 						require.NoError(t, c.CloseSend())
 					} else {
 						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
