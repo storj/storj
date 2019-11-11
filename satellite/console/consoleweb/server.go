@@ -150,7 +150,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/static/").Handler(server.gzipMiddleware(server.cacheControlMiddleware(http.StripPrefix("/static", fs))))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -520,38 +520,22 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gzipHandler is used to gzip static content to minify resources if browser support such decoding
-func (server *Server) gzipHandler(fn http.Handler) http.Handler {
+// cacheControlMiddleware is used to add cache-control if needed or update Last-Modified time.
+func (server *Server) cacheControlMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		var info os.FileInfo
-
-		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-
-		if isGzipSupported {
-			l := strings.TrimLeft(r.URL.Path, "/static")
-			info, err = os.Stat(server.config.StaticDir + "/" + l + ".gz")
-			if err != nil {
-				if os.IsNotExist(err) {
-					info, err = os.Stat(server.config.StaticDir + "/" + l)
-				}
-			} else {
-				w.Header().Set("Content-Encoding", "gzip")
-
-				newRequest := new(http.Request)
-				*newRequest = *r
-				newRequest.URL = new(url.URL)
-				*newRequest.URL = *r.URL
-				newRequest.URL.Path += ".gz"
-
-				r = newRequest
-			}
-		} else {
-			info, err = os.Stat(r.URL.Path)
-		}
-
+		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static"))
 		if err != nil {
-			server.serveError(w, http.StatusInternalServerError)
+			if os.IsNotExist(err) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			if os.IsPermission(err) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -562,25 +546,42 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		lastModified := r.Header.Get("If-Last-Modified")
 		if lastModified != "" {
 			requestTime, err := time.Parse(time.RFC1123, lastModified)
-			if err != nil {
-				server.serveError(w, http.StatusInternalServerError)
+			if err == nil && !requestTime.Before(info.ModTime()) {
+				w.WriteHeader(http.StatusNotModified)
 				return
 			}
+		}
 
-			if requestTime.Before(info.ModTime()) {
-				w.Header().Set("Cache-Control", "public, max-age=604800")
-				w.Header().Set("Last-Modified", info.ModTime().String())
-				fn.ServeHTTP(w, r)
-				return
-			}
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("Last-Modified", info.ModTime().String())
+		fn.ServeHTTP(w, r)
+	})
+}
 
-			w.WriteHeader(http.StatusNotModified)
+// gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
+func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+		if !isGzipSupported {
+			fn.ServeHTTP(w, r)
 			return
 		}
 
-		w.Header().Set("Cache-Control", "public, max-age=604800")
-		w.Header().Set("Last-Modified", info.ModTime().String())
-		fn.ServeHTTP(w, r)
+		_, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
+		if err != nil {
+			fn.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Encoding", "gzip")
+
+		newRequest := new(http.Request)
+		*newRequest = *r
+		newRequest.URL = new(url.URL)
+		*newRequest.URL = *r.URL
+		newRequest.URL.Path += ".gz"
+
+		fn.ServeHTTP(w, newRequest)
 	})
 }
 
