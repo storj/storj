@@ -296,7 +296,6 @@ func TestNodeInfo(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
-		planet.Satellites[0].Discovery.Service.Refresh.Pause()
 
 		node, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
@@ -405,6 +404,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
+		expectedNode.CreatedAt = actualNode.CreatedAt
 		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field

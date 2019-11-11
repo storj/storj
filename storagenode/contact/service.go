@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/overlay"
 )
@@ -34,6 +35,8 @@ type Service struct {
 
 	mu   sync.Mutex
 	self *overlay.NodeDossier
+
+	initialized sync2.Fence
 }
 
 // NewService creates a new contact service
@@ -58,4 +61,6 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	if capacity != nil {
 		service.self.Capacity = *capacity
 	}
+
+	service.initialized.Release()
 }

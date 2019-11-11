@@ -5,6 +5,7 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 import "orders.proto";
 
@@ -12,38 +13,42 @@ package gracefulexit;
 
 // NodeGracefulExit is a private service on storagenodes
 service NodeGracefulExit {
-  // GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
+  // GetSatellitesList returns a list of satellites that the storagenode has not exited.
   rpc GetNonExitingSatellites(GetNonExitingSatellitesRequest) returns (GetNonExitingSatellitesResponse);
-  // StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
-  rpc StartExit(StartExitRequest) returns (StartExitResponse);
- 
+  // InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
+  rpc InitiateGracefulExit(InitiateGracefulExitRequest) returns (ExitProgress);
+  // GetExitProgress returns graceful exit status on each satellite for a given storagenode.
+  rpc GetExitProgress(GetExitProgressRequest) returns (GetExitProgressResponse);
 }
 
 message GetNonExitingSatellitesRequest{}
 
-message StartExitRequest {
-  repeated bytes node_ids = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+message InitiateGracefulExitRequest {
+   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 // NonExitingSatellite contains information that's needed for a storagenode to start graceful exit
 message NonExitingSatellite {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-    string domain_name = 2;
-    double space_used = 3;
+   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+   string domain_name = 2;
+   double space_used = 3;
 }
 
 message GetNonExitingSatellitesResponse {
-  repeated NonExitingSatellite satellites = 1;
+   repeated NonExitingSatellite satellites = 1;
 }
 
-// StartExitStatus indicates the result of graceful exit initialization from a storagenode
-message StartExitStatus {
-  string domain_name = 1;
-  bool success = 2;
+message GetExitProgressRequest {}
+
+message GetExitProgressResponse {
+ repeated ExitProgress progress = 1;
 }
 
-message StartExitResponse {
-  repeated StartExitStatus statuses = 1;
+message ExitProgress {
+    string domain_name = 1;
+    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    float percent_complete = 3;
+    bool successful = 4;
 }
 
 service SatelliteGracefulExit {
@@ -52,18 +57,20 @@ service SatelliteGracefulExit {
 }
 
 message TransferSucceeded {
-  metainfo.AddressedOrderLimit addressed_order_limit   = 1;
+  orders.OrderLimit            original_order_limit    = 1;
   orders.PieceHash             original_piece_hash     = 2;
   orders.PieceHash             replacement_piece_hash  = 3;
-  bytes piece_id    = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID  
+  bytes                        original_piece_id       = 4 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message TransferFailed {
-  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
+  bytes original_piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
   enum Error {
       NOT_FOUND                 = 0;
       STORAGE_NODE_UNAVAILABLE  = 1;
-      UNKNOWN                   = 2;
+      HASH_VERIFICATION         = 2;
+
+      UNKNOWN                   = 10;
   }
   Error error = 2;
 }
@@ -78,29 +85,43 @@ message StorageNodeMessage {
 message NotReady {}
 
 message TransferPiece {
-  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
+  bytes original_piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
   bytes private_key = 2 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 
   // addressed_order_limit contains the new piece id.
-  metainfo.AddressedOrderLimit addressed_order_limit =3;              
+  metainfo.AddressedOrderLimit addressed_order_limit =3;
 }
 
 message DeletePiece {
-  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the original piece ID
+  bytes original_piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message ExitCompleted {
   // when everything is completed
   bytes exit_complete_signature = 1;
+  // satellite who issued this exit completed
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit completed was issued to
+  bytes node_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit completed
+  google.protobuf.Timestamp completed = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message ExitFailed {
   enum Reason {
       VERIFICATION_FAILED = 0;
+      INACTIVE_TIMEFRAME_EXCEEDED = 1;
+      OVERALL_FAILURE_PERCENTAGE_EXCEEDED = 2;
   }
   // on failure
   bytes exit_failure_signature  = 1;
   Reason reason                 = 2;
+  // satellite who issued this exit failed
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // storage node this exit failed was issued to
+  bytes node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // timestamp when the exit failed
+  google.protobuf.Timestamp failed = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  
 }
 
 message SatelliteMessage {

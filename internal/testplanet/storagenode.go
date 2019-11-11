@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
@@ -122,12 +123,19 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Contact: contact.Config{
 				Interval: defaultInterval,
 			},
+			GracefulExit: gracefulexit.Config{
+				ChoreInterval:          time.Second * 1,
+				NumWorkers:             3,
+				NumConcurrentTransfers: 1,
+				MinBytesPerSecond:      128 * memory.B,
+				MinDownloadTimeout:     2 * time.Minute,
+			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
-		newIPCount := planet.config.Reconfigure.NewIPCount
+		newIPCount := planet.config.Reconfigure.UniqueIPCount
 		if newIPCount > 0 {
 			if i >= count-newIPCount {
 				config.Server.Address = fmt.Sprintf("127.0.%d.1:0", i+1)

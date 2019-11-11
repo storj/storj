@@ -27,7 +27,7 @@ type RSConfig struct {
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4" hidden:"true"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6" hidden:"true"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8" hidden:"true"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10" hidden:"true"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"95" devDefault:"10" hidden:"true"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
@@ -40,10 +40,9 @@ type EncryptionConfig struct {
 // ClientConfig is a configuration struct for the uplink that controls how
 // to talk to the rest of the network.
 type ClientConfig struct {
-	MaxInlineSize  memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
-	SegmentSize    memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
-	RequestTimeout time.Duration `help:"timeout for request" default:"0h2m00s"`
-	DialTimeout    time.Duration `help:"timeout for dials" default:"0h2m00s"`
+	MaxInlineSize memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
+	SegmentSize   memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
+	DialTimeout   time.Duration `help:"timeout for dials" default:"0h2m00s"`
 }
 
 // Config uplink configuration

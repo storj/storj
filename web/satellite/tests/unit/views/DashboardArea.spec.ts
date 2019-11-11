@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import router, { RouteConfig } from '@/router';
+import { RouteConfig, router } from '@/router';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';

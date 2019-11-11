@@ -304,7 +304,13 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
 		}
 
+		pieceNums := make(map[int32]struct{}, 0)
+		nodeIds := make(map[storj.NodeID]struct{}, 0)
 		for _, piece := range remote.RemotePieces {
+			if piece.PieceNum >= int32(len(originalLimits)) {
+				return Error.New("invalid piece number")
+			}
+
 			limit := originalLimits[piece.PieceNum]
 
 			if limit == nil {
@@ -328,6 +334,17 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			if piece.NodeId != limit.StorageNodeId {
 				return Error.New("piece NodeID != order limit NodeID")
 			}
+
+			if _, ok := pieceNums[piece.PieceNum]; ok {
+				return Error.New("piece num %d is duplicated", piece.PieceNum)
+			}
+
+			if _, ok := nodeIds[piece.NodeId]; ok {
+				return Error.New("node id %s for piece num %d is duplicated", piece.NodeId.String(), piece.PieceNum)
+			}
+
+			pieceNums[piece.PieceNum] = struct{}{}
+			nodeIds[piece.NodeId] = struct{}{}
 		}
 	}
 
@@ -339,15 +356,17 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 
 	if endpoint.requiredRSConfig.Validate {
 		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.requiredRSConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MinTotalThreshold > int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MaxTotalThreshold < int(redundancy.Total) ||
 			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||
 			endpoint.requiredRSConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
 			endpoint.requiredRSConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
-			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d, %d] got [%d, %d, %d, %d, %d]",
+			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d-%d, %d] got [%d, %d, %d, %d, %d]",
 				endpoint.requiredRSConfig.MinThreshold,
 				endpoint.requiredRSConfig.RepairThreshold,
 				endpoint.requiredRSConfig.SuccessThreshold,
-				endpoint.requiredRSConfig.MaxThreshold,
+				endpoint.requiredRSConfig.MinTotalThreshold,
+				endpoint.requiredRSConfig.MaxTotalThreshold,
 				endpoint.requiredRSConfig.ErasureShareSize.Int32(),
 
 				redundancy.MinReq,
@@ -366,26 +385,34 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
-		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+		return errs.New("no piece hash. NodeID: %v, PieceNum: %d", piece.NodeId, piece.PieceNum)
 	}
 
 	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
 	if err != nil {
-		return errs.New("piece hash signature could not be verified for node %v: %v", piece.NodeId, err)
+		return errs.New("piece hash signature could not be verified for node (NodeID: %v, PieceNum: %d): %+v",
+			piece.NodeId, piece.PieceNum, err,
+		)
 	}
 
 	timestamp := piece.Hash.Timestamp
 	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
-		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+		return errs.New("piece hash timestamp is too old (%v). NodeId: %v, PieceNum: %d)",
+			timestamp, piece.NodeId, piece.PieceNum,
+		)
 	}
 
 	limit := limits[piece.PieceNum]
 	if limit != nil {
 		switch {
 		case limit.PieceId != piece.Hash.PieceId:
-			return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+			return errs.New("piece hash pieceID (%v) doesn't match limit pieceID (%v). NodeID: %v, PieceNum: %d",
+				piece.Hash.PieceId, limit.PieceId, piece.NodeId, piece.PieceNum,
+			)
 		case limit.Limit < piece.Hash.PieceSize:
-			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
+			return errs.New("piece hash PieceSize (%d) is larger than order limit (%d). NodeID: %v, PieceNum: %d",
+				piece.Hash.PieceSize, limit.Limit, piece.NodeId, piece.PieceNum,
+			)
 		}
 	}
 	return nil

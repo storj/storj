@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -50,7 +51,9 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverride int, satelliteSignee signing.Signee,
+	excessOptimalThreshold float64, repairOverride int,
+	downloadTimeout time.Duration,
+	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -62,7 +65,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverride:             repairOverride,
@@ -78,11 +81,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
-		return storj.ErrObjectNotFound.Has(err), Error.Wrap(err)
+		if storage.ErrKeyNotFound.Has(err) {
+			mon.Meter("repair_unnecessary").Mark(1)
+			repairer.log.Debug("segment was deleted", zap.Binary("Segment", []byte(path)))
+			return true, nil
+		}
+		return false, Error.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
-		return true, Error.New("cannot repair inline segment %s", path)
+		return true, Error.New("cannot repair inline segment")
 	}
 
 	mon.Meter("repair_attempts").Mark(1)
@@ -94,7 +102,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
@@ -109,7 +116,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
+		return true, Error.Wrap(IrreparableError.New("segment cannot be repaired: only %d healthy pieces, %d required", numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
 	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
@@ -120,7 +127,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// repair not needed
 	if int32(numHealthy) > repairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, repairThreshold)
+		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
 		return true, nil
 	}
 
@@ -181,7 +188,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize(), path)
 
 	// Populate node IDs that failed piece hashes verification
 	var failedNodeIDs storj.NodeIDList
@@ -202,7 +209,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, path)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}

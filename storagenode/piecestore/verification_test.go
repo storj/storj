@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -240,6 +241,10 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// wait for all requests to finish to ensure that the upload usage has been
+	// accounted for.
+	waitForEndpointRequestsToDrain(t, planet)
+
 	for _, tt := range []struct {
 		satellite       *identity.FullIdentity
 		pieceID         storj.PieceID
@@ -290,10 +295,10 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		buffer, readErr := ioutil.ReadAll(downloader)
-		require.Equal(t, 0, len(buffer))
 		closeErr := downloader.Close()
 		err = errs.Combine(readErr, closeErr)
 		if tt.err != "" {
+			assert.Equal(t, 0, len(buffer))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
 		} else {
@@ -329,4 +334,27 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}
+}
+
+func waitForEndpointRequestsToDrain(t *testing.T, planet *testplanet.Planet) {
+	timeout := time.NewTimer(time.Minute)
+	defer timeout.Stop()
+	for {
+		if endpointRequestCount(planet) == 0 {
+			return
+		}
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-timeout.C:
+			require.FailNow(t, "timed out waiting for endpoint requests to drain")
+		}
+	}
+}
+
+func endpointRequestCount(planet *testplanet.Planet) int {
+	total := 0
+	for _, storageNode := range planet.StorageNodes {
+		total += int(storageNode.Storage2.Endpoint.TestLiveRequestCount())
+	}
+	return total
 }

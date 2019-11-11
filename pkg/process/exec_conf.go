@@ -71,7 +71,10 @@ func Exec(cmd *cobra.Command) {
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	cleanup(cmd)
-	_ = cmd.Execute()
+	err = cmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
@@ -310,7 +313,7 @@ func cmdVersion(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("Development build")
 	}
 
-	if version.Build.Version != (version.SemVer{}) {
+	if !version.Build.Version.IsZero() {
 		fmt.Println("Version:", version.Build.Version.String())
 	}
 	if !version.Build.Timestamp.IsZero() {

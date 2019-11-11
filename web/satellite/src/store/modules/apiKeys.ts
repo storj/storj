@@ -27,9 +27,10 @@ const {
     SET_PAGE_NUMBER,
 } = API_KEYS_MUTATIONS;
 
-class ApiKeysState {
+export class ApiKeysState {
     public cursor: ApiKeyCursor = new ApiKeyCursor();
     public page: ApiKeysPage = new ApiKeysPage();
+    public selectedApiKeysIds: string[] = [];
 }
 
 /**
@@ -43,6 +44,13 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
         mutations: {
             [SET_PAGE](state: ApiKeysState, page: ApiKeysPage) {
                 state.page = page;
+                state.page.apiKeys = state.page.apiKeys.map(apiKey => {
+                    if (state.selectedApiKeysIds.includes(apiKey.id)) {
+                        apiKey.isSelected = true;
+                    }
+
+                    return apiKey;
+                });
             },
             [SET_PAGE_NUMBER](state: ApiKeysState, pageNumber: number) {
                 state.cursor.page = pageNumber;
@@ -56,16 +64,21 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             [CHANGE_SORT_ORDER_DIRECTION](state: ApiKeysState, direction: SortDirection) {
                 state.cursor.orderDirection = direction;
             },
-            [TOGGLE_SELECTION](state: ApiKeysState, apiKeyID: string) {
-                state.page.apiKeys = state.page.apiKeys.map((apiKey: ApiKey) => {
-                    if (apiKey.id === apiKeyID) {
-                        apiKey.isSelected = !apiKey.isSelected;
-                    }
+            [TOGGLE_SELECTION](state: ApiKeysState, apiKey: ApiKey) {
+                if (!state.selectedApiKeysIds.includes(apiKey.id)) {
+                    apiKey.isSelected = true;
+                    state.selectedApiKeysIds.push(apiKey.id);
 
-                    return apiKey;
+                    return;
+                }
+
+                apiKey.isSelected = false;
+                state.selectedApiKeysIds = state.selectedApiKeysIds.filter(apiKeyId => {
+                    return apiKey.id !== apiKeyId;
                 });
             },
             [CLEAR_SELECTION](state: ApiKeysState) {
+                state.selectedApiKeysIds = [];
                 state.page.apiKeys = state.page.apiKeys.map((apiKey: ApiKey) => {
                     apiKey.isSelected = false;
 
@@ -75,6 +88,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             [CLEAR](state: ApiKeysState) {
                 state.cursor = new ApiKeyCursor();
                 state.page = new ApiKeysPage();
+                state.selectedApiKeysIds = [];
             },
         },
         actions: {
@@ -94,8 +108,10 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
 
                 return apiKey;
             },
-            deleteApiKey: async function({commit}: any, ids: string[]): Promise<void> {
-                return await api.delete(ids);
+            deleteApiKey: async function({state, commit}: any): Promise<void> {
+                await api.delete(state.selectedApiKeysIds);
+
+                commit(CLEAR_SELECTION);
             },
             setApiKeysSearchQuery: function ({commit}, search: string) {
                 commit(SET_SEARCH_QUERY, search);
@@ -106,14 +122,15 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             setApiKeysSortingDirection: function ({commit}, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
-            toggleApiKeySelection: function ({commit}, apiKeyID: string): void {
-                commit(TOGGLE_SELECTION, apiKeyID);
+            toggleApiKeySelection: function ({commit}, apiKey: ApiKey): void {
+                commit(TOGGLE_SELECTION, apiKey);
             },
             clearApiKeySelection: function ({commit}): void {
                 commit(CLEAR_SELECTION);
             },
             clearApiKeys: function ({commit}): void {
                 commit(CLEAR);
+                commit(CLEAR_SELECTION);
             },
         },
         getters: {

@@ -363,7 +363,6 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
 	config.Legacy.Client.APIKey = apiKey.Serialize()
 	config.Legacy.Client.SatelliteAddr = satellite.Addr()
 
-	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
 	config.RS.MinThreshold = atLeastOne(client.StorageNodeCount * 1 / 5)     // 20% of storage nodes
@@ -403,7 +402,6 @@ func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, erro
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !config.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = config.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = config.Client.DialTimeout
-	libuplinkCfg.Volatile.RequestTimeout = config.Client.RequestTimeout
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

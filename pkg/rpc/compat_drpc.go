@@ -1,17 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build drpc
+// +build !grpc
 
 package rpc
 
 import (
-	"storj.io/drpc/drpcconn"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
 // RawConn is a type alias to a drpc client connection
-type RawConn = drpcconn.Conn
+type RawConn = rpcpool.Conn
 
 type (
 	// CertificatesClient is an alias to the drpc client interface
@@ -38,14 +38,14 @@ type (
 	// NodeStatsClient is an alias to the drpc client interface
 	NodeStatsClient = pb.DRPCNodeStatsClient
 
-	// NodesClient is an alias to the drpc client interface
-	NodesClient = pb.DRPCNodesClient
-
 	// OrdersClient is an alias to the drpc client interface
 	OrdersClient = pb.DRPCOrdersClient
 
 	// OverlayInspectorClient is an alias to the drpc client interface
 	OverlayInspectorClient = pb.DRPCOverlayInspectorClient
+
+	// PaymentsClient is an alias to the drpc client interface
+	PaymentsClient = pb.DRPCPaymentsClient
 
 	// PieceStoreInspectorClient is an alias to the drpc client interface
 	PieceStoreInspectorClient = pb.DRPCPieceStoreInspectorClient
@@ -140,16 +140,6 @@ func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
 }
 
-// NewNodesClient returns the drpc version of a NodesClient
-func NewNodesClient(rc *RawConn) NodesClient {
-	return pb.NewDRPCNodesClient(rc)
-}
-
-// NodesClient returns a NodesClient for this connection
-func (c *Conn) NodesClient() NodesClient {
-	return NewNodesClient(c.raw)
-}
-
 // NewOrdersClient returns the drpc version of a OrdersClient
 func NewOrdersClient(rc *RawConn) OrdersClient {
 	return pb.NewDRPCOrdersClient(rc)
@@ -168,6 +158,16 @@ func NewOverlayInspectorClient(rc *RawConn) OverlayInspectorClient {
 // OverlayInspectorClient returns a OverlayInspectorClient for this connection
 func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
+}
+
+// NewPaymentsClient returns the drpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewDRPCPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
 }
 
 // NewPieceStoreInspectorClient returns the drpc version of a PieceStoreInspectorClient

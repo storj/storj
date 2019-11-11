@@ -49,6 +49,7 @@ pipeline {
                         sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
+                        sh 'make check-monitoring'
                     }
                 }
 
@@ -109,6 +110,13 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+               stage('Build [gomobile]') {
+                    steps {
+                        // just to verify its building with recent changes
+                        sh '(cd .build && ./../lib/uplink-gomobile/build.sh)'
                     }
                 }
 

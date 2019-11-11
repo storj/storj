@@ -26,6 +26,10 @@ type Flags struct {
 
 	// Connection string for the postgres database to use for storj-sim processes
 	Postgres string
+	Redis    string
+
+	// Value of first redis db
+	RedisStartDB int
 }
 
 var printCommands bool
@@ -41,6 +45,7 @@ func main() {
 	}
 
 	defaultConfigDir := fpath.ApplicationDir("storj", "local-network")
+
 	configDir := defaultConfigDir
 	if os.Getenv("STORJ_NETWORK_DIR") != "" {
 		configDir = os.Getenv("STORJ_NETWORK_DIR")
@@ -56,7 +61,9 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
-	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use postgres for all databases that support it.")
+	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
+	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
+	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
@@ -101,7 +108,6 @@ func main() {
 	rootCmd.AddCommand(
 		networkCmd,
 	)
-
 	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
 	if err != nil {

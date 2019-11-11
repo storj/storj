@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !drpc
+// +build grpc
 
 package rpc
 
@@ -39,14 +39,14 @@ type (
 	// NodeStatsClient is an alias to the grpc client interface
 	NodeStatsClient = pb.NodeStatsClient
 
-	// NodesClient is an alias to the grpc client interface
-	NodesClient = pb.NodesClient
-
 	// OrdersClient is an alias to the grpc client interface
 	OrdersClient = pb.OrdersClient
 
 	// OverlayInspectorClient is an alias to the grpc client interface
 	OverlayInspectorClient = pb.OverlayInspectorClient
+
+	// PaymentsClient is an alias to the grpc client interface
+	PaymentsClient = pb.PaymentsClient
 
 	// PieceStoreInspectorClient is an alias to the grpc client interface
 	PieceStoreInspectorClient = pb.PieceStoreInspectorClient
@@ -141,16 +141,6 @@ func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
 }
 
-// NewNodesClient returns the grpc version of a NodesClient
-func NewNodesClient(rc *RawConn) NodesClient {
-	return pb.NewNodesClient(rc)
-}
-
-// NodesClient returns a NodesClient for this connection
-func (c *Conn) NodesClient() NodesClient {
-	return NewNodesClient(c.raw)
-}
-
 // NewOrdersClient returns the grpc version of a OrdersClient
 func NewOrdersClient(rc *RawConn) OrdersClient {
 	return pb.NewOrdersClient(rc)
@@ -169,6 +159,16 @@ func NewOverlayInspectorClient(rc *RawConn) OverlayInspectorClient {
 // OverlayInspectorClient returns a OverlayInspectorClient for this connection
 func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
+}
+
+// NewPaymentsClient returns the grpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
 }
 
 // NewPieceStoreInspectorClient returns the grpc version of a PieceStoreInspectorClient

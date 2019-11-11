@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -27,12 +28,11 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -41,32 +41,13 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/mockpayments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
-	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 )
-
-// APIConfig is the global config for the satellite API process
-type APIConfig struct {
-	Identity identity.Config
-	Server   server.Config
-	Version  version.Config
-
-	Contact contact.Config
-	Overlay overlay.Config
-
-	Metainfo metainfo.Config
-	Orders   orders.Config
-
-	Repairer repairer.Config
-
-	Rollup         rollup.Config
-	LiveAccounting live.Config
-
-	Mail      mailservice.Config
-	Console   consoleweb.Config
-	Marketing marketingweb.Config
-}
 
 // API is the satellite API process
 //
@@ -78,12 +59,11 @@ type API struct {
 
 	Dialer  rpc.Dialer
 	Server  *server.Server
-	Version *version.Service
+	Version *checker.Service
 
 	Contact struct {
-		Service   *contact.Service
-		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
@@ -120,11 +100,16 @@ type API struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.Cache
 	}
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Payments struct {
+		Accounts  payments.Accounts
+		Inspector *stripecoinpayments.Endpoint
 	}
 
 	Console struct {
@@ -134,6 +119,8 @@ type API struct {
 	}
 
 	Marketing struct {
+		PartnersService *rewards.PartnersService
+
 		Listener net.Listener
 		Endpoint *marketingweb.Server
 	}
@@ -141,10 +128,14 @@ type API struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
+
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+	}
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *APIConfig, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -154,12 +145,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
@@ -216,11 +206,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup vouchers
@@ -231,19 +218,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup live accounting
 		log.Debug("Satellite API Process setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}
@@ -275,11 +257,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup metainfo
 		log.Debug("Satellite API Process setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Metainfo.Database = db
+		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
@@ -386,6 +364,58 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		}
 	}
 
+	{ // setup payments
+		log.Debug("Satellite API Process setting up payments")
+		pc := config.Payments
+
+		switch pc.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects())
+
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+		}
+	}
+
+	{ // setup marketing portal
+		log.Debug("Satellite API Process setting up marketing server")
+
+		peer.Marketing.PartnersService = rewards.NewPartnersService(
+			peer.Log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			config.Marketing,
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
 	{ // setup console
 		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
@@ -396,11 +426,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
 		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 		if err != nil {
@@ -415,24 +448,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		)
 	}
 
-	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-		marketingConfig := config.Marketing
-		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			marketingConfig,
-			peer.DB.Rewards(),
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup node stats endpoint
 		log.Debug("Satellite API Process setting up node stats endpoint")
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
@@ -442,6 +457,25 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 		)
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
+	}
+
+	{ // setup graceful exit
+		if config.GracefulExit.Enabled {
+			log.Debug("Satellite API Process setting up graceful exit endpoint")
+			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+				peer.Log.Named("gracefulexit:endpoint"),
+				signing.SignerFromFullIdentity(peer.Identity),
+				peer.DB.GracefulExit(),
+				peer.Overlay.DB,
+				peer.Overlay.Service,
+				peer.Metainfo.Service,
+				peer.Orders.Service,
+				peer.DB.PeerIdentities(),
+				config.GracefulExit)
+
+			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		}
 	}
 
 	return peer, nil
@@ -496,9 +530,6 @@ func (peer *API) Close() error {
 	}
 	if peer.Metainfo.Endpoint2 != nil {
 		errlist.Add(peer.Metainfo.Endpoint2.Close())
-	}
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
 	}
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())

@@ -3,14 +3,20 @@
 
 <template>
     <div class="team-header-container">
-	    <h1 class="team-header-container__title">Project Members</h1>
+        <div class="team-header-container__title-area">
+            <h1 class="team-header-container__title-area__title">Project Members</h1>
+            <VInfo
+                class="team-header-container__title-area__info-button"
+                bold-text="The only project role currently available is Admin, which gives full access to the project.">
+                <InfoIcon class="team-header-container__title-area__info-button__image"/>
+            </VInfo>
+        </div>
 	    <div class="team-header-container__wrapper">
             <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
                 :search="processSearchQuery">
                 <div class="header-default-state" v-if="isDefaultState">
-                    <span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
                     <VButton
                         class="button"
                         label="+Add"
@@ -35,9 +41,10 @@
                         is-white="true"
                         :on-press="onClearSelection"
                     />
+                    <span class="header-selected-members__info-text"><b>{{selectedProjectMembersCount}}</b> users selected</span>
                 </div>
                 <div class="header-after-delete-click" v-if="areSelectedProjectMembersBeingDeleted">
-                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
+                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{selectedProjectMembersCount}}</b> {{userCountTitle}}?</span>
                     <div class="header-after-delete-click__button-area">
                         <VButton
                             class="button deletion"
@@ -69,10 +76,16 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
+import VInfo from '@/components/common/VInfo.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
-import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import InfoIcon from '@/../static/images/team/infoTooltip.svg';
+
+import { RouteConfig } from '@/router';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { ProjectMemberHeaderState } from '@/types/projectMembers';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -83,6 +96,8 @@ declare interface ClearSearch {
         VButton,
         VHeader,
         AddUserPopup,
+        VInfo,
+        InfoIcon,
     },
 })
 export default class HeaderArea extends Vue {
@@ -98,6 +113,10 @@ export default class HeaderArea extends Vue {
     public $refs!: {
         headerComponent: VHeader & ClearSearch;
     };
+
+    public beforeDestroy(): void {
+        this.onClearSelection();
+    }
 
     public get userCountTitle(): string {
         if (this.selectedProjectMembersCount === 1) {
@@ -119,34 +138,32 @@ export default class HeaderArea extends Vue {
         this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         this.isDeleteClicked = false;
 
+        this.$emit('onSuccessAction');
         this.$refs.headerComponent.clearSearch();
     }
 
     public async onDelete(): Promise<void> {
-        const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
-            return member.user.email;
-        });
-
         try {
-            await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+            await this.$store.dispatch(PM_ACTIONS.DELETE);
+            await this.setProjectState();
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${error.message}`);
+            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
+            this.isDeleteClicked = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
+        this.$emit('onSuccessAction');
+        await this.$notify.success('Members were successfully removed from project');
         this.isDeleteClicked = false;
-
-        this.$refs.headerComponent.clearSearch();
     }
 
     public async processSearchQuery(search: string): Promise<void> {
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
     }
 
@@ -165,17 +182,54 @@ export default class HeaderArea extends Vue {
     public get areSelectedProjectMembersBeingDeleted(): boolean {
         return this.headerState === 1 && this.isDeleteClicked;
     }
+
+    private async setProjectState(): Promise<void> {
+        const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+            return;
+        }
+
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        this.$refs.headerComponent.clearSearch();
+    }
 }
 </script>
 
 <style scoped lang="scss">
     .team-header-container {
 
-        &__title {
-            font-family: 'font_bold';
-            font-size: 32px;
-            line-height: 39px;
-            margin: 0;
+        &__title-area {
+            display: flex;
+            align-items: center;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 32px;
+                line-height: 39px;
+                margin: 0;
+                user-select: none;
+            }
+
+            &__info-button {
+                max-height: 20px;
+                cursor: pointer;
+                margin-left: 10px;
+
+                &:hover {
+
+                    .team-header-svg-path {
+                        fill: #fff;
+                    }
+
+                    .team-header-svg-rect {
+                        fill: #2683ff;
+                    }
+                }
+            }
         }
     }
 
@@ -183,17 +237,17 @@ export default class HeaderArea extends Vue {
     .header-after-delete-click {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: center;
         height: 85px;
 
         &__info-text {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 28px;
         }
 
         &__delete-confirmation {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 28px;
         }
@@ -209,9 +263,14 @@ export default class HeaderArea extends Vue {
 
     .header-selected-members {
         display: flex;
-        align-items: flex-end;
+        align-items: center;
         height: 85px;
         justify-content: center;
+
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
+        }
     }
 
     .button {
@@ -229,7 +288,7 @@ export default class HeaderArea extends Vue {
             position: absolute;
             top: 100%;
             left: 0;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
             width: 100%;
             height: 70vh;
             z-index: 100;
@@ -244,20 +303,44 @@ export default class HeaderArea extends Vue {
             height: 56px;
             z-index: 100;
             opacity: 0.3;
-            background-color: #F5F6FA;
+            background-color: #f5f6fa;
         }
     }
 
     .container.deletion {
-        background-color: #FF4F4D;
+        background-color: #ff4f4d;
 
         &.label {
-            color: #FFFFFF;
+            color: #fff;
         }
 
         &:hover {
-            background-color: #DE3E3D;
+            background-color: #de3e3d;
             box-shadow: none;
+        }
+    }
+
+    /deep/ .info__message-box {
+        background-image: url('../../../static/images/account/billing/MessageBox.png');
+        background-repeat: no-repeat;
+        min-height: 80px;
+        min-width: 220px;
+        width: 220px;
+        top: 110%;
+        left: -224%;
+        padding: 0 20px 12px 20px;
+        word-break: break-word;
+
+        &__text {
+            text-align: left;
+            font-size: 13px;
+            line-height: 17px;
+            margin-top: 20px;
+
+            &__bold-text {
+                font-family: 'font_medium', sans-serif;
+                color: #354049;
+            }
         }
     }
 </style>
