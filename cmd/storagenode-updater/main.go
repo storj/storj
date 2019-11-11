@@ -350,9 +350,9 @@ func restartService(name string) error {
 			return err
 		}
 
-		_, err = exec.Command(restartSvcBat.Name()).CombinedOutput()
+		out, err := exec.Command(restartSvcBat.Name()).CombinedOutput()
 		if err != nil {
-			return err
+			return errs.New("%s", string(out))
 		}
 	default:
 		return nil

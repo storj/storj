@@ -35,17 +35,11 @@ const (
 	newVersion = "v0.19.5"
 )
 
-func TestAutoUpdater_unix(t *testing.T) {
-	t.Skip("TODO: the version server must listen on random port")
-
-	if runtime.GOOS == "windows" {
-		t.Skip("requires storagenode and storagenode-updater to be installed as windows services")
-	}
-
+func TestAutoUpdater(t *testing.T) {
 	// TODO cleanup `.exe` extension for different OS
 
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
 
 	oldSemVer, err := version.NewSemVer(oldVersion)
 	require.NoError(t, err)
@@ -61,7 +55,7 @@ func TestAutoUpdater_unix(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := ctx.CompileWithVersion("", oldInfo)
+	oldBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, oldBin, storagenodePath)
 
@@ -75,7 +69,8 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := ctx.CompileWithVersion("", newInfo)
+	newBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", newInfo)
+
 	updateBins := map[string]string{
 		"storagenode":         newBin,
 		"storagenode-updater": newBin,
@@ -90,9 +85,22 @@ func TestAutoUpdater_unix(t *testing.T) {
 	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
+	// TODO: figure out how to not conflict with real service
+	//  (versioncontrol process query uses service name)
+	serviceName := "storagenode"
+	if runtime.GOOS == "windows" {
+		defer createTestService(ctx, t, serviceName, newBin)()
+		//cleanup := createTestService(ctx, t, serviceName, oldBin)
+		//defer func() {
+		//	time.Sleep(time.Minute)
+		//	cleanup()
+		//}()
+	}
+
 	// run updater (update)
 	args := []string{"run"}
 	args = append(args, "--config-dir", ctx.Dir())
+	args = append(args, "--service-name", serviceName)
 	args = append(args, "--server-address", "http://"+versionControlPeer.Addr())
 	args = append(args, "--binary-location", storagenodePath)
 	args = append(args, "--check-interval", "0s")
@@ -110,9 +118,10 @@ func TestAutoUpdater_unix(t *testing.T) {
 		if !assert.Contains(t, logStr, "storagenode restarted successfully") {
 			t.Log(logStr)
 		}
-		if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
-			t.Log(logStr)
-		}
+		// TODO: re-enable when updater is self-updating
+		//if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
+		//	t.Log(logStr)
+		//}
 	} else {
 		t.Log(string(out))
 	}
@@ -126,11 +135,12 @@ func TestAutoUpdater_unix(t *testing.T) {
 	require.NotNil(t, oldStoragenodeInfo)
 	require.NotZero(t, oldStoragenodeInfo.Size())
 
-	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
-	backupUpdaterInfo, err := os.Stat(backupUpdater)
-	require.NoError(t, err)
-	require.NotNil(t, backupUpdaterInfo)
-	require.NotZero(t, backupUpdaterInfo.Size())
+	// TODO: re-enable when updater is self-updating
+	//backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
+	//backupUpdaterInfo, err := os.Stat(backupUpdater)
+	//require.NoError(t, err)
+	//require.NotNil(t, backupUpdaterInfo)
+	//require.NotZero(t, backupUpdaterInfo.Size())
 }
 
 func move(t *testing.T, src, dst string) {
