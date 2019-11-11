@@ -101,7 +101,7 @@ func restrict_encryption_access(encAccessRef C.EncryptionAccessRef, apikeyHandle
 			PathPrefix: C.GoString(&restrictionsArray[i].path_prefix),
 		})
 	}
-	apikeyRestricted, encAccess, err := encAccess.Restrict(apikey, restrictionsGo)
+	apikeyRestricted, encAccess, err := encAccess.Restrict(apikey, restrictionsGo...)
 	if err != nil {
 		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.APIKeyRef{}
