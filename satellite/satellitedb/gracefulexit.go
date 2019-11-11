@@ -106,10 +106,9 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	update := dbx.GracefulExitTransferQueue_Update_Fields{
-		DurabilityRatio:     dbx.GracefulExitTransferQueue_DurabilityRatio(item.DurabilityRatio),
-		LastFailedCode:      dbx.GracefulExitTransferQueue_LastFailedCode_Raw(item.LastFailedCode),
-		FailedCount:         dbx.GracefulExitTransferQueue_FailedCount_Raw(item.FailedCount),
-		OrderLimitSendCount: dbx.GracefulExitTransferQueue_OrderLimitSendCount(item.OrderLimitSendCount),
+		DurabilityRatio: dbx.GracefulExitTransferQueue_DurabilityRatio(item.DurabilityRatio),
+		LastFailedCode:  dbx.GracefulExitTransferQueue_LastFailedCode_Raw(item.LastFailedCode),
+		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(item.FailedCount),
 	}
 
 	if item.RequestedAt != nil {
