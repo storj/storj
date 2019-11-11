@@ -1,17 +1,24 @@
 @echo off
-rem build msi installer for each release directory
-for /d %%d in (release\*) do (
-    rem copy the storagenode binaries to the installer project
-    copy %%d\storagenode_windows_amd64.exe installer\windows\storagenode.exe
-    copy %%d\storagenode-updater_windows_amd64.exe installer\windows\storagenode-updater.exe
 
-    rem build the installer
-    msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
+rem count # of args
+set argC=0
+for %%x in (%*) do Set /A argC+=1
 
-    rem cleanup copied binaries
-    del installer\windows\storagenode.exe
-    del installer\windows\storagenode-updater.exe
-
-    rem copy the MSI to the release dir
-    copy installer\windows\bin\Release\storagenode.msi %%d\storagenode_windows_amd64.msi
+if not "%argC%"=="3" (
+    echo usage: %~nx0 ^<storagenode.exe input path^> ^<storagenode-updater.exe input path^> ^<msi output path^>
+    exit /B 1
 )
+
+rem copy the storagenode binaries to the installer project
+copy %1 installer\windows\storagenode.exe
+copy %2 installer\windows\storagenode-updater.exe
+
+rem build the installer
+msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
+
+rem cleanup copied binaries
+del installer\windows\storagenode.exe
+del installer\windows\storagenode-updater.exe
+
+rem copy the MSI to the release dir
+copy installer\windows\bin\Release\storagenode.msi %3
