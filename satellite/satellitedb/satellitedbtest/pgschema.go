@@ -16,6 +16,10 @@ import (
 
 // NewPostgres returns the default postgres satellite.DB for testing.
 func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
+	if *pgtest.ConnStr == "" {
+		return nil, errs.New("flag --postgres-test-db or environment variable STORJ_POSTGRES_TEST not defined for PostgreSQL test database")
+	}
+
 	db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema))
 	if err != nil {
 		return nil, err
