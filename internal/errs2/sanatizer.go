@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
+// CodeMap is used to apply the correct rpc status code to error classes.
 type CodeMap map[*errs.Class]rpcstatus.StatusCode
 
 // LoggingSanitizer consolidates logging of original errors with sanitization of internal errors.
@@ -44,9 +45,8 @@ func (sanitizer *LoggingSanitizer) Error(msg string, err error) error {
 		}
 	}
 
-	if sanitizer.wrapper != nil {
-		return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New(msg).Error())
-	} else {
-		return rpcstatus.Error(rpcstatus.Internal, errs.New(msg).Error())
+	if sanitizer.wrapper == nil {
+		return rpcstatus.Error(rpcstatus.Internal, msg)
 	}
+	return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New(msg).Error())
 }

@@ -174,7 +174,7 @@ func TestParseToken_Invalid(t *testing.T) {
 		t.Run(testCase.testID, func(t *testing.T) {
 			token, err := ParseToken(testCase.tokenString)
 			assert.Nil(t, token)
-			assert.True(t, Error.Has(err))
+			assert.True(t, ErrInvalidToken.Has(err))
 		})
 	}
 }

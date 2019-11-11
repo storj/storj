@@ -150,9 +150,7 @@ func TestAuthorizationDB_Create_error(t *testing.T) {
 		testCase := c
 		t.Run(c.testID, func(t *testing.T) {
 			auths, err := authDB.Create(ctx, testCase.email, testCase.count)
-			if !assert.True(t, testCase.errClass.Has(err)) {
-				t.Logf("error: %s", err)
-			}
+			assert.Truef(t, testCase.errClass.Has(err), "error: %s", err)
 			assert.Equal(t, testCase.err, err)
 			assert.Empty(t, auths)
 		})

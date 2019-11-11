@@ -82,6 +82,11 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 				require.Error(t, sanitizedErr)
 				require.Equal(t, code, rpcstatus.Code(sanitizedErr))
 				require.Contains(t, sanitizedErr.Error(), *errClass)
+				if s.wrapper == nil {
+					require.Contains(t, sanitizedErr.Error(), errInstance.Error())
+				} else {
+					require.Contains(t, sanitizedErr.Error(), wrapper.Wrap(errInstance).Error())
+				}
 
 				if s.log != nil {
 					logData, err := ioutil.ReadAll(logFile)
@@ -105,7 +110,7 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 			if s.wrapper == nil {
 				require.Contains(t, sanitizedErr.Error(), msg)
 			} else {
-				require.Contains(t, sanitizedErr.Error(), wrapper.New(msg).Error())
+				require.Equal(t, wrapper.New(msg).Error(), sanitizedErr.Error())
 			}
 
 			if s.log != nil {

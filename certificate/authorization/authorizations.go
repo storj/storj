@@ -39,6 +39,8 @@ var (
 	mon = monkit.Package()
 	// Error is used when an error occurs involving an authorization.
 	Error = errs.Class("authorization error")
+	// ErrInvalidToken is used when a token is invalid.
+	ErrInvalidToken = errs.Class("authorization token error")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.
@@ -100,21 +102,21 @@ func NewAuthorization(userID string) (*Authorization, error) {
 func ParseToken(tokenString string) (*Token, error) {
 	splitAt := strings.LastIndex(tokenString, tokenDelimiter)
 	if splitAt == -1 {
-		return nil, Error.New("delimiter missing")
+		return nil, ErrInvalidToken.New("delimiter missing")
 	}
 
 	userID, b58Data := tokenString[:splitAt], tokenString[splitAt+1:]
 	if len(userID) == 0 {
-		return nil, Error.New("user ID missing")
+		return nil, ErrInvalidToken.New("user ID missing")
 	}
 
 	data, _, err := base58.CheckDecode(b58Data)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrInvalidToken.Wrap(err)
 	}
 
 	if len(data) != tokenDataLength {
-		return nil, Error.New("data size mismatch")
+		return nil, ErrInvalidToken.New("data size mismatch")
 	}
 	t := &Token{
 		UserID: userID,
