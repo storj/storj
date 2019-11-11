@@ -150,7 +150,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.gzipMiddleware(server.cacheControlMiddleware(http.StripPrefix("/static", fs))))
+		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -520,49 +520,6 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// cacheControlMiddleware is used to add cache-control if needed or update Last-Modified time.
-func (server *Server) cacheControlMiddleware(fn http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static"))
-		if err != nil {
-			if os.IsNotExist(err) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			if os.IsPermission(err) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
-
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
-		w.Header().Set(contentType, mime.TypeByExtension(extension))
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-
-		lastModified := r.Header.Get("If-Last-Modified")
-		if lastModified == "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000")
-			w.Header().Set("Last-Modified", info.ModTime().String())
-			fn.ServeHTTP(w, r)
-			return
-		}
-
-		requestTime, err := time.Parse(time.RFC1123, lastModified)
-		if err == nil && !requestTime.Before(info.ModTime()) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		w.Header().Set("Last-Modified", info.ModTime().String())
-		fn.ServeHTTP(w, r)
-	})
-}
-
 // gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
 func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -574,6 +531,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
 		if err != nil {
+			w.Header().Set("Cache-Control", "public, max-age=31536000")
 			fn.ServeHTTP(w, r)
 			return
 		}
@@ -581,13 +539,13 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
 		w.Header().Set(contentType, mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
 
 		newRequest := new(http.Request)
 		*newRequest = *r
 		newRequest.URL = new(url.URL)
 		*newRequest.URL = *r.URL
 		newRequest.URL.Path += ".gz"
-
 		fn.ServeHTTP(w, newRequest)
 	})
 }
