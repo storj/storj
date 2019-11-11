@@ -83,7 +83,7 @@ pipeline {
                     }
                 }
 
-                stage('Windows Tests') {
+                stage('Windows Installer Tests') {
                     agent {
                         label 'windows'
                     }
