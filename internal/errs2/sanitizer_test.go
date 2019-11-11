@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/rpc/rpcstatus"
