@@ -328,6 +328,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	node_id bytea NOT NULL,
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
+	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
 	queued_at timestamp NOT NULL,
 	requested_at timestamp,
@@ -1529,6 +1530,7 @@ type GracefulExitTransferQueue struct {
 	NodeId          []byte
 	Path            []byte
 	PieceNum        int
+	RootPieceId     []byte
 	DurabilityRatio float64
 	QueuedAt        time.Time
 	RequestedAt     *time.Time
@@ -1541,6 +1543,7 @@ type GracefulExitTransferQueue struct {
 func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
 
 type GracefulExitTransferQueue_Create_Fields struct {
+	RootPieceId    GracefulExitTransferQueue_RootPieceId_Field
 	RequestedAt    GracefulExitTransferQueue_RequestedAt_Field
 	LastFailedAt   GracefulExitTransferQueue_LastFailedAt_Field
 	LastFailedCode GracefulExitTransferQueue_LastFailedCode_Field
@@ -1613,6 +1616,40 @@ func (f GracefulExitTransferQueue_PieceNum_Field) value() interface{} {
 }
 
 func (GracefulExitTransferQueue_PieceNum_Field) _Column() string { return "piece_num" }
+
+type GracefulExitTransferQueue_RootPieceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitTransferQueue_RootPieceId(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
+	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _value: v}
+}
+
+func GracefulExitTransferQueue_RootPieceId_Raw(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_RootPieceId_Null()
+	}
+	return GracefulExitTransferQueue_RootPieceId(v)
+}
+
+func GracefulExitTransferQueue_RootPieceId_Null() GracefulExitTransferQueue_RootPieceId_Field {
+	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_RootPieceId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_RootPieceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_RootPieceId_Field) _Column() string { return "root_piece_id" }
 
 type GracefulExitTransferQueue_DurabilityRatio_Field struct {
 	_set   bool
@@ -6554,6 +6591,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__node_id_val := graceful_exit_transfer_queue_node_id.value()
 	__path_val := graceful_exit_transfer_queue_path.value()
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
+	__root_piece_id_val := optional.RootPieceId.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
 	__queued_at_val := __now.UTC()
 	__requested_at_val := optional.RequestedAt.value()
@@ -6562,12 +6600,12 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__failed_count_val := optional.FailedCount.value()
 	__finished_at_val := optional.FinishedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -8179,7 +8217,7 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_Pi
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.root_piece_id, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
@@ -8188,7 +8226,7 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_Pi
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
