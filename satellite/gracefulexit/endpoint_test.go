@@ -1323,6 +1323,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 						// This allows us to keep the conn open but repopulate
 						// the pending queue.
 						err = c.Send(&pb.StorageNodeMessage{})
+						require.NoError(t, err)
 						require.NoError(t, c.CloseSend())
 					} else {
 						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
