@@ -201,7 +201,7 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}
 	log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
 
-	newVersionPath := prependExtension(binPath, currentVersion.String())
+	newVersionPath := prependExtension(binPath, suggestedVersion.String())
 	err = unpackBinary(ctx, tempArchive.Name(), newVersionPath)
 	if err != nil {
 		return errs.Wrap(err)
