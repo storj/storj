@@ -19,8 +19,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import BillingItem from '@/components/account/billing/BillingItem.vue';
-import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+import BillingItem from '@/components/account/billing/depositAndBilling/BillingItem.vue';
+import SortingHeader from '@/components/account/billing/depositAndBilling/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { BillingHistoryItem } from '@/types/payments';
