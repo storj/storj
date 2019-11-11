@@ -84,18 +84,13 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 				errlist.Add(err)
 			}
 		}
-		if len(offlines) > 0 {
-			offlines, err = reporter.recordOfflineStatus(ctx, offlines)
-			if err != nil {
-				errlist.Add(err)
-			}
-		}
 		if len(pendingAudits) > 0 {
 			pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
+		// We do not report offline nodes to the overlay at this time; see V3-3025.
 
 		tries++
 	}
