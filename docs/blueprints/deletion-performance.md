@@ -155,7 +155,23 @@ Taking one of these approaches will require a study on how to keep the less amou
 
 ## Implementation
 
-[A description of the steps in the implementation.]
+1. Adapt protocol buffers definitions for storage node delete operations.
+1. Storage nodes:
+    1. Adapt the delete endpoint to receive requests from the satellite.
+1. Satellite:
+    1. Adapt delete endpoint to receive requests from the uplink.
+    1. Implement delete request logic with long-tail cancellations like uploads.
+    1. Implement ["leaky bucket as a metter" algorithm](https://en.wikipedia.org/wiki/Leaky_bucket) for controlling backpressure.
+1. Uplink:
+    1. Change logic to not send delete requests to storage nodes.
+
+If we plan to release the feature in several steps:
+
+1. Implement and independently release (2) and (3) without removing the logic of the current functionality.
+1. Implement and release (4).
+1. Announce when previous versions will stop to work properly.
+1. Remove and independently release the delete old logic from the storage node and satellite.
+
 
 ## Open issues (if applicable)
 
