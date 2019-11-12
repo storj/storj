@@ -1305,7 +1305,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				switch m := response.GetMessage().(type) {
+				switch response.GetMessage().(type) {
 				case *pb.SatelliteMessage_ExitCompleted:
 					break MessageLoop
 				case *pb.SatelliteMessage_TransferPiece:
