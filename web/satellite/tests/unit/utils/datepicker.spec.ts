@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import {
+    DateFormat,
     DateGenerator,
     DateStamp,
     DayItem,
@@ -76,5 +77,19 @@ describe('datepicker', () => {
         expect(days.length).toBe(42);
         expect(days[0].equals(firstExpectedDay.moment)).toBe(true);
         expect(days[days.length - 1].equals(lastExpectedDay.moment)).toBe(true);
+    });
+
+    it('DateFormat formats date to string correctly', () => {
+        const testDate1 = new Date(2019, 10, 7);
+        const testDate2 = new Date(2019, 1, 1);
+
+        const expectedResult1 = '11/7/2019';
+        const expectedResult2 = '2-1-2019';
+
+        const actualResult1 = DateFormat.getUSDate(testDate1, '/');
+        const actualResult2 = DateFormat.getUSDate(testDate2, '-');
+
+        expect(actualResult1).toBe(expectedResult1);
+        expect(actualResult2).toBe(expectedResult2);
     });
 });
