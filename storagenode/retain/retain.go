@@ -357,9 +357,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	createdBefore := req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
 	s.log.Debug("Prepared to run a Retain request.",
-		zap.Time("createdBefore", createdBefore),
-		zap.Int64("filterSize", filter.Size()),
-		zap.String("satellite", satelliteID.String()))
+		zap.Time("Created Before", createdBefore),
+		zap.Int64("Filter Size", filter.Size()),
+		zap.Stringer("Satellite ID", satelliteID))
 
 	err = s.store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
@@ -379,16 +379,16 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {
 			s.log.Debug("About to delete piece id",
-				zap.String("satellite", satelliteID.String()),
-				zap.String("pieceID", pieceID.String()),
-				zap.String("status", s.config.Status.String()))
+				zap.Stringer("Satellite ID", satelliteID),
+				zap.Stringer("Piece ID", pieceID),
+				zap.String("Status", s.config.Status.String()))
 
 			// if retain status is enabled, delete pieceid
 			if s.config.Status == Enabled {
 				if err = s.store.Delete(ctx, satelliteID, pieceID); err != nil {
 					s.log.Warn("failed to delete piece",
-						zap.String("satellite", satelliteID.String()),
-						zap.String("pieceID", pieceID.String()),
+						zap.Stringer("Satellite ID", satelliteID),
+						zap.Stringer("Piece ID", pieceID),
 						zap.Error(err))
 					return nil
 				}
@@ -408,7 +408,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		return Error.Wrap(err)
 	}
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("retain status", s.config.Status.String()))
+	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
 
 	return nil
 }

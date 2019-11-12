@@ -85,7 +85,7 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 		Token: *token,
 	}
 	endpoint.log.Info("certificate successfully signed",
-		zap.Stringer("node ID", peerIdent.ID),
+		zap.Stringer("Node ID", peerIdent.ID),
 		zap.Uint16("difficulty", difficulty),
 		zap.Stringer("truncated token", tokenFormatter),
 	)

@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"sort"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -69,6 +70,7 @@ type Service struct {
 	log      *zap.Logger
 	store    DB
 	rewards  rewards.DB
+	partners *rewards.PartnersService
 	accounts payments.Accounts
 
 	passwordCost int
@@ -80,7 +82,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, accounts payments.Accounts, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -99,6 +101,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, ac
 		Signer:       signer,
 		store:        store,
 		rewards:      rewards,
+		partners:     partners,
 		accounts:     accounts,
 		passwordCost: passwordCost,
 	}, nil
@@ -181,6 +184,77 @@ func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID str
 	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
+// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: add transactions, etc in future
+	for _, invoice := range invoices {
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          invoice.ID,
+			Description: invoice.Description,
+			Amount:      invoice.Amount,
+			Status:      invoice.Status,
+			Link:        invoice.Link,
+			End:         invoice.End,
+			Start:       invoice.Start,
+			Type:        Invoice,
+		})
+	}
+
+	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tx := range txsInfos {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				ID:            tx.ID.String(),
+				Description:   "STORJ Token deposit",
+				TokenAmount:   tx.Amount.String(),
+				TokenReceived: tx.Received.String(),
+				Status:        tx.Status.String(),
+				Link:          tx.Link,
+				Start:         tx.CreatedAt,
+				End:           tx.ExpiresAt,
+				Type:          Transaction,
+			},
+		)
+	}
+
+	sort.SliceStable(billingHistory,
+		func(i, j int) bool {
+			return billingHistory[i].Start.After(billingHistory[j].Start)
+		},
+	)
+
+	return billingHistory, nil
+}
+
+// TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	return tx, errs.Wrap(err)
+}
+
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -197,12 +271,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	//TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
-	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+
+	currentReward, err := s.partners.GetActiveOffer(ctx, offers, offerType, user.PartnerID)
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
@@ -602,7 +677,8 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 		s.log.Error("internal error", zap.Error(err))
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
-	return offers.GetActiveOffer(offerType, "")
+
+	return s.partners.GetActiveOffer(ctx, offers, offerType, "")
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now

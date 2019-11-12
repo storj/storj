@@ -24,9 +24,11 @@ type TransactionsDB interface {
 	Update(ctx context.Context, updates []TransactionUpdate, applies coinpayments.TransactionIDList) error
 	// Consume marks transaction as consumed, so it won't participate in apply account balance loop.
 	Consume(ctx context.Context, id coinpayments.TransactionID) error
+	// ListAccount returns all transaction for specific user.
+	ListAccount(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// ListPending returns TransactionsPage with pending transactions.
 	ListPending(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
-	// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
+	// List Unapplied returns TransactionsPage with completed transaction that should be applied to account balance.
 	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
 }
 

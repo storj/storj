@@ -80,11 +80,12 @@ type AllowedVersions struct {
 // Processes describes versions for each binary.
 // TODO: this name is inconsistent with the versioncontrol server pkg's analogue, `Versions`.
 type Processes struct {
-	Satellite   Process `json:"satellite"`
-	Storagenode Process `json:"storagenode"`
-	Uplink      Process `json:"uplink"`
-	Gateway     Process `json:"gateway"`
-	Identity    Process `json:"identity"`
+	Satellite          Process `json:"satellite"`
+	Storagenode        Process `json:"storagenode"`
+	StoragenodeUpdater Process `json:"storagenode-updater"`
+	Uplink             Process `json:"uplink"`
+	Gateway            Process `json:"gateway"`
+	Identity           Process `json:"identity"`
 }
 
 // Process versions for specific binary.

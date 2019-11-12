@@ -2,8 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="satellite-selection-choice-container" id="satelliteDropdown">
+    <div class="satellite-selection-choice-container" v-click-outside="closePopup">
         <div class="satellite-selection-overflow-container">
+            <div class="satellite-selection-choice-container__all-satellites">
+                <div class="satellite-selection-overflow-container__satellite-choice" @click.stop="onAllSatellitesClick">
+                    <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
+                </div>
+            </div>
             <!-- loop for rendering satellites -->
             <div class="satellite-selection-overflow-container__satellite-choice"
                 v-for="satellite in satellites" :key="satellite.id"
@@ -14,11 +19,6 @@
                     alt="disqualified image"
                 />
                 <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.id}}</p>
-            </div>
-            <div class="satellite-selection-choice-container__all-satellites">
-                <div class="satellite-selection-overflow-container__satellite-choice" @click.stop="onSatelliteClick(null)">
-                    <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
-                </div>
             </div>
         </div>
     </div>
@@ -46,6 +46,19 @@ export default class SatelliteSelectionDropdown extends Vue {
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
+    }
+
+    public async onAllSatellitesClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        } catch (error) {
+            console.error(`${error.message} satellite data.`);
+        }
+    }
+
+    public closePopup(): void {
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
     }
 
     public get satellites(): SatelliteInfo[] {

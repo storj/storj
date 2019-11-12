@@ -24,6 +24,7 @@ type TransferQueueItem struct {
 	NodeID          storj.NodeID
 	Path            []byte
 	PieceNum        int32
+	RootPieceID     storj.PieceID
 	DurabilityRatio float64
 	QueuedAt        time.Time
 	RequestedAt     *time.Time
