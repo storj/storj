@@ -69,14 +69,14 @@ var infos = map[string]generateInfo{
 		Import: "storj.io/storj/pkg/rpc/rpcpool",
 		Prefix: "DRPC",
 		Conn:   "rpcpool.Conn",
-		Tag:    "drpc",
+		Tag:    "!grpc",
 	},
 	"grpc": {
 		Name:   "grpc",
 		Import: "google.golang.org/grpc", // the saddest newline
 		Prefix: "",
 		Conn:   "grpc.ClientConn",
-		Tag:    "!drpc",
+		Tag:    "grpc",
 	},
 }
 
