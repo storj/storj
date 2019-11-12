@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"github.com/zeebo/errs"
 )
 
