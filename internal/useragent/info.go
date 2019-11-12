@@ -37,8 +37,8 @@ func Parse(s string) (Info, error) {
 	info := Info{}
 	info.Full = s
 
-	parts := strings.SplitN(s, " ", 1)
-	productTokens := strings.SplitN(parts[0], "/", 1)
+	parts := strings.SplitN(s, " ", 2)
+	productTokens := strings.SplitN(parts[0], "/", 2)
 
 	if len(productTokens) >= 1 {
 		info.Product.Name = productTokens[0]

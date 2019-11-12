@@ -18,9 +18,9 @@ func TestUserAgent(t *testing.T) {
 	}
 
 	var tests = []testcase{
-		{"Hello", useragent.Info{"Hello", "", "Hello"}},
-		{"Hello/1.0", useragent.Info{"Hello", "1.0", "Hello/1.0"}},
-		{"Hello/1.0+version#123", useragent.Info{"Hello", "1.0+version#123", "Hello/1.0+version#123"}},
+		{"Hello", useragent.Info{useragent.Product{"Hello", ""}, "Hello"}},
+		{"Hello/1.0", useragent.Info{useragent.Product{"Hello", "1.0"}, "Hello/1.0"}},
+		{"Hello/1.0+version#123", useragent.Info{useragent.Product{"Hello", "1.0+version#123"}, "Hello/1.0+version#123"}},
 	}
 
 	for _, test := range tests {

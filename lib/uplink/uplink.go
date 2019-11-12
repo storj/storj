@@ -63,8 +63,13 @@ type Config struct {
 		MaxMemory memory.Size
 
 		// PartnerID is the identity given to the partner for value
-		// attribution
+		// attribution.
+		//
+		// Deprecated: prefer UserAgent
 		PartnerID string
+
+		// UserAgent for the product using the library.
+		UserAgent string
 
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
