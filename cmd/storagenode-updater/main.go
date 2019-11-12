@@ -185,7 +185,12 @@ func update(ctx context.Context, binPath, serviceName string, renameBinary renam
 			if err != nil {
 				return errs.New("cannot create temporary archive: %v", err)
 			}
-			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+			defer func() {
+				err = errs.Combine(err,
+					tempArchive.Close(),
+					os.Remove(tempArchive.Name()),
+				)
+			}()
 
 			downloadURL := parseDownloadURL(newVersion.URL)
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())

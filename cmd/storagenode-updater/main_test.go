@@ -259,6 +259,7 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 	base = base[:len(base)-len(".zip")]
 
 	writer := zip.NewWriter(zipFile)
+	defer ctx.Check(zipFile.Close)
 	defer ctx.Check(writer.Close)
 
 	contents, err := writer.Create(base)
