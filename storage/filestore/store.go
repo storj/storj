@@ -109,9 +109,9 @@ func (store *Store) Trash(ctx context.Context, ref storage.BlobRef) (err error) 
 }
 
 // RestoreTrash moves every piece in the trash back into the regular location
-func (store *Store) RestoreTrash(ctx context.Context) (err error) {
+func (store *Store) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.dir.RestoreTrash(ctx)
+	err = store.dir.RestoreTrash(ctx, namespace)
 	return Error.Wrap(err)
 }
 

@@ -534,96 +534,135 @@ func TestTrashAndRestore(t *testing.T) {
 
 	size := memory.KB
 
-	type fileForTest struct {
+	type testfile struct {
 		data      []byte
 		formatVer storage.FormatVersion
 	}
-	type test struct {
-		ref   storage.BlobRef
-		files []fileForTest
+	type testref struct {
+		key   []byte
+		files []testfile
+	}
+	type testnamespace struct {
+		namespace []byte
+		refs      []testref
 	}
 
-	tests := []test{
-		// Has both versions
+	namespaces := []testnamespace{
 		{
-			ref: storage.BlobRef{
-				Namespace: testrand.Bytes(namespaceSize),
-				Key:       testrand.Bytes(keySize),
-			},
-			files: []fileForTest{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
 				{
-					data:      testrand.Bytes(size),
-					formatVer: filestore.FormatV0,
+					// Has v0 and v1
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
 				},
 				{
-					data:      testrand.Bytes(size),
-					formatVer: filestore.FormatV1,
+					// Has v0 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+				{
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
 				},
 			},
 		},
-		// Has v0 only
 		{
-			ref: storage.BlobRef{
-				Namespace: testrand.Bytes(namespaceSize),
-				Key:       testrand.Bytes(keySize),
-			},
-			files: []fileForTest{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
 				{
-					data:      testrand.Bytes(size),
-					formatVer: filestore.FormatV0,
-				},
-			},
-		},
-		// Has v1 only
-		{
-			ref: storage.BlobRef{
-				Namespace: testrand.Bytes(namespaceSize),
-				Key:       testrand.Bytes(keySize),
-			},
-			files: []fileForTest{
-				{
-					data:      testrand.Bytes(size),
-					formatVer: filestore.FormatV1,
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
 				},
 			},
 		},
 	}
 
-	for _, test := range tests {
-		for _, file := range test.files {
-			var w storage.BlobWriter
-			if file.formatVer == filestore.FormatV0 {
-				w, err = store.TestCreateV0(ctx, test.ref)
-			} else if file.formatVer == filestore.FormatV1 {
-				w, err = store.Create(ctx, test.ref, int64(size))
+	for _, namespace := range namespaces {
+		for _, ref := range namespace.refs {
+			blobref := storage.BlobRef{
+				Namespace: namespace.namespace,
+				Key:       ref.key,
 			}
-			require.NoError(t, err)
-			require.NotNil(t, w)
-			_, err = w.Write(file.data)
-			require.NoError(t, err)
 
-			require.NoError(t, w.Commit(ctx))
-			requireFileMatches(ctx, t, store, file.data, test.ref, file.formatVer)
-		}
+			for _, file := range ref.files {
+				var w storage.BlobWriter
+				if file.formatVer == filestore.FormatV0 {
+					w, err = store.TestCreateV0(ctx, blobref)
+				} else if file.formatVer == filestore.FormatV1 {
+					w, err = store.Create(ctx, blobref, int64(size))
+				}
+				require.NoError(t, err)
+				require.NotNil(t, w)
+				_, err = w.Write(file.data)
+				require.NoError(t, err)
 
-		// Trash the ref
-		require.NoError(t, store.Trash(ctx, test.ref))
+				require.NoError(t, w.Commit(ctx))
+				requireFileMatches(ctx, t, store, file.data, blobref, file.formatVer)
+			}
 
-		// Verify files are gone
-		for _, file := range test.files {
-			_, err = store.OpenWithStorageFormat(ctx, test.ref, file.formatVer)
-			require.Error(t, err)
-			require.True(t, os.IsNotExist(err))
+			// Trash the ref
+			require.NoError(t, store.Trash(ctx, blobref))
+
+			// Verify files are gone
+			for _, file := range ref.files {
+				_, err = store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
+				require.Error(t, err)
+				require.True(t, os.IsNotExist(err))
+			}
 		}
 	}
 
-	// Restore the trash
-	require.NoError(t, store.RestoreTrash(ctx))
+	// Restore the first namespace
+	require.NoError(t, store.RestoreTrash(ctx, namespaces[0].namespace))
 
-	// Verify pieces are back and look good
-	for _, test := range tests {
-		for _, file := range test.files {
-			requireFileMatches(ctx, t, store, file.data, test.ref, file.formatVer)
+	// Verify pieces are back and look good for first namespace
+	for _, ref := range namespaces[0].refs {
+		blobref := storage.BlobRef{
+			Namespace: namespaces[0].namespace,
+			Key:       ref.key,
+		}
+		for _, file := range ref.files {
+			requireFileMatches(ctx, t, store, file.data, blobref, file.formatVer)
+		}
+	}
+
+	// Verify pieces in second namespace are still missing (were not restored)
+	for _, ref := range namespaces[1].refs {
+		blobref := storage.BlobRef{
+			Namespace: namespaces[1].namespace,
+			Key:       ref.key,
+		}
+		for _, file := range ref.files {
+			r, err := store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
+			require.Error(t, err)
+			require.Nil(t, r)
 		}
 	}
 }

@@ -80,8 +80,8 @@ type Blobs interface {
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
 	// Trash marks a file for pending deletion
 	Trash(ctx context.Context, ref BlobRef) error
-	// RestoreTrash restores all files in the trash
-	RestoreTrash(ctx context.Context) error
+	// RestoreTrash restores all files in the trash for a given namespace
+	RestoreTrash(ctx context.Context, namespace []byte) error
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format

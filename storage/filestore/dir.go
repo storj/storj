@@ -312,47 +312,38 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref storage.BlobRef,
 }
 
 // RestoreTrash moves every piece in the trash folder back into blobsdir
-func (dir *Dir) RestoreTrash(ctx context.Context) (err error) {
-	namespaces, err := dir.listNamespacesInPath(ctx, dir.trashdir())
-	if err != nil {
-		return err
-	}
-
-	for _, namespace := range namespaces {
-		err = errs.Combine(err, dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
-			blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
-			if err != nil {
-				return err
-			}
-
-			blobsVerPath := blobPathForFormatVersion(blobsBasePath, info.StorageFormatVersion())
-
-			trashBasePath, err := dir.refToDirPath(info.BlobRef(), dir.trashdir())
-			if err != nil {
-				return err
-			}
-
-			trashVerPath := blobPathForFormatVersion(trashBasePath, info.StorageFormatVersion())
-
-			// ensure the dirs exist for trash path
-			err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
-			if err != nil && !os.IsExist(err) {
-				return err
-			}
-
-			// move back to blobsdir
-			err = rename(trashVerPath, blobsVerPath)
-			if os.IsNotExist(err) {
-				// no piece at that path; either it has a different storage format
-				// version or there was a concurrent call. (This function is expected
-				// by callers to return a nil error in the case of concurrent calls.)
-				return nil
-			}
+func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
+	return dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
+		blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
+		if err != nil {
 			return err
-		}))
-	}
+		}
 
-	return err
+		blobsVerPath := blobPathForFormatVersion(blobsBasePath, info.StorageFormatVersion())
+
+		trashBasePath, err := dir.refToDirPath(info.BlobRef(), dir.trashdir())
+		if err != nil {
+			return err
+		}
+
+		trashVerPath := blobPathForFormatVersion(trashBasePath, info.StorageFormatVersion())
+
+		// ensure the dirs exist for trash path
+		err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
+		if err != nil && !os.IsExist(err) {
+			return err
+		}
+
+		// move back to blobsdir
+		err = rename(trashVerPath, blobsVerPath)
+		if os.IsNotExist(err) {
+			// no piece at that path; either it has a different storage format
+			// version or there was a concurrent call. (This function is expected
+			// by callers to return a nil error in the case of concurrent calls.)
+			return nil
+		}
+		return err
+	})
 }
 
 // iterateStorageFormatVersions executes f for all storage format versions,
