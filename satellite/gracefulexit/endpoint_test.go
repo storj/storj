@@ -1208,7 +1208,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 }
 
 func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
-	var maxOrderLimitSendCount int
+	var maxOrderLimitSendCount = 3
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
@@ -1218,7 +1218,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				// We don't care whether a node gracefully exits or not in this test,
 				// so we set the max failures percentage extra high.
 				config.GracefulExit.OverallMaxFailuresPercentage = 101
-				maxOrderLimitSendCount = config.GracefulExit.MaxOrderLimitSendCount
+				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1285,7 +1285,6 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
 		require.NoError(t, err)
 
-		var notRespondingPiece storj.PieceID
 		var messageCount int
 
 		// We need to label this outer loop so that we're able to exit it from the inner loop.
@@ -1310,63 +1309,15 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				case *pb.SatelliteMessage_ExitCompleted:
 					break MessageLoop
 				case *pb.SatelliteMessage_TransferPiece:
-					if notRespondingPiece.IsZero() {
-						notRespondingPiece = m.TransferPiece.OriginalPieceId
-					}
-					if m.TransferPiece.OriginalPieceId == notRespondingPiece {
-						messageCount++
-						unknownMsgSent = true
-						// We send an unknown message because we want to fail the
-						// transfer message request we get from the satellite.
-						// This allows us to keep the conn open but repopulate
-						// the pending queue.
-						err = c.Send(&pb.StorageNodeMessage{})
-						require.NoError(t, err)
-						require.NoError(t, c.CloseSend())
-					} else {
-						pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
-						require.NoError(t, err)
-
-						header, err := pieceReader.GetPieceHeader()
-						require.NoError(t, err)
-
-						orderLimit := header.OrderLimit
-						originalPieceHash := &pb.PieceHash{
-							PieceId:   orderLimit.PieceId,
-							Hash:      header.GetHash(),
-							PieceSize: pieceReader.Size(),
-							Timestamp: header.GetCreationTime(),
-							Signature: header.GetSignature(),
-						}
-
-						newPieceHash := &pb.PieceHash{
-							PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-							Hash:      originalPieceHash.Hash,
-							PieceSize: originalPieceHash.PieceSize,
-							Timestamp: time.Now(),
-						}
-
-						receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-						require.NotNil(t, receivingNodeID)
-						signer := signing.SignerFromFullIdentity(receivingNodeID)
-
-						signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-						require.NoError(t, err)
-
-						success := &pb.StorageNodeMessage{
-							Message: &pb.StorageNodeMessage_Succeeded{
-								Succeeded: &pb.TransferSucceeded{
-									OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-									OriginalPieceHash:    originalPieceHash,
-									OriginalOrderLimit:   &orderLimit,
-									ReplacementPieceHash: signedNewPieceHash,
-								},
-							},
-						}
-						err = c.Send(success)
-						require.NoError(t, err)
-					}
-
+					messageCount++
+					unknownMsgSent = true
+					// We send an unknown message because we want to fail the
+					// transfer message request we get from the satellite.
+					// This allows us to keep the conn open but repopulate
+					// the pending queue.
+					err = c.Send(&pb.StorageNodeMessage{})
+					require.NoError(t, err)
+					require.NoError(t, c.CloseSend())
 				default:
 					t.FailNow()
 				}
@@ -1376,11 +1327,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		// make sure not responding piece not in queue
 		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
 		require.NoError(t, err)
-
-		for _, inc := range incompletes {
-			pieceID := inc.RootPieceID.Derive(exitingNode.ID(), inc.PieceNum)
-			require.NotEqual(t, notRespondingPiece, pieceID)
-		}
+		require.Len(t, incompletes, 0)
 
 		// check that the exit has completed and we have the correct transferred/failed values
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
