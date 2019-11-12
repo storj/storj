@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
@@ -70,7 +71,8 @@ type Endpoint struct {
 	metainfo          *Service
 	orders            *orders.Service
 	overlay           *overlay.Service
-	partnerinfo       attribution.DB
+	attributions      attribution.DB
+	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
 	projectUsage      *accounting.ProjectUsage
 	apiKeys           APIKeys
@@ -81,7 +83,8 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service,
+	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -89,7 +92,8 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		metainfo:          metainfo,
 		orders:            orders,
 		overlay:           cache,
-		partnerinfo:       partnerinfo,
+		attributions:      attributions,
+		partners:          partners,
 		peerIdentities:    peerIdentities,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
@@ -890,7 +894,28 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, parterID []byte) error {
+func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
+	if len(partnerIDBytes) > 0 {
+		partnerID, err := bytesToUUID(partnerIDBytes)
+		if err != nil {
+			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		}
+		return partnerID, nil
+	}
+
+	if len(header.UserAgent) == 0 {
+		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "user agent missing")
+	}
+
+	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
+	if err != nil || partner.UUID == nil {
+		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
+	}
+
+	return *partner.UUID, nil
+}
+
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
 	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
@@ -901,13 +926,13 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	partnerID, err := bytesToUUID(parterID)
+	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		return err
 	}
 
 	// check if attribution is set for given bucket
-	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, bucketName)
+	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
 		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
 		return nil
@@ -934,7 +959,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
-	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: bucketName,
 		PartnerID:  partnerID,

@@ -110,9 +110,15 @@ func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offer
 	return offer, nil
 }
 
-// PartnerByName looks up partner by name.
-func (service *PartnersService) PartnerByName(ctx context.Context, name string) (PartnerInfo, error) {
+// ByName looks up partner by name.
+func (service *PartnersService) ByName(ctx context.Context, name string) (PartnerInfo, error) {
 	return service.db.ByName(ctx, name)
+}
+
+// ByUserAgent looks up partner by user agent.
+func (service *PartnersService) ByUserAgent(ctx context.Context, useragent string) (PartnerInfo, error) {
+	// TODO:
+	return service.db.ByName(ctx, useragent)
 }
 
 // All returns all partners.
