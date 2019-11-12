@@ -32,6 +32,8 @@ type Client struct {
 	conn      *rpc.Conn
 	client    rpc.MetainfoClient
 	apiKeyRaw []byte
+
+	userAgent string
 }
 
 // ListItem is a single item in a listing
@@ -42,10 +44,12 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey) *Client {
+func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey, userAgent string) *Client {
 	return &Client{
 		client:    client,
 		apiKeyRaw: apiKey.SerializeRaw(),
+
+		userAgent: userAgent,
 	}
 }
 
@@ -73,7 +77,8 @@ func (client *Client) Close() error {
 
 func (client *Client) header() *pb.RequestHeader {
 	return &pb.RequestHeader{
-		ApiKey: client.apiKeyRaw,
+		ApiKey:    client.apiKeyRaw,
+		UserAgent: []byte(client.userAgent),
 	}
 }
 

@@ -158,23 +158,31 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	// partnerID set and bucket's attribution is not set
-	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.PartnerID.IsZero() {
-		// make an entry into the attribution table
-		err = p.checkBucketAttribution(ctx, bucketName)
-		if err != nil {
-			return nil, err
-		}
+	if bucketInfo.PartnerID.IsZero() {
+		if p.uplinkCfg.Volatile.UserAgent != "" {
+			// make an entry into the attribution table
+			err = p.trySetBucketAttribution(ctx, bucketName)
+			if err != nil {
+				return nil, err
+			}
+		} else if p.uplinkCfg.Volatile.PartnerID != "" {
+			// make an entry into the attribution table
+			err = p.trySetBucketAttribution(ctx, bucketName)
+			if err != nil {
+				return nil, err
+			}
 
-		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
+			partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
 
-		// update the bucket metainfo table with corresponding partner info
-		bucketInfo.PartnerID = *partnerID
-		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
-		if err != nil {
-			return nil, err
+			// update the bucket metainfo table with corresponding partner info
+			bucketInfo.PartnerID = *partnerID
+			bucketInfo, err = p.updateBucket(ctx, bucketInfo)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	encryptionParameters := cfg.EncryptionParameters
@@ -238,8 +246,8 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	return key, nil
 }
 
-// checkBucketAttribution Checks the bucket attribution
-func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+// trySetBucketAttribution Checks the bucket attribution
+func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if p.uplinkCfg.Volatile.PartnerID == "" {

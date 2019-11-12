@@ -62,6 +62,8 @@ func TestPartnerBucketAttrs(t *testing.T) {
 		bucketName = "mightynein"
 	)
 
+	// TODO: add tests for user agent
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
