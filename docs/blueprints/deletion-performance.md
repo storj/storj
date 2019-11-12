@@ -40,15 +40,7 @@ We have traced the uplink when removing files of different sizes and we obtained
 </tbody>
 </table>
 
-We extracted the data of the table the following trace graph files:
-
-* [1kib](images/deletion-perfomance-1.0kb-file-trace.svg)
-* [4Kib](images/deletion-perfomance-4.0kb-file-trace.svg)
-* [5Kib](images/deletion-perfomance-5.0kb-file-trace.svg)
-* [10kib](images/deletion-perfomance-10.0kb-file-trace.svg)
-* [2.2Mib](images/deletion-perfomance-2.2mb-file-trace.svg)
-* [256Mib](images/deletion-perfomance-256mb-file-trace.svg)
-
+We extracted the data of the table the following trace graph _SVG_ files that you can find in a [Github gist](https://gist.github.com/ifraixedes/b178035b53161cb391b67026b70cba52).
 
 ## Design
 
