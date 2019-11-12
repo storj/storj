@@ -67,6 +67,7 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -117,6 +118,7 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
+            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 
