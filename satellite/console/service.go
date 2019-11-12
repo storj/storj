@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"sort"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -211,7 +212,47 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
+	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tx := range txsInfos {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				ID:            tx.ID.String(),
+				Description:   "STORJ Token deposit",
+				TokenAmount:   tx.Amount.String(),
+				TokenReceived: tx.Received.String(),
+				Status:        tx.Status.String(),
+				Link:          tx.Link,
+				Start:         tx.CreatedAt,
+				End:           tx.ExpiresAt,
+				Type:          Transaction,
+			},
+		)
+	}
+
+	sort.SliceStable(billingHistory,
+		func(i, j int) bool {
+			return billingHistory[i].Start.After(billingHistory[j].Start)
+		},
+	)
+
 	return billingHistory, nil
+}
+
+// TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	return tx, errs.Wrap(err)
 }
 
 // CreateUser gets password hash value and creates new inactive User

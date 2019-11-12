@@ -4,33 +4,47 @@
 <template>
     <div class="no-buckets-area">
         <div class="no-buckets-area__header">
-            <FolderIcon class="no-buckets-area__header__image"/>
-            <h1 class="no-buckets-area__header__title">Buckets</h1>
+            <h1 class="no-buckets-area__header__title">Bucket Usage</h1>
+            <p class="no-buckets-area__header__sub-title">Create Buckets & Upload Objects from the Command Line</p>
         </div>
-        <p class="no-buckets-area__info">To create a bucket, please use the following CLI documentation. We will soon enable client-side encryption through the browser, at which time you will be able to create buckets and upload objects directly from this dashboard.</p>
-        <div class="buckets-divider"></div>
-        <p class="no-buckets-area__subtitle">Create Buckets and Upload Objects from the Command Line</p>
-        <div class="no-buckets-area__example-container">
-            <div class="no-buckets-area__example-container__info">
-                <h2 class="no-buckets-area__example-container__info__title">Uplink CLI</h2>
-                <p class="no-buckets-area__example-container__info__text">One of the ways you can interact with the network to upload and download files</p>
-                <a class="documentation-link" href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">
-                    <div class="documentation-link__button">
-                        <p class="documentation-link__button__label">Documentation</p>
-                    </div>
-                </a>
-            </div>
-            <UplinkIcon/>
+        <div class="no-buckets-area__steps-numbers-area">
+            <FirstStepIcon class="no-buckets-area__steps-numbers-area__icon"/>
+            <div class="buckets-divider"></div>
+            <SecondStepIcon class="no-buckets-area__steps-numbers-area__icon"/>
+            <div class="buckets-divider"></div>
+            <ThirdStepIcon class="no-buckets-area__steps-numbers-area__icon"/>
         </div>
-        <p class="no-buckets-area__s3-link">Familiar with AWS S3? <a class="s3-gateway-link" href="https://github.com/storj/storj/wiki/S3-Gateway" target="_blank">Try our S3 Gateway</a></p>
-        <div class="no-buckets-area__next-step-area">
-            <div class="no-buckets-area__next-step-area__arrow-image">
-                <ArrowIcon/>
+        <div class="no-buckets-area__steps-area">
+            <div class="no-buckets-area__steps-area__setup">
+                <h2 class="no-buckets-area__steps-area__setup__title">Set Up The Uplink CLI</h2>
+                <div class="no-buckets-area__steps-area__setup__container">
+                    <DotsIcon class="dots-icon"/>
+                    <p class="no-buckets-area__steps-area__setup__container__address-info">Please enter numeric choice or enter satellite address manually [1]: 1</p>
+                    <p class="no-buckets-area__steps-area__setup__container__api-key-info">Enter your API key:</p>
+                    <p class="no-buckets-area__steps-area__setup__container__api-key">13YqgbUXRiavXB1qHMtKkHGNHPydtTBgXoZeeofy6aY4n1ewBMDoBS7eV7726nsgVQDfqeL9gQRqjQTyMUGDCFC6yWGPUEHGxJsT</p>
+                </div>
             </div>
-            <div class="no-buckets-area__next-step-area__text-area">
-                <h2 class="no-buckets-area__next-step-area__text-area__title">Next Step</h2>
-                <p class="no-buckets-area__next-step-area__text-area__text">After you create a bucket using the CLI, you will be able to see your buckets and usage here. This happens within 1 hour of creating your first bucket.</p>
+            <div class="no-buckets-area__steps-area__upload">
+                <h2 class="no-buckets-area__steps-area__upload__title">Upload Data Securely</h2>
+                <div class="no-buckets-area__steps-area__upload__container">
+                    <DotsIcon class="dots-icon"/>
+                    <p class="no-buckets-area__steps-area__upload__container__command">./uplink mb sj://sample</p>
+                    <p class="no-buckets-area__steps-area__upload__container__command">"Sample" Bucket Created</p>
+                    <p class="no-buckets-area__steps-area__upload__container__command">./uplink cp ~/Desktop/your-large-file.mp4 sj://bucket-name</p>
+                    <p class="no-buckets-area__steps-area__upload__container__command">"your-large-file.mp4" Successfully uploaded</p>
+                </div>
             </div>
+            <div class="no-buckets-area__steps-area__usage">
+                <h2 class="no-buckets-area__steps-area__usage__title">View Usage Here</h2>
+                <UsageIcon class="usage-icon"/>
+            </div>
+        </div>
+        <div class="no-buckets-area__footer">
+            <a class="no-buckets-area__footer__button" href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank">
+                <ButtonArrowIcon/>
+                <p class="no-buckets-area__footer__button__label">Create My First Bucket</p>
+            </a>
+            <a class="no-buckets-area__footer__help" href="https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-" target="_blank">Why can't I upload from the browser?</a>
         </div>
     </div>
 </template>
@@ -40,16 +54,22 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
-import ArrowIcon from '@/../static/images/buckets/noBucketState/arrow.svg';
-import FolderIcon from '@/../static/images/buckets/noBucketState/folder.svg';
-import UplinkIcon from '@/../static/images/buckets/noBucketState/uplink.svg';
+import ButtonArrowIcon from '@/../static/images/buckets/noBucketState/button.svg';
+import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
+import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
+import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
+import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
+import UsageIcon from '@/../static/images/buckets/noBucketState/usage.svg';
 
 @Component({
     components: {
         VButton,
-        FolderIcon,
-        UplinkIcon,
-        ArrowIcon,
+        FirstStepIcon,
+        SecondStepIcon,
+        ThirdStepIcon,
+        UsageIcon,
+        DotsIcon,
+        ButtonArrowIcon,
     },
 })
 export default class NoBucketArea extends Vue {}
@@ -59,200 +79,288 @@ export default class NoBucketArea extends Vue {}
 <style scoped lang="scss">
     h1,
     h2,
-    p {
+    p,
+    a {
         margin: 0;
     }
 
     .no-buckets-area {
-        padding: 50px 60px 50px 70px;
+        padding: 40px 180px 120px 180px;
         font-family: 'font_regular', sans-serif;
 
         &__header {
             width: 100%;
             display: flex;
-            justify-content: flex-start;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
+            margin-bottom: 42px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
                 color: #384b65;
+                margin-bottom: 24px;
             }
 
-            &__image {
-                margin-right: 22px;
+            &__sub-title {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
             }
         }
 
-        &__info {
-            font-family: 'font_medium', sans-serif;
-            height: 81px;
+        &__steps-numbers-area {
             display: flex;
+            flex-direction: row;
             align-items: center;
-            justify-content: flex-start;
-            font-size: 16px;
-            line-height: 21px;
-            color: rgba(56, 75, 101, 0.7);
+            justify-content: space-between;
+            padding: 0 170px;
+            margin-bottom: 14px;
+
+            &__icon {
+                min-width: 30px;
+            }
         }
 
-        &__subtitle {
-            font-family: 'font_bold', sans-serif;
-            font-size: 18px;
-            line-height: 27px;
-            color: #354049;
-            margin-top: 24px;
-        }
-
-        &__example-container {
-            margin-top: 18px;
-            height: 158px;
-            width: calc(100% - 86px);
-            background-color: #fff;
-            border-radius: 6px;
-            padding: 43px 46px 43px 40px;
+        &__steps-area {
             display: flex;
             justify-content: space-between;
             align-items: center;
 
-            &__info {
-                width: 50%;
-                height: 100%;
+            &__setup,
+            &__upload,
+            &__usage {
                 display: flex;
                 flex-direction: column;
-                justify-content: space-between;
-                align-items: flex-start;
+                justify-content: center;
 
                 &__title {
                     font-family: 'font_bold', sans-serif;
-                    font-size: 18px;
-                    line-height: 27px;
+                    font-size: 24px;
+                    line-height: 32px;
+                    text-align: center;
+                    margin-bottom: 20px;
                     color: #354049;
                 }
 
-                &__text {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 16px;
-                    line-height: 21px;
-                    color: rgba(56, 75, 101, 0.7);
+                &__container {
+                    width: 323px;
+                    height: 236px;
+                    padding: 25px;
+                    background-color: #fff;
+                    border-radius: 11px;
+                    border: 1px solid #ededed;
+
+                    &__address-info,
+                    &__api-key-info,
+                    &__api-key,
+                    &__command {
+                        font-size: 17px;
+                        line-height: 18px;
+                        color: #646464;
+                    }
+
+                    &__command {
+                        margin-bottom: 15px;
+                    }
+
+                    &__api-key-info {
+                        margin-top: 25px;
+                    }
+
+                    &__api-key {
+                        margin-top: 10px;
+                        word-break: break-all;
+                    }
                 }
             }
         }
 
-        &__s3-link {
-            font-family: 'font_medium', sans-serif;
-            margin-top: 18px;
-            font-size: 12px;
-            line-height: 17px;
-            color: #354049;
-        }
-
-        &__next-step-area {
-            width: calc(100% - 97px);
-            height: 81px;
-            padding: 22px 57px 22px 40px;
-            margin-top: 35px;
+        &__footer {
             display: flex;
-            justify-content: flex-start;
+            flex-direction: column;
             align-items: center;
-            background-color: rgba(255, 255, 255, 0.5);
-            border-radius: 6px;
+            margin-top: 40px;
 
-            &__arrow-image {
-                height: 40px;
-                min-width: 40px;
-                margin-right: 42px;
-                background-color: #2683ff;
-                border-radius: 10px;
+            &__button {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-            }
+                width: 250px;
+                height: 55px;
+                background-color: #2683ff;
+                border-radius: 6px;
 
-            &__text-area {
-
-                &__title {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 18px;
-                    line-height: 27px;
-                    color: #354049;
-                    margin-bottom: 10px;
-                }
-
-                &__text {
+                &__label {
+                    color: #fff;
                     font-family: 'font_medium', sans-serif;
                     font-size: 16px;
-                    line-height: 21px;
-                    color: rgba(56, 75, 101, 0.7);
+                    line-height: 23px;
+                    margin: 2px 0 0 10px;
+                }
+
+                &:hover {
+                    background-color: #0059d0;
                 }
             }
-        }
-    }
 
-    .s3-gateway-link {
-        font-family: 'font_medium', sans-serif;
-        color: #2683ff;
-
-        &:hover {
-            text-decoration: underline;
+            &__help {
+                margin-top: 20px;
+                font-size: 15px;
+                line-height: 18px;
+                text-decoration: underline;
+                color: #2683ff;
+            }
         }
     }
 
     .buckets-divider {
-        height: 1px;
-        background-color: #afb7c1;
-        margin-top: 12px;
+        width: calc(46% + 2px);
+        border: 1px solid #cfd5da;
     }
 
-    .documentation-link__button {
-        width: 205px;
-        height: 48px;
-        background-color: #2683ff;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border-radius: 6px;
-
-        .documentation-link__button__label {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: #fff;
-        }
-
-        &:hover {
-            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
-        }
+    .dots-icon {
+        margin-bottom: 36px;
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1800px) {
 
         .no-buckets-area {
-            padding: 52px 40px 52px 40px;
+            padding: 40px 140px 120px 140px;
         }
     }
 
-    @media screen and (min-height: 790px) and (max-height: 818px) {
+    @media screen and (max-width: 1750px) {
 
         .no-buckets-area {
-            overflow-y: scroll;
-            height: 628px;
+            padding: 40px 100px 120px 100px;
         }
     }
 
-    @media screen and (min-height: 760px) and (max-height: 789px) {
+    @media screen and (max-width: 1680px) {
 
         .no-buckets-area {
-            overflow-y: scroll;
-            height: 595px;
+            padding: 40px 150px 120px 150px;
+
+            &__steps-numbers-area {
+                padding: 0 145px;
+            }
+
+            &__steps-area__setup,
+            &__steps-area__upload {
+
+                &__container {
+                    width: 277px;
+                    height: 201px;
+
+                    &__address-info,
+                    &__api-key-info,
+                    &__api-key,
+                    &__command {
+                        font-size: 15px;
+                        line-height: 16px;
+                    }
+                }
+            }
+        }
+
+        .usage-icon,
+        .usage-rect {
+            width: 329px;
+            height: 253px;
+        }
+
+        .dots-icon {
+            margin-bottom: 32px;
         }
     }
 
-    @media screen and (min-height: 730px) and (max-height: 759px) {
+    @media screen and (max-width: 1630px) {
 
         .no-buckets-area {
-            overflow-y: scroll;
-            height: 550px;
+            padding: 40px 120px 120px 120px;
+        }
+    }
+
+    @media screen and (max-width: 1570px) {
+
+        .no-buckets-area {
+            padding: 40px 100px 120px 100px;
+        }
+    }
+
+    @media screen and (max-width: 1520px) {
+
+        .no-buckets-area {
+            padding: 40px 80px 120px 80px;
+        }
+    }
+
+    @media screen and (max-width: 1470px) {
+
+        .no-buckets-area {
+            padding: 40px 65px 120px 65px;
+        }
+    }
+
+    @media screen and (max-width: 1440px) {
+
+        .no-buckets-area {
+            padding: 40px 60px 120px 60px;
+
+            &__steps-numbers-area {
+                padding: 0 133px;
+            }
+
+            &__steps-area__setup,
+            &__steps-area__upload,
+            &__steps-area__usage {
+
+                &__title {
+                    font-size: 20px;
+                    line-height: 16px;
+                }
+
+                &__container {
+                    width: 240px;
+                    height: 173px;
+
+                    &__address-info,
+                    &__api-key-info,
+                    &__api-key,
+                    &__command {
+                        font-size: 13px;
+                        line-height: 14px;
+                    }
+                }
+            }
+        }
+
+        .usage-icon,
+        .usage-rect {
+            width: 292px;
+            height: 225px;
+        }
+
+        .dots-icon {
+            margin-bottom: 28px;
+        }
+    }
+
+    @media screen and (max-width: 1320px) {
+
+        .no-buckets-area {
+            padding: 40px 50px 120px 50px;
+        }
+    }
+
+    @media screen and (max-width: 1280px) {
+
+        .no-buckets-area {
+            padding: 40px 40px 120px 40px;
         }
     }
 </style>
