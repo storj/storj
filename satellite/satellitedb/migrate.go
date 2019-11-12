@@ -86,9 +86,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
-						INDEX bucket_name_project_id_interval_start_interval_seconds ( bucket_name, project_id, interval_start, interval_seconds ),
 						PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 					);`,
+					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );`,
 
 					`CREATE TABLE bucket_storage_tallies (
 						bucket_name bytea NOT NULL,
@@ -107,9 +107,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						data bytea NOT NULL,
 						path bytea NOT NULL,
 						attempted timestamp,
-						INDEX injuredsegments_attempted_index ( attempted ),
 						PRIMARY KEY ( path )
 					);`,
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
 
 					`CREATE TABLE irreparabledbs (
 						segmentpath bytea NOT NULL,
@@ -156,9 +156,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						exit_loop_completed_at TIMESTAMP,
 						exit_finished_at TIMESTAMP,
 						exit_success boolean NOT NULL DEFAULT FALSE,
-						INDEX node_last_ip (last_net),
 						PRIMARY KEY ( id )
 					);`,
+					`CREATE INDEX node_last_ip ON nodes ( last_net );`,
 
 					`CREATE TABLE offers (
 						id serial NOT NULL,
@@ -226,9 +226,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						serial_number bytea NOT NULL UNIQUE,
 						bucket_id bytea NOT NULL,
 						expires_at timestamp NOT NULL,
-						PRIMARY KEY ( id ),
-						INDEX serial_numbers_expires_at_index ( expires_at )
+						PRIMARY KEY ( id )
 					);`,
+					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );`,
 
 					`CREATE TABLE storagenode_bandwidth_rollups (
 						storagenode_id bytea NOT NULL,
@@ -237,9 +237,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						action integer NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
-						PRIMARY KEY ( storagenode_id, interval_start, action ),
-						INDEX storagenode_id_interval_start_interval_seconds_index ( storagenode_id, interval_start, interval_seconds )
+						PRIMARY KEY ( storagenode_id, interval_start, action )
 					);`,
+					`CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`,
 
 					`CREATE TABLE storagenode_storage_tallies (
 						id bigserial NOT NULL,
