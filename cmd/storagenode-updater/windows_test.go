@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/testcontext"
 )
 
@@ -60,11 +60,22 @@ func createTestService(ctx *testcontext.Context, t *testing.T, name, binPath str
 	}
 
 	return func() {
-		_, err := service.Control(svc.Cmd(windows.SERVICE_CONTROL_STOP))
-		time.Sleep(time.Second)
-		err = errs.Combine(service.Delete())
-		err = errs.Combine(err, service.Close())
-		err = errs.Combine(err, manager.Disconnect())
-		require.NoError(t, err)
+		status, err := service.Control(svc.Stop)
+		for status.State != svc.Stopped {
+			status, err = service.Query()
+			if err != nil {
+				break
+			}
+			if !sync2.Sleep(ctx, 100*time.Millisecond) {
+				break
+			}
+		}
+
+		require.NoError(t, errs.Combine(
+			err,
+			service.Delete(),
+			service.Close(),
+			manager.Disconnect(),
+		))
 	}
 }

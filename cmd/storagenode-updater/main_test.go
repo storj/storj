@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -88,25 +87,21 @@ func TestAutoUpdater(t *testing.T) {
 	// TODO: figure out how to not conflict with real service
 	//  (versioncontrol process query uses service name)
 	serviceName := "storagenode"
-	if runtime.GOOS == "windows" {
-		defer createTestService(ctx, t, serviceName, newBin)()
-		//cleanup := createTestService(ctx, t, serviceName, oldBin)
-		//defer func() {
-		//	time.Sleep(time.Minute)
-		//	cleanup()
-		//}()
-	}
+
+	cleanup := createTestService(ctx, t, serviceName, newBin)
+	defer cleanup()
 
 	// run updater (update)
-	args := []string{"run"}
-	args = append(args, "--config-dir", ctx.Dir())
-	args = append(args, "--service-name", serviceName)
-	args = append(args, "--server-address", "http://"+versionControlPeer.Addr())
-	args = append(args, "--binary-location", storagenodePath)
-	args = append(args, "--check-interval", "0s")
-	args = append(args, "--identity.cert-path", identConfig.CertPath)
-	args = append(args, "--identity.key-path", identConfig.KeyPath)
-	args = append(args, "--log", logPath)
+	args := []string{"run",
+		"--config-dir", ctx.Dir(),
+		"--service-name", serviceName,
+		"--server-address", "http://" + versionControlPeer.Addr(),
+		"--binary-location", storagenodePath,
+		"--check-interval", "0s",
+		"--identity.cert-path", identConfig.CertPath,
+		"--identity.key-path", identConfig.KeyPath,
+		"--log", logPath,
+	}
 
 	// NB: updater currently uses `log.SetOutput` so all output after that call
 	// only goes to the log file.
