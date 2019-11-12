@@ -42,7 +42,7 @@
                 </div>
             </div>
             <div class="usage-report-container__main-area__footer">
-                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(startDate)}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(endDate)}}</b></p>
+                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{startDate}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{endDate}}</b></p>
                 <div class="usage-report-container__main-area__footer__report-area">
                     <p class="usage-report-container__main-area__footer__report-area__download-text">Download Advanced Report</p>
                     <DownloadReportIcon
@@ -66,6 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
 @Component({
@@ -95,12 +96,12 @@ export default class UsageReport extends Vue {
         };
     }
 
-    public get startDate(): Date {
-        return this.$store.state.usageModule.startDate;
+    public get startDate(): string {
+        return DateFormat.getUSDate(this.$store.state.usageModule.startDate, '/');
     }
 
-    public get endDate(): Date {
-        return this.$store.state.usageModule.endDate;
+    public get endDate(): string {
+        return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
     public get storage(): string {
@@ -175,7 +176,7 @@ export default class UsageReport extends Vue {
 
         const url = new URL(location.origin);
 
-        url.pathname = 'usage-report';
+        url.pathname = 'usage-report/';
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', toUnixTimestamp(endDate).toString());

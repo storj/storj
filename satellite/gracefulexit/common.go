@@ -17,6 +17,9 @@ var (
 	// ErrNodeNotFound is returned if a graceful exit entry for a  node does not exist in database
 	ErrNodeNotFound = errs.Class("graceful exit node not found")
 
+	// ErrAboveOptimalThreshold is returned if a graceful exit entry for a node has more pieces than required.
+	ErrAboveOptimalThreshold = errs.Class("pointer has more pieces than required")
+
 	mon = monkit.Package()
 )
 

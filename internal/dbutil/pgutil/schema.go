@@ -54,8 +54,20 @@ type Execer interface {
 }
 
 // CreateSchema creates a schema if it doesn't exist.
-func CreateSchema(db Execer, schema string) error {
-	_, err := db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
+func CreateSchema(db Execer, schema string) (err error) {
+	for try := 0; try < 5; try++ {
+		_, err = db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
+
+		// Postgres `CREATE SCHEMA IF NOT EXISTS` may return "duplicate key value violates unique constraint".
+		// In that case, we will retry rather than doing anything more complicated.
+		//
+		// See more in: https://stackoverflow.com/a/29908840/192220
+		if IsConstraintError(err) {
+			continue
+		}
+		return err
+	}
+
 	return err
 }
 

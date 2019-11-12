@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	// Error is the default error class for partners package.
-	Error = errs.Class("partners error class")
+	// ErrPartners is the default error class for partners package.
+	ErrPartners = errs.Class("partners")
 
-	// ErrNotExist is returned when a particular partner does not exist.
-	ErrNotExist = errs.Class("partner does not exist")
+	// ErrPartnerNotExist is returned when a particular partner does not exist.
+	ErrPartnerNotExist = errs.Class("partner does not exist")
 )
 
 // PartnersDB allows access to partners database.
@@ -57,7 +57,7 @@ func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *Partn
 func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerName string) ([]string, error) {
 	partner, err := service.db.ByName(ctx, offerName)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrPartners.Wrap(err)
 	}
 
 	type info struct {
@@ -81,10 +81,10 @@ func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerNa
 	return links, nil
 }
 
-// GetActiveOffer returns an offer that is active based on its type
+// GetActiveOffer returns an offer that is active based on its type.
 func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offers, offerType OfferType, partnerID string) (offer *Offer, err error) {
 	if len(offers) < 1 {
-		return nil, NoCurrentOfferErr.New("no active offers")
+		return nil, ErrOfferNotExist.New("no active offers")
 	}
 	switch offerType {
 	case Partner:
@@ -93,7 +93,7 @@ func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offer
 		}
 		partnerInfo, err := service.db.ByID(ctx, partnerID)
 		if err != nil {
-			return nil, NoMatchPartnerIDErr.Wrap(err)
+			return nil, ErrPartnerNotExist.Wrap(err)
 		}
 		for i := range offers {
 			if offers[i].Name == partnerInfo.Name {
