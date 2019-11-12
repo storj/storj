@@ -24,7 +24,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -547,11 +547,12 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 		newRequest.URL = new(url.URL)
 		*newRequest.URL = *r.URL
 		newRequest.URL.Path += ".gz"
+
 		fn.ServeHTTP(w, newRequest)
 	})
 }
 
-// satelliteNameHandler retrieve satellites name.
+// satelliteNameHandler retrieves satellite name.
 func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
 	var response struct {
 		SatelliteName string `json:"satelliteName"`
