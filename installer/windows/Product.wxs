@@ -120,7 +120,7 @@
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='DeleteConfigFile' After='RemoveFiles'>(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
-      <!-- legacy: save config file as old versions of the installer will remove it -->
+      <!-- legacy: save config file as old versions or the installer will remove it -->
       <Custom Action='ExtractInstallDir' Before='SetInstallFolder'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='BackupConfigFile' Before='InstallExecute'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='RestoreConfigFile' After='RemoveExistingProducts'>WIX_UPGRADE_DETECTED</Custom>
