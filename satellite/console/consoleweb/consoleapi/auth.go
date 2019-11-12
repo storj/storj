@@ -68,6 +68,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
@@ -139,9 +140,10 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	err = json.NewEncoder(w).Encode(&user.ID)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(user.ID)
 	if err != nil {
-		a.log.Error("registration handler could not encode error", zap.Error(ErrAuthAPI.Wrap(err)))
+		a.log.Error("registration handler could not encode userID", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -194,6 +196,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.ID = auth.User.ID
 	user.PartnerID = auth.User.PartnerID
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
 	if err != nil {
 		a.log.Error("could not encode user info", zap.Error(ErrAuthAPI.Wrap(err)))
