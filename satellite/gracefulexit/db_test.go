@@ -67,29 +67,36 @@ func TestTransferQueueItem(t *testing.T) {
 		nodeID2 := testrand.NodeID()
 		path1 := testrand.Bytes(memory.B * 32)
 		path2 := testrand.Bytes(memory.B * 32)
+		// root piece IDs for path 1 and 2
+		rootPieceID1 := testrand.PieceID()
+		rootPieceID2 := testrand.PieceID()
 		items := []gracefulexit.TransferQueueItem{
 			{
 				NodeID:          nodeID1,
 				Path:            path1,
 				PieceNum:        1,
+				RootPieceID:     rootPieceID1,
 				DurabilityRatio: 0.9,
 			},
 			{
 				NodeID:          nodeID1,
 				Path:            path2,
 				PieceNum:        2,
+				RootPieceID:     rootPieceID2,
 				DurabilityRatio: 1.1,
 			},
 			{
 				NodeID:          nodeID2,
 				Path:            path1,
 				PieceNum:        2,
+				RootPieceID:     rootPieceID1,
 				DurabilityRatio: 0.9,
 			},
 			{
 				NodeID:          nodeID2,
 				Path:            path2,
 				PieceNum:        1,
+				RootPieceID:     rootPieceID2,
 				DurabilityRatio: 1.1,
 			},
 		}
@@ -102,6 +109,8 @@ func TestTransferQueueItem(t *testing.T) {
 			for _, tqi := range items {
 				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
+				require.Equal(t, tqi.RootPieceID, item.RootPieceID)
+				require.Equal(t, tqi.DurabilityRatio, item.DurabilityRatio)
 
 				now := time.Now().UTC()
 				item.DurabilityRatio = 1.2
@@ -112,6 +121,8 @@ func TestTransferQueueItem(t *testing.T) {
 
 				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path, tqi.PieceNum)
 				require.NoError(t, err)
+
+				require.Equal(t, item.RootPieceID, latestItem.RootPieceID)
 				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
 				require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
 			}
