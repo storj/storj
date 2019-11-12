@@ -757,6 +757,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	// checks if bucket exists before updates it or makes a new entry
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
+		// TODO: handle user agent
 		var partnerID uuid.UUID
 		err = partnerID.UnmarshalJSON(req.GetPartnerId())
 		if err != nil {
@@ -980,6 +981,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	defaultRS := req.GetDefaultRedundancyScheme()
 	defaultEP := req.GetDefaultEncryptionParameters()
 
+	// TODO: resolve partner id
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
 
