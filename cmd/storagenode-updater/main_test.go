@@ -38,7 +38,7 @@ func TestAutoUpdater(t *testing.T) {
 	// TODO cleanup `.exe` extension for different OS
 
 	ctx := testcontext.New(t)
-	//defer ctx.Cleanup()
+	defer ctx.Cleanup()
 
 	oldSemVer, err := version.NewSemVer(oldVersion)
 	require.NoError(t, err)
