@@ -33,14 +33,7 @@
                     <span>Estimated total $82.44</span>
                 </div>
                 <div class="current-month-area__content__usage-charges__content" v-if="areUsageChargesShown" @click.stop>
-                    <div class="item">
-                        <span>Project 1</span>
-                        <span>$21.22</span>
-                    </div>
-                    <div class="item">
-                        <span>Project 2</span>
-                        <span>$12.88</span>
-                    </div>
+                    <UsageChargeItem class="item"></UsageChargeItem>
                 </div>
             </div>
         </div>
@@ -50,11 +43,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import UsageChargeItem from '@/components/account/billing/monthlySummary/UsageChargeItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
 @Component({
     components: {
         VButton,
+        UsageChargeItem,
     },
 })
 export default class MonthlyBillingSummary extends Vue {
@@ -140,8 +135,8 @@ export default class MonthlyBillingSummary extends Vue {
             }
 
             &__usage-charges {
+                position: relative;
                 margin: 18px 0 0 0;
-                padding: 20px 20px 20px 20px;
                 background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
@@ -150,6 +145,7 @@ export default class MonthlyBillingSummary extends Vue {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
+                    padding: 20px;
 
                     &__name {
                         display: flex;
@@ -163,18 +159,15 @@ export default class MonthlyBillingSummary extends Vue {
 
                 &__content {
                     cursor: default;
+                    max-height: 228px;
+                    overflow-y: auto;
+                    padding: 0 20px 20px 20px;
                 }
             }
         }
     }
 
     .item {
-        font-size: 16px;
-        line-height: 21px;
-        display: flex;
-        justify-content: space-between;
-        padding-top: 20px;
-        margin-top: 20px;
         border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 </style>

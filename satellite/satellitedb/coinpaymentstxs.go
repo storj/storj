@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -114,6 +115,28 @@ func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments
 		},
 	)
 	return err
+}
+
+// ListAccount returns all transaction for specific user.
+func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) ([]stripecoinpayments.Transaction, error) {
+	dbxTXs, err := db.db.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx,
+		dbx.CoinpaymentsTransaction_UserId(userID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var txs []stripecoinpayments.Transaction
+	for _, dbxTX := range dbxTXs {
+		tx, err := fromDBXCoinpaymentsTransaction(dbxTX)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		txs = append(txs, *tx)
+	}
+
+	return txs, nil
 }
 
 // ListPending returns paginated list of pending transactions.
