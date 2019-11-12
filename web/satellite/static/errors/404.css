@@ -4,9 +4,6 @@
 img,
 a {
     -webkit-user-drag: none;
-    -khtml-user-drag: none;
-    -moz-user-drag: none;
-    -o-user-drag: none;
 }
 
 .error-container {
@@ -23,16 +20,9 @@ a {
     justify-content: center;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
-    -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-
-    &__title {
-        font-family: 'font', sans-serif;
-        margin-bottom: 60px;
-        font-size: 32px;
-    }
 }
 
 .logo {
@@ -46,3 +36,9 @@ a {
 .text {
     margin-left: 15px;
 }
+
+.title {
+     font-family: 'font', sans-serif;
+     margin-bottom: 60px;
+     font-size: 32px;
+ }
