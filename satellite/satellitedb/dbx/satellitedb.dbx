@@ -800,6 +800,7 @@ model graceful_exit_transfer_queue (
     field node_id             blob
     field path                blob
     field piece_num           int
+    field root_piece_id       blob       ( nullable )
     field durability_ratio    float64    ( updatable )
     field queued_at           utimestamp ( autoinsert )
     field requested_at        utimestamp ( updatable, nullable )

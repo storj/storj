@@ -6,7 +6,7 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
-import BillingHistory from '@/components/account/billing/BillingHistory.vue';
+import BillingHistory from '@/components/account/billing/depositAndBilling/BillingHistory.vue';
 import ProfileArea from '@/components/account/ProfileArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
