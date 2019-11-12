@@ -969,6 +969,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
 	return nil
 }
 
