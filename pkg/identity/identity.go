@@ -72,8 +72,8 @@ type ManageableFullIdentity struct {
 // SetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type SetupConfig struct {
-	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert"`
-	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key"`
+	CertPath  string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" path:"true"`
+	KeyPath   string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" path:"true"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false" setup:"true"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 }
@@ -81,13 +81,13 @@ type SetupConfig struct {
 // Config allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type Config struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" user:"true"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true" path:"true"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$IDENTITYDIR/identity.key" user:"true" path:"true"`
 }
 
 // PeerConfig allows you to interact with a peer identity (cert, no key) on disk.
 type PeerConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$IDENTITYDIR/identity.cert" user:"true" path:"true"`
 }
 
 // FullCertificateAuthorityFromPEM loads a FullIdentity from a certificate chain and

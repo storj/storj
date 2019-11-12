@@ -5,7 +5,6 @@ package mockpayments
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -21,14 +20,22 @@ var (
 	mon = monkit.Package()
 )
 
+var _ payments.Accounts = (*accounts)(nil)
+
 // accounts is a mock implementation of payments.Accounts.
 type accounts struct{}
+
+var _ payments.CreditCards = (*creditCards)(nil)
 
 // creditCards is a mock implementation of payments.CreditCards.
 type creditCards struct{}
 
+var _ payments.Invoices = (*invoices)(nil)
+
 // invoices is a mock implementation of payments.Invoices.
 type invoices struct{}
+
+var _ payments.StorjTokens = (*storjTokens)(nil)
 
 // storjTokens is a mock implementation of payments.StorjTokens.
 type storjTokens struct{}
@@ -104,8 +111,14 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (_ []payme
 }
 
 // Deposit creates new deposit transaction.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount big.Float) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	return nil, Error.Wrap(errs.New("can not make deposit"))
+}
+
+// ListTransactionInfos returns empty transaction infos slice.
+func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid.UUID) (_ []payments.TransactionInfo, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+	return ([]payments.TransactionInfo)(nil), nil
 }

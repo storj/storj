@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"sort"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -39,10 +40,8 @@ const (
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
 	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	emailUsedErrMsg                      = "This email is already in use, try another"
-	activationTokenIsExpiredErrMsg       = "Your account activation link has expired, please sign up again"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
-	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
@@ -54,11 +53,14 @@ const (
 	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
-// ErrConsoleInternal describes internal console error
-var ErrConsoleInternal = errs.Class("internal error")
+// Error describes internal console error
+var Error = errs.Class("service error")
 
 // ErrNoMembership is error type of not belonging to a specific project
 var ErrNoMembership = errs.Class("no membership error")
+
+// ErrTokenExpiration is error type of token reached expiration time
+var ErrTokenExpiration = errs.Class("token expiration error")
 
 // Service is handling accounts related logic
 //
@@ -69,6 +71,7 @@ type Service struct {
 	log      *zap.Logger
 	store    DB
 	rewards  rewards.DB
+	partners *rewards.PartnersService
 	accounts payments.Accounts
 
 	passwordCost int
@@ -80,7 +83,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, accounts payments.Accounts, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -99,6 +102,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, ac
 		Signer:       signer,
 		store:        store,
 		rewards:      rewards,
+		partners:     partners,
 		accounts:     accounts,
 		passwordCost: passwordCost,
 	}, nil
@@ -209,7 +213,47 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
+	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tx := range txsInfos {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				ID:            tx.ID.String(),
+				Description:   "STORJ Token deposit",
+				TokenAmount:   tx.Amount.String(),
+				TokenReceived: tx.Received.String(),
+				Status:        tx.Status.String(),
+				Link:          tx.Link,
+				Start:         tx.CreatedAt,
+				End:           tx.ExpiresAt,
+				Type:          Transaction,
+			},
+		)
+	}
+
+	sort.SliceStable(billingHistory,
+		func(i, j int) bool {
+			return billingHistory[i].Start.After(billingHistory[j].Start)
+		},
+	)
+
 	return billingHistory, nil
+}
+
+// TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	return tx, errs.Wrap(err)
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -228,14 +272,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	//TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+
+	currentReward, err := s.partners.GetActiveOffer(ctx, offers, offerType, user.PartnerID)
+	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// TODO: remove after vanguard release
@@ -246,7 +291,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// set the project limit to be 1 for open source partner invitees
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
 		if err != nil {
-			return nil, ErrConsoleInternal.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	} else {
 		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
@@ -267,7 +312,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// store data
@@ -286,7 +331,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if user.PartnerID != "" {
 			partnerID, err := uuid.Parse(user.PartnerID)
 			if err != nil {
-				return ErrConsoleInternal.Wrap(err)
+				return Error.Wrap(err)
 			}
 			newUser.PartnerID = *partnerID
 		}
@@ -295,12 +340,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser,
 		)
 		if err != nil {
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 		if err != nil {
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		if currentReward != nil {
@@ -308,7 +353,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			if refUserID != "" {
 				refID, err = uuid.Parse(refUserID)
 				if err != nil {
-					return ErrConsoleInternal.Wrap(err)
+					return Error.Wrap(err)
 				}
 			}
 			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
@@ -371,12 +416,12 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	token, err := consoleauth.FromBase64URLString(activationToken)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	claims, err := s.authenticate(ctx, token)
 	if err != nil {
-		return
+		return err
 	}
 
 	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
@@ -386,28 +431,28 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	now := time.Now()
 
-	if user.Status != Inactive {
+	if user.Status == Active {
 		return errs.New("account is already active")
 	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
-		return errs.New(activationTokenIsExpiredErrMsg)
+		return ErrTokenExpiration.Wrap(err)
 	}
 
 	user.Status = Active
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
 	if err != nil && !NoCreditForUpdateErr.Has(err) {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -419,16 +464,16 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 
 	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
 	if err != nil {
-		return
+		return err
 	}
 	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
-		return
+		return err
 	}
 
 	user, err := s.store.Users().Get(ctx, *token.OwnerID)
 	if err != nil {
-		return
+		return err
 	}
 
 	if err := validatePassword(password); err != nil {
@@ -451,7 +496,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
+	if err = s.store.ResetPasswordTokens().Delete(ctx, token.Secret); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RevokeResetPasswordToken - is a method to revoke reset password token
@@ -477,7 +526,11 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "", ErrUnauthorized.New(credentialsErrMsg)
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return "", ErrUnauthorized.New(credentialsErrMsg)
+		}
+
+		return "", Error.Wrap(err)
 	}
 
 	claims := consoleauth.Claims{
@@ -499,7 +552,7 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return user, nil
@@ -509,7 +562,12 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return s.store.Users().GetByEmail(ctx, email)
+	result, err := s.store.Users().GetByEmail(ctx, email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // UpdateAccount updates User
@@ -521,8 +579,9 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	}
 
 	// validate fullName
-	if fullName == "" {
-		return errs.New("full name can't be empty")
+	err = validateFullName(fullName)
+	if err != nil {
+		return ErrValidation.Wrap(err)
 	}
 
 	err = s.store.Users().Update(ctx, &User{
@@ -534,7 +593,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		Status:       auth.User.Status,
 	})
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -550,7 +609,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
-		return errs.New(oldPassIncorrectErrMsg)
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return ErrUnauthorized.Wrap(err)
+		}
+
+		return Error.Wrap(err)
 	}
 
 	if err := validatePassword(newPass); err != nil {
@@ -559,13 +622,13 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	auth.User.PasswordHash = hash
 	err = s.store.Users().Update(ctx, &auth.User)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -581,12 +644,16 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
 	if err != nil {
-		return ErrUnauthorized.New(oldPassIncorrectErrMsg)
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return ErrUnauthorized.Wrap(err)
+		}
+
+		return Error.Wrap(err)
 	}
 
 	err = s.store.Users().Delete(ctx, auth.User.ID)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -602,7 +669,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 
 	p, err = s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return
@@ -618,7 +685,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 
 	ps, err = s.store.Projects().GetByUserID(ctx, auth.User.ID)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return
@@ -631,9 +698,15 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil {
 		s.log.Error("internal error", zap.Error(err))
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-	return offers.GetActiveOffer(offerType, "")
+
+	result, err := s.partners.GetActiveOffer(ctx, offers, offerType, "")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now
@@ -641,12 +714,12 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
 
 	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return usage, nil
@@ -663,15 +736,15 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	// TODO: remove after vanguard release
 	err = s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
-		return
+		return nil, Error.Wrap(err)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	err = withTx(tx, func(tx DBTx) (err error) {
+	err = withTx(tx, func(tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description: projectInfo.Description,
@@ -681,16 +754,15 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			},
 		)
 		if err != nil {
-			s.log.Error("internal error", zap.Error(err))
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
 		if err != nil {
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 
-		return err
+		return nil
 	})
 
 	if err != nil {
@@ -714,7 +786,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 
 	err = s.store.Projects().Delete(ctx, projectID)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -730,7 +802,11 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 
 	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		if ErrUnauthorized.Has(err) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+
+		return nil, Error.Wrap(err)
 	}
 
 	project := isMember.project
@@ -738,7 +814,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 
 	err = s.store.Projects().Update(ctx, project)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return project, nil
@@ -753,7 +829,11 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	}
 
 	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		if ErrUnauthorized.Has(err) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+
+		return nil, Error.Wrap(err)
 	}
 
 	var userErr errs.Group
@@ -776,7 +856,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	defer func() {
@@ -792,7 +872,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
 
 		if err != nil {
-			return nil, ErrConsoleInternal.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -824,7 +904,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			return errs.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
 		}
 
-		if ErrConsoleInternal.Has(err) {
+		if Error.Has(err) {
 			return err
 		}
 
@@ -838,7 +918,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	// delete project members in transaction scope
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	defer func() {
@@ -854,7 +934,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
 		if err != nil {
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 	}
 
@@ -871,7 +951,11 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		if ErrUnauthorized.Has(err) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+
+		return nil, Error.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
@@ -880,7 +964,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 
 	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return
@@ -907,12 +991,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		return nil, nil, ErrConsoleInternal.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, Error.Wrap(err)
 	}
 
 	apikey := APIKeyInfo{
@@ -924,7 +1008,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
-		return nil, nil, ErrConsoleInternal.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	return info, key, nil
@@ -941,7 +1025,7 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInf
 
 	key, err := s.store.APIKeys().Get(ctx, id)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
@@ -977,12 +1061,12 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	}
 
 	if err = keysErr.Err(); err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	defer func() {
@@ -997,7 +1081,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	for _, keyToDeleteID := range ids {
 		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
 		if err != nil {
-			return ErrConsoleInternal.Wrap(err)
+			return Error.Wrap(err)
 		}
 	}
 
@@ -1024,7 +1108,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 
 	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return
@@ -1046,7 +1130,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 
 	projectUsage, err := s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return projectUsage, nil
@@ -1083,7 +1167,12 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 		return nil, err
 	}
 
-	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
+	result, err := s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 // Authorize validates token from context and returns authorized Authorization
@@ -1106,7 +1195,11 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 
 	user, err := s.authorize(ctx, claims)
 	if err != nil {
-		return Authorization{}, ErrUnauthorized.Wrap(err)
+		if ErrUnauthorized.Has(err) {
+			return Authorization{}, ErrUnauthorized.Wrap(err)
+		}
+
+		return Authorization{}, ErrTokenExpiration.Wrap(err)
 	}
 
 	return Authorization{
@@ -1125,7 +1218,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 	if len(projects) >= registrationToken.ProjectLimit {
 		return errs.New(projLimitVanguardErrMsg)
@@ -1137,7 +1230,12 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 // CreateRegToken creates new registration token. Needed for testing
 func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *RegistrationToken, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.store.RegistrationTokens().Create(ctx, projLimit)
+	result, err := s.store.RegistrationTokens().Create(ctx, projLimit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // createToken creates string representation
@@ -1146,13 +1244,13 @@ func (s *Service) createToken(ctx context.Context, claims *consoleauth.Claims) (
 
 	json, err := claims.JSON()
 	if err != nil {
-		return "", ErrConsoleInternal.Wrap(err)
+		return "", Error.Wrap(err)
 	}
 
 	token := consoleauth.Token{Payload: json}
 	err = signToken(&token, s.Signer)
 	if err != nil {
-		return "", ErrConsoleInternal.Wrap(err)
+		return "", Error.Wrap(err)
 	}
 
 	return token.String(), nil
@@ -1165,7 +1263,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 
 	err = signToken(&token, s.Signer)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	if subtle.ConstantTimeCompare(signature, token.Signature) != 1 {
@@ -1174,7 +1272,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 
 	claims, err := consoleauth.FromJSON(token.Payload)
 	if err != nil {
-		return nil, ErrConsoleInternal.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return claims, nil
@@ -1206,8 +1304,7 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		s.log.Error("internal error", zap.Error(err))
-		return ErrConsoleInternal.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	if project.OwnerID != userID {
@@ -1222,12 +1319,12 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return result, ErrConsoleInternal.Wrap(err)
+		return result, Error.Wrap(err)
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
 	if err != nil {
-		return result, ErrConsoleInternal.Wrap(err)
+		return result, Error.Wrap(err)
 	}
 
 	for _, membership := range memberships {

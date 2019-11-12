@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -15,8 +16,8 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// ensure that coinpaymentsTransaction implements stripecoinpayments.TransactionsDB.
-var _ stripecoinpayments.TransactionsDB = (*coinpaymentsTransactions)(nil)
+// ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
+var _ stripecoinpayments.TransactionsDB = (*coinPaymentsTransactions)(nil)
 
 // applyBalanceIntentState defines states of the apply balance intents.
 type applyBalanceIntentState int
@@ -33,15 +34,15 @@ func (intent applyBalanceIntentState) Int() int {
 	return int(intent)
 }
 
-// coinpaymentsTransactions is Coinpayments transactions DB.
+// coinPaymentsTransactions is CoinPayments transactions DB.
 //
 // architecture: Database
-type coinpaymentsTransactions struct {
+type coinPaymentsTransactions struct {
 	db *dbx.DB
 }
 
 // Insert inserts new coinpayments transaction into DB.
-func (db *coinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (*stripecoinpayments.Transaction, error) {
+func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (*stripecoinpayments.Transaction, error) {
 	amount, err := tx.Amount.GobEncode()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -68,7 +69,7 @@ func (db *coinpaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 }
 
 // Update updates status and received for set of transactions.
-func (db *coinpaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate, applies coinpayments.TransactionIDList) error {
+func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate, applies coinpayments.TransactionIDList) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -106,7 +107,7 @@ func (db *coinpaymentsTransactions) Update(ctx context.Context, updates []stripe
 }
 
 // Consume marks transaction as consumed, so it won't participate in apply account balance loop.
-func (db *coinpaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) error {
+func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) error {
 	_, err := db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
 		dbx.StripecoinpaymentsApplyBalanceIntent_TxId(id.String()),
 		dbx.StripecoinpaymentsApplyBalanceIntent_Update_Fields{
@@ -116,8 +117,30 @@ func (db *coinpaymentsTransactions) Consume(ctx context.Context, id coinpayments
 	return err
 }
 
+// ListAccount returns all transaction for specific user.
+func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) ([]stripecoinpayments.Transaction, error) {
+	dbxTXs, err := db.db.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx,
+		dbx.CoinpaymentsTransaction_UserId(userID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var txs []stripecoinpayments.Transaction
+	for _, dbxTX := range dbxTXs {
+		tx, err := fromDBXCoinpaymentsTransaction(dbxTX)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		txs = append(txs, *tx)
+	}
+
+	return txs, nil
+}
+
 // ListPending returns paginated list of pending transactions.
-func (db *coinpaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
+func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
 	var page stripecoinpayments.TransactionsPage
 
 	dbxTXs, err := db.db.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(
@@ -153,7 +176,7 @@ func (db *coinpaymentsTransactions) ListPending(ctx context.Context, offset int6
 }
 
 // List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
-func (db *coinpaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
+func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	query := db.db.Rebind(`SELECT 
 				txs.id,
 				txs.user_id,

@@ -107,6 +107,7 @@ export default class SNOHeader extends Vue {
                 &__title {
                     min-width: 55px;
                     margin-right: 5px;
+                    user-select: none;
                 }
 
                 &__id {

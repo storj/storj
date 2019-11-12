@@ -63,6 +63,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	node_id bytea NOT NULL,
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
+	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
 	queued_at timestamp NOT NULL,
 	requested_at timestamp,
@@ -210,6 +211,19 @@ CREATE TABLE stripe_customers (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
+);
+CREATE TABLE stripecoinpayments_invoice_project_records (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	storage double precision NOT NULL,
+	egress bigint NOT NULL,
+	objects bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, period_start, period_end )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
