@@ -4,8 +4,6 @@
 package satellitedb
 
 import (
-	"database/sql"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -54,20 +52,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
+
 			{
 				DB:          db.db,
-				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
-				Version:     66,
+				Description: "Initial setup: merge all previous migrations into one step",
+				Version:     65,
 				Action: migrate.SQL{
-					// version: 0
-					`CREATE TABLE storagenode_storage_tallies (
-						id bigserial NOT NULL,
-						node_id bytea NOT NULL,
-						interval_end_time timestamp with time zone NOT NULL,
-						data_total double precision NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-
 					`CREATE TABLE accounting_rollups (
 						id bigserial NOT NULL,
 						node_id bytea NOT NULL,
@@ -85,145 +75,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						name text NOT NULL,
 						value timestamp with time zone NOT NULL,
 						PRIMARY KEY ( name )
-					);`,
-
-					`CREATE TABLE injuredsegments (
-						data bytea NOT NULL,
-						path bytea NOT NULL,
-						attempted timestamp,
-						INDEX injuredsegments_attempted_index ( attempted ),
-						PRIMARY KEY ( path )
-					);`,
-
-					`CREATE TABLE irreparabledbs (
-						segmentpath bytea NOT NULL,
-						segmentdetail bytea NOT NULL,
-						pieces_lost_count bigint NOT NULL,
-						seg_damaged_unix_sec bigint NOT NULL,
-						repair_attempt_count bigint NOT NULL,
-						PRIMARY KEY ( segmentpath )
-					);`,
-
-					`CREATE TABLE nodes (
-						id bytea NOT NULL,
-						audit_success_count bigint NOT NULL DEFAULT 0,
-						total_audit_count bigint NOT NULL DEFAULT 0,
-						uptime_success_count bigint NOT NULL,
-						total_uptime_count bigint NOT NULL,
-						wallet text NOT NULL DEFAULT '',
-						email text NOT NULL DEFAULT '',
-						address text NOT NULL DEFAULT '',
-						protocol INTEGER NOT NULL DEFAULT 0,
-						type INTEGER NOT NULL DEFAULT 0,
-						free_bandwidth BIGINT NOT NULL DEFAULT -1,
-						free_disk BIGINT NOT NULL DEFAULT -1,
-						latency_90 BIGINT NOT NULL DEFAULT 0,
-						last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
-						last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
-						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-						major bigint NOT NULL DEFAULT 0,
-						minor bigint NOT NULL DEFAULT 0,
-						patch bigint NOT NULL DEFAULT 0,
-						hash TEXT NOT NULL DEFAULT '',
-						timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
-						release bool NOT NULL DEFAULT FALSE,
-						contained bool NOT NULL DEFAULT FALSE,
-						last_net text NOT NULL DEFAULT '',
-						disqualified timestamp with time zone,
-						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-						audit_reputation_beta double precision NOT NULL DEFAULT 0,
-						uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
-						uptime_reputation_beta double precision NOT NULL DEFAULT 0,
-						piece_count bigint NOT NULL DEFAULT 0,
-						exit_loop_completed_at TIMESTAMP,
-						exit_initiated_at TIMESTAMP,
-						exit_finished_at TIMESTAMP,
-						exit_success boolean NOT NULL DEFAULT FALSE,
-						INDEX node_last_ip (last_net),
-						PRIMARY KEY ( id )
-					);`,
-
-					`CREATE TABLE projects (
-						id bytea NOT NULL,
-						name text NOT NULL,
-						description text NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						usage_limit bigint NOT NULL DEFAULT 0,
-						partner_id bytea,
-						owner_id bytea NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-
-					// todo: do we need users.status to have a default
-					// see version: 4 migration:
-					// UPDATE users SET status = ` + strconv.Itoa(int(console.Active)) + `;
-					`CREATE TABLE users (
-						id bytea NOT NULL,
-						full_name text NOT NULL,
-						short_name text,
-						email text NOT NULL,
-						password_hash bytea NOT NULL,
-						status integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						partner_id bytea,
-						normalized_email text NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-
-					`CREATE TABLE api_keys (
-						id bytea NOT NULL,
-						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						head bytea NOT NULL UNIQUE,
-						name text NOT NULL,
-						secret bytea NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						partner_id bytea,
-						PRIMARY KEY ( id ),
-						UNIQUE ( name, project_id )
-					);`,
-
-					`CREATE TABLE project_members (
-						member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( member_id, project_id )
-					);`,
-
-					// version: 8
-					`CREATE TABLE registration_tokens (
-						secret bytea NOT NULL,
-						owner_id bytea UNIQUE,
-						project_limit integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( secret )
-					);`,
-
-					// version: 9
-					`CREATE TABLE serial_numbers (
-						id serial NOT NULL,
-						serial_number bytea NOT NULL UNIQUE,
-						bucket_id bytea NOT NULL,
-						expires_at timestamp NOT NULL,
-						PRIMARY KEY ( id ),
-						INDEX serial_numbers_expires_at_index ( expires_at )
-					);`,
-
-					`CREATE TABLE used_serials (
-						serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-						storage_node_id bytea NOT NULL,
-						PRIMARY KEY ( serial_number_id, storage_node_id )
-					);`,
-
-					`CREATE TABLE storagenode_bandwidth_rollups (
-						storagenode_id bytea NOT NULL,
-						interval_start timestamp NOT NULL,
-						interval_seconds integer NOT NULL,
-						action integer NOT NULL,
-						allocated bigint NOT NULL,
-						settled bigint NOT NULL,
-						PRIMARY KEY ( storagenode_id, interval_start, action ),
-						INDEX storagenode_id_interval_start_interval_seconds_index ( storagenode_id, interval_start, interval_seconds )
 					);`,
 
 					`CREATE TABLE bucket_bandwidth_rollups (
@@ -252,27 +103,63 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( bucket_name, project_id, interval_start )
 					);`,
 
-					// version: 19
-					`CREATE TABLE reset_password_tokens (
-						secret bytea NOT NULL,
-						owner_id bytea NOT NULL UNIQUE,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( secret )
-					);`,
-
-					// version: 20
-					`CREATE TABLE pending_audits (
-						node_id bytea NOT NULL,
-						piece_id bytea NOT NULL,
-						stripe_index bigint NOT NULL,
-						share_size bigint NOT NULL,
-						expected_share_hash bytea NOT NULL,
-						reverify_count bigint NOT NULL,
+					`CREATE TABLE injuredsegments (
+						data bytea NOT NULL,
 						path bytea NOT NULL,
-						PRIMARY KEY ( node_id )
+						attempted timestamp,
+						INDEX injuredsegments_attempted_index ( attempted ),
+						PRIMARY KEY ( path )
 					);`,
 
-					// version: 22
+					`CREATE TABLE irreparabledbs (
+						segmentpath bytea NOT NULL,
+						segmentdetail bytea NOT NULL,
+						pieces_lost_count bigint NOT NULL,
+						seg_damaged_unix_sec bigint NOT NULL,
+						repair_attempt_count bigint NOT NULL,
+						PRIMARY KEY ( segmentpath )
+					);`,
+
+					`CREATE TABLE nodes (
+						id bytea NOT NULL,
+						address text NOT NULL DEFAULT '',
+						last_net text NOT NULL DEFAULT '',
+						protocol INTEGER NOT NULL DEFAULT 0,
+						type INTEGER NOT NULL DEFAULT 0,
+						email text NOT NULL DEFAULT '',
+						wallet text NOT NULL DEFAULT '',
+						free_bandwidth BIGINT NOT NULL DEFAULT -1,
+						free_disk BIGINT NOT NULL DEFAULT -1,
+						piece_count bigint NOT NULL DEFAULT 0,
+						major bigint NOT NULL DEFAULT 0,
+						minor bigint NOT NULL DEFAULT 0,
+						patch bigint NOT NULL DEFAULT 0,
+						hash TEXT NOT NULL DEFAULT '',
+						timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+						release bool NOT NULL DEFAULT FALSE,
+						latency_90 BIGINT NOT NULL DEFAULT 0,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						uptime_success_count bigint NOT NULL,
+						total_uptime_count bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
+						last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
+						contained bool NOT NULL DEFAULT FALSE,
+						disqualified timestamp with time zone,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+						uptime_reputation_beta double precision NOT NULL DEFAULT 0,
+						exit_initiated_at TIMESTAMP,
+						exit_loop_completed_at TIMESTAMP,
+						exit_finished_at TIMESTAMP,
+						exit_success boolean NOT NULL DEFAULT FALSE,
+						INDEX node_last_ip (last_net),
+						PRIMARY KEY ( id )
+					);`,
+
 					`CREATE TABLE offers (
 						id serial NOT NULL,
 						name text NOT NULL,
@@ -289,7 +176,95 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 
-					// version: 27
+					`CREATE TABLE peer_identities (
+						node_id bytea NOT NULL,
+						leaf_serial_number bytea NOT NULL,
+						chain bytea NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+
+					`CREATE TABLE pending_audits (
+						node_id bytea NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						path bytea NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+
+					`CREATE TABLE projects (
+						id bytea NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						usage_limit bigint NOT NULL DEFAULT 0,
+						partner_id bytea,
+						owner_id bytea NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+
+					`CREATE TABLE registration_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea UNIQUE,
+						project_limit integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret )
+					);`,
+
+					`CREATE TABLE reset_password_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL UNIQUE,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret )
+					);`,
+
+					`CREATE TABLE serial_numbers (
+						id serial NOT NULL,
+						serial_number bytea NOT NULL UNIQUE,
+						bucket_id bytea NOT NULL,
+						expires_at timestamp NOT NULL,
+						PRIMARY KEY ( id ),
+						INDEX serial_numbers_expires_at_index ( expires_at )
+					);`,
+
+					`CREATE TABLE storagenode_bandwidth_rollups (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action ),
+						INDEX storagenode_id_interval_start_interval_seconds_index ( storagenode_id, interval_start, interval_seconds )
+					);`,
+
+					`CREATE TABLE storagenode_storage_tallies (
+						id bigserial NOT NULL,
+						node_id bytea NOT NULL,
+						interval_end_time timestamp with time zone NOT NULL,
+						data_total double precision NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+
+					// todo: do we need users.status to have a default
+					// see version: 4 migration:
+					// UPDATE users SET status = ` + strconv.Itoa(int(console.Active)) + `;
+					`CREATE TABLE users (
+						id bytea NOT NULL,
+						full_name text NOT NULL,
+						short_name text,
+						email text NOT NULL,
+						password_hash bytea NOT NULL,
+						status integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						partner_id bytea,
+						normalized_email text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+
 					`CREATE TABLE value_attributions (
 						bucket_name bytea NOT NULL,
 						partner_id bytea NOT NULL,
@@ -298,31 +273,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY (project_id, bucket_name)
 					);`,
 
-					`CREATE TABLE project_invoice_stamps (
+					`CREATE TABLE api_keys (
+						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						invoice_id bytea NOT NULL UNIQUE,
-						start_date timestamp with time zone NOT NULL,
-						end_date timestamp with time zone NOT NULL,
+						head bytea NOT NULL UNIQUE,
+						name text NOT NULL,
+						secret bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( project_id, start_date, end_date )
+						partner_id bytea,
+						PRIMARY KEY ( id ),
+						UNIQUE ( name, project_id )
 					);`,
 
-					// version: 31
-					`CREATE TABLE user_credits (
-						id serial NOT NULL,
-						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-						referred_by bytea REFERENCES users( id ) ON DELETE NO ACTION,
-						offer_id integer NOT NULL REFERENCES offers( id ),
-						credits_earned_in_cents integer NOT NULL,
-						credits_used_in_cents integer NOT NULL,
-						expires_at timestamp with time zone NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						type text NOT NULL DEFAULT 'invalid',
-						UNIQUE ( id, offer_id ),
-						PRIMARY KEY ( id )
-					);`,
-
-					// version: 38
 					`CREATE TABLE bucket_metainfos (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ),
@@ -341,6 +303,42 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						partner_id bytea,
 						PRIMARY KEY ( id ),
 						UNIQUE ( name, project_id )
+					);`,
+
+					`CREATE TABLE project_invoice_stamps (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						invoice_id bytea NOT NULL UNIQUE,
+						start_date timestamp with time zone NOT NULL,
+						end_date timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, start_date, end_date )
+					);`,
+
+					`CREATE TABLE project_members (
+						member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( member_id, project_id )
+					);`,
+
+					`CREATE TABLE used_serials (
+						serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+						storage_node_id bytea NOT NULL,
+						PRIMARY KEY ( serial_number_id, storage_node_id )
+					);`,
+
+					`CREATE TABLE user_credits (
+						id serial NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						referred_by bytea REFERENCES users( id ) ON DELETE NO ACTION,
+						offer_id integer NOT NULL REFERENCES offers( id ),
+						credits_earned_in_cents integer NOT NULL,
+						credits_used_in_cents integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						type text NOT NULL DEFAULT 'invalid',
+						UNIQUE ( id, offer_id ),
+						PRIMARY KEY ( id )
 					);`,
 
 					`INSERT INTO offers (
@@ -373,15 +371,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						1
 					) ON CONFLICT DO NOTHING;`,
 
-					// version: 54
-					`CREATE TABLE peer_identities (
-						node_id bytea NOT NULL,
-						leaf_serial_number bytea NOT NULL,
-						chain bytea NOT NULL,
-						updated_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( node_id )
-					);`,
-
 					`CREATE TABLE graceful_exit_progress (
 						node_id bytea NOT NULL,
 						bytes_transferred bigint NOT NULL,
@@ -402,11 +391,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						last_failed_code integer,
 						failed_count integer,
 						finished_at timestamp,
-						root_piece_id bytea,
 						PRIMARY KEY ( node_id, path, piece_num )
 					);`,
 
-					// version: 59
 					`CREATE TABLE stripe_customers (
 						user_id bytea NOT NULL,
 						customer_id text NOT NULL UNIQUE,
@@ -414,7 +401,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( user_id )
 					);`,
 
-					// version: 60
 					`CREATE TABLE coinpayments_transactions (
 						id text NOT NULL,
 						user_id bytea NOT NULL,
@@ -427,7 +413,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 
-					// version: 63
 					`CREATE TABLE stripecoinpayments_apply_balance_intents (
 						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 						state integer NOT NULL,
@@ -435,7 +420,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( tx_id )
 					);`,
 
-					// version: 65
 					`CREATE TABLE stripecoinpayments_invoice_project_records (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL,
@@ -451,38 +435,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Version:     66,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
+				},
+			},
 		},
 	}
-}
-
-func postgresHasColumn(tx *sql.Tx, table, column string) (bool, error) {
-	var columnName string
-	err := tx.QueryRow(`
-		SELECT column_name FROM information_schema.COLUMNS
-			WHERE table_schema = CURRENT_SCHEMA
-				AND table_name = $1
-				AND column_name = $2
-		`, table, column).Scan(&columnName)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, ErrMigrate.Wrap(err)
-	}
-
-	return columnName == column, nil
-}
-
-func postgresColumnNullability(tx *sql.Tx, table, column string) (bool, error) {
-	var nullability string
-	err := tx.QueryRow(`
-		SELECT is_nullable FROM information_schema.COLUMNS
-			WHERE table_schema = CURRENT_SCHEMA
-				AND table_name = $1
-				AND column_name = $2
-		`, table, column).Scan(&nullability)
-	if err != nil {
-		return false, ErrMigrate.Wrap(err)
-	}
-	return nullability == "YES", nil
 }
