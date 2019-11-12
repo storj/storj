@@ -6,8 +6,9 @@
 package main_test
 
 import (
-	"storj.io/storj/internal/testcontext"
 	"testing"
+
+	"storj.io/storj/internal/testcontext"
 )
 
 // NB: noop
