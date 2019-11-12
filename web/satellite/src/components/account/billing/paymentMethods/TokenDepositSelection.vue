@@ -30,7 +30,13 @@
             </div>
         </div>
         <label class="label" v-if="isCustomAmount">
-            <input class="custom-input" type="number" placeholder="Enter Amount" v-model="customAmount">
+            <input
+                class="custom-input"
+                type="number"
+                placeholder="Enter Amount"
+                v-model="customAmount"
+                @change="onCustomAmountChange"
+            >
             <div class="input-svg" @click="toggleCustomAmount">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
@@ -47,17 +53,17 @@ import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component
-export default class StorjInput extends Vue {
+export default class TokenDepositSelection extends Vue {
     public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(20, `US $20 (+5 Bonus)`),
-        new PaymentAmountOption(5, `US $5`),
-        new PaymentAmountOption(10, `US $10 (+2 Bonus)`),
-        new PaymentAmountOption(100, `US $100 (+20 Bonus)`),
-        new PaymentAmountOption(1000, `US $1000 (+200 Bonus)`),
+        new PaymentAmountOption('20', `US $20`),
+        new PaymentAmountOption('5', `US $5`),
+        new PaymentAmountOption('10', `US $10`),
+        new PaymentAmountOption('100', `US $100`),
+        new PaymentAmountOption('1000', `US $1000`),
     ];
 
-    public current: PaymentAmountOption = new PaymentAmountOption(20, `US $20 (+$5 Bonus)`);
-    public customAmount: number = 0;
+    public current: PaymentAmountOption = this.paymentOptions[0];
+    public customAmount: string = '0';
     public isCustomAmount = false;
 
     public get isSelectionShown(): boolean {
@@ -68,12 +74,17 @@ export default class StorjInput extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION);
     }
 
+    public onCustomAmountChange(): void {
+        this.$emit('onChangeTokenValue', this.customAmount);
+    }
+
     public toggleCustomAmount(): void {
         this.isCustomAmount = !this.isCustomAmount;
     }
 
-    public select(value: PaymentAmountOption): void {
-        this.current = value;
+    public select(option: PaymentAmountOption): void {
+        this.current = option;
+        this.$emit('onChangeTokenValue', option.value);
         this.toggleSelection();
     }
 }

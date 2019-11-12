@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { BillingHistoryItem, CreditCard, PaymentsApi } from '@/types/payments';
+import {BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi} from '@/types/payments';
 
 const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -24,6 +24,7 @@ export const PAYMENTS_ACTIONS = {
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
     GET_BILLING_HISTORY: 'getBillingHistory',
+    MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
 };
 
 const {
@@ -46,6 +47,7 @@ const {
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
     GET_BILLING_HISTORY,
+    MAKE_TOKEN_DEPOSIT,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -148,6 +150,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 const billingHistory: BillingHistoryItem[] = await api.billingHistory();
 
                 commit(SET_BILLING_HISTORY, billingHistory);
+            },
+            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: string): Promise<DepositInfo> {
+                return await api.makeTokenDeposit(amount);
             },
         },
     };

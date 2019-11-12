@@ -56,6 +56,13 @@ export interface PaymentsApi {
      * @throws Error
      */
     billingHistory(): Promise<BillingHistoryItem[]>;
+
+    /**
+     *
+     * @param amount
+     * @throws Error
+     */
+    makeTokenDeposit(amount: string): Promise<DepositInfo>;
 }
 
 export class CreditCard {
@@ -73,7 +80,7 @@ export class CreditCard {
 
 export class PaymentAmountOption {
     public constructor(
-        public value: number,
+        public value: string,
         public label: string = '',
     ) {}
 }
@@ -84,6 +91,8 @@ export class BillingHistoryItem {
         public readonly id: string = '',
         public readonly description: string = '',
         public readonly amount: number = 0,
+        public readonly tokenAmount: string = '0',
+        public readonly tokenReceived: string = '0',
         public readonly status: string = '',
         public readonly link: string = '',
         public readonly start: Date = new Date(),
@@ -116,4 +125,8 @@ export enum BillingHistoryItemType {
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
+}
+
+export class DepositInfo {
+    constructor(public amount: string, public address: string) {}
 }
