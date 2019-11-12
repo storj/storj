@@ -1291,7 +1291,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		// The outer loop is for sending the request from node to satellite multiple times.
 		// The inner loop is for reading the response.
 	MessageLoop:
-		for messageCount <= maxOrderLimitSendCount {
+		for {
 			var unknownMsgSent bool
 			c, err := client.Process(ctx)
 			require.NoError(t, err)
