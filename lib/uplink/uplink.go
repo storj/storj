@@ -156,7 +156,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key)
+	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key, u.cfg.Volatile.UserAgent)
 	if err != nil {
 		return nil, err
 	}

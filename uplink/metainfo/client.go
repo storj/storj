@@ -54,7 +54,7 @@ func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey, userAgent string) *
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey) (*Client, error) {
+func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey, userAgent string) (*Client, error) {
 	conn, err := dialer.DialAddressInsecureBestEffort(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -64,6 +64,7 @@ func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaro
 		conn:      conn,
 		client:    conn.MetainfoClient(),
 		apiKeyRaw: apiKey.SerializeRaw(),
+		userAgent: userAgent,
 	}, nil
 }
 
