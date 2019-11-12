@@ -10,5 +10,5 @@ import (
 
 func init() {
 	// Initialize the seed for the math/rand default source
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 }
