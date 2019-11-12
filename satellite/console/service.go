@@ -262,8 +262,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return nil, errs.New(usedRegTokenVanguardErrMsg)
 		}
 	}
-
-	u, err = s.store.Users().GetByEmail(ctx, user.Email) // can return error with user existing in DB - refactor; is some repo's no rows affected error should be returned;
+	// can return error with user existing in DB - refactor;
+	// is some repo's no rows affected error should be returned;
+	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
 		return nil, errs.New(emailUsedErrMsg)
 	}
