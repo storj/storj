@@ -9,7 +9,9 @@ import "C"
 import (
 	"fmt"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/lib/uplink"
+	"time"
 )
 
 var universe = newHandles()
@@ -37,6 +39,11 @@ func new_uplink(cfg C.UplinkConfig, tempDir *C.char, cerr **C.char) C.UplinkRef 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
 	// TODO: V3-2302, add a way to support logging
 	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.tls.skip_peer_ca_whitelist == C.bool(true)
+	libcfg.Volatile.TLS.PeerCAWhitelistPath = C.GoString(cfg.Volatile.tls.peer_ca_whitelist_path)
+	libcfg.Volatile.PeerIDVersion = C.GoString(cfg.Volatile.peer_id_version)
+	libcfg.Volatile.MaxInlineSize = memory.Size(cfg.Volatile.max_inline_size)
+	libcfg.Volatile.MaxMemory = memory.Size(cfg.Volatile.max_memory)
+	libcfg.Volatile.DialTimeout = time.Duration(cfg.Volatile.dial_timeout)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
