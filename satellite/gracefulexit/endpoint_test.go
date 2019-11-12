@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -30,6 +31,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
@@ -376,13 +378,131 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
+	})
+}
+
+func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		disqualifyNode(t, ctx, satellite, exitingNode.ID())
+
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if node is disqualified
+		response, err := processClient.Recv()
+		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.Nil(t, response)
+
+		// disqualified node should fail graceful exit
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.False(t, exitStatus.ExitSuccess)
+	})
+
+}
+
+func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
+	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		disqualifyNode(t, ctx, satellite, exitingNode.ID())
+
+		deletedCount := 0
+		for {
+			response, err := processClient.Recv()
+			if errs.Is(err, io.EOF) {
+				// Done
+				break
+			}
+			if deletedCount >= numPieces {
+				// when a disqualified node has finished transfer all pieces, it should receive an error
+				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				break
+			} else {
+				require.NoError(t, err)
+			}
+
+			switch m := response.GetMessage().(type) {
+			case *pb.SatelliteMessage_TransferPiece:
+				require.NotNil(t, m)
+
+				pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+				require.NoError(t, err)
+
+				header, err := pieceReader.GetPieceHeader()
+				require.NoError(t, err)
+
+				orderLimit := header.OrderLimit
+				originalPieceHash := &pb.PieceHash{
+					PieceId:   orderLimit.PieceId,
+					Hash:      header.GetHash(),
+					PieceSize: pieceReader.Size(),
+					Timestamp: header.GetCreationTime(),
+					Signature: header.GetSignature(),
+				}
+
+				newPieceHash := &pb.PieceHash{
+					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+					Hash:      originalPieceHash.Hash,
+					PieceSize: originalPieceHash.PieceSize,
+					Timestamp: time.Now(),
+				}
+
+				receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+				require.NotNil(t, receivingNodeID)
+				signer := signing.SignerFromFullIdentity(receivingNodeID)
+
+				signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+				require.NoError(t, err)
+
+				success := &pb.StorageNodeMessage{
+					Message: &pb.StorageNodeMessage_Succeeded{
+						Succeeded: &pb.TransferSucceeded{
+							OriginalPieceId:      m.TransferPiece.OriginalPieceId,
+							OriginalPieceHash:    originalPieceHash,
+							OriginalOrderLimit:   &orderLimit,
+							ReplacementPieceHash: signedNewPieceHash,
+						},
+					},
+				}
+				err = processClient.Send(success)
+				require.NoError(t, err)
+			case *pb.SatelliteMessage_DeletePiece:
+				deletedCount++
+			default:
+				t.FailNow()
+			}
+		}
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.EqualValues(t, numPieces, progress.PiecesTransferred)
+		require.EqualValues(t, numPieces, deletedCount)
+
+		// disqualified node should fail graceful exit
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.False(t, exitStatus.ExitSuccess)
 	})
 }
 
@@ -451,13 +571,12 @@ func TestFailureHashMismatch(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 }
 
@@ -493,13 +612,12 @@ func TestFailureUnknownError(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(0), progress.PiecesFailed)
 	})
 }
 
@@ -570,13 +688,12 @@ func TestFailureUplinkSignature(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// TODO uncomment once progress reflects updated success and fail counts
 		// check that the exit has completed and we have the correct transferred/failed values
-		// progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		// require.NoError(t, err)
-		//
-		// require.Equal(t, int64(0), progress.PiecesTransferred, tt.name)
-		// require.Equal(t, int64(1), progress.PiecesFailed, tt.name)
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
 	})
 }
 
@@ -679,17 +796,17 @@ func TestSuccessPointerUpdate(t *testing.T) {
 
 func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-
-		var recNodeID storj.NodeID
-
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
+		var firstRecNodeID storj.NodeID
+		var pieceID storj.PieceID
 		switch m := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_TransferPiece:
-			require.NotNil(t, m)
+			firstRecNodeID = m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId
+			pieceID = m.TransferPiece.OriginalPieceId
 
-			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), m.TransferPiece.OriginalPieceId)
+			pieceReader, err := exitingNode.Storage2.Store.Reader(ctx, satellite.ID(), pieceID)
 			require.NoError(t, err)
 
 			header, err := pieceReader.GetPieceHeader()
@@ -711,11 +828,23 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				Timestamp: time.Now(),
 			}
 
-			receivingIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
-			require.NotNil(t, receivingIdentity)
+			receivingNodeIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
+			require.NotNil(t, receivingNodeIdentity)
+			signer := signing.SignerFromFullIdentity(receivingNodeIdentity)
 
-			// get the receiving node piece count before processing
-			recNodeID = receivingIdentity.ID
+			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
+			require.NoError(t, err)
+
+			success := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Succeeded{
+					Succeeded: &pb.TransferSucceeded{
+						OriginalPieceId:      pieceID,
+						OriginalPieceHash:    originalPieceHash,
+						OriginalOrderLimit:   &orderLimit,
+						ReplacementPieceHash: signedNewPieceHash,
+					},
+				},
+			}
 
 			// update pointer to include the new receiving node before responding to satellite
 			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -737,39 +866,31 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				}
 			}
 
-			// create a piece with deleted piece number and receiving node ID from the pointer
 			pieceToAdd[0] = &pb.RemotePiece{
 				PieceNum: pieceToRemove[0].PieceNum,
-				NodeId:   recNodeID,
+				NodeId:   firstRecNodeID,
 			}
 
 			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
 			require.NoError(t, err)
 
-			signer := signing.SignerFromFullIdentity(receivingIdentity)
-
-			signedNewPieceHash, err := signing.SignPieceHash(ctx, signer, newPieceHash)
-			require.NoError(t, err)
-
-			success := &pb.StorageNodeMessage{
-				Message: &pb.StorageNodeMessage_Succeeded{
-					Succeeded: &pb.TransferSucceeded{
-						OriginalPieceId:      m.TransferPiece.OriginalPieceId,
-						OriginalPieceHash:    originalPieceHash,
-						OriginalOrderLimit:   &orderLimit,
-						ReplacementPieceHash: signedNewPieceHash,
-					},
-				},
-			}
 			err = processClient.Send(success)
 			require.NoError(t, err)
 		default:
 			t.FailNow()
 		}
 
-		_, err = processClient.Recv()
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.Internal))
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			// validate we get a new node to transfer too
+			require.True(t, m.TransferPiece.OriginalPieceId == pieceID)
+			require.True(t, m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId != firstRecNodeID)
+		default:
+			t.FailNow()
+		}
 
 		// check exiting node is still in the pointer
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
@@ -791,7 +912,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		count, ok := pieceMap[exitingNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
-		count, ok = pieceMap[recNodeID]
+		count, ok = pieceMap[firstRecNodeID]
 		require.True(t, ok)
 		require.Equal(t, 1, count)
 	})
@@ -830,6 +951,260 @@ func TestExitDisabled(t *testing.T) {
 		require.True(t, unimplementedOrUnknown)
 		require.Nil(t, response)
 	})
+}
+
+func TestPointerChangedOrDeleted(t *testing.T) {
+	successThreshold := 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 2)
+		require.NoError(t, err)
+
+		exitRequest := &overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+
+		_, err = satellite.DB.OverlayCache().UpdateExitStatus(ctx, exitRequest)
+		require.NoError(t, err)
+		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
+		require.NoError(t, err)
+
+		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		// trigger the metainfo loop chore so we can get some pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		// make sure all the pieces are in the transfer queue
+		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, incomplete, 2)
+
+		// updating the first object and deleting the second. this will cause a root piece ID change which will result in
+		// a successful graceful exit instead of a request to transfer pieces since the root piece IDs will have changed.
+		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path1")
+		require.NoError(t, err)
+
+		// reconnect to the satellite.
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(c.CloseSend)
+
+		response, err := c.Recv()
+		require.NoError(t, err)
+
+		// we expect an exit completed b/c there is nothing to do here
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitCompleted:
+			signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+			err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+			require.NoError(t, err)
+
+			exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+			require.NoError(t, err)
+			require.NotNil(t, exitStatus.ExitFinishedAt)
+			require.True(t, exitStatus.ExitSuccess)
+		default:
+			t.FailNow()
+		}
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 0)
+	})
+}
+
+func TestFailureNotFoundPieceHashVerified(t *testing.T) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Failed{
+					Failed: &pb.TransferFailed{
+						OriginalPieceId: m.TransferPiece.OriginalPieceId,
+						Error:           pb.TransferFailed_NOT_FOUND,
+					},
+				},
+			}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitFailed:
+			require.NotNil(t, m)
+			require.NotNil(t, m.ExitFailed)
+			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+
+		// check that node is no longer in the pointer
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		require.NoError(t, err)
+
+		var pointer *pb.Pointer
+		for _, key := range keys {
+			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			require.NoError(t, err)
+
+			if p.GetRemote() != nil {
+				pointer = p
+				break
+			}
+		}
+		require.NotNil(t, pointer)
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			require.NotEqual(t, piece.NodeId, exitingNode.ID())
+		}
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(1), progress.PiecesFailed)
+	})
+
+}
+
+func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
+	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		// retrieve remote segment
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		require.NoError(t, err)
+
+		var oldPointer *pb.Pointer
+		var path []byte
+		for _, key := range keys {
+			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			require.NoError(t, err)
+
+			if p.GetRemote() != nil {
+				oldPointer = p
+				path = key
+				break
+			}
+		}
+
+		// replace pointer with non-piece-hash-verified pointer
+		require.NotNil(t, oldPointer)
+		oldPointerBytes, err := proto.Marshal(oldPointer)
+		require.NoError(t, err)
+		newPointer := &pb.Pointer{}
+		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		require.NoError(t, err)
+		newPointer.PieceHashesVerified = false
+		newPointerBytes, err := proto.Marshal(newPointer)
+		require.NoError(t, err)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		require.NoError(t, err)
+
+		// begin processing graceful exit messages
+		response, err := processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_TransferPiece:
+			require.NotNil(t, m)
+
+			message := &pb.StorageNodeMessage{
+				Message: &pb.StorageNodeMessage_Failed{
+					Failed: &pb.TransferFailed{
+						OriginalPieceId: m.TransferPiece.OriginalPieceId,
+						Error:           pb.TransferFailed_NOT_FOUND,
+					},
+				},
+			}
+			err = processClient.Send(message)
+			require.NoError(t, err)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+
+		response, err = processClient.Recv()
+		require.NoError(t, err)
+
+		switch m := response.GetMessage().(type) {
+		case *pb.SatelliteMessage_ExitCompleted:
+			require.NotNil(t, m)
+		default:
+			require.FailNow(t, "should not reach this case: %#v", m)
+		}
+
+		// check that node is no longer in the pointer
+		keys, err = satellite.Metainfo.Database.List(ctx, nil, -1)
+		require.NoError(t, err)
+
+		var pointer *pb.Pointer
+		for _, key := range keys {
+			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			require.NoError(t, err)
+
+			if p.GetRemote() != nil {
+				pointer = p
+				break
+			}
+		}
+		require.NotNil(t, pointer)
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			require.NotEqual(t, piece.NodeId, exitingNode.ID())
+		}
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+
+		require.Equal(t, int64(0), progress.PiecesTransferred)
+		require.Equal(t, int64(0), progress.PiecesFailed)
+	})
+
 }
 
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
@@ -957,4 +1332,20 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	return nil, nil
+}
+
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
+	nodeStat, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		IsUp:         true,
+		AuditSuccess: false,
+		AuditLambda:  0,
+		AuditWeight:  1,
+		AuditDQ:      0.5,
+		UptimeLambda: 1,
+		UptimeWeight: 1,
+		UptimeDQ:     0.5,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, nodeStat.Disqualified)
 }
