@@ -31,7 +31,7 @@ func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authori
 		&authorization.ErrNotFound:       rpcstatus.Unauthenticated,
 		&authorization.ErrInvalidClaim:   rpcstatus.InvalidArgument,
 		&authorization.ErrInvalidToken:   rpcstatus.InvalidArgument,
-		&authorization.ErrAlreadyClaimed: rpcstatus.ResourceExhausted,
+		&authorization.ErrAlreadyClaimed: rpcstatus.AlreadyExists,
 	}
 	sanitizer := errs2.NewLoggingSanitizer(&Error, log, codeMap)
 
