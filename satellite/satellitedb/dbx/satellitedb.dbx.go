@@ -8291,6 +8291,39 @@ func (obj *postgresImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy
 
 }
 
+func (obj *postgresImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
+	rows []*CoinpaymentsTransaction, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, coinpayments_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		coinpayments_transaction := &CoinpaymentsTransaction{}
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, coinpayments_transaction)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
@@ -10434,6 +10467,16 @@ func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalSta
 	return tx.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id, bucket_storage_tally_bucket_name, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less_or_equal)
 }
 
+func (rx *Rx) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
+	rows []*CoinpaymentsTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_user_id)
+}
+
 func (rx *Rx) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	var tx *Tx
@@ -11821,6 +11864,10 @@ type Methods interface {
 		bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
 		bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
 		rows []*BucketStorageTally, err error)
+
+	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
+		rows []*CoinpaymentsTransaction, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)

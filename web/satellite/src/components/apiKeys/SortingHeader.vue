@@ -107,7 +107,7 @@ export default class SortApiKeysHeader extends Vue {
             &__title {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
-                margin: 0 0 0 26px;
+                margin: 0 0 0 80px;
                 color: #2a2a32;
             }
 
