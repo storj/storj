@@ -18,7 +18,7 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
-      node('windows') { 
+      node('windows') {
         checkout scm
 
         unstash "storagenode-binaries"
@@ -70,7 +70,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',
