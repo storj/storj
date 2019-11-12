@@ -38,7 +38,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CardDialog from '@/components/account/billing/CardDialog.vue';
+import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
 import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
