@@ -1210,6 +1210,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 	successThreshold := 4
 	objects := 1
+	var maxOrderLimitSendCount int
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -1219,6 +1220,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				// We don't care whether a node gracefully exits or not in this test,
 				// so we set the max failures percentage extra high.
 				config.GracefulExit.OverallMaxFailuresPercentage = 101
+				maxOrderLimitSendCount = config.GracefulExit.MaxOrderLimitSendCount
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1294,7 +1296,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		// The outer loop is for sending the request from node to satellite multiple times.
 		// The inner loop is for reading the response.
 	MessageLoop:
-		for messageCount <= 3 {
+		for messageCount <= maxOrderLimitSendCount {
 			var unknownMsgSent bool
 			c, err := client.Process(ctx)
 			require.NoError(t, err)
@@ -1389,6 +1391,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 1, progress.PiecesFailed)
 		status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
 		require.NotNil(t, status.ExitFinishedAt)
 	})
 }
