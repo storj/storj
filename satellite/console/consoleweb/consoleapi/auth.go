@@ -242,7 +242,8 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
-
+		a.serveJSONError(w, err)
+		return
 	}
 }
 
