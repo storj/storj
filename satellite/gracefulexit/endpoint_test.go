@@ -1323,6 +1323,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				}
 			}
 		}
+		require.Equal(t, messageCount, maxOrderLimitSendCount)
 
 		// make sure not responding piece not in queue
 		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
