@@ -1,0 +1,40 @@
+syntax = "proto3";
+option go_package = "pb";
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "metainfo.proto";
+import "orders.proto";
+
+package referralmanager;
+
+// ReferralManager is a service for handling referrals
+service ReferralManager {
+  // GetTokens retrieves a list of unredeemed tokens for a user
+  rpc GetTokens(GetTokensRequest) returns (GetTokensResponse);
+  // Redeem marks a token as redeemed
+  rpc Redeem(RedeemRequest) returns (RedeemResponse);
+}
+
+message GetTokensRequest{
+    bytes user_id = 1;
+    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message GetTokensResponse {
+ repeated Token tokens  = 1;
+}
+
+message Token {
+    bytes token = 1;
+    bytes owner_id = 2;
+}
+
+message RedeemRequest {
+    bytes user_id = 1;
+    bytes token = 2;
+    bytes node_id = 3;
+}
+
+message RedeemResponse{}
+
