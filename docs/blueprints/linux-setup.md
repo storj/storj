@@ -107,18 +107,23 @@ Here is a table summarizing the differences between debian packaging system and 
 | Disk footprint	| Smaller	| Larger
 | Application startup time	| Default	| Typically longer
 
-We are thinking to use snap for the following reasons:
-- platform agnostic
-- support for daemons
-- auto-update with failure recovery
-One major drawback is Canonical central's repository.
+In our case, the disk footprint comparison does not stand, as 'go' bundles all dependencies.
+For comparison, with a storagenode binary of 85 MB quickly packaged we get:
+- snap: 15 MB
+- deb: 16.8 MB
+
+We are thinking of using native packaging for the following reasons:
+- snap is platform agnostic, but still needs snapd to be installed
+- some linux users are reluctant to use snap
+- covering deb and rpm packaging would make us cover most used distributions
+- with proper packaging, we could directly be included in the distributions
 
 ### Updater
 The updater could either be a service or a cron job.
 
 ## Implementation
 
-- Implement a service running storagenode binary. (if we do not use snap)
+- Implement a service running storagenode binary.
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
 - Implement the storage node update
