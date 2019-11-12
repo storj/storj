@@ -1208,12 +1208,10 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 }
 
 func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
-	successThreshold := 4
-	objects := 1
 	var maxOrderLimitSendCount int
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: successThreshold + 1,
+		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
@@ -1237,21 +1235,19 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		rs := &uplink.RSConfig{
 			MinThreshold:     2,
 			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
 		}
 
-		for i := 0; i < objects; i++ {
-			err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
-			require.NoError(t, err)
-		}
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
 		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
 		require.Len(t, exitingNodes, 0)
 
-		exitingNode, err := findNodeToExit(ctx, planet, objects)
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
@@ -1286,7 +1282,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects, 0)
+		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
 		require.NoError(t, err)
 
 		var notRespondingPiece storj.PieceID
