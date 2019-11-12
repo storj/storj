@@ -260,6 +260,10 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				check(err)
 				flags.Float64Var(fieldaddr.(*float64), flagname, val, help)
 			case reflect.TypeOf(string("")):
+				if field.Tag.Get("path") == "true" {
+					// NB: conventionally unix path separators are used in default values
+					def = filepath.FromSlash(def)
+				}
 				flags.StringVar(
 					fieldaddr.(*string), flagname, expand(resolvedVars, def), help)
 			case reflect.TypeOf(bool(false)):
