@@ -532,7 +532,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 			return
 		}
 
-		info, err := os.Stat(server.config.StaticDir + "/" + strings.TrimLeft(r.URL.Path, "/static") + ".gz")
+		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".gz")
 		if err != nil {
 			fn.ServeHTTP(w, r)
 			return
