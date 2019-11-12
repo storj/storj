@@ -369,11 +369,11 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrConsoleInternal.Has(err):
-		return http.StatusInternalServerError
+	case console.ErrValidation.Has(err):
+		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
 	default:
-		return http.StatusBadRequest // includes console.ErrValidation error type.
+		return http.StatusInternalServerError
 	}
 }
