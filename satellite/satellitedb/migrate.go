@@ -1388,6 +1388,19 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_tx_conversion_rates",
+				Version:     67,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
+						tx_id text NOT NULL,
+						rate bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
 		},
 	}
 }
