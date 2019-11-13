@@ -133,8 +133,6 @@ func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayment
 
 // GetLockedRate returns locked conversion rate for transaction or error if non exists.
 func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (*big.Float, error) {
-	var rate *big.Float
-
 	dbxRate, err := db.db.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx,
 		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
 	)
@@ -142,6 +140,7 @@ func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpa
 		return nil, err
 	}
 
+	rate := new(big.Float)
 	if err = rate.GobDecode(dbxRate.Rate); err != nil {
 		return nil, errs.Wrap(err)
 	}
