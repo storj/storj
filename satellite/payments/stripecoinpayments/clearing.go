@@ -22,21 +22,19 @@ var ErrChore = errs.Class("stripecoinpayments chore error")
 //
 // architecture: Chore
 type Chore struct {
-	log                  *zap.Logger
-	service              *Service
-	TransactionCycle     sync2.Cycle
-	AccountBalanceCycle  sync2.Cycle
-	ConversionRatesCycle sync2.Cycle
+	log                 *zap.Logger
+	service             *Service
+	TransactionCycle    sync2.Cycle
+	AccountBalanceCycle sync2.Cycle
 }
 
 // NewChore creates new clearing loop chore.
 func NewChore(log *zap.Logger, service *Service, txInterval time.Duration, accBalanceInterval time.Duration) *Chore {
 	return &Chore{
-		log:                  log,
-		service:              service,
-		TransactionCycle:     *sync2.NewCycle(txInterval),
-		AccountBalanceCycle:  *sync2.NewCycle(accBalanceInterval),
-		ConversionRatesCycle: *sync2.NewCycle(time.Minute * 10),
+		log:                 log,
+		service:             service,
+		TransactionCycle:    *sync2.NewCycle(txInterval),
+		AccountBalanceCycle: *sync2.NewCycle(accBalanceInterval),
 	}
 }
 
@@ -68,17 +66,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		},
 	)
-	chore.ConversionRatesCycle.Start(ctx, &group,
-		func(ctx context.Context) error {
-			chore.log.Info("running conversion rates update cycle")
-
-			if err := chore.service.UpdateRates(ctx); err != nil {
-				chore.log.Error("conversion rates update failed", zap.Error(ErrChore.Wrap(err)))
-			}
-
-			return nil
-		},
-	)
 
 	return ErrChore.Wrap(group.Wait())
 }
@@ -89,6 +76,5 @@ func (chore *Chore) Close() (err error) {
 
 	chore.TransactionCycle.Close()
 	chore.AccountBalanceCycle.Close()
-	chore.ConversionRatesCycle.Close()
 	return nil
 }
