@@ -187,7 +187,7 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 		return nil
 	}
 
-	tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
+	tempArchive, err := ioutil.TempFile("", serviceName)
 	if err != nil {
 		return errs.New("cannot create temporary archive: %v", err)
 	}
