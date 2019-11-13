@@ -183,4 +183,6 @@ If we plan to release the feature in several steps:
 ## Open issues (if applicable)
 
 1. Should we track how much each storage node is storing extra due not sending deletes? For the storage nodes that accumulate too much garbage, we could send garbage collection request outside of the normal schedule.
-1. Discuss backward-incompatibility that we may introduce when adapting the protocol buffer definitions in the storage node and satellite side.
+1. Discuss backward-incompatibility that we may introduce when adapting the protocol buffer definitions in the storage node and satellite side. Should we reuse the current definition as much as possible although it isn't ideal?
+1. Which is the value to reach for triggering the long-tail cancellation?
+1. What the resources and the amount of them to control the backpressure?
