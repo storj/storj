@@ -79,10 +79,7 @@ type Config struct {
 type DB struct {
 	log *zap.Logger
 
-	pieces interface {
-		storage.Blobs
-		Close() error
-	}
+	pieces storage.Blobs
 
 	dbDirectory string
 
