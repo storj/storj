@@ -4,6 +4,7 @@
 package consoleql
 
 import (
+	"storj.io/storj/satellite/accounting"
 	"time"
 
 	"github.com/graphql-go/graphql"
@@ -362,7 +363,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 }
 
 // fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
-func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.BucketUsageCursor) {
+func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 

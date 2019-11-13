@@ -8,6 +8,8 @@ import (
 	"crypto/subtle"
 	"time"
 
+	"storj.io/storj/satellite/accounting"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -24,13 +26,11 @@ import (
 var mon = monkit.Package()
 
 const (
-	// maxLimit specifies the limit for all paged queries
+	// maxLimit specifies the limit for all paged queries.
 	maxLimit            = 50
 	tokenExpirationTime = 24 * time.Hour
 
-	// DefaultPasswordCost is the hashing complexity
-	DefaultPasswordCost = bcrypt.DefaultCost
-	// TestPasswordCost is the hashing complexity to use for testing
+	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
 )
 
@@ -54,23 +54,24 @@ const (
 	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
-// ErrConsoleInternal describes internal console error
+// ErrConsoleInternal describes internal console error.
 var ErrConsoleInternal = errs.Class("internal error")
 
-// ErrNoMembership is error type of not belonging to a specific project
+// ErrNoMembership is error type of not belonging to a specific project.
 var ErrNoMembership = errs.Class("no membership error")
 
-// Service is handling accounts related logic
+// Service is handling accounts related logic.
 //
 // architecture: Service
 type Service struct {
 	Signer
 
-	log      *zap.Logger
-	store    DB
-	rewards  rewards.DB
-	partners *rewards.PartnersService
-	accounts payments.Accounts
+	log               *zap.Logger
+	store             DB
+	projectAccounting accounting.ProjectAccounting
+	rewards           rewards.DB
+	partners          *rewards.PartnersService
+	accounts          payments.Accounts
 
 	passwordCost int
 }
@@ -80,8 +81,8 @@ type PaymentsService struct {
 	service *Service
 }
 
-// NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
+// NewService returns new instance of Service.
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -96,13 +97,14 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pa
 	}
 
 	return &Service{
-		log:          log,
-		Signer:       signer,
-		store:        store,
-		rewards:      rewards,
-		partners:     partners,
-		accounts:     accounts,
-		passwordCost: passwordCost,
+		log:               log,
+		Signer:            signer,
+		store:             store,
+		projectAccounting: projectAccounting,
+		rewards:           rewards,
+		partners:          partners,
+		accounts:          accounts,
+		passwordCost:      passwordCost,
 	}, nil
 }
 
@@ -157,6 +159,18 @@ func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardI
 	}
 
 	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+}
+
+// ProjectsCharges returns how much money current user will be charged for each project which he owns.
+func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return payments.service.accounts.ProjectCharges(ctx, auth.User.ID)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
@@ -1035,7 +1049,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 }
 
 // GetProjectUsage retrieves project usage for a given period
-func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *ProjectUsage, err error) {
+func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -1048,7 +1062,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 		return nil, err
 	}
 
-	projectUsage, err := s.store.UsageRollups().GetProjectTotal(ctx, projectID, since, before)
+	projectUsage, err := s.projectAccounting.GetProjectTotal(ctx, projectID, since, before)
 	if err != nil {
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
@@ -1057,7 +1071,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 }
 
 // GetBucketTotals retrieves paged bucket total usages since project creation
-func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (_ *BucketUsagePage, err error) {
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -1070,11 +1084,11 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 		return nil, err
 	}
 
-	return s.store.UsageRollups().GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
+	return s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
-func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []BucketUsageRollup, err error) {
+func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -1087,7 +1101,7 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 		return nil, err
 	}
 
-	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
+	return s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
 }
 
 // Authorize validates token from context and returns authorized Authorization

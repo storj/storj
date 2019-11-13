@@ -103,10 +103,12 @@ export default class UsageReport extends Vue {
         return this.$store.state.usageModule.endDate;
     }
 
+    // TODO: update bytes to GB
     public get storage(): string {
         return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
     }
 
+    // TODO: update bytes to GB
     public get egress(): string {
         return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
     }

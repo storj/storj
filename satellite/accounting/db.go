@@ -53,6 +53,73 @@ type StorageNodeUsage struct {
 	Timestamp time.Time
 }
 
+// ProjectUsage consist of period total storage, egress
+// and objects count per hour for certain Project in bytes
+type ProjectUsage struct {
+	Storage     float64
+	Egress      int64
+	ObjectCount float64
+
+	Since  time.Time
+	Before time.Time
+}
+
+// BucketUsage consist of total bucket usage for period
+type BucketUsage struct {
+	ProjectID  uuid.UUID
+	BucketName string
+
+	Storage     float64
+	Egress      float64
+	ObjectCount int64
+
+	Since  time.Time
+	Before time.Time
+}
+
+// BucketUsageCursor holds info for bucket usage
+// cursor pagination
+type BucketUsageCursor struct {
+	Search string
+	Limit  uint
+	Page   uint
+}
+
+// BucketUsagePage represents bucket usage page result
+type BucketUsagePage struct {
+	BucketUsages []BucketUsage
+
+	Search string
+	Limit  uint
+	Offset uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
+}
+
+// BucketUsageRollup is total bucket usage info
+// for certain period
+type BucketUsageRollup struct {
+	ProjectID  uuid.UUID
+	BucketName []byte
+
+	RemoteStoredData float64
+	InlineStoredData float64
+
+	RemoteSegments float64
+	InlineSegments float64
+	ObjectCount    float64
+	MetadataSize   float64
+
+	RepairEgress float64
+	GetEgress    float64
+	AuditEgress  float64
+
+	Since  time.Time
+	Before time.Time
+}
+
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
 //
 // architecture: Database
@@ -93,6 +160,9 @@ type ProjectAccounting interface {
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// GetProjectUsageLimits returns project usage limit
 	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
+	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 }
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.

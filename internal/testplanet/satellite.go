@@ -120,7 +120,7 @@ type SatelliteSystem struct {
 	Accounting struct {
 		Tally        *tally.Service
 		Rollup       *rollup.Service
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {

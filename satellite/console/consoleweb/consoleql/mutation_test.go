@@ -61,12 +61,13 @@ func TestGrapqhlMutation(t *testing.T) {
 		)
 
 		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects())
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects(), db.ProjectAccounting())
 
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			db.ProjectAccounting(),
 			db.Rewards(),
 			partnersService,
 			payments.Accounts(),

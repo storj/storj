@@ -5,13 +5,24 @@ package stripecoinpayments
 
 import (
 	"context"
+	"storj.io/storj/internal/memory"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
+	"storj.io/storj/internal/date"
 	"storj.io/storj/satellite/payments"
 )
+
+// $0,013689253935661 is a price per TBh for storagebased on   message:
+// $10 per tb per mo storage,
+// $50 per tb egress,
+// $0.00000168 per objectWe did calculation as we have 365 days in year + once per 4 years is 366 days,
+// so we calculate this price as:10*12/(365*24+24/4)
+
+// ПРОВЕРИТЬ РАЗМЕРНОСТЬ МОЕГО СТОРЕДЖА ТБ ВМЕСТО ГБ + КОНВЕРТИРОВАТЬ ИЗ БАЙТОВ
+// ИГРЕС ИЗ БАЙТОВ В ТБ
 
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
@@ -75,21 +86,32 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
+	// to return empty slice instead of nil if there are no projects
+	charges = make([]payments.ProjectCharge, 0)
+
 	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
+	start, end := date.MonthBoundary(time.Now().UTC())
+
 	for _, project := range projects {
-		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, time.Now(), time.Now())
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return charges, Error.Wrap(err)
 		}
 
-		
+		charges = append(charges, payments.ProjectCharge{
+			ProjectID: project.ID,
+			Egress:    usage.Egress / int64(memory.TB) * accounts.service.config.EgressPrice,
+			// TODO: check precision
+			ObjectCount:  int64(usage.ObjectCount) * accounts.service.config.PerObjectPrice,
+			StorageGbHrs: int64(usage.Storage) / int64(memory.TB) * accounts.service.config.TBhPrice,
+		})
 	}
 
-	return nil, nil
+	return charges, nil
 }
 
 // StorjTokens exposes all storj token related functionality.
