@@ -124,6 +124,9 @@ contact.external-address: ""
 # maximum inactive time frame of transfer activities per node.
 # graceful-exit.max-inactive-time-frame: 500h0m0s
 
+# maximum number of order limits a satellite sends to a node before marking piece transfer failed
+# graceful-exit.max-order-limit-send-count: 5
+
 # maximum percentage of transfer failures per node.
 # graceful-exit.overall-max-failures-percentage: 10
 

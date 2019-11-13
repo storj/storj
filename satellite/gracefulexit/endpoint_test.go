@@ -1207,6 +1207,139 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 }
 
+func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
+	var maxOrderLimitSendCount = 3
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 5,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				// We don't care whether a node gracefully exits or not in this test,
+				// so we set the max failures percentage extra high.
+				config.GracefulExit.OverallMaxFailuresPercentage = 101
+				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			nodeFullIDs[node.ID()] = node.Identity
+		}
+
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+
+		// connect to satellite so we initiate the exit.
+		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := conn.SatelliteGracefulExitClient()
+
+		c, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		response, err := c.Recv()
+		require.NoError(t, err)
+
+		// should get a NotReady since the metainfo loop would not be finished at this point.
+		switch response.GetMessage().(type) {
+		case *pb.SatelliteMessage_NotReady:
+			// now check that the exiting node is initiated.
+			exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			require.NoError(t, err)
+			require.Len(t, exitingNodes, 1)
+
+			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+		default:
+			t.FailNow()
+		}
+		// close the old client
+		require.NoError(t, c.CloseSend())
+
+		// trigger the metainfo loop chore so we can get some pieces to transfer
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+
+		// make sure all the pieces are in the transfer queue
+		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
+		require.NoError(t, err)
+
+		var messageCount int
+
+		// We need to label this outer loop so that we're able to exit it from the inner loop.
+		// The outer loop is for sending the request from node to satellite multiple times.
+		// The inner loop is for reading the response.
+	MessageLoop:
+		for {
+			var unknownMsgSent bool
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
+
+			for {
+				response, err := c.Recv()
+				if unknownMsgSent {
+					require.Error(t, err)
+					break
+				} else {
+					require.NoError(t, err)
+				}
+
+				switch response.GetMessage().(type) {
+				case *pb.SatelliteMessage_ExitCompleted:
+					break MessageLoop
+				case *pb.SatelliteMessage_TransferPiece:
+					messageCount++
+					unknownMsgSent = true
+					// We send an unknown message because we want to fail the
+					// transfer message request we get from the satellite.
+					// This allows us to keep the conn open but repopulate
+					// the pending queue.
+					err = c.Send(&pb.StorageNodeMessage{})
+					require.NoError(t, err)
+					require.NoError(t, c.CloseSend())
+				default:
+					t.FailNow()
+				}
+			}
+		}
+		require.Equal(t, messageCount, maxOrderLimitSendCount)
+
+		// make sure not responding piece not in queue
+		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, incompletes, 0)
+
+		// check that the exit has completed and we have the correct transferred/failed values
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, progress.PiecesFailed)
+		status, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, status.ExitFinishedAt)
+	})
+}
+
 func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{

@@ -171,7 +171,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	addrLimit := transferPiece.GetAddressedOrderLimit()
 	pk := transferPiece.PrivateKey
 
-	originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, addrLimit.GetLimit())
+	originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, pieceID)
 	if err != nil {
 		worker.log.Error("failed to get piece hash and order limit.",
 			zap.Stringer("Satellite ID", worker.satelliteID),
@@ -332,11 +332,11 @@ func (worker *Worker) Close() error {
 }
 
 // TODO This comes from piecestore.Endpoint. It should probably be an exported method so I don't have to duplicate it here.
-func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash *pb.PieceHash, orderLimit *pb.OrderLimit, err error) {
+func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, pieceID storj.PieceID) (pieceHash *pb.PieceHash, orderLimit *pb.OrderLimit, err error) {
 
 	if pieceReader.StorageFormatVersion() == 0 {
 		// v0 stores this information in SQL
-		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
+		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, worker.satelliteID, pieceID)
 		if err != nil {
 			worker.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
 			return nil, nil, err
