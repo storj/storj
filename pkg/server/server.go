@@ -21,6 +21,8 @@ import (
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 )
 
 // Config holds server specific configuration parameters.
@@ -71,6 +73,11 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
+	unaryInterceptor := server.logOnErrorUnaryInterceptor
+	if interceptor != nil {
+		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
+	}
+
 	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
 		return nil, err
@@ -79,9 +86,13 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	publicMux := drpcmux.New()
 	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
-		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
-		mux:      publicMux,
+		listener: publicListener,
+		drpc:     drpcserver.NewWithOptions(serverOptions),
+		grpc: grpc.NewServer(
+			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
+			grpc.UnaryInterceptor(unaryInterceptor),
+			tlsOptions.ServerOption(),
+		),
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
@@ -91,9 +102,9 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	privateMux := drpcmux.New()
 	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
 	server.private = private{
-		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(privateTracingHandler, serverOptions),
-		mux:      privateMux,
+		listener: privateListener,
+		drpc:     drpcserver.NewWithOptions(serverOptions),
+		grpc:     grpc.NewServer(),
 	}
 
 	return server, nil

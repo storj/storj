@@ -55,15 +55,23 @@ require (
 	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/errs v1.2.2
-	go.etcd.io/bbolt v1.3.5
-	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200929083018-4d22bbb62b3c
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	storj.io/common v0.0.0-20201014090530-c4af8e54d5c4
-	storj.io/drpc v0.0.14
-	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20200925142346-4c879709882f
-	storj.io/uplink v1.3.1
+	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	github.com/zeebo/structs v1.0.2
+	go.uber.org/zap v1.10.0
+	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
+	golang.org/x/net v0.0.0-20190916140828-c8589233b77d // indirect
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
+	golang.org/x/tools v0.0.0-20190917215024-905c8ffbfa41
+	google.golang.org/appengine v1.6.0 // indirect
+	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610 // indirect
+	google.golang.org/grpc v1.23.1
+	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
+	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
+	gopkg.in/ini.v1 v1.38.2 // indirect
+	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
+	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
+	gopkg.in/yaml.v2 v2.2.2
+	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
 )
