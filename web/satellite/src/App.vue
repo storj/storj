@@ -15,6 +15,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import {MetaRepository} from "@/utils/metaContentExtractor";
 
 @Component({
     components: {
@@ -36,11 +37,11 @@ export default class App extends Vue {
             ];
 
     public mounted(): void {
-        const meta = document.querySelector("meta[name='satellite-name']");
-        let satelliteName;
-
-        if (meta) {
-            satelliteName = meta.getAttribute('content');
+        const satelliteName = MetaRepository.getMetaContent('satellite-name');
+        const stripePublicKey = MetaRepository.getMetaContent('stripe-public-key');
+        
+        if (stripePublicKey) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_STRIPE_PK, stripePublicKey);
         }
 
         if (satelliteName) {

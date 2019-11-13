@@ -34,7 +34,7 @@ export default class StripeInput extends Vue {
             return;
         }
 
-        this.stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
+        this.stripe = window['Stripe'](this.$store.state.appStateModule.stripePublicKey);
 
         if (!this.stripe) {
             await this.$notify.error('Unable to initialize stripe');
