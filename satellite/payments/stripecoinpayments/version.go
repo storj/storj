@@ -13,14 +13,17 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
+// ErrVersion defines version service error.
 var ErrVersion = errs.Class("version service error")
 
+// VersionService updates conversion rates in a loop.
 type VersionService struct {
 	log     *zap.Logger
 	service *Service
 	Cycle   sync2.Cycle
 }
 
+// NewVersionService creates new instance of VersionService.
 func NewVersionService(log *zap.Logger, service *Service, interval time.Duration) *VersionService {
 	return &VersionService{
 		log:     log,
@@ -29,6 +32,7 @@ func NewVersionService(log *zap.Logger, service *Service, interval time.Duration
 	}
 }
 
+// Run runs loop which updates conversion rates for service.
 func (version *VersionService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -45,6 +49,7 @@ func (version *VersionService) Run(ctx context.Context) (err error) {
 	))
 }
 
+// Close closes underlying cycle.
 func (version *VersionService) Close() (err error) {
 	defer mon.Task()(nil)(&err)
 
