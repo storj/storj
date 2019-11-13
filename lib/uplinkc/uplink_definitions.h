@@ -36,8 +36,12 @@ typedef struct UplinkConfig {
     struct {
         struct {
             bool skip_peer_ca_whitelist;
+            char *peer_ca_whitelist_path;
         } tls;
-        // TODO: add support for MaxMemory
+        char *peer_id_version;
+        int32_t max_inline_size;
+        int32_t max_memory;
+        int32_t dial_timeout;
     } Volatile;
 } UplinkConfig;
 
