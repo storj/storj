@@ -84,17 +84,9 @@ func TestAutoUpdater(t *testing.T) {
 	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
-	// TODO: figure out how to not conflict with real service
-	//  (versioncontrol process query uses service name)
-	serviceName := "storagenode"
-
-	cleanup := createTestService(ctx, t, serviceName, newBin)
-	defer cleanup()
-
 	// run updater (update)
 	args := []string{"run",
 		"--config-dir", ctx.Dir(),
-		"--service-name", serviceName,
 		"--server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,
 		"--check-interval", "0s",

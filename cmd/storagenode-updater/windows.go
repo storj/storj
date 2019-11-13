@@ -7,7 +7,7 @@
 //
 // sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
-// +build windows
+// +build windows,!unittest
 
 package main
 
