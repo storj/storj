@@ -74,17 +74,12 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		return nil, err
-	}
-
 	if path == "" {
 		return nil, storj.ErrNoPath.New("")
 	}
 
 	info := storj.Object{
-		Bucket: bucketInfo,
+		Bucket: db.bucket,
 		Path:   path,
 	}
 
@@ -213,19 +208,13 @@ type object struct {
 func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: we shouldn't need to go load the bucket metadata every time we get object info
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
 	if path == "" {
 		return object{}, storj.Object{}, storj.ErrNoPath.New("")
 	}
 
 	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
 
-	encPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
+	encPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), db.bucket.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -258,7 +247,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		return object{}, storj.Object{}, err
 	}
 
-	info, err = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info, err = objectStreamFromMeta(db.bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

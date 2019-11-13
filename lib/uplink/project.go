@@ -209,7 +209,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, access.store),
+		metainfo:     kvmetainfo.New(p.project, bucketInfo, p.metainfo, streamStore, segmentStore, access.store),
 		streams:      streamStore,
 	}, nil
 }

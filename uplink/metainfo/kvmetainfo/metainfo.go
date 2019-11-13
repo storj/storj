@@ -29,6 +29,7 @@ var _ storj.Metainfo = (*DB)(nil)
 // DB implements metainfo database
 type DB struct {
 	project *Project
+	bucket  storj.Bucket
 
 	metainfo *metainfo.Client
 
@@ -39,8 +40,9 @@ type DB struct {
 }
 
 // New creates a new metainfo database
-func New(project *Project, metainfo *metainfo.Client, streams streams.Store, segments segments.Store, encStore *encryption.Store) *DB {
+func New(project *Project, bucket storj.Bucket, metainfo *metainfo.Client, streams streams.Store, segments segments.Store, encStore *encryption.Store) *DB {
 	return &DB{
+		bucket:   bucket,
 		project:  project,
 		metainfo: metainfo,
 		streams:  streams,
