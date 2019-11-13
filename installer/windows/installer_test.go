@@ -5,6 +5,7 @@ package windows
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -44,6 +45,9 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	storagenodeBin = filepath.Join(installerDir, "storagenode.exe")
+	updaterBin = filepath.Join(installerDir, "storagenode-updater.exe")
+
 	msiDir := filepath.Join(installerDir, "bin", "Release")
 	msiPath = filepath.Join(msiDir, "storagenode.msi")
 
@@ -67,8 +71,11 @@ func TestCompileDependencies(t *testing.T) {
 		Release:    false,
 	}
 
-	storagenodeBin = compileContext.CompileWithVersion(storagenodePkg, versionInfo)
-	updaterBin = compileContext.CompileWithVersion(updaterPkg, versionInfo)
+	tempBin := compileContext.CompileWithVersion(storagenodePkg, versionInfo)
+	copyBin(compileContext, t, tempBin, storagenodeBin)
+
+	tempBin = compileContext.CompileWithVersion(updaterPkg, versionInfo)
+	copyBin(compileContext, t, tempBin, updaterBin)
 
 	for name, bin := range map[string]string{
 		"storagenode":         storagenodeBin,
@@ -152,4 +159,19 @@ func requireInstaller(t *testing.T) {
 	if _, err := os.Stat(msiPath); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TODO: move to internal / consolidate with cmd/storagnode-updater/main_test's `coypBin`?
+// TODO: swap src/dst arg positions
+func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
+	s, err := os.Open(src)
+	require.NoError(t, err)
+	defer ctx.Check(s.Close)
+
+	d, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0755)
+	require.NoError(t, err)
+	defer ctx.Check(d.Close)
+
+	_, err = io.Copy(d, s)
+	require.NoError(t, err)
 }
