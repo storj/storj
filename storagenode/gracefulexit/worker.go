@@ -167,12 +167,6 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		worker.handleFailure(ctx, transferErr, pieceID, c.Send)
 		return err
 	}
-	defer func() {
-		err := reader.Close()
-		if err != nil {
-			worker.log.Error("failed to close piece reader", zap.Error(err))
-		}
-	}()
 
 	addrLimit := transferPiece.GetAddressedOrderLimit()
 	pk := transferPiece.PrivateKey
