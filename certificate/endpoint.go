@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/certificate/authorization"
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcpeer"
@@ -17,6 +18,7 @@ import (
 
 // Endpoint implements pb.CertificatesServer.
 type Endpoint struct {
+	sanitizer       *errs2.LoggingSanitizer
 	log             *zap.Logger
 	ca              *identity.FullCertificateAuthority
 	authorizationDB *authorization.DB
@@ -25,7 +27,16 @@ type Endpoint struct {
 
 // NewEndpoint creates a new certificate signing gRPC server.
 func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, minDifficulty uint16) *Endpoint {
+	codeMap := errs2.CodeMap{
+		&authorization.ErrNotFound:       rpcstatus.Unauthenticated,
+		&authorization.ErrInvalidClaim:   rpcstatus.InvalidArgument,
+		&authorization.ErrInvalidToken:   rpcstatus.InvalidArgument,
+		&authorization.ErrAlreadyClaimed: rpcstatus.AlreadyExists,
+	}
+	sanitizer := errs2.NewLoggingSanitizer(&Error, log, codeMap)
+
 	return &Endpoint{
+		sanitizer:       sanitizer,
 		log:             log,
 		ca:              ca,
 		authorizationDB: authorizationDB,
@@ -40,22 +51,19 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
 		msg := "error getting peer from context"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 
 	peerIdent, err := identity.PeerIdentityFromPeer(peer)
 	if err != nil {
 		msg := "error getting peer identity"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 
 	signedPeerCA, err := endpoint.ca.Sign(peerIdent.CA)
 	if err != nil {
 		msg := "error signing peer CA"
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, internalErr(msg)
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 
 	signedChainBytes := [][]byte{signedPeerCA.Raw, endpoint.ca.Cert.Raw}
@@ -67,19 +75,19 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 		MinDifficulty: endpoint.minDifficulty,
 	})
 	if err != nil {
-		endpoint.log.Error(zap.Error(err).String)
-		return nil, internalErr(zap.Error(err).String)
+		msg := "error claiming authorization"
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 
 	difficulty, err := peerIdent.ID.Difficulty()
 	if err != nil {
-		endpoint.log.Error(zap.Error(err).String)
-		return nil, internalErr(zap.Error(err).String)
+		msg := "error checking difficulty"
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 	token, err := authorization.ParseToken(req.AuthToken)
 	if err != nil {
-		endpoint.log.Error(zap.Error(err).String)
-		return nil, internalErr(zap.Error(err).String)
+		msg := "error parsing auth token"
+		return nil, endpoint.sanitizer.Error(msg, err)
 	}
 	tokenFormatter := authorization.Authorization{
 		Token: *token,
@@ -93,8 +101,4 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 	return &pb.SigningResponse{
 		Chain: signedChainBytes,
 	}, nil
-}
-
-func internalErr(msg string) error {
-	return rpcstatus.Error(rpcstatus.Internal, Error.New(msg).Error())
 }
