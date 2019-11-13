@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	// ErrPartners is the default error class for referrals package.
+	// Error is the default error class for referrals package.
 	Error = errs.Class("referrals")
 
 	// ErrReferralsConfigMissing is a error class for reporting missing referrals service configuration
@@ -49,7 +49,7 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 
 func (service *Service) ReferralManagerConn(ctx context.Context) (*rpc.Conn, error) {
 	if service.config == nil || service.config.ReferralManagerURL.IsZero {
-		return nil, Error.New("missing referrals config")
+		return nil, ErrReferralsConfigMissing.New("")
 	}
 
 	conn, err := service.dailer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
