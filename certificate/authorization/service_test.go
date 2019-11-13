@@ -25,7 +25,7 @@ func TestService_GetOrCreate(t *testing.T) {
 	{ // new user, no existing authorization tokens (create)
 		userID := "new@mail.test"
 		group, err := authorizationDB.Get(ctx, userID)
-		require.NoError(t, err)
+		require.Error(t, err, ErrNotFound)
 		require.Empty(t, group)
 
 		token, err := service.GetOrCreate(ctx, userID)

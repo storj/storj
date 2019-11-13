@@ -374,6 +374,11 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
 	})
+	if peer.Payments.Chore != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.Payments.Chore.Run(ctx))
+		})
+	}
 
 	return group.Wait()
 }
