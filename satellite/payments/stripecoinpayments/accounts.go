@@ -5,24 +5,15 @@ package stripecoinpayments
 
 import (
 	"context"
-	"storj.io/storj/internal/memory"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
 	"storj.io/storj/internal/date"
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/satellite/payments"
 )
-
-// $0,013689253935661 is a price per TBh for storagebased on   message:
-// $10 per tb per mo storage,
-// $50 per tb egress,
-// $0.00000168 per objectWe did calculation as we have 365 days in year + once per 4 years is 366 days,
-// so we calculate this price as:10*12/(365*24+24/4)
-
-// ПРОВЕРИТЬ РАЗМЕРНОСТЬ МОЕГО СТОРЕДЖА ТБ ВМЕСТО ГБ + КОНВЕРТИРОВАТЬ ИЗ БАЙТОВ
-// ИГРЕС ИЗ БАЙТОВ В ТБ
 
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
@@ -104,10 +95,10 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 
 		charges = append(charges, payments.ProjectCharge{
 			ProjectID: project.ID,
-			Egress:    usage.Egress / int64(memory.TB) * accounts.service.config.EgressPrice,
+			Egress:    usage.Egress / int64(memory.TB) * accounts.service.EgressPrice,
 			// TODO: check precision
-			ObjectCount:  int64(usage.ObjectCount) * accounts.service.config.PerObjectPrice,
-			StorageGbHrs: int64(usage.Storage) / int64(memory.TB) * accounts.service.config.TBhPrice,
+			ObjectCount:  int64(usage.ObjectCount) * accounts.service.PerObjectPrice,
+			StorageGbHrs: int64(usage.Storage) / int64(memory.TB) * accounts.service.TBhPrice,
 		})
 	}
 

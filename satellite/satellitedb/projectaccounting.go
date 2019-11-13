@@ -6,10 +6,10 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"github.com/zeebo/errs"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"

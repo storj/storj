@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	"storj.io/storj/satellite/accounting"
-
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -39,26 +38,26 @@ type Config struct {
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
-	PerObjectPrice               int64         `help:"price in cents user should pay for each object storing in network" devDefault:"0" releaseDefault:"0"`
-	EgressPrice                  int64         `help:"price in cents user should pay for each TB of egress" devDefault:"0" releaseDefault:"0"`
-	TBhPrice                     int64         `help:"price in cents user should pay for storing each TB per hour" devDefault:"0" releaseDefault:"0"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
 //
 // architecture: Service
 type Service struct {
-	log          *zap.Logger
-	db           DB
-	config       Config
-	projectsDB   console.Projects
-	usageDB      accounting.ProjectAccounting
-	stripeClient *client.API
-	coinPayments *coinpayments.Client
+	log            *zap.Logger
+	db             DB
+	config         Config
+	projectsDB     console.Projects
+	usageDB        accounting.ProjectAccounting
+	stripeClient   *client.API
+	coinPayments   *coinpayments.Client
+	PerObjectPrice int64
+	EgressPrice    int64
+	TBhPrice       int64
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -69,13 +68,16 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	)
 
 	return &Service{
-		log:          log,
-		db:           db,
-		config:       config,
-		projectsDB:   projectsDB,
-		usageDB:      usageDB,
-		stripeClient: stripeClient,
-		coinPayments: coinPaymentsClient,
+		log:            log,
+		db:             db,
+		config:         config,
+		projectsDB:     projectsDB,
+		usageDB:        usageDB,
+		stripeClient:   stripeClient,
+		coinPayments:   coinPaymentsClient,
+		TBhPrice:       tbhPrice,
+		PerObjectPrice: perObjectPrice,
+		EgressPrice:    egressPrice,
 	}
 }
 

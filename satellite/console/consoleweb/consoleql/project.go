@@ -4,11 +4,11 @@
 package consoleql
 
 import (
-	"storj.io/storj/satellite/accounting"
 	"time"
 
 	"github.com/graphql-go/graphql"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
 

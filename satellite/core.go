@@ -301,7 +301,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects(),
-				peer.DB.ProjectAccounting())
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TBhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 
