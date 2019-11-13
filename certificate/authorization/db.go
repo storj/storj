@@ -24,7 +24,7 @@ var (
 	// ErrEmptyUserID is used when a user ID is required but not provided.
 	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
 	// ErrCount is used when attempting to create an invalid number of authorizations.
-	ErrCount = ErrDB.New("cannot add less than one authorizations")
+	ErrCount = ErrDB.New("cannot add less than one authorization")
 	// ErrInvalidClaim is used when a claim is invalid due to some user input.
 	ErrInvalidClaim = errs.Class("authorization claim error")
 	// ErrAlreadyClaimed is used when a valid claim is attempted with a token that's been used already.
