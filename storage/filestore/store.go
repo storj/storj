@@ -20,34 +20,34 @@ var (
 
 	mon = monkit.Package()
 
-	_ storage.Blobs = (*Store)(nil)
+	_ storage.Blobs = (*blobStore)(nil)
 )
 
-// Store implements a blob store
-type Store struct {
+// blobStore implements a blob store
+type blobStore struct {
 	dir *Dir
 	log *zap.Logger
 }
 
 // New creates a new disk blob store in the specified directory
-func New(log *zap.Logger, dir *Dir) *Store {
-	return &Store{dir: dir, log: log}
+func New(log *zap.Logger, dir *Dir) storage.Blobs {
+	return &blobStore{dir: dir, log: log}
 }
 
 // NewAt creates a new disk blob store in the specified directory
-func NewAt(log *zap.Logger, path string) (*Store, error) {
+func NewAt(log *zap.Logger, path string) (storage.Blobs, error) {
 	dir, err := NewDir(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return &Store{dir: dir, log: log}, nil
+	return &blobStore{dir: dir, log: log}, nil
 }
 
 // Close closes the store.
-func (store *Store) Close() error { return nil }
+func (store *blobStore) Close() error { return nil }
 
 // Open loads blob with the specified hash
-func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.BlobReader, err error) {
+func (store *blobStore) Open(ctx context.Context, ref storage.BlobRef) (_ storage.BlobReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 	file, formatVer, err := store.dir.Open(ctx, ref)
 	if err != nil {
@@ -61,7 +61,7 @@ func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.Bl
 
 // OpenWithStorageFormat loads the already-located blob, avoiding the potential need to check multiple
 // storage formats to find the blob.
-func (store *Store) OpenWithStorageFormat(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobReader, err error) {
+func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 	file, err := store.dir.OpenWithStorageFormat(ctx, blobRef, formatVer)
 	if err != nil {
@@ -74,35 +74,35 @@ func (store *Store) OpenWithStorageFormat(ctx context.Context, blobRef storage.B
 }
 
 // Stat looks up disk metadata on the blob file
-func (store *Store) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobInfo, err error) {
+func (store *blobStore) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info, err := store.dir.Stat(ctx, ref)
 	return info, Error.Wrap(err)
 }
 
 // StatWithStorageFormat looks up disk metadata on the blob file with the given storage format version
-func (store *Store) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
+func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info, err := store.dir.StatWithStorageFormat(ctx, ref, formatVer)
 	return info, Error.Wrap(err)
 }
 
 // Delete deletes blobs with the specified ref
-func (store *Store) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
+func (store *blobStore) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.Delete(ctx, ref)
 	return Error.Wrap(err)
 }
 
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version
-func (store *Store) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
+func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
 	return Error.Wrap(err)
 }
 
 // GarbageCollect tries to delete any files that haven't yet been deleted
-func (store *Store) GarbageCollect(ctx context.Context) (err error) {
+func (store *blobStore) GarbageCollect(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.GarbageCollect(ctx)
 	return Error.Wrap(err)
@@ -110,7 +110,7 @@ func (store *Store) GarbageCollect(ctx context.Context) (err error) {
 
 // Create creates a new blob that can be written
 // optionally takes a size argument for performance improvements, -1 is unknown size
-func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64) (_ storage.BlobWriter, err error) {
+func (store *blobStore) Create(ctx context.Context, ref storage.BlobRef, size int64) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 	file, err := store.dir.CreateTemporaryFile(ctx, size)
 	if err != nil {
@@ -120,7 +120,7 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 }
 
 // SpaceUsed adds up the space used in all namespaces for blob storage
-func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
+func (store *blobStore) SpaceUsed(ctx context.Context) (space int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalSpaceUsed int64
@@ -139,7 +139,7 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 }
 
 // SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
-func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+func (store *blobStore) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
 	err := store.WalkNamespace(ctx, namespace, func(info storage.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
@@ -158,7 +158,7 @@ func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) 
 }
 
 // FreeSpace returns how much space left in underlying directory
-func (store *Store) FreeSpace() (int64, error) {
+func (store *blobStore) FreeSpace() (int64, error) {
 	info, err := store.dir.Info()
 	if err != nil {
 		return 0, err
@@ -168,25 +168,19 @@ func (store *Store) FreeSpace() (int64, error) {
 
 // ListNamespaces finds all known namespace IDs in use in local storage. They are not
 // guaranteed to contain any blobs.
-func (store *Store) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
+func (store *blobStore) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
 	return store.dir.ListNamespaces(ctx)
 }
 
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace. If walkFunc
 // returns a non-nil error, WalkNamespace will stop iterating and return the error immediately. The
 // ctx parameter is intended specifically to allow canceling iteration early.
-func (store *Store) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) (err error) {
+func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) (err error) {
 	return store.dir.WalkNamespace(ctx, namespace, walkFunc)
 }
 
-// StoreForTest is a wrapper for Store that also allows writing new V0 blobs (in order to test
-// situations involving those)
-type StoreForTest struct {
-	*Store
-}
-
-// TestCreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
-func (store *Store) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
+// TestCreateV0 creates a new V0 blob that can be written. This is ONLY appropriate in test situations.
+func (store *blobStore) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	file, err := store.dir.CreateTemporaryFile(ctx, -1)
