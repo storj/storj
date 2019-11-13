@@ -49,11 +49,12 @@ type OldVersionConfig struct {
 
 // ProcessesConfig represents versions configuration for all processes.
 type ProcessesConfig struct {
-	Satellite   ProcessConfig
-	Storagenode ProcessConfig
-	Uplink      ProcessConfig
-	Gateway     ProcessConfig
-	Identity    ProcessConfig
+	Satellite          ProcessConfig
+	Storagenode        ProcessConfig
+	StoragenodeUpdater ProcessConfig
+	Uplink             ProcessConfig
+	Gateway            ProcessConfig
+	Identity           ProcessConfig
 }
 
 // ProcessConfig represents versions configuration for a single process.
@@ -125,27 +126,27 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	// Convert each Service's VersionConfig String to SemVer
-	peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
+	peer.Versions.Satellite, err = version.NewOldSemVer(config.Versions.Satellite)
 	if err != nil {
 		return &Peer{}, err
 	}
 
-	peer.Versions.Storagenode, err = version.NewSemVer(config.Versions.Storagenode)
+	peer.Versions.Storagenode, err = version.NewOldSemVer(config.Versions.Storagenode)
 	if err != nil {
 		return &Peer{}, err
 	}
 
-	peer.Versions.Uplink, err = version.NewSemVer(config.Versions.Uplink)
+	peer.Versions.Uplink, err = version.NewOldSemVer(config.Versions.Uplink)
 	if err != nil {
 		return &Peer{}, err
 	}
 
-	peer.Versions.Gateway, err = version.NewSemVer(config.Versions.Gateway)
+	peer.Versions.Gateway, err = version.NewOldSemVer(config.Versions.Gateway)
 	if err != nil {
 		return &Peer{}, err
 	}
 
-	peer.Versions.Identity, err = version.NewSemVer(config.Versions.Identity)
+	peer.Versions.Identity, err = version.NewOldSemVer(config.Versions.Identity)
 	if err != nil {
 		return &Peer{}, err
 	}
@@ -157,6 +158,11 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes.Storagenode, err = configToProcess(config.Binary.Storagenode)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
+	peer.Versions.Processes.StoragenodeUpdater, err = configToProcess(config.Binary.StoragenodeUpdater)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)
 	}

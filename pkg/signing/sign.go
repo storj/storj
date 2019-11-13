@@ -145,3 +145,39 @@ func SignSegmentID(ctx context.Context, signer Signer, unsigned *pb.SatSegmentID
 
 	return &signed, nil
 }
+
+// SignExitCompleted signs the ExitCompleted using the specified signer
+// Signer is a satellite
+func SignExitCompleted(ctx context.Context, signer Signer, unsigned *pb.ExitCompleted) (_ *pb.ExitCompleted, err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeExitCompleted(ctx, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.ExitCompleteSignature, err = signer.HashAndSign(ctx, bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &signed, nil
+}
+
+// SignExitFailed signs the ExitFailed using the specified signer
+// Signer is a satellite
+func SignExitFailed(ctx context.Context, signer Signer, unsigned *pb.ExitFailed) (_ *pb.ExitFailed, err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeExitFailed(ctx, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.ExitFailureSignature, err = signer.HashAndSign(ctx, bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &signed, nil
+}

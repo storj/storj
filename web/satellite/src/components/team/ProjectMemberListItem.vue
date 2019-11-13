@@ -2,19 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="user-container">
+    <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
-            <div class="checkbox"></div>
-            <div class="user-container__base-info__avatar" :style="avatarData.style">
+            <div v-if="!isProjectOwner" class="checkbox"></div>
+            <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <div class="user-container__base-info__name-area">
-                <p class="user-container__base-info__name-area__user-name">{{itemName}}</p>
+            <div class="user-container__base-info__name-area" :title="itemData.name">
+                <p class="user-container__base-info__name-area__user-name">{{ itemData.formattedFullName() }}</p>
                 <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
             </div>
         </div>
-        <p class="user-container__date">{{itemDate}}</p>
-        <p class="user-container__user-email">{{itemEmail}}</p>
+        <p class="user-container__date">{{ itemData.joinedAtLocal() }}</p>
+        <p class="user-container__user-email">{{ itemData.formattedEmail() }}</p>
     </div>
 </template>
 
@@ -44,18 +44,6 @@ export default class ProjectMemberListItem extends Vue {
         };
     }
 
-    public get itemName(): string {
-        return this.itemData.formattedFullName();
-    }
-
-    public get itemDate(): string {
-        return this.itemData.joinedAtLocal();
-    }
-
-    public get itemEmail(): string {
-        return this.itemData.formattedEmail();
-    }
-
     public get isProjectOwner(): boolean {
         return this.itemData.user.id === this.$store.getters.selectedProject.ownerId;
     }
@@ -72,7 +60,7 @@ export default class ProjectMemberListItem extends Vue {
         background-color: #fff;
         cursor: pointer;
         width: calc(100% - 28px);
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__base-info {
             width: 50%;
@@ -85,17 +73,17 @@ export default class ProjectMemberListItem extends Vue {
                 max-width: 40px;
                 min-height: 40px;
                 max-height: 40px;
-                margin-left: 20px;
                 border-radius: 6px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background-color: #FF8658;
+                background-color: #ff8658;
+                margin-left: 20px;
 
                 &__letter {
                     margin: 0;
                     font-size: 16px;
-                    color: #F5F6FA;
+                    color: #f5f6fa;
                 }
             }
 
@@ -104,15 +92,15 @@ export default class ProjectMemberListItem extends Vue {
                 &__user-name {
                     margin: 0 0 0 20px;
                     font-size: 16px;
-                    font-family: 'font_bold';
+                    font-family: 'font_bold', sans-serif;
                     color: #354049;
                 }
 
                 &__owner-status {
                     margin: 0 0 0 20px;
                     font-size: 13px;
-                    color: #AFB7C1;
-                    font-family: 'font_medium';
+                    color: #afb7c1;
+                    font-family: 'font_medium', sans-serif;
                 }
             }
         }
@@ -131,25 +119,33 @@ export default class ProjectMemberListItem extends Vue {
     }
 
     .checkbox {
-        background-image: url("../../../static/images/team/checkboxEmpty.svg");
+        background-image: url('../../../static/images/team/checkboxEmpty.png');
         min-width: 23px;
         height: 23px;
     }
 
     .user-container.selected {
-        background-color: #2683FF;
+        background-color: #2683ff;
 
         .checkbox {
             min-width: 23px;
             height: 23px;
-            background-image: url("../../../static/images/team/checkboxChecked.svg");
+            background-image: url('../../../static/images/team/checkboxChecked.png');
         }
 
         .user-container__base-info__name-area__user-name,
         .user-container__base-info__name-area__owner-status,
         .user-container__date,
         .user-container__user-email {
-            color: #FFFFFF;
+            color: #fff;
         }
+    }
+
+    .owner {
+        cursor: default;
+    }
+
+    .extra-margin {
+        margin-left: 43px;
     }
 </style>

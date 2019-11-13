@@ -66,17 +66,17 @@ type generateInfo struct {
 var infos = map[string]generateInfo{
 	"drpc": {
 		Name:   "drpc",
-		Import: "storj.io/drpc/drpcconn",
+		Import: "storj.io/storj/pkg/rpc/rpcpool",
 		Prefix: "DRPC",
-		Conn:   "drpcconn.Conn",
-		Tag:    "drpc",
+		Conn:   "rpcpool.Conn",
+		Tag:    "!grpc",
 	},
 	"grpc": {
 		Name:   "grpc",
 		Import: "google.golang.org/grpc", // the saddest newline
 		Prefix: "",
 		Conn:   "grpc.ClientConn",
-		Tag:    "!drpc",
+		Tag:    "grpc",
 	},
 }
 

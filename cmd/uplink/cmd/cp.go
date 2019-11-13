@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 var (
 	progress *bool
 	expires  *string
+	metadata *string
 )
 
 func init() {
@@ -32,8 +34,10 @@ func init() {
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	}, RootCmd)
+
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
+	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -100,6 +104,17 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if *expires != "" {
 		opts.Expires = expiration.UTC()
+	}
+
+	if *metadata != "" {
+		var md map[string]string
+
+		err := json.Unmarshal([]byte(*metadata), &md)
+		if err != nil {
+			return err
+		}
+
+		opts.Metadata = md
 	}
 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
@@ -252,7 +267,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	return nil
 }
 
-// copyMain is the function executed when cpCmd is called
+// copyMain is the function executed when cpCmd is called.
 func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for copy")

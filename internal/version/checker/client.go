@@ -17,7 +17,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -83,19 +82,19 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 
 // OldMinimum returns the version with the given name at the root-level of the version control response.
 // NB: This will be deprecated eventually in favor of what is currently the `processes` root-level object.
-func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver version.SemVer, err error) {
+func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver version.OldSemVer, err error) {
 	defer mon.Task()(&ctx, serviceName)(&err)
 
 	versions, err := client.All(ctx)
 	if err != nil {
-		return version.SemVer{}, Error.Wrap(err)
+		return version.OldSemVer{}, Error.Wrap(err)
 	}
 
 	r := reflect.ValueOf(&versions)
 	f := reflect.Indirect(r).FieldByName(serviceName).Interface()
-	result, ok := f.(version.SemVer)
+	result, ok := f.(version.OldSemVer)
 	if !ok {
-		return version.SemVer{}, Error.New("invalid process name: %s", serviceName)
+		return version.OldSemVer{}, Error.New("invalid process name: %s", serviceName)
 	}
 	return result, nil
 }
@@ -110,7 +109,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	}
 
 	processesValue := reflect.ValueOf(versions.Processes)
-	field := processesValue.FieldByName(strings.Title(processName))
+	field := processesValue.FieldByName(kebabToPascal(processName))
 
 	processNameErr := Error.New("invalid process name: %s\n", processName)
 	if field == (reflect.Value{}) {
@@ -124,19 +123,6 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
-// ShouldUpdate downloads the rollout state from the versioncontrol server and
-// checks if a user with the given nodeID should update, and if so, to what version.
-func (client *Client) ShouldUpdate(ctx context.Context, processName string, nodeID storj.NodeID) (_ bool, _ version.Version, err error) {
-	defer mon.Task()(&ctx, processName)(&err)
-
-	process, err := client.Process(ctx, processName)
-	if err != nil {
-		return false, version.Version{}, Error.Wrap(err)
-	}
-
-	shouldUpdate := version.ShouldUpdate(process.Rollout, nodeID)
-	if shouldUpdate {
-		return true, process.Suggested, nil
-	}
-	return false, version.Version{}, nil
+func kebabToPascal(str string) string {
+	return strings.ReplaceAll(strings.Title(str), "-", "")
 }

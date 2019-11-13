@@ -10,12 +10,16 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
-import { AuthApi } from '@/api/auth';
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import InfoIcon from '@/../static/images/info.svg';
+import LogoIcon from '@/../static/images/Logo.svg';
+
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import { setUserId } from '@/utils/consoleLocalStorage';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
@@ -23,6 +27,9 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         HeaderlessInput,
         RegistrationSuccessPopup,
         VInfo,
+        AuthIcon,
+        LogoIcon,
+        InfoIcon,
     },
 })
 export default class RegisterArea extends Vue {
@@ -46,9 +53,9 @@ export default class RegisterArea extends Vue {
 
     private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
 
-    mounted(): void {
+    async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -58,7 +65,7 @@ export default class RegisterArea extends Vue {
         try {
             decoded = atob(ids);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Invalid Referral URL');
+            await this.$notify.error('Invalid Referral URL');
             this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
             return;
@@ -109,6 +116,7 @@ export default class RegisterArea extends Vue {
         this.user.shortName = value.trim();
     }
     public setPassword(value: string): void {
+        this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
@@ -150,9 +158,9 @@ export default class RegisterArea extends Vue {
 
     private async createUser(): Promise<void> {
         try {
-            this.userId = await this.auth.create(this.user, this.password , this.secret, this.refUserId);
+            this.userId = await this.auth.register(this.user, this.secret, this.refUserId);
 
-            setUserId(this.userId);
+            LocalData.setUserId(this.userId);
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
@@ -162,7 +170,7 @@ export default class RegisterArea extends Vue {
                 (registrationSuccessPopupRef as any).startResendEmailCountdown();
             }
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             this.isLoading = false;
         }

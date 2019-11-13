@@ -132,7 +132,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure the item shows when we list
-		listItems, _, err := streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		listItems, _, err := streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
 		require.NoError(t, err)
 		require.True(t, len(listItems) == 1)
 
@@ -142,7 +142,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segmentItems, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+		segmentItems, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 			CursorPosition: storj.SegmentPosition{
 				Index: 0,
@@ -158,7 +158,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 
 		// It should *still* show when we list, as we've only deleted one
 		// segment
-		listItems, _, err = streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		listItems, _, err = streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
 		require.NoError(t, err)
 		require.True(t, len(listItems) == 1)
 
@@ -168,7 +168,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		_ = streamStore.Delete(ctx, fullPath, storj.EncNull)
 
 		// Now it should have 0 list items
-		listItems, _, err = streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		listItems, _, err = streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
 		require.NoError(t, err)
 		require.True(t, len(listItems) == 0)
 	})
@@ -203,39 +203,39 @@ func TestStreamStoreList(t *testing.T) {
 		prefix := bucketName
 
 		// should list all
-		items, more, err := streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 10, meta.None)
+		items, more, err := streamStore.List(ctx, prefix, "", storj.EncNull, true, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, len(objects), len(items))
 
 		// should list first two and more = true
-		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 2, meta.None)
+		items, more, err = streamStore.List(ctx, prefix, "", storj.EncNull, true, 2, meta.None)
 		require.NoError(t, err)
 		require.True(t, more)
 		require.Equal(t, 2, len(items))
 
 		// should list only prefixes
-		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, false, 10, meta.None)
+		items, more, err = streamStore.List(ctx, prefix, "", storj.EncNull, false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 2, len(items))
 
 		// should list only BBBB bucket
 		prefix = storj.JoinPaths(bucketName, "bbbb")
-		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, false, 10, meta.None)
+		items, more, err = streamStore.List(ctx, prefix, "", storj.EncNull, false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 3, len(items))
 
 		// should list only BBBB bucket after afile
-		items, more, err = streamStore.List(ctx, prefix, "afile1", "", storj.EncNull, false, 10, meta.None)
+		items, more, err = streamStore.List(ctx, prefix, "afile1", storj.EncNull, false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 2, len(items))
 
 		// should list nothing
 		prefix = storj.JoinPaths(bucketName, "cccc")
-		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 10, meta.None)
+		items, more, err = streamStore.List(ctx, prefix, "", storj.EncNull, true, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 0, len(items))
@@ -281,7 +281,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	rs, err := eestream.NewRedundancyStrategyFromStorj(cfg.GetRedundancyScheme())
 	require.NoError(t, err)
 
-	segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segmentStore := segments.NewSegmentStore(metainfo, ec, rs)
 	assert.NotNil(t, segmentStore)
 
 	key := new(storj.Key)
@@ -293,7 +293,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold)
+	streamStore, err := streams.NewStreamStore(metainfo, segmentStore, segmentSize, encStore, blockSize, storj.EncNull, inlineThreshold, 8*memory.MiB.Int64())
 	require.NoError(t, err)
 
 	return metainfo, segmentStore, streamStore

@@ -34,13 +34,17 @@ type Dialer struct {
 	// TransferRate limits all read/write operations to go slower than
 	// the size per second if it is non-zero.
 	TransferRate memory.Size
+
+	// PoolCapacity is the maximum number of cached connections to hold.
+	PoolCapacity int
 }
 
 // NewDefaultDialer returns a Dialer with default timeouts set.
 func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 	return Dialer{
-		TLSOptions:  tlsOptions,
-		DialTimeout: 20 * time.Second,
+		TLSOptions:   tlsOptions,
+		DialTimeout:  20 * time.Second,
+		PoolCapacity: 5,
 	}
 }
 
@@ -171,5 +175,5 @@ func (d Dialer) DialAddressInsecure(ctx context.Context, address string) (_ *Con
 func (d Dialer) DialAddressUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return d.dialInsecure(ctx, address)
+	return d.dialUnencrypted(ctx, address)
 }
