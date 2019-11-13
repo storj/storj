@@ -44,6 +44,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
@@ -110,6 +111,10 @@ type API struct {
 	Payments struct {
 		Accounts  payments.Accounts
 		Inspector *stripecoinpayments.Endpoint
+	}
+
+	Referrals struct {
+		Service *referrals.Service
 	}
 
 	Console struct {
@@ -427,6 +432,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			return nil, errs.New("Auth token secret required")
 		}
 
+		peer.Referrals.Service, err = referrals.NewService(
+			peer.Log.Named("referrals:service"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			config.Referrals,
+			peer.Dialer,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
@@ -444,6 +459,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
+			peer.Referrals.Service,
 			peer.Console.Listener,
 		)
 	}

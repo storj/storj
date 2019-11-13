@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 const (
@@ -76,9 +77,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
+	config           Config
+	service          *console.Service
+	mailService      *mailservice.Service
+	referralsService *referrals.Service
 
 	listener net.Listener
 	server   http.Server
@@ -96,13 +98,14 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:              logger,
+		config:           config,
+		listener:         listener,
+		service:          service,
+		mailService:      mailService,
+		referralsService: referralsService,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -123,7 +126,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, referralsService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)

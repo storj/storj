@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 // ErrAuthAPI - console auth api error type.
@@ -25,6 +26,7 @@ var ErrAuthAPI = errs.Class("console auth api error")
 type Auth struct {
 	log                   *zap.Logger
 	service               *console.Service
+	referralsService      *referrals.Service
 	mailService           *mailservice.Service
 	ExternalAddress       string
 	LetUsKnowURL          string
@@ -33,10 +35,11 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, referralsService *referrals.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
 		log:                   log,
 		service:               service,
+		referralsService:      referralsService,
 		mailService:           mailService,
 		ExternalAddress:       externalAddress,
 		LetUsKnowURL:          letUsKnowURL,
@@ -83,13 +86,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var registerData struct {
-		FullName       string `json:"fullName"`
-		ShortName      string `json:"shortName"`
-		Email          string `json:"email"`
-		PartnerID      string `json:"partnerId"`
-		Password       string `json:"password"`
-		SecretInput    string `json:"secret"`
-		ReferrerUserID string `json:"referrerUserID"`
+		FullName      string `json:"fullName"`
+		ShortName     string `json:"shortName"`
+		Email         string `json:"email"`
+		PartnerID     string `json:"partnerId"`
+		Password      string `json:"password"`
+		SecretInput   string `json:"secret"`
+		ReferralToken string `json:"referralToken"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -103,6 +106,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	conn, err := a.referralsService.ReferralManagerConn(ctx)
+	if !ErrReferralsConfigMissing.Has(err) && err != nil {
+		a.serveJSONError(w, err)
+	}
+
+	//TODO: validate referral token
 
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
@@ -118,6 +128,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(w, err)
 	}
+
+	//TODO: save user id to referral manager
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
