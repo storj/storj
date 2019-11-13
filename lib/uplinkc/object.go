@@ -279,6 +279,11 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 }
 
 //export download_read
+// download_read reads data upto `length` bytes into `bytes` buffer and returns
+// the count of bytes read. The exact number of bytes returned depends on different
+// buffers and what is currently available.
+// When there is no more data available function returns 0.
+// On an error cErr is set, however some data may still be returned.
 func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) C.size_t {
 	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {

@@ -14,6 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -71,7 +72,8 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(balance)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(&balance)
 	if err != nil {
 		p.log.Error("failed to write json balance response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
@@ -120,6 +122,7 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(cards)
 	if err != nil {
 		p.log.Error("failed to write json list cards response", zap.Error(ErrPaymentsAPI.Wrap(err)))
@@ -193,9 +196,55 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(billingHistory)
 	if err != nil {
 		p.log.Error("failed to write json billing history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// TokenDeposit creates new deposit transaction and info about address and amount of newly created tx.
+func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+
+	defer mon.Task()(&ctx)(&err)
+
+	var requestData struct {
+		Amount string `json:"amount"`
+	}
+
+	if err = json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+	}
+
+	amount, err := payments.ParseTokenAmount(requestData.Amount)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+	}
+
+	tx, err := p.service.Payments().TokenDeposit(ctx, amount)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var responseData struct {
+		Address string `json:"address"`
+		Amount  string `json:"amount"`
+	}
+
+	responseData.Amount = tx.Amount.String()
+	responseData.Address = tx.Address
+
+	err = json.NewEncoder(w).Encode(responseData)
+	if err != nil {
+		p.log.Error("failed to write json token deposit response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

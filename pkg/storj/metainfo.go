@@ -77,9 +77,9 @@ func (create CreateObject) Object(bucket Bucket, path Path) Object {
 type ListDirection int8
 
 const (
-	// Before lists backwards from cursor, without cursor
+	// Before lists backwards from cursor, without cursor [NOT SUPPORTED]
 	Before = ListDirection(-2)
-	// Backward lists backwards from cursor, including cursor
+	// Backward lists backwards from cursor, including cursor [NOT SUPPORTED]
 	Backward = ListDirection(-1)
 	// Forward lists forwards from cursor, including cursor
 	Forward = ListDirection(1)
@@ -114,24 +114,12 @@ func (opts ListOptions) NextPage(list ObjectList) ListOptions {
 		return ListOptions{}
 	}
 
-	switch opts.Direction {
-	case Before, Backward:
-		return ListOptions{
-			Prefix:    opts.Prefix,
-			Cursor:    list.Items[0].Path,
-			Direction: Before,
-			Limit:     opts.Limit,
-		}
-	case After, Forward:
-		return ListOptions{
-			Prefix:    opts.Prefix,
-			Cursor:    list.Items[len(list.Items)-1].Path,
-			Direction: After,
-			Limit:     opts.Limit,
-		}
+	return ListOptions{
+		Prefix:    opts.Prefix,
+		Cursor:    list.Items[len(list.Items)-1].Path,
+		Direction: After,
+		Limit:     opts.Limit,
 	}
-
-	return ListOptions{}
 }
 
 // BucketListOptions lists objects
@@ -153,22 +141,11 @@ func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
 		return BucketListOptions{}
 	}
 
-	switch opts.Direction {
-	case Before, Backward:
-		return BucketListOptions{
-			Cursor:    list.Items[0].Name,
-			Direction: Before,
-			Limit:     opts.Limit,
-		}
-	case After, Forward:
-		return BucketListOptions{
-			Cursor:    list.Items[len(list.Items)-1].Name,
-			Direction: After,
-			Limit:     opts.Limit,
-		}
+	return BucketListOptions{
+		Cursor:    list.Items[len(list.Items)-1].Name,
+		Direction: After,
+		Limit:     opts.Limit,
 	}
-
-	return BucketListOptions{}
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database

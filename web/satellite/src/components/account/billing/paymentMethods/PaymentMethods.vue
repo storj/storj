@@ -66,9 +66,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import CardComponent from '@/components/account/billing/CardComponent.vue';
-import StorjInput from '@/components/account/billing/StorjInput.vue';
-import StripeInput from '@/components/account/billing/StripeInput.vue';
+import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
+import StorjInput from '@/components/account/billing/paymentMethods/StorjInput.vue';
+import StripeInput from '@/components/account/billing/paymentMethods/StripeInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';

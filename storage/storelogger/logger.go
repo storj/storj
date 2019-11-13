@@ -74,7 +74,6 @@ func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, f
 		zap.ByteString("prefix", opts.Prefix),
 		zap.ByteString("first", opts.First),
 		zap.Bool("recurse", opts.Recurse),
-		zap.Bool("reverse", opts.Reverse),
 	)
 	return store.store.Iterate(ctx, opts, func(ctx context.Context, it storage.Iterator) error {
 		return fn(ctx, storage.IteratorFunc(func(ctx context.Context, item *storage.ListItem) bool {
