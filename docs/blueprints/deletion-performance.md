@@ -170,7 +170,7 @@ Taking one of these approaches will require a study on how to keep the less amou
 
 1. Change logic to not send delete requests to storage nodes.
 
-#### Considerations
+### Considerations
 
 If we plan to release the feature in several steps:
 
