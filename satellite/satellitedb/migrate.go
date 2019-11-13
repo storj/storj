@@ -55,7 +55,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 			{
 				DB:          db.db,
-				Description: "Initial setup: merge all previous migrations into one step",
+				Description: "Initial setup",
 				Version:     65,
 				Action: migrate.SQL{
 					`CREATE TABLE accounting_rollups (
@@ -168,7 +168,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						award_credit_in_cents integer NOT NULL DEFAULT 0,
 						invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 						award_credit_duration_days integer,
-						invitee_credit_duration_days integer,
+						invitee_credit_duration_days integer DEFAULT 14,
 						redeemable_cap integer,
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
@@ -337,9 +337,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						type text NOT NULL DEFAULT 'invalid',
-						UNIQUE ( id, offer_id ),
 						PRIMARY KEY ( id )
 					);`,
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id) WHERE credits_earned_in_cents=0;`,
 
 					`INSERT INTO offers (
 						name,
