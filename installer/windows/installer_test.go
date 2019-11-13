@@ -77,6 +77,8 @@ func TestCompileDependencies(t *testing.T) {
 	tempBin = compileContext.CompileWithVersion(updaterPkg, versionInfo)
 	copyBin(compileContext, t, tempBin, updaterBin)
 
+	// TODO: goversioninfo stuff so msbuild won't fail
+
 	for name, bin := range map[string]string{
 		"storagenode":         storagenodeBin,
 		"storagenode-updater": updaterBin,
