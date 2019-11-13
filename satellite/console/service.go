@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/rewards"
@@ -79,6 +80,11 @@ type Service struct {
 
 // PaymentsService separates all payment related functionality
 type PaymentsService struct {
+	service *Service
+}
+
+// ReferralsService separates all referral related functionality
+type ReferralsService struct {
 	service *Service
 }
 
@@ -1351,4 +1357,58 @@ func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
 	}()
 
 	return cb(tx)
+}
+
+func (s *Service) GetReferralTokens(ctx context.Context, userID *uuid.UUID) (*pb.GetTokensResponse, error) {
+	if userID == nil {
+		return nil, ErrReferrals.New("invalid argument")
+	}
+	// dial the referral manager
+	conn, err := s.dialer.DialAddressID(ctx, s.config.ReferralManagerURL.Address, s.config.ReferralManagerURL.ID)
+	if err != nil {
+		return nil, ErrReferrals.Wrap(err)
+	}
+
+	client, err := conn.ReferralManagerClient()
+	if err != nil {
+		return nil, ErrReferrals.Wrap(err)
+	}
+
+	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
+		UserId: userID,
+		NodeId: s.config.ReferralManagerURL.ID,
+	})
+	if err != nil {
+		return nil, ErrReferrals.Wrap(err)
+	}
+
+	return response, nil
+}
+
+func (s *Service) RedeemReferralToken(ctx context.Context, token *uuid.UUID, userID *uuid.UUID) error {
+	if token == nil || userID == nil {
+		return ErrReferrals.New("invalid argument")
+	}
+
+	// dial the referral manager
+	conn, err := s.dialer.DialAddressID(ctx, s.config.ReferralManagerURL.Address, s.config.ReferralManagerURL.ID)
+	if err != nil {
+		return nil, ErrReferrals.Wrap(err)
+	}
+
+	client, err := conn.ReferralManagerClient()
+	if err != nil {
+		return nil, ErrReferrals.Wrap(err)
+	}
+
+	_, err = client.Redeem(ctx, &pb.RedeemRequest{
+		UserId:      userID,
+		Token:       token,
+		SatelliteId: s.config.ReferralManagerURL.ID,
+	})
+	if err != nil {
+		return ErrReferrals.Wrap(err)
+	}
+
+	return nil
 }
