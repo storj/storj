@@ -59,7 +59,7 @@ type typedStore interface {
 	Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (ranger.Ranger, Meta, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
-	List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 // streamStore is a store for streams. It implements typedStore as part of an ongoing migration
@@ -582,7 +582,7 @@ func pathForKey(raw string) paths.Unencrypted {
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
-func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (s *streamStore) List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO use flags with listing
@@ -611,9 +611,9 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
 	}
 
-	// We have to encrypt startAfter and endBefore but only if they don't contain a bucket.
-	// They contain a bucket if and only if the prefix has no bucket. This is why they are raw
-	// strings instead of a typed string: it's either a bucket or an unencrypted path component
+	// We have to encrypt startAfter but only if it doesn't contain a bucket.
+	// It contains a bucket if and only if the prefix has no bucket. This is why it is a raw
+	// string instead of a typed string: it's either a bucket or an unencrypted path component
 	// and that isn't known at compile time.
 	needsEncryption := prefix.Bucket() != ""
 	if needsEncryption {

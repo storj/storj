@@ -6,7 +6,6 @@ package postgreskv
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
@@ -254,28 +253,18 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Row
 	}
 	var query string
 	if !opi.opts.Recurse {
-		if opi.opts.Reverse {
-			query = "SELECT p, m FROM list_directory_reverse($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
-		} else {
-			query = "SELECT p, m FROM list_directory($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
-		}
+		query = "SELECT p, m FROM list_directory($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) ld(p, m)"
 	} else {
-		startCmp := ">="
-		orderDir := ""
-		if opi.opts.Reverse {
-			startCmp = "<="
-			orderDir = " DESC"
-		}
-		query = fmt.Sprintf(`
+		query = `
 			SELECT fullpath, metadata
 			  FROM pathdata
 			 WHERE bucket = $1::BYTEA
 			   AND ($2::BYTEA = ''::BYTEA OR fullpath >= $2::BYTEA)
 			   AND ($2::BYTEA = ''::BYTEA OR fullpath < bytea_increment($2::BYTEA))
-			   AND ($3::BYTEA = ''::BYTEA OR fullpath %s $3::BYTEA)
-			 ORDER BY fullpath%s
+			   AND ($3::BYTEA = ''::BYTEA OR fullpath >= $3::BYTEA)
+			 ORDER BY fullpath
 			 LIMIT $4
-		`, startCmp, orderDir)
+		`
 	}
 	return opi.client.pgConn.Query(query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }

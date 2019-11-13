@@ -18,7 +18,7 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
-      node('windows') { 
+      node('windows') {
         checkout scm
 
         unstash "storagenode-binaries"
@@ -51,14 +51,6 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    if (env.BRANCH_NAME == "master") {
-      /* This should only deploy to staging if the branch is master */
-      stage('Deploy to staging') {
-        sh 'make deploy'
-        echo "Current build result: ${currentBuild.result}"
-      }
-    }
-
     stage('Upload') {
       sh 'make binaries-upload'
       echo "Current build result: ${currentBuild.result}"
@@ -70,7 +62,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',

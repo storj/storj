@@ -78,6 +78,7 @@ func TestPeer_Run(t *testing.T) {
 	t.Run("random rollouts", func(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			config := versioncontrol.Config{
+				Address:  "127.0.0.1:0",
 				Versions: testServiceVersions,
 				Binary:   validRandVersions(t),
 			}
@@ -108,6 +109,7 @@ func TestPeer_Run(t *testing.T) {
 			field.Set(reflect.ValueOf(binary))
 
 			config := versioncontrol.Config{
+				Address:  "127.0.0.1:0",
 				Versions: testServiceVersions,
 				Binary:   versions,
 			}
@@ -139,7 +141,8 @@ func TestPeer_Run_error(t *testing.T) {
 				field.Set(reflect.ValueOf(binary))
 
 				config := versioncontrol.Config{
-					Binary: versions,
+					Address: "127.0.0.1:0",
+					Binary:  versions,
 				}
 
 				peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
