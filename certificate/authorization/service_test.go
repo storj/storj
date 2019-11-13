@@ -18,6 +18,8 @@ func TestService_GetOrCreate(t *testing.T) {
 	defer ctx.Cleanup()
 
 	authorizationDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authorizationDB.Close)
+
 	service := NewService(zaptest.NewLogger(t), authorizationDB)
 	require.NotNil(t, service)
 
@@ -57,6 +59,8 @@ func TestService_GetOrCreate_error(t *testing.T) {
 	defer ctx.Cleanup()
 
 	authorizationDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authorizationDB.Close)
+
 	service := NewService(zaptest.NewLogger(t), authorizationDB)
 	require.NotNil(t, service)
 
