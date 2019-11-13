@@ -12,8 +12,10 @@ package referralmanager;
 service ReferralManager {
   // GetTokens retrieves a list of unredeemed tokens for a user
   rpc GetTokens(GetTokensRequest) returns (GetTokensResponse);
-  // Redeem marks a token as redeemed
-  rpc Redeem(RedeemRequest) returns (RedeemResponse);
+  // ValidateToken validates a referral token from referral manager
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  // SaveUserInfo saves newly created user info in referral manager
+  rpc SaveUserInfo(SaveUserInfoRequest) returns (SaveUserInfoResponse);
 }
 
 message GetTokensRequest{
@@ -22,19 +24,19 @@ message GetTokensRequest{
 }
 
 message GetTokensResponse {
- repeated Token tokens  = 1;
+ repeated bytes token = 1;
 }
 
-message Token {
-    bytes token = 1;
-    bytes owner_id = 2;
-}
-
-message RedeemRequest {
-    bytes user_id = 1;
+message ValidateTokenRequest {
     bytes token = 2;
     bytes node_id = 3;
 }
 
-message RedeemResponse{}
+message ValidateTokenResponse{}
 
+message SaveUserInfoRequest {
+    bytes token = 1;
+    bytes user_id = 2;
+}
+
+message SaveUserInfoResponse {}
