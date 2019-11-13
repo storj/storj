@@ -328,7 +328,7 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) 
 
 		trashVerPath := blobPathForFormatVersion(trashBasePath, info.StorageFormatVersion())
 
-		// ensure the dirs exist for trash path
+		// ensure the dirs exist for blobs path
 		err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
 		if err != nil && !os.IsExist(err) {
 			return err
