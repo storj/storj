@@ -490,6 +490,12 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
 );
+CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id text NOT NULL,
+	rate bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -4321,6 +4327,76 @@ func (f StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) value() interfac
 
 func (StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) _Column() string { return "created_at" }
 
+type StripecoinpaymentsTxConversionRate struct {
+	TxId      string
+	Rate      []byte
+	CreatedAt time.Time
+}
+
+func (StripecoinpaymentsTxConversionRate) _Table() string {
+	return "stripecoinpayments_tx_conversion_rates"
+}
+
+type StripecoinpaymentsTxConversionRate_Update_Fields struct {
+}
+
+type StripecoinpaymentsTxConversionRate_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripecoinpaymentsTxConversionRate_TxId(v string) StripecoinpaymentsTxConversionRate_TxId_Field {
+	return StripecoinpaymentsTxConversionRate_TxId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_TxId_Field) _Column() string { return "tx_id" }
+
+type StripecoinpaymentsTxConversionRate_Rate_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsTxConversionRate_Rate(v []byte) StripecoinpaymentsTxConversionRate_Rate_Field {
+	return StripecoinpaymentsTxConversionRate_Rate_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_Rate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_Rate_Field) _Column() string { return "rate" }
+
+type StripecoinpaymentsTxConversionRate_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsTxConversionRate_CreatedAt(v time.Time) StripecoinpaymentsTxConversionRate_CreatedAt_Field {
+	return StripecoinpaymentsTxConversionRate_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id              []byte
 	Email           string
@@ -6731,6 +6807,30 @@ func (obj *postgresImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx conte
 
 }
 
+func (obj *postgresImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
+	stripecoinpayments_tx_conversion_rate_rate StripecoinpaymentsTxConversionRate_Rate_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := stripecoinpayments_tx_conversion_rate_tx_id.value()
+	__rate_val := stripecoinpayments_tx_conversion_rate_rate.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate, stripecoinpayments_tx_conversion_rates.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __tx_id_val, __rate_val, __created_at_val)
+
+	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
+	err = obj.driver.QueryRow(__stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_tx_conversion_rate, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -8385,6 +8485,27 @@ func (obj *postgresImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_Creat
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_tx_conversion_rate, nil
 
 }
 
@@ -10135,6 +10256,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_tx_conversion_rates;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_invoice_project_records;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10943,6 +11074,18 @@ func (rx *Rx) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
+	stripecoinpayments_tx_conversion_rate_rate StripecoinpaymentsTxConversionRate_Rate_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StripecoinpaymentsTxConversionRate(ctx, stripecoinpayments_tx_conversion_rate_tx_id, stripecoinpayments_tx_conversion_rate_rate)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -11466,6 +11609,16 @@ func (rx *Rx) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_Period
 		return
 	}
 	return tx.Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx, stripecoinpayments_invoice_project_record_project_id, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end)
+}
+
+func (rx *Rx) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx, stripecoinpayments_tx_conversion_rate_tx_id)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -12085,6 +12238,11 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
 
+	Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
+		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
+		stripecoinpayments_tx_conversion_rate_rate StripecoinpaymentsTxConversionRate_Rate_Field) (
+		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
@@ -12309,6 +12467,10 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
+		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
+		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (

@@ -38,6 +38,11 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
+	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencyLTCT, coinpayments.CurrencyUSD)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		coinpayments.CreateTX{
 			Amount:      amount,
@@ -52,6 +57,10 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 
 	key, err := coinpayments.GetTransacationKeyFromURL(tx.CheckoutURL)
 	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if err = tokens.service.db.Transactions().LockRate(ctx, tx.ID, rate); err != nil {
 		return nil, Error.Wrap(err)
 	}
 

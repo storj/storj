@@ -940,3 +940,19 @@ read limitoffset (
     where stripecoinpayments_invoice_project_record.state = ?
     orderby desc stripecoinpayments_invoice_project_record.created_at
 )
+
+model stripecoinpayments_tx_conversion_rate (
+    key tx_id
+
+    field tx_id        text
+    field rate         blob
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_tx_conversion_rate ()
+
+read one (
+    select stripecoinpayments_tx_conversion_rate
+    where stripecoinpayments_tx_conversion_rate.tx_id = ?
+)

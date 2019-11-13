@@ -24,6 +24,10 @@ type TransactionsDB interface {
 	Update(ctx context.Context, updates []TransactionUpdate, applies coinpayments.TransactionIDList) error
 	// Consume marks transaction as consumed, so it won't participate in apply account balance loop.
 	Consume(ctx context.Context, id coinpayments.TransactionID) error
+	// LockRate locks conversion rate for transaction.
+	LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) error
+	// GetLockedRate returns locked conversion rate for transaction or error if non exists.
+	GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (*big.Float, error)
 	// ListPending returns TransactionsPage with pending transactions.
 	ListPending(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
 	// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.

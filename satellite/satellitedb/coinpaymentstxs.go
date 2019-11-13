@@ -116,6 +116,38 @@ func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments
 	return err
 }
 
+// LockRate locks conversion rate for transaction.
+func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) error {
+	buff, err := rate.GobEncode()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	_, err = db.db.Create_StripecoinpaymentsTxConversionRate(ctx,
+		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
+		dbx.StripecoinpaymentsTxConversionRate_Rate(buff))
+
+	return err
+}
+
+// GetLockedRate returns locked conversion rate for transaction or error if non exists.
+func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (*big.Float, error) {
+	var rate *big.Float
+
+	dbxRate, err := db.db.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx,
+		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = rate.GobDecode(dbxRate.Rate); err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return rate, nil
+}
+
 // ListPending returns paginated list of pending transactions.
 func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
 	var page stripecoinpayments.TransactionsPage

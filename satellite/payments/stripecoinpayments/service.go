@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/stripe/stripe-go"
@@ -35,6 +36,7 @@ type Config struct {
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -46,6 +48,10 @@ type Service struct {
 	projectsDB   console.Projects
 	stripeClient *client.API
 	coinPayments *coinpayments.Client
+
+	mu       sync.Mutex
+	rates    coinpayments.CurrencyRateInfos
+	ratesErr error
 }
 
 // NewService creates a Service instance.
@@ -201,7 +207,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	usdRatio, err := service.getUSDRatio(ctx, coinpayments.CurrencyLTCT)
+	rate, err := service.db.Transactions().GetLockedRate(ctx, tx.ID)
 	if err != nil {
 		return err
 	}
@@ -210,7 +216,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	amount := new(big.Float).Mul(usdRatio, &tx.Received)
+	amount := new(big.Float).Mul(rate, &tx.Amount)
 
 	f, _ := amount.Float64()
 	cents := int64(math.Floor(f * 100))
@@ -229,25 +235,42 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 	return err
 }
 
-// getUSDRatio get Currency/USD ratio for provided currency.
-func (service *Service) getUSDRatio(ctx context.Context, currency coinpayments.Currency) (_ *big.Float, err error) {
+// UpdateRates fetches new rates and updates service rate cache.
+func (service *Service) UpdateRates(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rates, err := service.coinPayments.ConversionRates().Get(ctx)
-	if err != nil {
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.rates = rates
+	service.ratesErr = err
+
+	return err
+}
+
+// GetRate returns conversion rate for specified currencies.
+func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.Currency) (_ *big.Float, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if service.ratesErr != nil {
 		return nil, err
 	}
 
-	curr, ok := rates[currency]
+	info1, ok := service.rates[curr1]
 	if !ok {
-		return nil, errs.New("no rate for currency %s", currency)
+		return nil, errs.New("no rate for currency %s", curr1)
 	}
-	usd, ok := rates[coinpayments.CurrencyUSD]
+	info2, ok := service.rates[curr2]
 	if !ok {
-		return nil, errs.New("no rate for currency %s", coinpayments.CurrencyUSD)
+		return nil, errs.New("no rate for currency %s", curr2)
 	}
 
-	return new(big.Float).Quo(&curr.RateBTC, &usd.RateBTC), nil
+	return new(big.Float).Quo(&info1.RateBTC, &info2.RateBTC), nil
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
