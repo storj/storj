@@ -11,6 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/internal/useragent"
 )
 
 var (
@@ -116,9 +118,13 @@ func (service *PartnersService) ByName(ctx context.Context, name string) (Partne
 }
 
 // ByUserAgent looks up partner by user agent.
-func (service *PartnersService) ByUserAgent(ctx context.Context, useragent string) (PartnerInfo, error) {
-	// TODO:
-	return service.db.ByName(ctx, useragent)
+func (service *PartnersService) ByUserAgent(ctx context.Context, userAgentString string) (PartnerInfo, error) {
+	info, err := useragent.Parse(userAgentString)
+	if err != nil {
+		return PartnerInfo{}, ErrPartners.Wrap(err)
+	}
+
+	return service.db.ByName(ctx, info.Product.Name)
 }
 
 // All returns all partners.

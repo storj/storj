@@ -748,39 +748,15 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// TODO set default Redundancy if not set
-
 	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
-		// TODO: handle user agent
-		var partnerID uuid.UUID
-		err = partnerID.UnmarshalJSON(req.GetPartnerId())
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		// partnerID not set
-		if partnerID.IsZero() {
-			return resp, rpcstatus.Error(rpcstatus.AlreadyExists, "Bucket already exists")
-		}
-
-		//update the bucket
-		bucket.PartnerID = partnerID
-		bucket, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
-
-		pbBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return resp, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: pbBucket,
-		}, nil
+		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 	}
 
 	// create the bucket
@@ -792,19 +768,21 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		convBucket, err := convertBucketToProto(ctx, bucket)
 		if err != nil {
-			return resp, err
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		return &pb.BucketCreateResponse{
 			Bucket: convBucket,
 		}, nil
 	}
-	return nil, Error.Wrap(err)
+
+	// some other error happened
+	return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 }
 
 // DeleteBucket deletes a bucket
@@ -905,7 +883,7 @@ func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.Reque
 	}
 
 	if len(header.UserAgent) == 0 {
-		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "user agent missing")
+		return uuid.UUID{}, nil
 	}
 
 	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
@@ -929,7 +907,10 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 
 	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
-		return err
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+	if partnerID.IsZero() {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "user agent or partner id missing")
 	}
 
 	// check if attribution is set for given bucket
