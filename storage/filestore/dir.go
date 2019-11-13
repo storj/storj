@@ -320,6 +320,7 @@ func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef
 		dir.mu.Lock()
 		dir.deleteQueue = append(dir.deleteQueue, trashPath)
 		dir.mu.Unlock()
+		mon.Event("delete_deferred_to_queue")
 	}
 
 	// ignore is-busy errors, they are still in the queue but no need to notify
