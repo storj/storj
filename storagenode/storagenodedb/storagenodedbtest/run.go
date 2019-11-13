@@ -6,15 +6,22 @@ package storagenodedbtest
 // This package should be referenced only in test files!
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 
+	"github.com/mattn/go-sqlite3"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/private/dbutil/utccheck"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
+
+func init() {
+	sql.Register("sqlite3+utccheck", utccheck.WrapDriver(&sqlite3.SQLiteDriver{}))
+}
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
@@ -31,6 +38,7 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 			Storage: storageDir,
 			Info:    filepath.Join(storageDir, "piecestore.db"),
 			Info2:   filepath.Join(storageDir, "info.db"),
+			Driver:  "sqlite3+utccheck",
 			Pieces:  storageDir,
 		}
 
