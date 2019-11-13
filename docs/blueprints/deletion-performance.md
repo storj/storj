@@ -147,20 +147,35 @@ Taking one of these approaches will require a study on how to keep the less amou
 
 ## Implementation
 
-1. Adapt protocol buffers definitions for storage node delete operations.
-1. Storage nodes:
-    1. Adapt the delete endpoint to receive requests from the satellite.
-1. Satellite:
-    1. Adapt delete endpoint to receive requests from the uplink.
-    1. Implement delete request logic with long-tail cancellations like uploads.
-    1. Implement ["leaky bucket as a meter" algorithm](https://en.wikipedia.org/wiki/Leaky_bucket) for controlling backpressure.
-1. Uplink:
-    1. Change logic to not send delete requests to storage nodes.
+### (1) Storage nodes:
+
+1. Adapt protocol buffers definitions for delete operation.
+       Satellite doesn't have to send order limits; it only has to send piece ID.
+1. Adapt the delete endpoint to receive requests from the satellite.
+
+### (2) Satellite:
+
+1. Implement delete request logic with long-tail cancellations like uploads.
+1. Implement ["leaky bucket as a meter" algorithm](https://en.wikipedia.org/wiki/Leaky_bucket) for controlling backpressure.
+1. Adapt protocol buffers definitions for delete operation.
+   The current uplink RPC requests are:
+
+        1. `BeginDeleteObject` - Retreives the _stream ID_.
+        1. `ListSegments` - Uses _stream ID_  for retrieving the position index of all the segments.
+        1. `BeginDeleteSegments` - Uses the _stream ID_ and position index for retrieving a list of _addressed order limits_.
+
+   Because uplink won't send the delete requests to the storage nodes, the delete operation we can simplify it with one satellite request. The satellite will respond, with an empty body, when the deletion ends.
+
+### (3) Uplink:
+
+1. Change logic to not send delete requests to storage nodes.
+
+#### Considerations
 
 If we plan to release the feature in several steps:
 
-1. Implement and independently release (2) and (3) without removing the logic of the current functionality.
-1. Implement and release (4).
+1. Implement and independently release (1) and (2) without removing the logic of the current functionality.
+1. Implement and release (3).
 1. Announce when previous versions will stop to work properly.
 1. Remove and independently release the delete old logic from the storage node and satellite.
 
@@ -168,3 +183,4 @@ If we plan to release the feature in several steps:
 ## Open issues (if applicable)
 
 1. Should we track how much each storage node is storing extra due not sending deletes? For the storage nodes that accumulate too much garbage, we could send garbage collection request outside of the normal schedule.
+1. Discuss backward-incompatibility that we may introduce when adapting the protocol buffer definitions in the storage node and satellite side.
