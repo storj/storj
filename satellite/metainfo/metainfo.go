@@ -438,7 +438,7 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -924,7 +924,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", true, 1, 0)
 	if err != nil {
 		endpoint.log.Error("error while listing segments", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1292,8 +1292,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	metaflags := meta.All
 	// TODO use flags
-	// TODO find out how EncryptedCursor -> startAfter/endAfter
-	segments, more, err := endpoint.metainfo.List(ctx, prefix, string(req.EncryptedCursor), "", req.Recursive, req.Limit, metaflags)
+	segments, more, err := endpoint.metainfo.List(ctx, prefix, string(req.EncryptedCursor), req.Recursive, req.Limit, metaflags)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

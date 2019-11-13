@@ -40,6 +40,7 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { LocalData } from '@/utils/localData';
 
 const {
     SETUP_ACCOUNT,
@@ -109,7 +110,13 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        const selectedProjectId: string | null = LocalData.getSelectedProjectId();
+        if (selectedProjectId) {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
+        } else {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
+        }
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {

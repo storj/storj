@@ -805,6 +805,7 @@ model graceful_exit_transfer_queue (
     field node_id             blob
     field path                blob
     field piece_num           int
+    field root_piece_id       blob       ( nullable )
     field durability_ratio    float64    ( updatable )
     field queued_at           utimestamp ( autoinsert )
     field requested_at        utimestamp ( updatable, nullable )
@@ -883,6 +884,11 @@ model coinpayments_transaction (
 create coinpayments_transaction ()
 update coinpayments_transaction ( where coinpayments_transaction.id = ? )
 
+read all (
+    select coinpayments_transaction
+    where coinpayments_transaction.user_id = ?
+    orderby desc coinpayments_transaction.created_at
+)
 read limitoffset (
     select coinpayments_transaction
     where coinpayments_transaction.created_at <= ?
