@@ -47,8 +47,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		AND free_disk >= ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
-		AND (last_contact_success > ?
-		     OR last_contact_success > last_contact_failure)`
+		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
@@ -103,8 +102,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND (last_contact_success > ?
-		     OR last_contact_success > last_contact_failure)`
+		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
@@ -327,7 +325,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND (
-				last_contact_success < last_contact_failure AND last_contact_success < $2
+				last_contact_success < $2
 			)
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
@@ -361,7 +359,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
+			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
@@ -392,7 +390,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
-		  AND (last_contact_success > ? OR last_contact_success > last_contact_failure)`),
+		  AND last_contact_success > ?`),
 		time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
 		return nil, err
