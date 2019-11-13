@@ -5,8 +5,7 @@ package rewards
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
+	"encoding/base32"
 	"path"
 
 	"github.com/zeebo/errs"
@@ -53,28 +52,19 @@ func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *Partn
 	}
 }
 
-// GeneratePartnerLink returns base64 encoded partner referral link.
+// parnterIDEncoding is base32 without padding
+var parnterIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+
+// GeneratePartnerLink returns partner referral link.
 func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerName string) ([]string, error) {
 	partner, err := service.db.ByName(ctx, offerName)
 	if err != nil {
 		return nil, ErrPartners.Wrap(err)
 	}
 
-	type info struct {
-		UserID    string
-		PartnerID string
-	}
-
-	referralInfo := &info{UserID: "", PartnerID: partner.ID}
-	refJSON, err := json.Marshal(referralInfo)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	// TODO: why is this using base64?
-	encoded := base64.StdEncoding.EncodeToString(refJSON)
-
 	var links []string
 	for _, domain := range service.domains {
+		encoded := parnterIDEncoding.EncodeToString([]byte(partner.ID))
 		links = append(links, path.Join(domain, "ref", encoded))
 	}
 

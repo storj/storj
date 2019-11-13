@@ -28,9 +28,11 @@ type TransactionsDB interface {
 	LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) error
 	// GetLockedRate returns locked conversion rate for transaction or error if non exists.
 	GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (*big.Float, error)
+	// ListAccount returns all transaction for specific user.
+	ListAccount(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// ListPending returns TransactionsPage with pending transactions.
 	ListPending(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
-	// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
+	// List Unapplied returns TransactionsPage with completed transaction that should be applied to account balance.
 	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
 }
 
