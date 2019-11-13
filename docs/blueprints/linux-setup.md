@@ -30,7 +30,21 @@ All these distributions are shipped with systemD as a service manager.
 
 
 ## Design
-[TBD]
+
+- support for debian packaging, dirty way
+- well-formed debian package
+- convert to RPM (may need some adaptations: for instance there are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs)
+- create the manpage (automatically?)
+- When installing the package, it should prompt for user input for:
+  - Wallet address
+  - Email
+  - External address/port
+  - Advertised bandwidth
+  - Advertised storage
+  - Identity directory
+  - Installation directory
+  - Storage directory
+- Generate `config.yaml` file with the user configuration.
 
 ## Rationale
 
@@ -72,7 +86,7 @@ The package could then be distributed:
 - from our own repository
 - in a user repository if it follows the guidelines
 
-When building our package, we can execute  pre-installation and post-installation scripts. We could retrieve the storage node configuration (from command line for instance) from the user using one of these scripts.
+For retrieving user inputs we should use debconf for Debian packaging. There are no debconf-like for rpm, so we would have to implement a post-install script for it.
 
 #### Agnostic Packaging
 There are [3 major agnostic packaging system](https://www.ostechnix.com/linux-package-managers-compared-appimage-vs-snap-vs-flatpak/) for linux: AppImage, FlatPak and Snap. As AppImage and FlatPak are more desktop application oriented, we choose to focus on Snap.
@@ -121,14 +135,38 @@ We are thinking of using native packaging for the following reasons:
 ### Updater
 The updater could either be a service or a cron job.
 
-## Implementation
 
-- Implement a service running storagenode binary.
+### Updater-updater
+
+## Implementation
+### Debian package
+- Use nfpm to generate a "draft" package. This will be a binary package (not following debian guidelines). Nevertheless, it will allow us to implement and test in parallel the different parts of the packaging solution.
+- Implement a systemD service running storagenode binary.
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
-- Implement the storage node update
-- Implement the script that gathers the storage node configuration and save it as config.yaml 
-- ...
+- Implement the storage node updater
+- Create the debconf script that will gather user inputs and saves the config.yaml file in the configuration folder.
+    - http://www.fifi.org/doc/debconf-doc/tutorial.html
+- create the man page
+
+### Repository
+- serve the package using repropro
+    - https://wiki.debian.org/DebianRepository/SetupWithReprepro
+    - or use an already existing docker image (like https://github.com/bbinet/docker-reprepro)
+
+### RPM
+- Generate a script to gather user input: https://superuser.com/questions/408852/is-it-possible-to-get-users-input-during-installation-of-rpm
+
+### Tests
+- Manual testing:
+    - test the installation of the downloaded debian package on different debian-based distributions: debian, ubuntu and raspbian
+    - test the installation using a PPA on these configurations.
+- Implement tests using debconf unattended installation
+    - [debconf(7) man page](https://manpages.debian.org/testing/debconf-doc/debconf.7.en.html)
+
+### Continuous Integration
+
+
 ## Wrapup
 
 [Who will archive the blueprint when completed? What documentation needs to be updated to preserve the relevant information from the blueprint?]
