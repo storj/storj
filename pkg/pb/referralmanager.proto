@@ -20,7 +20,6 @@ service ReferralManager {
 
 message GetTokensRequest{
     bytes user_id = 1;
-    bytes owner_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetTokensResponse {
@@ -28,8 +27,8 @@ message GetTokensResponse {
 }
 
 message ReserveTokenRequest {
-    bytes token = 2;
-    bytes redeeming_satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes token = 1;
+    bytes redeeming_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message ReserveTokenResponse{}
