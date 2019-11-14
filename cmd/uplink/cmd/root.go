@@ -158,11 +158,11 @@ func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket)
 
 func convertError(err error, path fpath.FPath) error {
 	if storj.ErrBucketNotFound.Has(err) {
-		return fmt.Errorf("Bucket not found: %s", path.Bucket())
+		return fmt.Errorf("bucket not found: %s", path.Bucket())
 	}
 
 	if storj.ErrObjectNotFound.Has(err) {
-		return fmt.Errorf("Object not found: %s", path.String())
+		return fmt.Errorf("object not found: %s", path.String())
 	}
 
 	return err

@@ -1,3 +1,5 @@
+//lint:file-ignore * generated file
+
 // Code generated for package schema by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // 2018092201_initial-tables.down.sql

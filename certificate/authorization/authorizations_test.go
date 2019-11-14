@@ -23,8 +23,7 @@ import (
 )
 
 var (
-	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
-	t1     = Token{
+	t1 = Token{
 		UserID: "user@mail.test",
 		Data:   [tokenDataLength]byte{1, 2, 3},
 	}
@@ -189,8 +188,7 @@ func TestNewClient(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-
-	ident, err := idents.NewIdentity()
+	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 	require.NotNil(t, ident)
 
