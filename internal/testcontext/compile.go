@@ -45,7 +45,9 @@ func (ctx *Context) Compile(pkg string, preArgs ...string) string {
 		args = append(args, "-race")
 	}
 	if drpcEnabled {
-		args = append(args, "-tags=drpc")
+		args = append(args, "-tags=drpc,unittest")
+	} else {
+		args = append(args, "-tag=unittest")
 	}
 	args = append(args, "-o", exe, pkg)
 
