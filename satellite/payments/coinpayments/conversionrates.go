@@ -48,10 +48,8 @@ func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	const precision uint = 256
-
 	parseBigFloat := func(s string) (*big.Float, error) {
-		f, _, err := big.ParseFloat(s, 10, precision, big.ToNearestEven)
+		f, _, err := big.ParseFloat(s, 10, 256, big.ToNearestEven)
 		return f, err
 	}
 
