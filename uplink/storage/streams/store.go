@@ -162,8 +162,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	eofReader := NewEOFReader(data)
 	for !eofReader.isEOF() && !eofReader.hasError() {
-		currentSegment++
-
 		// generate random key for encrypting the segment's content
 		_, err := rand.Read(contentKey[:])
 		if err != nil {
