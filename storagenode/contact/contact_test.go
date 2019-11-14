@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/pkg/pb"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/version"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/version"
 )
 
 func TestInfo_IsZero(t *testing.T) {

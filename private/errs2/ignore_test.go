@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/errs2"
 	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/private/errs2"
 )
 
 func TestIsCanceled(t *testing.T) {

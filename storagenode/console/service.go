@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"

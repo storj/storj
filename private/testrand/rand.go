@@ -10,8 +10,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/private/memory"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 // Intn returns, as an int, a non-negative pseudo-random number in [0,n)

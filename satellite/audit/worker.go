@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/sync2"
-	"storj.io/storj/pkg/storj"
 )
 
 // Error is the default audit errs class.

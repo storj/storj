@@ -12,12 +12,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 )
