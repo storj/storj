@@ -491,33 +491,10 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		var orderLimit pb.OrderLimit
-		var pieceHash pb.PieceHash
-
-		if pieceReader.StorageFormatVersion() == 0 {
-			// v0 stores this information in SQL
-			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-			if err != nil {
-				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = *info.OrderLimit
-			pieceHash = *info.UplinkPieceHash
-		} else {
-			//v1+ stores this information in the file
-			header, err := pieceReader.GetPieceHeader()
-			if err != nil {
-				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = header.OrderLimit
-			pieceHash = pb.PieceHash{
-				PieceId:   limit.PieceId,
-				Hash:      header.GetHash(),
-				PieceSize: pieceReader.Size(),
-				Timestamp: header.GetCreationTime(),
-				Signature: header.GetSignature(),
-			}
+		pieceHash, orderLimit, err := endpoint.store.GetHashAndLimit(ctx, limit.SatelliteId, limit.PieceId, pieceReader)
+		if err != nil {
+			endpoint.log.Error("could not get hash and order limit", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})

@@ -6,6 +6,7 @@ package postgreskv
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/lib/pq"
@@ -42,6 +43,44 @@ func TestSuite(t *testing.T) {
 	// zap := zaptest.NewLogger(t)
 	// loggedStore := storelogger.New(zap, store)
 	testsuite.RunTests(t, store)
+}
+
+func TestThatMigrationActuallyHappened(t *testing.T) {
+	store, cleanup := newTestPostgres(t)
+	defer cleanup()
+
+	rows, err := store.pgConn.Query(`
+		SELECT prosrc
+		  FROM pg_catalog.pg_proc p,
+		       pg_catalog.pg_namespace n
+		 WHERE p.pronamespace = n.oid
+		       AND p.proname = 'list_directory'
+		       AND n.nspname = ANY(current_schemas(true))
+		       AND p.pronargs = 4
+	`)
+	if err != nil {
+		t.Fatalf("failed to get list_directory source: %v", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Fatalf("failed to close rows: %v", err)
+		}
+	}()
+
+	numFound := 0
+	for rows.Next() {
+		numFound++
+		if numFound > 1 {
+			t.Fatal("there are multiple eligible list_directory() functions??")
+		}
+		var source string
+		if err := rows.Scan(&source); err != nil {
+			t.Fatalf("failed to read list_directory source: %v", err)
+		}
+		if strings.Contains(source, "distinct_prefix (truncatedpath)") {
+			t.Fatal("list_directory() function in pg appears to be the oldnbusted one")
+		}
+	}
 }
 
 func BenchmarkSuite(b *testing.B) {

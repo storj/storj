@@ -29,7 +29,7 @@ func init() {
 	if interactive {
 		return
 	}
-	
+
 	// Check if the 'run' command is invoked
 	if len(os.Args) < 2 {
 		return
@@ -61,28 +61,26 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				log.Println("Interrogate request received.")
-				changes <- c.CurrentStatus
-				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-				time.Sleep(100 * time.Millisecond)
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				log.Println("Stop/Shutdown request received.")
-				changes <- svc.Status{State: svc.StopPending}
+	for c := range r {
+		switch c.Cmd {
+		case svc.Interrogate:
+			log.Println("Interrogate request received.")
+			changes <- c.CurrentStatus
+			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+			time.Sleep(100 * time.Millisecond)
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			log.Println("Stop/Shutdown request received.")
+			changes <- svc.Status{State: svc.StopPending}
 
-				cancel()
-				// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
-				time.Sleep(3 * time.Second)
-				// After returning the Windows Service is stopped and the process terminates
-				return
-			default:
-				log.Println("Unexpected control request:", c)
-			}
+			cancel()
+			// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
+			time.Sleep(3 * time.Second)
+			// After returning the Windows Service is stopped and the process terminates
+			return
+		default:
+			log.Println("Unexpected control request:", c)
 		}
 	}
+	return
 }
