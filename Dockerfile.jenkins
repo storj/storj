@@ -75,7 +75,11 @@ RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/josephspurrier/goversioninfo
 RUN go get github.com/loov/leakcheck
-RUN go get honnef.co/go/tools/cmd/staticcheck
+
+RUN go get honnef.co/go/tools/cmd/staticcheck \
+    && cd $(go env GOPATH)/honnef.co/go/tools/cmd/staticcheck \
+    && git checkout 2019.2.2 \
+    && go get && go install
 
 # Output formatters
 
