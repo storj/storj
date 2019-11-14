@@ -134,7 +134,10 @@ We are thinking of using native packaging for the following reasons:
 
 ### Updater
 The updater could either be a service or a cron job.
+It should query the version server to check if an update should occur as specified in the [storage node automatic updater design doc](storage-node-automatic-updater.md). In this case, it should:
+- ...
 
+[TODO: see if we can use dpkg command from a service or a cron job - is it debian compliant?]
 
 ### Updater-updater
 
@@ -148,9 +151,11 @@ The updater could either be a service or a cron job.
 - Create the debconf script that will gather user inputs and saves the config.yaml file in the configuration folder.
     - http://www.fifi.org/doc/debconf-doc/tutorial.html
 - create the man page
+- add a menu entry
+    - https://www.debian.org/doc/packaging-manuals/menu.html/ch3.html
 
 ### Repository
-- serve the package using repropro
+- serve the package using reprepro
     - https://wiki.debian.org/DebianRepository/SetupWithReprepro
     - or use an already existing docker image (like https://github.com/bbinet/docker-reprepro)
 
