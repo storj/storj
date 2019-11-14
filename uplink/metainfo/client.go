@@ -359,10 +359,15 @@ type SetBucketAttributionParams struct {
 }
 
 func (params *SetBucketAttributionParams) toRequest(header *pb.RequestHeader) *pb.BucketSetAttributionRequest {
+	var bytes []byte
+	if !params.PartnerID.IsZero() {
+		bytes = params.PartnerID[:]
+	}
+
 	return &pb.BucketSetAttributionRequest{
 		Header:    header,
 		Name:      []byte(params.Bucket),
-		PartnerId: params.PartnerID[:],
+		PartnerId: bytes,
 	}
 }
 

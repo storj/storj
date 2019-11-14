@@ -889,7 +889,6 @@ func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.Reque
 	}
 
 	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
-	fmt.Printf("==>>>>>  %v %v \n", string(header.UserAgent), partner.UUID)
 	if err != nil || partner.UUID == nil {
 		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
 	}
