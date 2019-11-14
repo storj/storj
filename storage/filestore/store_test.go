@@ -529,3 +529,160 @@ func TestStoreTraversals(t *testing.T) {
 	assert.Equal(t, err, expectedErr)
 	assert.Equal(t, 2, iterations)
 }
+
+func TestTrashAndRestore(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	require.NoError(t, err)
+	ctx.Check(store.Close)
+
+	size := memory.KB
+
+	type testfile struct {
+		data      []byte
+		formatVer storage.FormatVersion
+	}
+	type testref struct {
+		key   []byte
+		files []testfile
+	}
+	type testnamespace struct {
+		namespace []byte
+		refs      []testref
+	}
+
+	namespaces := []testnamespace{
+		{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
+				{
+					// Has v0 and v1
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
+				},
+				{
+					// Has v0 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+				{
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+			},
+		},
+		{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
+				{
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, namespace := range namespaces {
+		for _, ref := range namespace.refs {
+			blobref := storage.BlobRef{
+				Namespace: namespace.namespace,
+				Key:       ref.key,
+			}
+
+			for _, file := range ref.files {
+				var w storage.BlobWriter
+				if file.formatVer == filestore.FormatV0 {
+					fStore, ok := store.(interface {
+						TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+					})
+					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
+					w, err = fStore.TestCreateV0(ctx, blobref)
+				} else if file.formatVer == filestore.FormatV1 {
+					w, err = store.Create(ctx, blobref, int64(size))
+				}
+				require.NoError(t, err)
+				require.NotNil(t, w)
+				_, err = w.Write(file.data)
+				require.NoError(t, err)
+
+				require.NoError(t, w.Commit(ctx))
+				requireFileMatches(ctx, t, store, file.data, blobref, file.formatVer)
+			}
+
+			// Trash the ref
+			require.NoError(t, store.Trash(ctx, blobref))
+
+			// Verify files are gone
+			for _, file := range ref.files {
+				_, err = store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
+				require.Error(t, err)
+				require.True(t, os.IsNotExist(err))
+			}
+		}
+	}
+
+	// Restore the first namespace
+	require.NoError(t, store.RestoreTrash(ctx, namespaces[0].namespace))
+
+	// Verify pieces are back and look good for first namespace
+	for _, ref := range namespaces[0].refs {
+		blobref := storage.BlobRef{
+			Namespace: namespaces[0].namespace,
+			Key:       ref.key,
+		}
+		for _, file := range ref.files {
+			requireFileMatches(ctx, t, store, file.data, blobref, file.formatVer)
+		}
+	}
+
+	// Verify pieces in second namespace are still missing (were not restored)
+	for _, ref := range namespaces[1].refs {
+		blobref := storage.BlobRef{
+			Namespace: namespaces[1].namespace,
+			Key:       ref.key,
+		}
+		for _, file := range ref.files {
+			r, err := store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
+			require.Error(t, err)
+			require.Nil(t, r)
+		}
+	}
+}
+
+func requireFileMatches(ctx context.Context, t *testing.T, store storage.Blobs, data []byte, ref storage.BlobRef, formatVer storage.FormatVersion) {
+	r, err := store.OpenWithStorageFormat(ctx, ref, formatVer)
+	require.NoError(t, err)
+
+	buf, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+
+	require.Equal(t, buf, data)
+}
