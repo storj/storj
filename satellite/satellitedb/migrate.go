@@ -338,7 +338,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						type text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id) WHERE credits_earned_in_cents=0;`,
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);`,
 
 					`INSERT INTO offers (
 						name,
