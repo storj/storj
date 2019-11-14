@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,14 +17,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/private/fpath"
 )
 
 var (
 	progress *bool
 	expires  *string
+	metadata *string
 )
 
 func init() {
@@ -32,8 +34,10 @@ func init() {
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	}, RootCmd)
+
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
+	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -53,7 +57,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 			return err
 		}
 		if expiration.Before(time.Now()) {
-			return fmt.Errorf("Invalid expiration date: (%s) has already passed", *expires)
+			return fmt.Errorf("invalid expiration date: (%s) has already passed", *expires)
 		}
 	}
 
@@ -100,6 +104,17 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if *expires != "" {
 		opts.Expires = expiration.UTC()
+	}
+
+	if *metadata != "" {
+		var md map[string]string
+
+		err := json.Unmarshal([]byte(*metadata), &md)
+		if err != nil {
+			return err
+		}
+
+		opts.Metadata = md
 	}
 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
@@ -252,13 +267,13 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	return nil
 }
 
-// copyMain is the function executed when cpCmd is called
+// copyMain is the function executed when cpCmd is called.
 func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 	if len(args) == 1 {
-		return fmt.Errorf("No destination specified")
+		return fmt.Errorf("no destination specified")
 	}
 
 	ctx, _ := process.Ctx(cmd)
@@ -275,7 +290,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if both local
 	if src.IsLocal() && dst.IsLocal() {
-		return errors.New("At least one of the source or the desination must be a Storj URL")
+		return errors.New("at least one of the source or the desination must be a Storj URL")
 	}
 
 	// if uploading

@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
@@ -1378,6 +1378,22 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( project_id, period_start, period_end )
 					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
+				Version:     66,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add order_limit_send_count.",
+				Version:     67,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN order_limit_send_count integer NOT NULL DEFAULT 0;`,
 				},
 			},
 		},

@@ -13,12 +13,12 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/errs2"
 )
 
 var (
@@ -37,7 +37,7 @@ type Config struct {
 	AuthorizationDB   authorization.DBConfig
 	AuthorizationAddr string `default:"127.0.0.1:9000" help:"address for authorization http proxy to listen on"`
 
-	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+	MinDifficulty uint `default:"36" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
 
 // Peer is the certificates server.

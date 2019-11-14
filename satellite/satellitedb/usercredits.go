@@ -11,8 +11,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/currency"
-	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/private/currency"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -114,7 +114,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 				return errs.Wrap(err)
 			}
 
-			return rewards.MaxRedemptionErr.Wrap(err)
+			return rewards.ErrReachedMaxCapacity.Wrap(err)
 		}
 
 		return errs.Wrap(err)
@@ -126,7 +126,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("failed to create new credit")
+		return rewards.ErrReachedMaxCapacity.New("failed to create new credit")
 	}
 
 	return nil

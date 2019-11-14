@@ -22,12 +22,12 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/processgroup"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/processgroup"
 )
 
 const (
@@ -219,6 +219,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		"setup": {
 			"--address", versioncontrol.Address,
 			"--debug.addr", net.JoinHostPort(host, port(versioncontrolPeer, 0, debugHTTP)),
+			"--binary.gateway.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.identity.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.satellite.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.storagenode-updater.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.storagenode.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
+			"--binary.uplink.rollout.seed", "0000000000000000000000000000000000000000000000000000000000000001",
 		},
 		"run": {},
 	})

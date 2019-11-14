@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/testrand"
 )
 
 func TestCalcEncompassingBlocks(t *testing.T) {

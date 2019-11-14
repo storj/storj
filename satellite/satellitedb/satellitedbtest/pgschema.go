@@ -7,8 +7,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -16,6 +16,10 @@ import (
 
 // NewPostgres returns the default postgres satellite.DB for testing.
 func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
+	if err := PostgresDefined(); err != nil {
+		return nil, err
+	}
+
 	db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema))
 	if err != nil {
 		return nil, err
@@ -26,6 +30,14 @@ func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
 		Schema:   schema,
 		AutoDrop: true,
 	}, nil
+}
+
+// PostgresDefined returns an error when the --postgres-test-db or STORJ_POSTGRES_TEST is not set for tests.
+func PostgresDefined() error {
+	if *pgtest.ConnStr == "" {
+		return errs.New("flag --postgres-test-db or environment variable STORJ_POSTGRES_TEST not defined for PostgreSQL test database")
+	}
+	return nil
 }
 
 // SchemaDB implements automatic schema handling for satellite.DB

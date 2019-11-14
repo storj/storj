@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -21,11 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testrand"
+	"storj.io/storj/private/version"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -34,13 +34,7 @@ const (
 	newVersion = "v0.19.5"
 )
 
-func TestAutoUpdater_unix(t *testing.T) {
-	t.Skip("TODO: the version server must listen on random port")
-
-	if runtime.GOOS == "windows" {
-		t.Skip("requires storagenode and storagenode-updater to be installed as windows services")
-	}
-
+func TestAutoUpdater(t *testing.T) {
 	// TODO cleanup `.exe` extension for different OS
 
 	ctx := testcontext.New(t)
@@ -60,9 +54,9 @@ func TestAutoUpdater_unix(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := ctx.CompileWithVersion("", oldInfo)
+	oldBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
-	copy(ctx, t, oldBin, storagenodePath)
+	copyBin(ctx, t, oldBin, storagenodePath)
 
 	updaterPath := ctx.File("fake", "storagenode-updater.exe")
 	move(t, oldBin, updaterPath)
@@ -74,7 +68,8 @@ func TestAutoUpdater_unix(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := ctx.CompileWithVersion("", newInfo)
+	newBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", newInfo)
+
 	updateBins := map[string]string{
 		"storagenode":         newBin,
 		"storagenode-updater": newBin,
@@ -90,14 +85,15 @@ func TestAutoUpdater_unix(t *testing.T) {
 	identConfig := testIdentityFiles(ctx, t)
 
 	// run updater (update)
-	args := []string{"run"}
-	args = append(args, "--config-dir", ctx.Dir())
-	args = append(args, "--server-address", "http://"+versionControlPeer.Addr())
-	args = append(args, "--binary-location", storagenodePath)
-	args = append(args, "--check-interval", "0s")
-	args = append(args, "--identity.cert-path", identConfig.CertPath)
-	args = append(args, "--identity.key-path", identConfig.KeyPath)
-	args = append(args, "--log", logPath)
+	args := []string{"run",
+		"--config-dir", ctx.Dir(),
+		"--server-address", "http://" + versionControlPeer.Addr(),
+		"--binary-location", storagenodePath,
+		"--check-interval", "0s",
+		"--identity.cert-path", identConfig.CertPath,
+		"--identity.key-path", identConfig.KeyPath,
+		"--log", logPath,
+	}
 
 	// NB: updater currently uses `log.SetOutput` so all output after that call
 	// only goes to the log file.
@@ -109,9 +105,10 @@ func TestAutoUpdater_unix(t *testing.T) {
 		if !assert.Contains(t, logStr, "storagenode restarted successfully") {
 			t.Log(logStr)
 		}
-		if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
-			t.Log(logStr)
-		}
+		// TODO: re-enable when updater is self-updating
+		//if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
+		//	t.Log(logStr)
+		//}
 	} else {
 		t.Log(string(out))
 	}
@@ -125,11 +122,12 @@ func TestAutoUpdater_unix(t *testing.T) {
 	require.NotNil(t, oldStoragenodeInfo)
 	require.NotZero(t, oldStoragenodeInfo.Size())
 
-	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
-	backupUpdaterInfo, err := os.Stat(backupUpdater)
-	require.NoError(t, err)
-	require.NotNil(t, backupUpdaterInfo)
-	require.NotZero(t, backupUpdaterInfo.Size())
+	// TODO: re-enable when updater is self-updating
+	//backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
+	//backupUpdaterInfo, err := os.Stat(backupUpdater)
+	//require.NoError(t, err)
+	//require.NotNil(t, backupUpdaterInfo)
+	//require.NotZero(t, backupUpdaterInfo.Size())
 }
 
 func move(t *testing.T, src, dst string) {
@@ -137,7 +135,7 @@ func move(t *testing.T, src, dst string) {
 	require.NoError(t, err)
 }
 
-func copy(ctx *testcontext.Context, t *testing.T, src, dst string) {
+func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
 	s, err := os.Open(src)
 	require.NoError(t, err)
 	defer ctx.Check(s.Close)
@@ -192,10 +190,15 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 
 	ts := httptest.NewServer(&mux)
 
+	var randSeed version.RolloutBytes
+	testrand.Read(randSeed[:])
+	storagenodeSeed := fmt.Sprintf("%x", randSeed)
+
+	testrand.Read(randSeed[:])
+	updaterSeed := fmt.Sprintf("%x", randSeed)
+
 	config := &versioncontrol.Config{
-		// TODO: add STORJ_VERSION_SERVER_ADDR property to Product.wxs for testing
-		// TODO: set address back to `127.0.0.1:0`
-		Address: "127.0.0.1:10000",
+		Address: "127.0.0.1:0",
 		// NB: this config field is required for versioncontrol to run.
 		Versions: versioncontrol.OldVersionConfig{
 			Satellite:   "v0.0.1",
@@ -204,7 +207,6 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
 		},
-		// TODO use random seed
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
@@ -212,7 +214,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   storagenodeSeed,
 					Cursor: 100,
 				},
 			},
@@ -222,7 +224,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 					URL:     ts.URL + "/storagenode-updater",
 				},
 				Rollout: versioncontrol.RolloutConfig{
-					Seed:   "0000000000000000000000000000000000000000000000000000000000000001",
+					Seed:   updaterSeed,
 					Cursor: 100,
 				},
 			},
@@ -244,6 +246,7 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 
 	zipFile, err := os.Create(dst)
 	require.NoError(t, err)
+	defer ctx.Check(zipFile.Close)
 
 	base := filepath.Base(dst)
 	base = base[:len(base)-len(".zip")]

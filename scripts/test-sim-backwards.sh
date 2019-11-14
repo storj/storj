@@ -23,8 +23,10 @@ latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
+
 # delete this file that forces production config settings
-rm "$RELEASE_DIR/internal/version/release.go"
+rm -f "$RELEASE_DIR/private/version/release.go"
+rm -f "$RELEASE_DIR/internal/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -46,6 +48,9 @@ fi
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
+
+# set the segment size lower to make test run faster
+echo client.segment-size: 6 MiB >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml

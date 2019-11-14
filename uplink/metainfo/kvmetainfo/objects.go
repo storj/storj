@@ -9,12 +9,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/objects"
@@ -130,19 +129,16 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 }
 
 // DeleteObject deletes an object from database
-func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
+func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
-		return err
+	if bucket.Name == "" {
+		return storj.ErrNoBucket.New("")
 	}
+
 	prefixed := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
-		prefix: bucket,
+		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		prefix: bucket.Name,
 	}
 	return prefixed.Delete(ctx, path)
 }
@@ -173,15 +169,9 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		prefix: bucket,
 	}
 
-	var startAfter, endBefore string
+	var startAfter string
 	switch options.Direction {
 	// TODO for now we are supporting only storj.After
-	// case storj.Before:
-	// 	// before lists backwards from cursor, without cursor
-	// 	endBefore = options.Cursor
-	// case storj.Backward:
-	// 	// backward lists backwards from cursor, including cursor
-	// 	endBefore = keyAfter(options.Cursor)
 	// case storj.Forward:
 	// 	// forward lists forwards from cursor, including cursor
 	// 	startAfter = keyBefore(options.Cursor)
@@ -192,12 +182,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
-	// TODO: remove this hack-fix of specifying the last key
-	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
-		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
-	}
-
-	items, more, err := objects.List(ctx, options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
+	items, more, err := objects.List(ctx, options.Prefix, startAfter, options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}

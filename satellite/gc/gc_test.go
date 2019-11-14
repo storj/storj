@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storage"
 )
@@ -74,7 +74,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, deletedEncPath)
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode

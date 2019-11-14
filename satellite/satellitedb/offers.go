@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/currency"
+	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -52,7 +52,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 	if err != nil {
-		return nil, rewards.NoCurrentOfferErr.Wrap(err)
+		return nil, rewards.ErrOfferNotExist.Wrap(err)
 	}
 
 	var (
@@ -86,7 +86,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	}
 
 	if len(results) < 1 {
-		return results, rewards.NoCurrentOfferErr.New("offerType: %d", offerType)
+		return results, rewards.ErrOfferNotExist.New("offerType: %d", offerType)
 	}
 	return results, nil
 }

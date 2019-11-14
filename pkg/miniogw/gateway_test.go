@@ -19,13 +19,13 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
@@ -101,7 +101,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create a bucket with a file using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
@@ -112,7 +112,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotEmpty{Bucket: TestBucket}, err)
 
 		// Delete the file using the Metainfo API, so the bucket becomes empty
-		err = m.DeleteObject(ctx, TestBucket, TestFile)
+		err = m.DeleteObject(ctx, bucket, TestFile)
 		assert.NoError(t, err)
 
 		// Delete the bucket info using the Minio API

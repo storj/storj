@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestSatelliteContactEndpoint(t *testing.T) {

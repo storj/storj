@@ -14,17 +14,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testblobs"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testblobs"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
@@ -415,7 +415,7 @@ func TestVerifierExpired(t *testing.T) {
 		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.DB.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -541,7 +541,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer to have PieceHashesVerified false
-		err = satellite.Metainfo.Service.Delete(ctx, path)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, path)
 		require.NoError(t, err)
 		pointer.PieceHashesVerified = false
 		err = satellite.Metainfo.Service.Put(ctx, path, pointer)
