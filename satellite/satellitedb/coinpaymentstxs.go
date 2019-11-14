@@ -312,6 +312,7 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 		Received:  received,
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
+		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),
 		CreatedAt: dbxCPTX.CreatedAt,
 	}, nil
 }
