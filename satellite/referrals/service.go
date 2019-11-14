@@ -39,7 +39,7 @@ type Service struct {
 
 // NewService returns a service for handling referrals information.
 func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rpc.Dialer) *Service {
-	return &ReferralsService{
+	return &Service{
 		log:    log,
 		signer: signer,
 		config: config,
@@ -48,7 +48,7 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 }
 
 func (service *Service) ReferralManagerConn(ctx context.Context) (*rpc.Conn, error) {
-	if service.config == nil || service.config.ReferralManagerURL.IsZero {
+	if service.config.ReferralManagerURL.IsZero() {
 		return nil, ErrReferralsConfigMissing.New("")
 	}
 
@@ -60,18 +60,39 @@ func (service *Service) ReferralManagerConn(ctx context.Context) (*rpc.Conn, err
 	return conn, nil
 }
 
-func (service *Service) GetTokens(ctx context.Context, client *rpc.ReferralManagerClient, userID *uuid.UUID) ([]*pb.Token, error) {
+func (service *Service) GetTokens(ctx context.Context, client rpc.ReferralManagerClient, userID *uuid.UUID) ([]uuid.UUID, error) {
 	if userID == nil {
 		return nil, Error.New("invalid argument")
 	}
 
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		UserId: userID[:],
-		NodeId: service.signer.ID(),
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return response.GetTokens(), nil
+	tokensInBytes := response.GetToken()
+	var tokens = make([]uuid.UUID, len(tokensInBytes))
+	for i := range tokensInBytes {
+		token, err := bytesToUUID(tokensInBytes[i])
+		if err != nil {
+			continue
+		}
+		tokens[i] = token
+	}
+
+	return tokens, nil
+}
+
+// bytesToUUID is used to convert []byte to UUID
+func bytesToUUID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+
+	copy(id[:], data)
+	if len(id) != len(data) {
+		return uuid.UUID{}, errs.New("Invalid uuid")
+	}
+
+	return id, nil
 }
