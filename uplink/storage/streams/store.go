@@ -153,7 +153,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	var (
 		contentKey           storj.Key
-		lastCommitSegmentReq *metainfo.CommitSegmentParams
+		prevSegmentCommitReq *metainfo.CommitSegmentParams
 		streamSize           int64
 		lastSegmentSize      int64
 		encryptedKey         []byte
@@ -236,7 +236,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				streamID = objResponse.StreamID
 			} else {
 				beginSegment.StreamID = streamID
-				responses, err = s.metainfo.Batch(ctx, lastCommitSegmentReq, beginSegment)
+				responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, beginSegment)
 				if err != nil {
 					return Meta{}, err
 				}
@@ -257,7 +257,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				return Meta{}, err
 			}
 
-			lastCommitSegmentReq = &metainfo.CommitSegmentParams{
+			prevSegmentCommitReq = &metainfo.CommitSegmentParams{
 				SegmentID:         segmentID,
 				SizeEncryptedData: size,
 				Encryption:        segmentEncryption,
@@ -348,8 +348,8 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		StreamID:          streamID,
 		EncryptedMetadata: objectMetadata,
 	}
-	if lastCommitSegmentReq != nil {
-		_, err = s.metainfo.Batch(ctx, lastCommitSegmentReq, &commitObject)
+	if prevSegmentCommitReq != nil {
+		_, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
 	} else {
 		err = s.metainfo.CommitObject(ctx, commitObject)
 	}
