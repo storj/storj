@@ -5,9 +5,8 @@ import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-
+import { AnalyticsPlugin } from '@/utils/plugins/analytics';
 import App from './App.vue';
-import { Analytics } from './plugins/analytics';
 import { router } from './router';
 import { store } from './store';
 
@@ -15,14 +14,18 @@ Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-Vue.use(Analytics, {
+
+
+const notificator = new NotificatorPlugin();
+const analytics = new AnalyticsPlugin();
+
+Vue.use(notificator);
+
+// TODO: needs to have access to sgement ID served from the backend
+Vue.use(analytics, {
     id: process.env.VUE_APP_SEGMENTID,
     router,
 });
-
-const notificator = new NotificatorPlugin();
-
-Vue.use(notificator);
 
 let clickOutsideEvent: EventListener;
 

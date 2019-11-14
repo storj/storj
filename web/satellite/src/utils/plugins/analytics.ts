@@ -5,8 +5,8 @@ import VueSegmentAnalytics from 'vue-segment-analytics';
 
 import { isDoNotTrackEnabled } from '@/utils/doNotTrack';
 
-export const Analytics = {
-    install(Vue, options) {
+export class AnalyticsPlugin {
+    public install(Vue, options) {
         const isDoNotTrack = isDoNotTrackEnabled();
         const hasSegmentID = options.id && options.id.length > 0;
 
@@ -26,5 +26,5 @@ export const Analytics = {
                 Vue.$segment[method] = () => undefined;
             });
         }
-    },
-};
+    }
+}
