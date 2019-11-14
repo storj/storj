@@ -425,7 +425,6 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	service := satellite.Overlay.Service
 
 	tests := []struct {
-		nodeCount      int
 		duplicateCount int
 		requestCount   int
 		preferences    overlay.NodeSelectionConfig

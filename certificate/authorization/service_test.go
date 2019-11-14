@@ -4,7 +4,6 @@
 package authorization
 
 import (
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,6 +18,8 @@ func TestService_GetOrCreate(t *testing.T) {
 	defer ctx.Cleanup()
 
 	authorizationDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authorizationDB.Close)
+
 	service := NewService(zaptest.NewLogger(t), authorizationDB)
 	require.NotNil(t, service)
 
@@ -57,11 +58,9 @@ func TestService_GetOrCreate_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	require.NotNil(t, listener)
-
 	authorizationDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authorizationDB.Close)
+
 	service := NewService(zaptest.NewLogger(t), authorizationDB)
 	require.NotNil(t, service)
 

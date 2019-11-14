@@ -332,11 +332,41 @@ func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID,
 	return Error.Wrap(err)
 }
 
-// GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
+// GetV0PieceInfoDBForTest returns this piece-store's reference to the V0 piece info DB (or nil,
 // if this piece-store does not have one). This is ONLY intended for use with testing
 // functionality.
-func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
-	return store.v0PieceInfo
+func (store StoreForTest) GetV0PieceInfoDBForTest() V0PieceInfoDBForTest {
+	if store.v0PieceInfo == nil {
+		return nil
+	}
+	return store.v0PieceInfo.(V0PieceInfoDBForTest)
+}
+
+// GetHashAndLimit returns the PieceHash and OrderLimit associated with the specified piece. The
+// piece must already have been opened for reading, and the associated *Reader passed in.
+//
+// Once we have migrated everything off of V0 storage and no longer need to support it, this can
+// cleanly become a method directly on *Reader and will need only the 'pieceID' parameter.
+func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
+	if reader.StorageFormatVersion() == filestore.FormatV0 {
+		info, err := store.GetV0PieceInfo(ctx, satellite, pieceID)
+		if err != nil {
+			return pb.PieceHash{}, pb.OrderLimit{}, err // err is already wrapped as a storagenodedb.ErrPieceInfo
+		}
+		return *info.UplinkPieceHash, *info.OrderLimit, nil
+	}
+	header, err := reader.GetPieceHeader()
+	if err != nil {
+		return pb.PieceHash{}, pb.OrderLimit{}, Error.Wrap(err)
+	}
+	pieceHash := pb.PieceHash{
+		PieceId:   pieceID,
+		Hash:      header.GetHash(),
+		PieceSize: reader.Size(),
+		Timestamp: header.GetCreationTime(),
+		Signature: header.GetSignature(),
+	}
+	return pieceHash, header.OrderLimit, nil
 }
 
 // WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
@@ -501,6 +531,12 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int
 		totalBySatellite[satelliteID] = totalUsed
 	}
 	return total, totalBySatellite, nil
+}
+
+// GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,
+// of no use when a piece does not have filestore.FormatV0 storage.
+func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Info, error) {
+	return store.v0PieceInfo.Get(ctx, satellite, pieceID)
 }
 
 // StorageStatus contains information about the disk store is using.

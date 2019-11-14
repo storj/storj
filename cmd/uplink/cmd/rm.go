@@ -24,7 +24,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for deletion")
+		return fmt.Errorf("no object specified for deletion")
 	}
 
 	dst, err := fpath.New(args[0])
@@ -33,7 +33,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
