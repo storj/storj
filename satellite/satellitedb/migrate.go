@@ -1388,6 +1388,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add order_limit_send_count.",
+				Version:     67,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN order_limit_send_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }

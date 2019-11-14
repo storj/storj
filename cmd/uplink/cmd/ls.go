@@ -55,7 +55,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 
 		if src.IsLocal() {
-			return fmt.Errorf("No bucket specified, use format sj://bucket/")
+			return fmt.Errorf("no bucket specified, use format sj://bucket/")
 		}
 
 		bucket, err := project.OpenBucket(ctx, src.Bucket(), scope.EncryptionAccess)

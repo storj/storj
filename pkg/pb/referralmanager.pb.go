@@ -6,11 +6,12 @@ package pb
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
-	math "math"
 	drpc "storj.io/drpc"
 )
 
@@ -27,7 +28,6 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type GetTokensRequest struct {
 	UserId               []byte   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	NodeId               NodeID   `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -65,7 +65,7 @@ func (m *GetTokensRequest) GetUserId() []byte {
 }
 
 type GetTokensResponse struct {
-	Tokens               []*Token `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	Token                [][]byte `protobuf:"bytes,1,rep,name=token,proto3" json:"token,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -95,176 +95,193 @@ func (m *GetTokensResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetTokensResponse proto.InternalMessageInfo
 
-func (m *GetTokensResponse) GetTokens() []*Token {
-	if m != nil {
-		return m.Tokens
-	}
-	return nil
-}
-
-type Token struct {
-	Token                []byte   `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	OwnerId              []byte   `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Token) Reset()         { *m = Token{} }
-func (m *Token) String() string { return proto.CompactTextString(m) }
-func (*Token) ProtoMessage()    {}
-func (*Token) Descriptor() ([]byte, []int) {
-	return fileDescriptor_45d96ad24f1e021c, []int{2}
-}
-func (m *Token) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Token.Unmarshal(m, b)
-}
-func (m *Token) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Token.Marshal(b, m, deterministic)
-}
-func (m *Token) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Token.Merge(m, src)
-}
-func (m *Token) XXX_Size() int {
-	return xxx_messageInfo_Token.Size(m)
-}
-func (m *Token) XXX_DiscardUnknown() {
-	xxx_messageInfo_Token.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Token proto.InternalMessageInfo
-
-func (m *Token) GetToken() []byte {
+func (m *GetTokensResponse) GetToken() [][]byte {
 	if m != nil {
 		return m.Token
 	}
 	return nil
 }
 
-func (m *Token) GetOwnerId() []byte {
-	if m != nil {
-		return m.OwnerId
-	}
-	return nil
-}
-
-type RedeemRequest struct {
-	UserId               []byte   `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Token                []byte   `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
-	NodeId               []byte   `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+type ReserveTokenRequest struct {
+	Token                []byte   `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	RedeemingSatelliteId NodeID   `protobuf:"bytes,2,opt,name=redeeming_satellite_id,json=redeemingSatelliteId,proto3,customtype=NodeID" json:"redeeming_satellite_id"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RedeemRequest) Reset()         { *m = RedeemRequest{} }
-func (m *RedeemRequest) String() string { return proto.CompactTextString(m) }
-func (*RedeemRequest) ProtoMessage()    {}
-func (*RedeemRequest) Descriptor() ([]byte, []int) {
+func (m *ReserveTokenRequest) Reset()         { *m = ReserveTokenRequest{} }
+func (m *ReserveTokenRequest) String() string { return proto.CompactTextString(m) }
+func (*ReserveTokenRequest) ProtoMessage()    {}
+func (*ReserveTokenRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_45d96ad24f1e021c, []int{2}
+}
+func (m *ReserveTokenRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReserveTokenRequest.Unmarshal(m, b)
+}
+func (m *ReserveTokenRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReserveTokenRequest.Marshal(b, m, deterministic)
+}
+func (m *ReserveTokenRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReserveTokenRequest.Merge(m, src)
+}
+func (m *ReserveTokenRequest) XXX_Size() int {
+	return xxx_messageInfo_ReserveTokenRequest.Size(m)
+}
+func (m *ReserveTokenRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReserveTokenRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReserveTokenRequest proto.InternalMessageInfo
+
+func (m *ReserveTokenRequest) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+type ReserveTokenResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReserveTokenResponse) Reset()         { *m = ReserveTokenResponse{} }
+func (m *ReserveTokenResponse) String() string { return proto.CompactTextString(m) }
+func (*ReserveTokenResponse) ProtoMessage()    {}
+func (*ReserveTokenResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_45d96ad24f1e021c, []int{3}
 }
-func (m *RedeemRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RedeemRequest.Unmarshal(m, b)
+func (m *ReserveTokenResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReserveTokenResponse.Unmarshal(m, b)
 }
-func (m *RedeemRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RedeemRequest.Marshal(b, m, deterministic)
+func (m *ReserveTokenResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReserveTokenResponse.Marshal(b, m, deterministic)
 }
-func (m *RedeemRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedeemRequest.Merge(m, src)
+func (m *ReserveTokenResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReserveTokenResponse.Merge(m, src)
 }
-func (m *RedeemRequest) XXX_Size() int {
-	return xxx_messageInfo_RedeemRequest.Size(m)
+func (m *ReserveTokenResponse) XXX_Size() int {
+	return xxx_messageInfo_ReserveTokenResponse.Size(m)
 }
-func (m *RedeemRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_RedeemRequest.DiscardUnknown(m)
+func (m *ReserveTokenResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReserveTokenResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RedeemRequest proto.InternalMessageInfo
+var xxx_messageInfo_ReserveTokenResponse proto.InternalMessageInfo
 
-func (m *RedeemRequest) GetUserId() []byte {
+type RedeemTokenRequest struct {
+	Token                []byte   `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	UserId               []byte   `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RedeemTokenRequest) Reset()         { *m = RedeemTokenRequest{} }
+func (m *RedeemTokenRequest) String() string { return proto.CompactTextString(m) }
+func (*RedeemTokenRequest) ProtoMessage()    {}
+func (*RedeemTokenRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_45d96ad24f1e021c, []int{4}
+}
+func (m *RedeemTokenRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RedeemTokenRequest.Unmarshal(m, b)
+}
+func (m *RedeemTokenRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RedeemTokenRequest.Marshal(b, m, deterministic)
+}
+func (m *RedeemTokenRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedeemTokenRequest.Merge(m, src)
+}
+func (m *RedeemTokenRequest) XXX_Size() int {
+	return xxx_messageInfo_RedeemTokenRequest.Size(m)
+}
+func (m *RedeemTokenRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RedeemTokenRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RedeemTokenRequest proto.InternalMessageInfo
+
+func (m *RedeemTokenRequest) GetToken() []byte {
+	if m != nil {
+		return m.Token
+	}
+	return nil
+}
+
+func (m *RedeemTokenRequest) GetUserId() []byte {
 	if m != nil {
 		return m.UserId
 	}
 	return nil
 }
 
-func (m *RedeemRequest) GetToken() []byte {
-	if m != nil {
-		return m.Token
-	}
-	return nil
-}
-
-func (m *RedeemRequest) GetNodeId() []byte {
-	if m != nil {
-		return m.NodeId
-	}
-	return nil
-}
-
-type RedeemResponse struct {
+type RedeemTokenResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RedeemResponse) Reset()         { *m = RedeemResponse{} }
-func (m *RedeemResponse) String() string { return proto.CompactTextString(m) }
-func (*RedeemResponse) ProtoMessage()    {}
-func (*RedeemResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_45d96ad24f1e021c, []int{4}
+func (m *RedeemTokenResponse) Reset()         { *m = RedeemTokenResponse{} }
+func (m *RedeemTokenResponse) String() string { return proto.CompactTextString(m) }
+func (*RedeemTokenResponse) ProtoMessage()    {}
+func (*RedeemTokenResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_45d96ad24f1e021c, []int{5}
 }
-func (m *RedeemResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RedeemResponse.Unmarshal(m, b)
+func (m *RedeemTokenResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RedeemTokenResponse.Unmarshal(m, b)
 }
-func (m *RedeemResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RedeemResponse.Marshal(b, m, deterministic)
+func (m *RedeemTokenResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RedeemTokenResponse.Marshal(b, m, deterministic)
 }
-func (m *RedeemResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RedeemResponse.Merge(m, src)
+func (m *RedeemTokenResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RedeemTokenResponse.Merge(m, src)
 }
-func (m *RedeemResponse) XXX_Size() int {
-	return xxx_messageInfo_RedeemResponse.Size(m)
+func (m *RedeemTokenResponse) XXX_Size() int {
+	return xxx_messageInfo_RedeemTokenResponse.Size(m)
 }
-func (m *RedeemResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_RedeemResponse.DiscardUnknown(m)
+func (m *RedeemTokenResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_RedeemTokenResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RedeemResponse proto.InternalMessageInfo
+var xxx_messageInfo_RedeemTokenResponse proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*GetTokensRequest)(nil), "referralmanager.GetTokensRequest")
 	proto.RegisterType((*GetTokensResponse)(nil), "referralmanager.GetTokensResponse")
-	proto.RegisterType((*Token)(nil), "referralmanager.Token")
-	proto.RegisterType((*RedeemRequest)(nil), "referralmanager.RedeemRequest")
-	proto.RegisterType((*RedeemResponse)(nil), "referralmanager.RedeemResponse")
+	proto.RegisterType((*ReserveTokenRequest)(nil), "referralmanager.ReserveTokenRequest")
+	proto.RegisterType((*ReserveTokenResponse)(nil), "referralmanager.ReserveTokenResponse")
+	proto.RegisterType((*RedeemTokenRequest)(nil), "referralmanager.RedeemTokenRequest")
+	proto.RegisterType((*RedeemTokenResponse)(nil), "referralmanager.RedeemTokenResponse")
 }
 
 func init() { proto.RegisterFile("referralmanager.proto", fileDescriptor_45d96ad24f1e021c) }
 
 var fileDescriptor_45d96ad24f1e021c = []byte{
-	// 331 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0xc1, 0x4e, 0xc2, 0x40,
-	0x10, 0x86, 0x2d, 0x48, 0xd1, 0x11, 0x01, 0x37, 0x2a, 0xd8, 0x83, 0xc5, 0x5e, 0xe4, 0x04, 0x09,
-	0x5e, 0x3c, 0xa3, 0x89, 0xe9, 0x41, 0x0f, 0x1b, 0x12, 0x13, 0x2f, 0xa6, 0x64, 0x87, 0x86, 0x48,
-	0x3b, 0x75, 0x77, 0x89, 0xaf, 0xe5, 0x63, 0xf8, 0x0c, 0x1e, 0x78, 0x16, 0xd3, 0xdd, 0x82, 0x08,
-	0x51, 0x8f, 0xff, 0xfc, 0xff, 0xfe, 0x9d, 0x6f, 0x0a, 0x27, 0x12, 0x27, 0x28, 0x65, 0x34, 0x4b,
-	0xa2, 0x34, 0x8a, 0x51, 0xf6, 0x32, 0x49, 0x9a, 0x58, 0x63, 0x63, 0xec, 0x41, 0x4c, 0x31, 0x59,
-	0xd3, 0xf3, 0x63, 0xa2, 0x78, 0x86, 0x7d, 0xa3, 0xc6, 0xf3, 0x49, 0x5f, 0x4f, 0x13, 0x54, 0x3a,
-	0x4a, 0xb2, 0x22, 0x50, 0x4f, 0x50, 0x47, 0xd3, 0x74, 0xb2, 0x7c, 0x50, 0x23, 0x29, 0x50, 0x2a,
-	0xab, 0x82, 0x11, 0x34, 0xef, 0x50, 0x8f, 0xe8, 0x05, 0x53, 0xc5, 0xf1, 0x75, 0x8e, 0x4a, 0xb3,
-	0x16, 0x54, 0xe7, 0x0a, 0xe5, 0xf3, 0x54, 0xb4, 0x9d, 0x8e, 0xd3, 0xad, 0x71, 0x37, 0x97, 0xa1,
-	0x60, 0x97, 0x50, 0x4d, 0x49, 0x60, 0x6e, 0x94, 0x72, 0x63, 0x58, 0xff, 0x58, 0xf8, 0x3b, 0x9f,
-	0x0b, 0xdf, 0x7d, 0x20, 0x81, 0xe1, 0x2d, 0x77, 0x73, 0x3b, 0x14, 0xc1, 0x0d, 0x1c, 0xad, 0xb5,
-	0xaa, 0x8c, 0x52, 0x85, 0xac, 0x07, 0xae, 0x36, 0x93, 0xb6, 0xd3, 0x29, 0x77, 0x0f, 0x06, 0xa7,
-	0xbd, 0x4d, 0x5c, 0xf3, 0x80, 0x17, 0xa9, 0xe0, 0x1a, 0x2a, 0x66, 0xc0, 0x8e, 0xa1, 0x62, 0x46,
-	0xc5, 0x36, 0x56, 0xb0, 0x33, 0xd8, 0xa3, 0xb7, 0xd4, 0xae, 0x69, 0xb6, 0xe1, 0x55, 0xa3, 0x43,
-	0x11, 0x3c, 0xc2, 0x21, 0x47, 0x81, 0x98, 0xfc, 0x4b, 0xb4, 0xaa, 0x2e, 0xad, 0x57, 0xb7, 0xbe,
-	0x39, 0xcb, 0x36, 0x5e, 0x70, 0x35, 0xa1, 0xbe, 0x2c, 0xb6, 0x50, 0x83, 0x77, 0x07, 0x1a, 0xbc,
-	0xc0, 0xb8, 0xb7, 0x18, 0x8c, 0xc3, 0xfe, 0x8a, 0x9e, 0x5d, 0x6c, 0x51, 0x6e, 0xde, 0xdb, 0x0b,
-	0xfe, 0x8a, 0x14, 0xc7, 0x0b, 0xc1, 0xb5, 0x5f, 0x66, 0xe7, 0x5b, 0xe9, 0x1f, 0xac, 0x9e, 0xff,
-	0xab, 0x6f, 0xab, 0x86, 0xbb, 0x4f, 0xa5, 0x6c, 0x3c, 0x76, 0xcd, 0xff, 0xbf, 0xfa, 0x0a, 0x00,
-	0x00, 0xff, 0xff, 0xbe, 0x74, 0xf4, 0xfb, 0x74, 0x02, 0x00, 0x00,
+	// 347 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x41, 0x4e, 0xc2, 0x40,
+	0x14, 0x86, 0x6d, 0x55, 0x8c, 0xcf, 0x06, 0x74, 0x04, 0x24, 0xdd, 0x80, 0x15, 0x13, 0x8c, 0x09,
+	0x24, 0x7a, 0x03, 0x24, 0x31, 0x2c, 0x74, 0x31, 0xba, 0x30, 0xba, 0x20, 0x25, 0x7d, 0x34, 0x8d,
+	0x6d, 0xa7, 0xcc, 0x0c, 0x9e, 0xc6, 0x03, 0x79, 0x06, 0x17, 0x9c, 0xc5, 0xb4, 0x53, 0x9a, 0xa1,
+	0x12, 0x74, 0xf9, 0x4f, 0xbf, 0xf7, 0xcf, 0xfc, 0xff, 0x2b, 0x34, 0x38, 0xce, 0x90, 0x73, 0x37,
+	0x8c, 0xdc, 0xd8, 0xf5, 0x91, 0xf7, 0x13, 0xce, 0x24, 0x23, 0xb5, 0xd2, 0xb1, 0x0d, 0x3e, 0xf3,
+	0x99, 0xfa, 0x68, 0xb7, 0x7d, 0xc6, 0xfc, 0x10, 0x07, 0x99, 0x9a, 0x2e, 0x66, 0x03, 0x19, 0x44,
+	0x28, 0xa4, 0x1b, 0x25, 0x39, 0x50, 0x8d, 0x50, 0xba, 0x41, 0x3c, 0x5b, 0x0d, 0x58, 0x8c, 0x7b,
+	0xc8, 0x85, 0x52, 0xce, 0x35, 0x1c, 0xdf, 0xa3, 0x7c, 0x66, 0xef, 0x18, 0x0b, 0x8a, 0xf3, 0x05,
+	0x0a, 0x49, 0xce, 0xe0, 0x60, 0x21, 0x90, 0x4f, 0x02, 0xaf, 0x65, 0x74, 0x8c, 0x9e, 0x45, 0x2b,
+	0xa9, 0x1c, 0x7b, 0xce, 0x15, 0x9c, 0x68, 0xb0, 0x48, 0x58, 0x2c, 0x90, 0xd4, 0x61, 0x5f, 0xa6,
+	0x27, 0x2d, 0xa3, 0xb3, 0xdb, 0xb3, 0xa8, 0x12, 0xce, 0x1c, 0x4e, 0x29, 0x0a, 0xe4, 0x1f, 0x98,
+	0xe1, 0x2b, 0x6b, 0x0d, 0x36, 0x0a, 0x98, 0x8c, 0xa0, 0xc9, 0xd1, 0x43, 0x8c, 0x82, 0xd8, 0x9f,
+	0x08, 0x57, 0x62, 0x18, 0x06, 0x12, 0xd3, 0xfb, 0xcd, 0x14, 0x1b, 0x56, 0xbf, 0x96, 0xed, 0x9d,
+	0xef, 0x65, 0xbb, 0xf2, 0xc8, 0x3c, 0x1c, 0x8f, 0x68, 0xbd, 0xa0, 0x9f, 0x56, 0xf0, 0xd8, 0x73,
+	0x9a, 0x50, 0x5f, 0xbf, 0x52, 0x3d, 0xd0, 0xb9, 0x03, 0x42, 0x33, 0xfe, 0x1f, 0x2f, 0xd1, 0xa2,
+	0x9b, 0x6b, 0xd1, 0x1b, 0x69, 0x1e, 0xcd, 0x44, 0x79, 0xdf, 0x7c, 0x9a, 0x50, 0xa3, 0xf9, 0x76,
+	0x1e, 0xd4, 0x76, 0x08, 0x85, 0xc3, 0xa2, 0x25, 0x72, 0xde, 0x2f, 0xef, 0xb4, 0x5c, 0xb7, 0xed,
+	0x6c, 0x43, 0xf2, 0x92, 0xdf, 0xc0, 0xd2, 0xb3, 0x91, 0xee, 0xaf, 0x99, 0x0d, 0x6d, 0xdb, 0x97,
+	0x7f, 0x50, 0xb9, 0xf9, 0x0b, 0x1c, 0x69, 0xd9, 0xc8, 0xc5, 0x86, 0xa9, 0x72, 0x7d, 0x76, 0x77,
+	0x3b, 0xa4, 0x9c, 0x87, 0x7b, 0xaf, 0x66, 0x32, 0x9d, 0x56, 0xb2, 0x5f, 0xed, 0xf6, 0x27, 0x00,
+	0x00, 0xff, 0xff, 0xe0, 0x8c, 0x84, 0x1b, 0xdf, 0x02, 0x00, 0x00,
 }
 
 type DRPCReferralManagerClient interface {
@@ -272,8 +289,10 @@ type DRPCReferralManagerClient interface {
 
 	// GetTokens retrieves a list of unredeemed tokens for a user
 	GetTokens(ctx context.Context, in *GetTokensRequest) (*GetTokensResponse, error)
-	// Redeem marks a token as redeemed
-	Redeem(ctx context.Context, in *RedeemRequest) (*RedeemResponse, error)
+	// ReserveToken validates a referral token from referral manager
+	ReserveToken(ctx context.Context, in *ReserveTokenRequest) (*ReserveTokenResponse, error)
+	// RedeemToken saves newly created user info in referral manager
+	RedeemToken(ctx context.Context, in *RedeemTokenRequest) (*RedeemTokenResponse, error)
 }
 
 type drpcReferralManagerClient struct {
@@ -295,9 +314,18 @@ func (c *drpcReferralManagerClient) GetTokens(ctx context.Context, in *GetTokens
 	return out, nil
 }
 
-func (c *drpcReferralManagerClient) Redeem(ctx context.Context, in *RedeemRequest) (*RedeemResponse, error) {
-	out := new(RedeemResponse)
-	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/Redeem", in, out)
+func (c *drpcReferralManagerClient) ReserveToken(ctx context.Context, in *ReserveTokenRequest) (*ReserveTokenResponse, error) {
+	out := new(ReserveTokenResponse)
+	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/ReserveToken", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcReferralManagerClient) RedeemToken(ctx context.Context, in *RedeemTokenRequest) (*RedeemTokenResponse, error) {
+	out := new(RedeemTokenResponse)
+	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/RedeemToken", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +335,15 @@ func (c *drpcReferralManagerClient) Redeem(ctx context.Context, in *RedeemReques
 type DRPCReferralManagerServer interface {
 	// GetTokens retrieves a list of unredeemed tokens for a user
 	GetTokens(context.Context, *GetTokensRequest) (*GetTokensResponse, error)
-	// Redeem marks a token as redeemed
-	Redeem(context.Context, *RedeemRequest) (*RedeemResponse, error)
+	// ReserveToken validates a referral token from referral manager
+	ReserveToken(context.Context, *ReserveTokenRequest) (*ReserveTokenResponse, error)
+	// RedeemToken saves newly created user info in referral manager
+	RedeemToken(context.Context, *RedeemTokenRequest) (*RedeemTokenResponse, error)
 }
 
 type DRPCReferralManagerDescription struct{}
 
-func (DRPCReferralManagerDescription) NumMethods() int { return 2 }
+func (DRPCReferralManagerDescription) NumMethods() int { return 3 }
 
 func (DRPCReferralManagerDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
 	switch n {
@@ -327,14 +357,23 @@ func (DRPCReferralManagerDescription) Method(n int) (string, drpc.Handler, inter
 					)
 			}, DRPCReferralManagerServer.GetTokens, true
 	case 1:
-		return "/referralmanager.ReferralManager/Redeem",
+		return "/referralmanager.ReferralManager/ReserveToken",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCReferralManagerServer).
-					Redeem(
+					ReserveToken(
 						ctx,
-						in1.(*RedeemRequest),
+						in1.(*ReserveTokenRequest),
 					)
-			}, DRPCReferralManagerServer.Redeem, true
+			}, DRPCReferralManagerServer.ReserveToken, true
+	case 2:
+		return "/referralmanager.ReferralManager/RedeemToken",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCReferralManagerServer).
+					RedeemToken(
+						ctx,
+						in1.(*RedeemTokenRequest),
+					)
+			}, DRPCReferralManagerServer.RedeemToken, true
 	default:
 		return "", nil, nil, false
 	}
@@ -360,16 +399,32 @@ func (x *drpcReferralManagerGetTokensStream) SendAndClose(m *GetTokensResponse) 
 	return x.CloseSend()
 }
 
-type DRPCReferralManager_RedeemStream interface {
+type DRPCReferralManager_ReserveTokenStream interface {
 	drpc.Stream
-	SendAndClose(*RedeemResponse) error
+	SendAndClose(*ReserveTokenResponse) error
 }
 
-type drpcReferralManagerRedeemStream struct {
+type drpcReferralManagerReserveTokenStream struct {
 	drpc.Stream
 }
 
-func (x *drpcReferralManagerRedeemStream) SendAndClose(m *RedeemResponse) error {
+func (x *drpcReferralManagerReserveTokenStream) SendAndClose(m *ReserveTokenResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCReferralManager_RedeemTokenStream interface {
+	drpc.Stream
+	SendAndClose(*RedeemTokenResponse) error
+}
+
+type drpcReferralManagerRedeemTokenStream struct {
+	drpc.Stream
+}
+
+func (x *drpcReferralManagerRedeemTokenStream) SendAndClose(m *RedeemTokenResponse) error {
 	if err := x.MsgSend(m); err != nil {
 		return err
 	}
@@ -390,8 +445,10 @@ const _ = grpc.SupportPackageIsVersion4
 type ReferralManagerClient interface {
 	// GetTokens retrieves a list of unredeemed tokens for a user
 	GetTokens(ctx context.Context, in *GetTokensRequest, opts ...grpc.CallOption) (*GetTokensResponse, error)
-	// Redeem marks a token as redeemed
-	Redeem(ctx context.Context, in *RedeemRequest, opts ...grpc.CallOption) (*RedeemResponse, error)
+	// ReserveToken validates a referral token from referral manager
+	ReserveToken(ctx context.Context, in *ReserveTokenRequest, opts ...grpc.CallOption) (*ReserveTokenResponse, error)
+	// RedeemToken saves newly created user info in referral manager
+	RedeemToken(ctx context.Context, in *RedeemTokenRequest, opts ...grpc.CallOption) (*RedeemTokenResponse, error)
 }
 
 type referralManagerClient struct {
@@ -411,9 +468,18 @@ func (c *referralManagerClient) GetTokens(ctx context.Context, in *GetTokensRequ
 	return out, nil
 }
 
-func (c *referralManagerClient) Redeem(ctx context.Context, in *RedeemRequest, opts ...grpc.CallOption) (*RedeemResponse, error) {
-	out := new(RedeemResponse)
-	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/Redeem", in, out, opts...)
+func (c *referralManagerClient) ReserveToken(ctx context.Context, in *ReserveTokenRequest, opts ...grpc.CallOption) (*ReserveTokenResponse, error) {
+	out := new(ReserveTokenResponse)
+	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/ReserveToken", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *referralManagerClient) RedeemToken(ctx context.Context, in *RedeemTokenRequest, opts ...grpc.CallOption) (*RedeemTokenResponse, error) {
+	out := new(RedeemTokenResponse)
+	err := c.cc.Invoke(ctx, "/referralmanager.ReferralManager/RedeemToken", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +490,10 @@ func (c *referralManagerClient) Redeem(ctx context.Context, in *RedeemRequest, o
 type ReferralManagerServer interface {
 	// GetTokens retrieves a list of unredeemed tokens for a user
 	GetTokens(context.Context, *GetTokensRequest) (*GetTokensResponse, error)
-	// Redeem marks a token as redeemed
-	Redeem(context.Context, *RedeemRequest) (*RedeemResponse, error)
+	// ReserveToken validates a referral token from referral manager
+	ReserveToken(context.Context, *ReserveTokenRequest) (*ReserveTokenResponse, error)
+	// RedeemToken saves newly created user info in referral manager
+	RedeemToken(context.Context, *RedeemTokenRequest) (*RedeemTokenResponse, error)
 }
 
 func RegisterReferralManagerServer(s *grpc.Server, srv ReferralManagerServer) {
@@ -450,20 +518,38 @@ func _ReferralManager_GetTokens_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ReferralManager_Redeem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RedeemRequest)
+func _ReferralManager_ReserveToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReserveTokenRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ReferralManagerServer).Redeem(ctx, in)
+		return srv.(ReferralManagerServer).ReserveToken(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/referralmanager.ReferralManager/Redeem",
+		FullMethod: "/referralmanager.ReferralManager/ReserveToken",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReferralManagerServer).Redeem(ctx, req.(*RedeemRequest))
+		return srv.(ReferralManagerServer).ReserveToken(ctx, req.(*ReserveTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReferralManager_RedeemToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RedeemTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReferralManagerServer).RedeemToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/referralmanager.ReferralManager/RedeemToken",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReferralManagerServer).RedeemToken(ctx, req.(*RedeemTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -477,8 +563,12 @@ var _ReferralManager_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ReferralManager_GetTokens_Handler,
 		},
 		{
-			MethodName: "Redeem",
-			Handler:    _ReferralManager_Redeem_Handler,
+			MethodName: "ReserveToken",
+			Handler:    _ReferralManager_ReserveToken_Handler,
+		},
+		{
+			MethodName: "RedeemToken",
+			Handler:    _ReferralManager_RedeemToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

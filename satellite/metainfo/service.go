@@ -196,7 +196,7 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 }
 
 // List returns all Path keys in the pointers bucket
-func (s *Service) List(ctx context.Context, prefix string, startAfter string, endBefore string, recursive bool, limit int32,
+func (s *Service) List(ctx context.Context, prefix string, startAfter string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -211,7 +211,6 @@ func (s *Service) List(ctx context.Context, prefix string, startAfter string, en
 	rawItems, more, err := storage.ListV2(ctx, s.db, storage.ListOptions{
 		Prefix:       prefixKey,
 		StartAfter:   storage.Key(startAfter),
-		EndBefore:    storage.Key(endBefore),
 		Recursive:    recursive,
 		Limit:        int(limit),
 		IncludeValue: metaFlags != meta.None,
