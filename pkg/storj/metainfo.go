@@ -24,12 +24,12 @@ type Metainfo interface {
 	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
-	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
+	GetObject(ctx context.Context, bucket Bucket, path Path) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
+	GetObjectStream(ctx context.Context, bucket Bucket, path Path) (ReadOnlyStream, error)
 
 	// CreateObject creates a mutable object for uploading stream info
-	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
+	CreateObject(ctx context.Context, bucket Bucket, path Path, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates a mutable object for updating a partially uploaded object
 	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
