@@ -2,7 +2,16 @@
 // See LICENSE for copying information.
 
 import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
-import { BandwidthUsed, Egress, Ingress, Metric, Satellite, Satellites, Stamp } from '@/storagenode/satellite';
+import {
+    BandwidthUsed,
+    Egress,
+    EgressBandwidthUsed,
+    Ingress, IngressBandwidthUsed,
+    Metric,
+    Satellite,
+    Satellites,
+    Stamp
+} from '@/storagenode/satellite';
 
 /**
  * Implementation for HTTP GET requests
@@ -69,14 +78,27 @@ export class SNOApi {
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
+        const egressBandwidthDaily: EgressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
+
+            return new EgressBandwidthUsed(egress, new Date(bandwidth.intervalStart));
+        });
+
+        const ingressBandwidthDaily: IngressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+
+            return new IngressBandwidthUsed(ingress, new Date(bandwidth.intervalStart));
+        });
+
         const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
             json.audit.beta, json.audit.score);
 
         const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
             json.uptime.beta, json.uptime.score);
 
-        return new Satellite(json.id, storageDaily, bandwidthDaily, json.storageSummary,
-            json.bandwidthSummary, audit, uptime);
+        return new Satellite(json.id, storageDaily, bandwidthDaily, egressBandwidthDaily, ingressBandwidthDaily,
+            json.storageSummary, json.bandwidthSummary, json.egressBandwidthSummary, json.ingressBandwidthSummary,
+            audit, uptime);
     }
 
     /**
@@ -100,6 +122,19 @@ export class SNOApi {
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
-        return new Satellites(storageDaily, bandwidthDaily, json.storageSummary, json.bandwidthSummary);
+        const egressBandwidthDaily: EgressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
+
+            return new EgressBandwidthUsed(egress, new Date(bandwidth.intervalStart));
+        });
+
+        const ingressBandwidthDaily: IngressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+
+            return new IngressBandwidthUsed(ingress, new Date(bandwidth.intervalStart));
+        });
+
+        return new Satellites(storageDaily, bandwidthDaily, egressBandwidthDaily, ingressBandwidthDaily,
+            json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary);
     }
 }

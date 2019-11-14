@@ -19,9 +19,18 @@ type DB interface {
 	// MonthSummary returns summary of the current months bandwidth usages
 	MonthSummary(ctx context.Context) (int64, error)
 	Rollup(ctx context.Context) (err error)
+	// Summary returns summary of bandwidth usages
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
+	// EgressSummary returns summary of egress bandwidth usages
+	EgressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
+	// IngressSummary returns summary of ingress bandwidth usages
+	IngressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	// SatelliteEgressSummary returns egress bandwidth usage for a particular satellite.
+	SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
+	// SatelliteIngressSummary returns ingress bandwidth usage for a particular satellite.
+	SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
 	// sorted in ascending order.

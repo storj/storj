@@ -21,14 +21,23 @@
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
             <div class="chart-container">
-                <p class="chart-container__title">Bandwidth Used This Month</p>
-                <p class="chart-container__amount"><b>{{bandwidthSummary}}</b></p>
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+                    <div class="chart-container__title-area__chart-choice-item" :class="{'egress-chart-shown' : isEgressChartShown}" @click.stop="toggleEgressChartShowing">Egress</div>
+                    <div class="chart-container__title-area__chart-choice-item">Ingress</div>
+                </div>
+                <p class="chart-container__amount" v-if="!isEgressChartShown"><b>{{bandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressBandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="false"><b>{{ingressBandwidthSummary}}</b></p>
                 <div class="chart-container__chart">
-                    <BandwidthChart/>
+                    <BandwidthChart v-if="!isEgressChartShown"/>
+                    <EgressChart v-if="isEgressChartShown"/>
                 </div>
             </div>
             <div class="chart-container">
-                <p class="chart-container__title">Disk Space Used This Month</p>
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                </div>
                 <p class="chart-container__amount"><b>{{storageSummary}}*h</b></p>
                 <div class="chart-container__chart">
                     <DiskSpaceChart/>
@@ -84,11 +93,13 @@ import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
+import EgressChart from '@/app/components/EgressChart.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 
@@ -107,6 +118,7 @@ class Checks {
 
 @Component ({
     components: {
+        EgressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
@@ -117,12 +129,28 @@ class Checks {
     },
 })
 export default class SNOContentFilling extends Vue {
+    public get isEgressChartShown(): boolean {
+        return this.$store.state.appStateModule.isEgressChartShown;
+    }
+
+    public toggleEgressChartShowing(): void {
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+    }
+
     public get wallet(): string {
         return this.$store.state.node.info.wallet;
     }
 
     public get bandwidthSummary(): string {
         return formatBytes(this.$store.state.node.bandwidthSummary);
+    }
+
+    public get egressBandwidthSummary(): string {
+        return formatBytes(this.$store.state.node.egressBandwidthSummary);
+    }
+
+    public get ingressBandwidthSummary(): string {
+        return formatBytes(this.$store.state.node.ingressBandwidthSummary);
     }
 
     public get storageSummary(): string {
@@ -224,10 +252,26 @@ export default class SNOContentFilling extends Vue {
         margin-bottom: 13px;
         position: relative;
 
-        &__title {
-            font-size: 14px;
-            color: #586c86;
-            user-select: none;
+        &__title-area {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            &__title {
+                font-size: 14px;
+                color: #586c86;
+                user-select: none;
+            }
+
+            &__chart-choice-item {
+                padding: 5px 12px;
+                background-color: #f1f6ff;
+                border-radius: 47px;
+                font-size: 12px;
+                color: #9daed2;
+                max-height: 25px;
+                cursor: pointer;
+            }
         }
 
         &__amount {
@@ -241,5 +285,10 @@ export default class SNOContentFilling extends Vue {
             bottom: 0;
             left: 0;
         }
+    }
+
+    .egress-chart-shown {
+        background-color: #d3f2cc;
+        color: #2e5f46;
     }
 </style>

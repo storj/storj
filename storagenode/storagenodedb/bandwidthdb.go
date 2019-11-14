@@ -110,11 +110,113 @@ func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *band
 	for rows.Next() {
 		var action pb.PieceAction
 		var amount int64
+
 		err := rows.Scan(&action, &amount)
 		if err != nil {
 			return nil, ErrBandwidth.Wrap(err)
 		}
+
 		usage.Include(action, amount)
+	}
+
+	return usage, ErrBandwidth.Wrap(rows.Err())
+}
+
+// EgressSummary returns summary of egress bandwidth usages
+func (db *bandwidthDB) EgressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage := &bandwidth.Usage{}
+
+	from = from.UTC()
+	to = to.UTC()
+	rows, err := db.Query(`
+		SELECT action, sum(a) amount from(
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				GROUP BY action
+				UNION ALL
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				GROUP BY action
+		) GROUP BY action;
+		`, from, to, from, to)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return usage, nil
+		}
+		return nil, ErrBandwidth.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, ErrBandwidth.Wrap(err)
+		}
+
+		switch action {
+		case pb.PieceAction_GET:
+			usage.Get += amount
+		case pb.PieceAction_GET_AUDIT:
+			usage.GetAudit += amount
+		case pb.PieceAction_GET_REPAIR:
+			usage.GetRepair += amount
+		}
+	}
+
+	return usage, ErrBandwidth.Wrap(rows.Err())
+}
+
+// IngressSummary returns summary of ingress bandwidth usages
+func (db *bandwidthDB) IngressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage := &bandwidth.Usage{}
+
+	from = from.UTC()
+	to = to.UTC()
+	rows, err := db.Query(`
+		SELECT action, sum(a) amount from(
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				GROUP BY action
+				UNION ALL
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				GROUP BY action
+		) GROUP BY action;
+		`, from, to, from, to)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return usage, nil
+		}
+		return nil, ErrBandwidth.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, ErrBandwidth.Wrap(err)
+		}
+
+		switch action {
+		case pb.PieceAction_PUT:
+			usage.Put += amount
+		case pb.PieceAction_PUT_REPAIR:
+			usage.PutRepair += amount
+		}
 	}
 
 	return usage, ErrBandwidth.Wrap(rows.Err())
@@ -160,6 +262,108 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 		}
 
 		usage.Include(action, amount)
+	}
+
+	return usage, nil
+}
+
+// SatelliteEgressSummary returns egress bandwidth usage for a particular satellite.
+func (db *bandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	from, to = from.UTC(), to.UTC()
+
+	query := `SELECT action, sum(a) amount from(
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+			UNION ALL
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+		) GROUP BY action;`
+
+	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	usage := new(bandwidth.Usage)
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, err
+		}
+
+		switch action {
+		case pb.PieceAction_GET:
+			usage.Get += amount
+		case pb.PieceAction_GET_AUDIT:
+			usage.GetAudit += amount
+		case pb.PieceAction_GET_REPAIR:
+			usage.GetRepair += amount
+		}
+	}
+
+	return usage, nil
+}
+
+// SatelliteIngressSummary returns ingress bandwidth usage for a particular satellite.
+func (db *bandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	from, to = from.UTC(), to.UTC()
+
+	query := `SELECT action, sum(a) amount from(
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+			UNION ALL
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+		) GROUP BY action;`
+
+	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	usage := new(bandwidth.Usage)
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, err
+		}
+
+		switch action {
+		case pb.PieceAction_PUT:
+			usage.Put += amount
+		case pb.PieceAction_PUT_REPAIR:
+			usage.PutRepair += amount
+		}
 	}
 
 	return usage, nil
