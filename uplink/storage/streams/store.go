@@ -135,23 +135,24 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	var (
-		totalSegments int64
-		streamID      storj.StreamID
+		committedSegments int64
+		streamID          storj.StreamID
 	)
 	defer func() {
 		if err != nil {
-			s.cancelHandler(context.Background(), streamID, totalSegments, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, committedSegments, path, pathCipher)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
-			s.cancelHandler(context.Background(), streamID, totalSegments, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, committedSegments, path, pathCipher)
 		default:
 		}
 	}()
 
 	var (
+		currentSegment       int64
 		contentKey           storj.Key
 		prevSegmentCommitReq *metainfo.CommitSegmentParams
 		streamSize           int64
@@ -174,7 +175,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 		// which is encrypted with the zero nonce.
 		contentNonce := storj.Nonce{}
-		_, err = encryption.Increment(&contentNonce, totalSegments+1)
+		_, err = encryption.Increment(&contentNonce, currentSegment+1)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -219,12 +220,12 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			beginSegment := &metainfo.BeginSegmentParams{
 				MaxOrderLimit: s.maxEncryptedSegmentSize,
 				Position: storj.SegmentPosition{
-					Index: int32(totalSegments),
+					Index: int32(currentSegment),
 				},
 			}
 
 			var responses []metainfo.BatchResponse
-			if totalSegments == 0 {
+			if currentSegment == 0 {
 				responses, err = s.metainfo.Batch(ctx, beginObjectReq, beginSegment)
 				if err != nil {
 					return Meta{}, err
@@ -237,14 +238,14 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			} else {
 				beginSegment.StreamID = streamID
 				responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, beginSegment)
+				if len(responses) > 0 {
+					// We increment because the first request has succeeded
+					committedSegments++
+				}
 				if err != nil {
-					// TODO: verify if we can distinguish if the error is coming from
-					// commit segment request or from begin segment request
 					return Meta{}, err
 				}
 			}
-
-			totalSegments++
 
 			segResponse, err := responses[1].BeginSegment()
 			if err != nil {
@@ -277,12 +278,12 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 			makeInlineSegment := &metainfo.MakeInlineSegmentParams{
 				Position: storj.SegmentPosition{
-					Index: int32(totalSegments),
+					Index: int32(currentSegment),
 				},
 				Encryption:          segmentEncryption,
 				EncryptedInlineData: cipherData,
 			}
-			if totalSegments == 0 {
+			if currentSegment == 0 {
 				responses, err := s.metainfo.Batch(ctx, beginObjectReq, makeInlineSegment)
 				if err != nil {
 					return Meta{}, err
@@ -300,12 +301,15 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				}
 			}
 
-			totalSegments++
+			committedSegments++
 		}
 
 		lastSegmentSize = sizeReader.Size()
 		streamSize += lastSegmentSize
+		currentSegment++
 	}
+
+	totalSegments := currentSegment
 
 	if eofReader.hasError() {
 		return Meta{}, eofReader.err
@@ -352,6 +356,9 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 	if prevSegmentCommitReq != nil {
 		_, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
+		if len(responses) > 0 {
+			committedSegments++
+		}
 	} else {
 		err = s.metainfo.CommitObject(ctx, commitObject)
 	}
