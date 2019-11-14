@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/cmd/internal/asset"
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/testcontext"
 )
 
 func TestAssets(t *testing.T) {

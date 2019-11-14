@@ -15,14 +15,14 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/groupcancel"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/groupcancel"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )

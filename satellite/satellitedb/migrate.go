@@ -6,8 +6,8 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/migrate"
 )
 
 var (
