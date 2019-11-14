@@ -802,6 +802,9 @@ func TestSetBucketAttribution(t *testing.T) {
 		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
 		require.NoError(t, err)
 
+		err = uplink.CreateBucket(ctx, planet.Satellites[0], "alpha-new")
+		require.NoError(t, err)
+
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
@@ -815,12 +818,12 @@ func TestSetBucketAttribution(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// no bucket exists
+			// setting attribution on a bucket that doesn't exist should fail
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "beta",
 				PartnerID: partnerID,
 			})
-			require.NoError(t, err)
+			require.Error(t, err)
 		}
 		{
 			// already attributed bucket, adding files
