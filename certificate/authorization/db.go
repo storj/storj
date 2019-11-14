@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/storage"

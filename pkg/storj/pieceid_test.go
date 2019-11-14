@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/private/testidentity"
 	"storj.io/storj/pkg/storj"
 )
 

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"

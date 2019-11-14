@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"

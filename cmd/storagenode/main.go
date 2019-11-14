@@ -15,9 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/version"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"

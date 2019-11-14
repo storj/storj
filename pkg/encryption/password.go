@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/argon2"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/pkg/storj"
 )
 

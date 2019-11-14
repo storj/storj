@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"

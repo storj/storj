@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"

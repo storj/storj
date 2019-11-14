@@ -19,9 +19,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/cmd/internal/wizard"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"

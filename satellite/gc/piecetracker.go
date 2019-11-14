@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"

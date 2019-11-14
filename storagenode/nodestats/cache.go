@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/date"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"

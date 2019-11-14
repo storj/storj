@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/linksharing"
 	"storj.io/storj/linksharing/httpserver"

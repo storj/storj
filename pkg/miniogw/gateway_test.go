@@ -19,9 +19,9 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"

@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"

@@ -18,9 +18,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )

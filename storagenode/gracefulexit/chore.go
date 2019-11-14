@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"

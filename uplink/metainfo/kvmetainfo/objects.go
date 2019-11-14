@@ -9,7 +9,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"

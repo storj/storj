@@ -9,7 +9,7 @@ import "C"
 import (
 	"fmt"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/lib/uplink"
 	"time"
 )

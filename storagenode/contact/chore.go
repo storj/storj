@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"

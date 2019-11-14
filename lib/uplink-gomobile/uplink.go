@@ -6,7 +6,7 @@ package mobile
 import (
 	"fmt"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )

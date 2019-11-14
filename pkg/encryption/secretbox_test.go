@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/testrand"
 )
 
 func TestSecretbox(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 	"storj.io/storj/pkg/process"
 )
 

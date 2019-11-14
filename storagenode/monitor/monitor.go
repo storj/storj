@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"

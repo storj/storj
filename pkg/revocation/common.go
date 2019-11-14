@@ -4,7 +4,7 @@
 package revocation
 
 import (
-	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/storage/boltdb"

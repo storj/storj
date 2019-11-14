@@ -10,7 +10,7 @@ import (
 
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"

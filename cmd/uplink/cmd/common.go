@@ -4,7 +4,7 @@
 package cmd
 
 import (
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 )
 

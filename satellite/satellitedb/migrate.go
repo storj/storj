@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/pbold"

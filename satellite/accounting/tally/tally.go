@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"

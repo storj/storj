@@ -13,9 +13,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"

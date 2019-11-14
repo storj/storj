@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/testpeertls"
+	"storj.io/storj/private/testpeertls"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/storj"

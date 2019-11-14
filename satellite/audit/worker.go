@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/storj"
 )
 

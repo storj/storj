@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"

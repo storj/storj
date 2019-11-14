@@ -19,7 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/cui"
+	"storj.io/storj/private/cui"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"

@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"

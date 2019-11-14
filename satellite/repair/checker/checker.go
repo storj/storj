@@ -12,8 +12,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"

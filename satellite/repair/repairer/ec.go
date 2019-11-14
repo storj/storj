@@ -17,8 +17,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/rpc"

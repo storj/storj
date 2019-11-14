@@ -27,7 +27,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2/collect"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
-	"storj.io/storj/internal/version"
+	"storj.io/storj/private/version"
 	"storj.io/storj/pkg/cfgstruct"
 )
 

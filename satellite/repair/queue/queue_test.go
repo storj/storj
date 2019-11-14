@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
