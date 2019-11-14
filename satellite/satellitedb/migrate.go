@@ -1401,6 +1401,26 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add timeout field to coinpayments_transaction",
+				Version:     68,
+				Action: migrate.SQL{
+					`DROP TABLE coinpayments_transactions CASCADE`,
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						timeout integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }
