@@ -79,35 +79,35 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE bucket_bandwidth_rollups (
 						bucket_name bytea NOT NULL,
-						project_id bytea NOT NULL ,
 						interval_start timestamp NOT NULL,
 						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						inline bigint NOT NULL,
 						allocated bigint NOT NULL,
 						settled bigint NOT NULL,
-						PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+						project_id bytea NOT NULL ,
+						CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action)
 					);`,
 					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );`,
 
 					`CREATE TABLE bucket_storage_tallies (
 						bucket_name bytea NOT NULL,
-						project_id bytea NOT NULL,
 						interval_start timestamp NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
-						remote_segments_count integer NOT NULL DEFAULT 0,
-						inline_segments_count integer NOT NULL DEFAULT 0,
-						object_count integer NOT NULL DEFAULT 0,
-						metadata_size bigint NOT NULL DEFAULT 0,
-						PRIMARY KEY ( bucket_name, project_id, interval_start )
+						remote_segments_count integer NOT NULL,
+						inline_segments_count integer NOT NULL,
+						object_count integer NOT NULL,
+						metadata_size bigint NOT NULL,
+						project_id bytea NOT NULL,
+						CONSTRAINT bucket_storage_tallies_pk PRIMARY KEY (bucket_name, project_id, interval_start)
 					);`,
 
 					`CREATE TABLE injuredsegments (
 						data bytea NOT NULL,
-						path bytea NOT NULL,
 						attempted timestamp,
-						PRIMARY KEY ( path )
+						path bytea NOT NULL,
+						CONSTRAINT injuredsegments_pk PRIMARY KEY (path)
 					);`,
 					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
 
@@ -122,38 +122,38 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE nodes (
 						id bytea NOT NULL,
-						address text NOT NULL DEFAULT '',
-						last_net text NOT NULL DEFAULT '',
-						protocol INTEGER NOT NULL DEFAULT 0,
-						type INTEGER NOT NULL DEFAULT 0,
-						email text NOT NULL DEFAULT '',
-						wallet text NOT NULL DEFAULT '',
-						free_bandwidth BIGINT NOT NULL DEFAULT -1,
-						free_disk BIGINT NOT NULL DEFAULT -1,
-						piece_count bigint NOT NULL DEFAULT 0,
-						major bigint NOT NULL DEFAULT 0,
-						minor bigint NOT NULL DEFAULT 0,
-						patch bigint NOT NULL DEFAULT 0,
-						hash TEXT NOT NULL DEFAULT '',
-						timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
-						release bool NOT NULL DEFAULT FALSE,
-						latency_90 BIGINT NOT NULL DEFAULT 0,
 						audit_success_count bigint NOT NULL DEFAULT 0,
 						total_audit_count bigint NOT NULL DEFAULT 0,
 						uptime_success_count bigint NOT NULL,
 						total_uptime_count bigint NOT NULL,
 						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						wallet text NOT NULL,
+						email text NOT NULL,
+						address text NOT NULL DEFAULT '',
+						protocol INTEGER NOT NULL DEFAULT 0,
+						type INTEGER NOT NULL DEFAULT 0,
+						free_bandwidth BIGINT NOT NULL DEFAULT -1,
+						free_disk BIGINT NOT NULL DEFAULT -1,
+						latency_90 BIGINT NOT NULL DEFAULT 0,
 						last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
 						last_contact_failure TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
+						major bigint NOT NULL DEFAULT 0,
+						minor bigint NOT NULL DEFAULT 0,
+						patch bigint NOT NULL DEFAULT 0,
+						hash TEXT NOT NULL DEFAULT '',
+						timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+						release bool NOT NULL DEFAULT FALSE,
 						contained bool NOT NULL DEFAULT FALSE,
+						last_net text NOT NULL,
 						disqualified timestamp with time zone,
 						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 						audit_reputation_beta double precision NOT NULL DEFAULT 0,
 						uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
 						uptime_reputation_beta double precision NOT NULL DEFAULT 0,
-						exit_initiated_at TIMESTAMP,
+						piece_count bigint NOT NULL DEFAULT 0,
 						exit_loop_completed_at TIMESTAMP,
+						exit_initiated_at TIMESTAMP,
 						exit_finished_at TIMESTAMP,
 						exit_success boolean NOT NULL DEFAULT FALSE,
 						PRIMARY KEY ( id )
@@ -165,14 +165,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						name text NOT NULL,
 						description text NOT NULL,
 						type integer NOT NULL,
-						award_credit_in_cents integer NOT NULL DEFAULT 0,
-						invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 						award_credit_duration_days integer,
-						invitee_credit_duration_days integer DEFAULT 14,
+						invitee_credit_duration_days integer,
 						redeemable_cap integer,
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						status integer NOT NULL,
+						award_credit_in_cents integer NOT NULL DEFAULT 0,
+						invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( id )
 					);`,
 
@@ -223,12 +223,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE serial_numbers (
 						id serial NOT NULL,
-						serial_number bytea NOT NULL UNIQUE,
+						serial_number bytea NOT NULL,
 						bucket_id bytea NOT NULL,
 						expires_at timestamp NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );`,
+					`CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number )`,
 
 					`CREATE TABLE storagenode_bandwidth_rollups (
 						storagenode_id bytea NOT NULL,
@@ -239,19 +240,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						settled bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start, action )
 					);`,
-					`CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`,
+					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`,
 
-					`CREATE TABLE storagenode_storage_tallies (
+					`CREATE TABLE accounting_raws (
 						id bigserial NOT NULL,
 						node_id bytea NOT NULL,
 						interval_end_time timestamp with time zone NOT NULL,
 						data_total double precision NOT NULL,
 						PRIMARY KEY ( id )
-					);`,
+					)`,
+					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
 
-					// todo: do we need users.status to have a default
-					// see version: 4 migration:
-					// UPDATE users SET status = ` + strconv.Itoa(int(console.Active)) + `;
 					`CREATE TABLE users (
 						id bytea NOT NULL,
 						full_name text NOT NULL,
@@ -330,13 +329,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE user_credits (
 						id serial NOT NULL,
 						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-						referred_by bytea REFERENCES users( id ) ON DELETE NO ACTION,
 						offer_id integer NOT NULL REFERENCES offers( id ),
+						referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
 						credits_earned_in_cents integer NOT NULL,
 						credits_used_in_cents integer NOT NULL,
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
-						type text NOT NULL DEFAULT 'invalid',
+						type text NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id) WHERE credits_earned_in_cents=0;`,
@@ -349,7 +348,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						expires_at,
 						created_at,
 						status,
-						type )
+						type,
+						award_credit_duration_days,
+						invitee_credit_duration_days
+					)
 					VALUES (
 						'Default referral offer',
 						'Is active when no other active referral offer',
@@ -358,17 +360,21 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
-						2
+						2,
+						365,
+						14
 					),
 					(
 						'Default free credit offer',
 						'Is active when no active free credit offer',
-						300,
 						0,
+						300,
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
-						1
+						1,
+						NULL,
+						14
 					) ON CONFLICT DO NOTHING;`,
 
 					`CREATE TABLE graceful_exit_progress (
