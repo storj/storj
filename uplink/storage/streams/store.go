@@ -135,18 +135,18 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	var (
-		currentSegment int64
-		streamID       storj.StreamID
+		totalSegments int64
+		streamID      storj.StreamID
 	)
 	defer func() {
 		if err != nil {
-			s.cancelHandler(context.Background(), streamID, currentSegment, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, totalSegments, path, pathCipher)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
-			s.cancelHandler(context.Background(), streamID, currentSegment, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, totalSegments, path, pathCipher)
 		default:
 		}
 	}()
@@ -168,11 +168,13 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			return Meta{}, err
 		}
 
-		// Initialize the content nonce with the segment's index incremented by 1.
+		// Initialize the content nonce with the current total segment incremented
+		// by 1 because at this moment the next segment has not been already
+		// uploaded.
 		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 		// which is encrypted with the zero nonce.
 		contentNonce := storj.Nonce{}
-		_, err = encryption.Increment(&contentNonce, currentSegment+1)
+		_, err = encryption.Increment(&contentNonce, totalSegments+1)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -217,12 +219,12 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			beginSegment := &metainfo.BeginSegmentParams{
 				MaxOrderLimit: s.maxEncryptedSegmentSize,
 				Position: storj.SegmentPosition{
-					Index: int32(currentSegment),
+					Index: int32(totalSegments),
 				},
 			}
 
 			var responses []metainfo.BatchResponse
-			if currentSegment == 0 {
+			if totalSegments == 0 {
 				responses, err = s.metainfo.Batch(ctx, beginObjectReq, beginSegment)
 				if err != nil {
 					return Meta{}, err
@@ -240,7 +242,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				}
 			}
 
-			currentSegment++
+			totalSegments++
 
 			segResponse, err := responses[1].BeginSegment()
 			if err != nil {
@@ -273,12 +275,12 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 			makeInlineSegment := &metainfo.MakeInlineSegmentParams{
 				Position: storj.SegmentPosition{
-					Index: int32(currentSegment),
+					Index: int32(totalSegments),
 				},
 				Encryption:          segmentEncryption,
 				EncryptedInlineData: cipherData,
 			}
-			if currentSegment == 0 {
+			if totalSegments == 0 {
 				responses, err := s.metainfo.Batch(ctx, beginObjectReq, makeInlineSegment)
 				if err != nil {
 					return Meta{}, err
@@ -296,17 +298,12 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				}
 			}
 
-			currentSegment++
+			totalSegments++
 		}
 
 		lastSegmentSize = sizeReader.Size()
 		streamSize += lastSegmentSize
 	}
-
-	// currentSegment is incremented in one before the next iteration starts so
-	// when the loop condition breaks it has been incremented in 1 before knowing
-	// eofReader reaches the end or it has stop due to an error.
-	totalSegments := currentSegment
 
 	if eofReader.hasError() {
 		return Meta{}, eofReader.err
