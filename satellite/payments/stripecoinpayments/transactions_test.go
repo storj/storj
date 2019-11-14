@@ -42,6 +42,7 @@ func TestTransactionsDB(t *testing.T) {
 			Received:  *received,
 			Status:    coinpayments.StatusReceived,
 			Key:       "testKey",
+			Timeout:   time.Second * 60,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -217,5 +218,6 @@ func compareTransactions(t *testing.T, exp, act stripecoinpayments.Transaction) 
 	assert.Equal(t, exp.Received, act.Received)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Key, act.Key)
+	assert.Equal(t, exp.Timeout, act.Timeout)
 	assert.False(t, act.CreatedAt.IsZero())
 }
