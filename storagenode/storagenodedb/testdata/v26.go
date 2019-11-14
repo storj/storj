@@ -26,6 +26,7 @@ var v26 = MultiDBState{
 				);
 				CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration);
 				CREATE INDEX idx_piece_expirations_deletion_failed_at ON piece_expirations(deletion_failed_at);
+				CREATE INDEX idx_piece_expirations_trashed ON piece_expirations(satellite_id, trash) WHERE trash = 1;
 			`,
 		},
 		storagenodedb.OrdersDBName:         v25.DBStates[storagenodedb.OrdersDBName],

@@ -120,6 +120,7 @@ func (db *pieceExpirationDB) RestoreTrash(ctx context.Context, satelliteID storj
 		UPDATE piece_expirations
 			SET trash = 0
 			WHERE satellite_id = ?
+				AND trash = 1
 	`, satelliteID)
 	return ErrPieceExpiration.Wrap(err)
 }
