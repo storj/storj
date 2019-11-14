@@ -43,7 +43,6 @@ func TestDataRepair(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
@@ -177,7 +176,6 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
@@ -297,7 +295,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
@@ -687,7 +684,6 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Checker.RepairOverride = repairOverride
 			},
 		},
@@ -776,7 +772,6 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Checker.RepairOverride = repairOverride
 			},
 		},
