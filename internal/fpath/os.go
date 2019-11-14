@@ -107,12 +107,12 @@ func IsWritable(filepath string) (bool, error) {
 	}
 
 	if !info.IsDir() {
-		return false, fmt.Errorf("Path %s is not a directory", filepath)
+		return false, fmt.Errorf("path %s is not a directory", filepath)
 	}
 
 	// Check if the user bit is enabled in file permission
 	if info.Mode().Perm()&0200 == 0 {
-		return false, fmt.Errorf("Write permission bit is not set on this file for user")
+		return false, fmt.Errorf("write permission bit is not set on this file for user")
 	}
 
 	// Test if user can create file
@@ -122,7 +122,7 @@ func IsWritable(filepath string) (bool, error) {
 	testFile := path.Join(filepath, ".perm")
 	file, err := os.Create(testFile) // For read access.
 	if err != nil {
-		return false, fmt.Errorf("Write permission bit is not set on this file for user")
+		return false, fmt.Errorf("write permission bit is not set on this file for user")
 	}
 
 	_ = file.Close()
