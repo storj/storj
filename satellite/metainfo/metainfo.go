@@ -937,13 +937,16 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	if len(items) > 0 {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
 	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
-	if err == nil {
-		return rpcstatus.Error(rpcstatus.NotFound, "bucket does not exist")
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
+		}
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if !bucket.PartnerID.IsZero() {
 		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
