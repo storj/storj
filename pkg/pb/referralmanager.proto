@@ -22,11 +22,6 @@ message GetTokensRequest{
     bytes user_id = 1;
 }
 
-message Token {
-    bytes token = 1;
-    bytes owner_id = 2;
-}
-
 message GetTokensResponse {
  repeated bytes token = 1;
 }
@@ -38,3 +33,9 @@ message ReserveTokenRequest {
 
 message ReserveTokenResponse{}
 
+message RedeemTokenRequest {
+    bytes token = 1;
+    bytes user_id = 2;
+}
+
+message RedeemTokenResponse {}
