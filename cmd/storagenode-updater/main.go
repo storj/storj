@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -187,11 +186,16 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 		return nil
 	}
 
-	tempArchive, err := ioutil.TempFile(os.TempDir(), serviceName)
+	tempArchive, err := ioutil.TempFile("", serviceName)
 	if err != nil {
 		return errs.New("cannot create temporary archive: %v", err)
 	}
-	defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+	defer func() {
+		err = errs.Combine(err,
+			tempArchive.Close(),
+			os.Remove(tempArchive.Name()),
+		)
+	}()
 
 	downloadURL := parseDownloadURL(processVersion.Suggested.URL)
 	log.Println("start downloading", downloadURL, "to", tempArchive.Name())
@@ -323,35 +327,6 @@ func unpackBinary(ctx context.Context, archive, target string) (err error) {
 	_, err = sync2.Copy(ctx, newExec, zipedExec)
 	if err != nil {
 		return errs.Combine(err, os.Remove(newExec.Name()))
-	}
-	return nil
-}
-
-func restartService(name string) error {
-	switch runtime.GOOS {
-	case "windows":
-		// TODO: combine stdout with err if err
-		restartSvcBatPath := filepath.Join(os.TempDir(), "restartservice.bat")
-		restartSvcBat, err := os.Create(restartSvcBatPath)
-		if err != nil {
-			return err
-		}
-
-		restartStr := fmt.Sprintf("net stop %s && net start %s", name, name)
-		_, err = restartSvcBat.WriteString(restartStr)
-		if err != nil {
-			return err
-		}
-		if err := restartSvcBat.Close(); err != nil {
-			return err
-		}
-
-		_, err = exec.Command(restartSvcBat.Name()).CombinedOutput()
-		if err != nil {
-			return err
-		}
-	default:
-		return nil
 	}
 	return nil
 }

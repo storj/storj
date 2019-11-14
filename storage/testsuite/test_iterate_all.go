@@ -61,21 +61,6 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"no limits reverse",
-			storage.IterateOptions{
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("h", "h", false),
-				newItem("g", "g", false),
-				newItem("c/1", "c/1", false),
-				newItem("c//", "c//", false),
-				newItem("c/", "c/", false),
-				newItem("c", "c", false),
-				newItem("b/3", "b/3", false),
-				newItem("b/2", "b/2", false),
-				newItem("b/1", "b/1", false),
-				newItem("a", "a", false),
-			}},
 
 		{"at a",
 			storage.IterateOptions{
@@ -92,13 +77,6 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("c/1", "c/1", false),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-		{"at a reverse",
-			storage.IterateOptions{
-				First:   storage.Key("a"),
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("a", "a", false),
 			}},
 
 		{"after a",
@@ -180,20 +158,6 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"at e reverse",
-			storage.IterateOptions{
-				First:   storage.Key("e"),
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("c/1", "c/1", false),
-				newItem("c//", "c//", false),
-				newItem("c/", "c/", false),
-				newItem("c", "c", false),
-				newItem("b/3", "b/3", false),
-				newItem("b/2", "b/2", false),
-				newItem("b/1", "b/1", false),
-				newItem("a", "a", false),
-			}},
 
 		{"prefix b slash",
 			storage.IterateOptions{
@@ -221,23 +185,6 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("b/2", "b/2", false),
 				newItem("b/3", "b/3", false),
 			}},
-		{"reverse prefix b slash",
-			storage.IterateOptions{
-				Prefix:  storage.Key("b/"),
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("b/3", "b/3", false),
-				newItem("b/2", "b/2", false),
-				newItem("b/1", "b/1", false),
-			}},
-		{"reverse prefix b slash at b slash 2",
-			storage.IterateOptions{
-				Prefix: storage.Key("b/"), First: storage.Key("b/2"),
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("b/2", "b/2", false),
-				newItem("b/1", "b/1", false),
-			}},
 
 		{"prefix c slash",
 			storage.IterateOptions{
@@ -248,27 +195,11 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("c//", "c//", false),
 				newItem("c/1", "c/1", false),
 			}},
-		{"reverse prefix c slash",
-			storage.IterateOptions{
-				Prefix:  storage.Key("c/"),
-				Recurse: true, Reverse: true,
-			}, storage.Items{
-				newItem("c/1", "c/1", false),
-				newItem("c//", "c//", false),
-				newItem("c/", "c/", false),
-			}},
 
 		{"prefix c slash slash",
 			storage.IterateOptions{
 				Prefix:  storage.Key("c//"),
 				Recurse: true,
-			}, storage.Items{
-				newItem("c//", "c//", false),
-			}},
-		{"reverse prefix c slash slash",
-			storage.IterateOptions{
-				Prefix:  storage.Key("c//"),
-				Recurse: true, Reverse: true,
 			}, storage.Items{
 				newItem("c//", "c//", false),
 			}},

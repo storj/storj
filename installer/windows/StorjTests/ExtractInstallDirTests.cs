@@ -10,26 +10,26 @@ namespace StorjTests
         [TestMethod]
         public void NullServiceCmd()
         {
-            Assert.IsNull(CustomActionRunner.ExtractInstallDir(null));
+            Assert.IsNull(new CustomActionRunner().ExtractInstallDir(null));
         }
 
         [TestMethod]
         public void EmptyServiceCmd()
         {
-            Assert.IsNull(CustomActionRunner.ExtractInstallDir(""));
+            Assert.IsNull(new CustomActionRunner().ExtractInstallDir(""));
         }
 
         [TestMethod]
         public void MissingConfigDirFlag()
         {
-            Assert.IsNull(CustomActionRunner.ExtractInstallDir("\"C:\\Program Files\\Storj\\Storage Node\\storagenode.exe\" run"));
+            Assert.IsNull(new CustomActionRunner().ExtractInstallDir("\"C:\\Program Files\\Storj\\Storage Node\\storagenode.exe\" run"));
         }
 
         [TestMethod]
         public void ValidServiceCmd()
         {
             Assert.AreEqual("C:\\Program Files\\Storj\\Storage Node\\\\",
-                CustomActionRunner.ExtractInstallDir("\"C:\\Program Files\\Storj\\Storage Node\\storagenode.exe\" run  --config-dir \"C:\\Program Files\\Storj\\Storage Node\\\\\""));
+                new CustomActionRunner().ExtractInstallDir("\"C:\\Program Files\\Storj\\Storage Node\\storagenode.exe\" run  --config-dir \"C:\\Program Files\\Storj\\Storage Node\\\\\""));
         }
     }
 }
