@@ -1,0 +1,39 @@
+# nfpm example config file
+name: "storagenode"
+arch: "amd64"
+platform: "linux"
+version: "v2.1.1"
+section: "default"
+priority: "extra"
+#replaces:
+#provides:
+#depends:
+# recommends on rpm packages requires rpmbuild >= 4.13
+#recommends:
+# suggests on rpm packages requires rpmbuild >= 4.13
+#suggests:
+#- something-else
+#conflicts:
+#- not-foo
+#- not-bar
+maintainer: "John Doe <john@example.com>"
+description: |
+  FooBar is the great foo and bar software.
+    And this can be in multiple lines!
+vendor: "Storj"
+homepage: "https://storj.io"
+license: "MIT"
+bindir: "/usr/local/bin"
+files:
+  ./bin/storagenode: "/usr/local/bin/storagenode"
+#config_files:
+#  ./foobar.conf: "/etc/foobar.conf"
+#overrides:
+#  rpm:
+#    scripts:
+#      preinstall: ./scripts/preinstall.sh
+#      postremove: ./scripts/postremove.sh
+#  deb:
+#    scripts:
+#      postinstall: ./scripts/postinstall.sh
+#      preremove: ./scripts/preremove.sh
