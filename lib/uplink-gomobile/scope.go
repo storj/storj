@@ -6,7 +6,7 @@ package mobile
 import (
 	"context"
 
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 )
 
 type scope struct {

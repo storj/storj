@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/admission/admproto"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 )
 
 // PacketFilter inspects a packet header to determine if it should be passed

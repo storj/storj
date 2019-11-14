@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/testpeertls"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testpeertls"
+	"storj.io/storj/private/testrand"
 )
 
 func TestNewCert_CA(t *testing.T) {
