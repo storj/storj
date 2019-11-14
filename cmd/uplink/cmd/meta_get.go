@@ -69,7 +69,7 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		value, ok := object.Meta.Metadata[keyNorm]
-		if ok != true {
+		if !ok {
 			return fmt.Errorf("key does not exist")
 		}
 
