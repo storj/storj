@@ -238,6 +238,8 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				beginSegment.StreamID = streamID
 				responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, beginSegment)
 				if err != nil {
+					// TODO: verify if we can distinguish if the error is coming from
+					// commit segment request or from begin segment request
 					return Meta{}, err
 				}
 			}
