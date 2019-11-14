@@ -2431,7 +2431,13 @@
               {
                 "id": 4,
                 "name": "end_before",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 5,

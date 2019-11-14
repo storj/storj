@@ -82,10 +82,8 @@ func (ctx *Context) CompileWithLDFlagsX(pkg string, ldFlagsX map[string]string) 
 	ctx.test.Helper()
 
 	var ldFlags = "-s -w"
-	if ldFlagsX != nil {
-		for key, value := range ldFlagsX {
-			ldFlags += (" -X " + key + "=" + value)
-		}
+	for key, value := range ldFlagsX {
+		ldFlags += (" -X " + key + "=" + value)
 	}
 
 	return ctx.Compile(pkg, "-ldflags", ldFlags)

@@ -164,20 +164,12 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var all storage.Items
-	if !opts.Reverse {
-		all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
-	} else {
-		all, err = client.allPrefixedItems(opts.Prefix, nil, opts.First)
-	}
+	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil)
 	if err != nil {
 		return err
 	}
 	if !opts.Recurse {
 		all = storage.SortAndCollapse(all, opts.Prefix)
-	}
-	if opts.Reverse {
-		all = storage.ReverseItems(all)
 	}
 	return fn(ctx, &storage.StaticIterator{
 		Items: all,

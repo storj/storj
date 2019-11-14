@@ -70,10 +70,13 @@ RUN yes | sdkmanager \
 # Linters
 
 RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
+
 RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/josephspurrier/goversioninfo
 RUN go get github.com/loov/leakcheck
+
+RUN GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@2019.2.2
 
 # Output formatters
 
