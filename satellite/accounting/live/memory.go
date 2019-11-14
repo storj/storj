@@ -28,7 +28,7 @@ type memoryLiveAccounting struct {
 
 func newMemoryLiveAccounting(log *zap.Logger) (*memoryLiveAccounting, error) {
 	pmac := &memoryLiveAccounting{log: log}
-	pmac.spaceDeltas = make(map[uuid.UUID]int64, 0)
+	pmac.spaceDeltas = make(map[uuid.UUID]int64)
 	return pmac, nil
 }
 

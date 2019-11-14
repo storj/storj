@@ -797,17 +797,18 @@ model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
     key node_id path piece_num
 
-    field node_id             blob
-    field path                blob
-    field piece_num           int
-    field root_piece_id       blob       ( nullable )
-    field durability_ratio    float64    ( updatable )
-    field queued_at           utimestamp ( autoinsert )
-    field requested_at        utimestamp ( updatable, nullable )
-    field last_failed_at      utimestamp ( updatable, nullable )
-    field last_failed_code    int        ( updatable, nullable )
-    field failed_count        int        ( updatable, nullable )
-    field finished_at         utimestamp ( updatable, nullable )
+    field node_id                blob
+    field path                   blob
+    field piece_num              int
+    field root_piece_id          blob       ( nullable )
+    field durability_ratio       float64    ( updatable )
+    field queued_at              utimestamp ( autoinsert )
+    field requested_at           utimestamp ( updatable, nullable )
+    field last_failed_at         utimestamp ( updatable, nullable )
+    field last_failed_code       int        ( updatable, nullable )
+    field failed_count           int        ( updatable, nullable )
+    field finished_at            utimestamp ( updatable, nullable )
+    field order_limit_send_count int        ( updatable )
 )
 
 create graceful_exit_transfer_queue ( noreturn )

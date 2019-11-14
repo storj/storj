@@ -65,14 +65,14 @@ func (blob *blobReader) StorageFormatVersion() storage.FormatVersion {
 // blobWriter implements writing blobs
 type blobWriter struct {
 	ref           storage.BlobRef
-	store         *Store
+	store         *blobStore
 	closed        bool
 	formatVersion storage.FormatVersion
 
 	*os.File
 }
 
-func newBlobWriter(ref storage.BlobRef, store *Store, formatVersion storage.FormatVersion, file *os.File) *blobWriter {
+func newBlobWriter(ref storage.BlobRef, store *blobStore, formatVersion storage.FormatVersion, file *os.File) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,

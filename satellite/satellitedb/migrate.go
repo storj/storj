@@ -1390,8 +1390,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.db,
-				Description: "Add stripecoinpayments_tx_conversion_rates",
+				Description: "Alter graceful_exit_transfer_queue to add order_limit_send_count.",
 				Version:     67,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN order_limit_send_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_tx_conversion_rates",
+				Version:     68,
 				Action: migrate.SQL{
 					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 						tx_id text NOT NULL,
@@ -1404,7 +1412,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			{
 				DB:          db.db,
 				Description: "Add timeout field to coinpayments_transaction",
-				Version:     68,
+				Version:     69,
 				Action: migrate.SQL{
 					`DROP TABLE coinpayments_transactions CASCADE`,
 					`CREATE TABLE coinpayments_transactions (
