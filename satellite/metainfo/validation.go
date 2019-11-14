@@ -159,22 +159,6 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return err
-	}
-
-	err = endpoint.validateRedundancy(ctx, req.Redundancy)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -304,8 +288,8 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
 		}
 
-		pieceNums := make(map[int32]struct{}, 0)
-		nodeIds := make(map[storj.NodeID]struct{}, 0)
+		pieceNums := make(map[int32]struct{})
+		nodeIds := make(map[storj.NodeID]struct{})
 		for _, piece := range remote.RemotePieces {
 			if piece.PieceNum >= int32(len(originalLimits)) {
 				return Error.New("invalid piece number")

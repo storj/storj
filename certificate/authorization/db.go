@@ -18,6 +18,23 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
+var (
+	// ErrDB is used when an error occurs involving the authorization database.
+	ErrDB = errs.Class("authorization db error")
+	// ErrEmptyUserID is used when a user ID is required but not provided.
+	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
+	// ErrCount is used when attempting to create an invalid number of authorizations.
+	ErrCount = ErrDB.New("cannot add less than one authorization")
+	// ErrInvalidClaim is used when a claim is invalid due to some user input.
+	ErrInvalidClaim = errs.Class("authorization claim error")
+	// ErrAlreadyClaimed is used when a valid claim is attempted with a token that's been used already.
+	ErrAlreadyClaimed = errs.Class("authorization already claimed")
+	// ErrNotFound is used when there is no matching authorization in the DB for a given userID and token.
+	ErrNotFound = errs.Class("authorization not found")
+	// ErrDBInternal is used when an internal error occurs involving the authorization database.
+	ErrDBInternal = errs.Class("internal authorization db error")
+)
+
 // DB stores authorizations which may be claimed in exchange for a
 // certificate signature.
 type DB struct {
@@ -85,26 +102,19 @@ func (authDB *DB) Close() error {
 func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID, count)(&err)
 	if len(userID) == 0 {
-		return nil, ErrDB.Wrap(ErrEmptyUserID)
+		return nil, ErrEmptyUserID
 	}
 	if count < 1 {
-		return nil, ErrDB.Wrap(ErrCount)
+		return nil, ErrCount
 	}
 
-	var (
-		newAuths Group
-		authErrs errs.Group
-	)
+	var newAuths Group
 	for i := 0; i < count; i++ {
 		auth, err := NewAuthorization(userID)
 		if err != nil {
-			authErrs.Add(err)
-			continue
+			return nil, ErrDBInternal.Wrap(err)
 		}
 		newAuths = append(newAuths, auth)
-	}
-	if authErrs.Err() != nil {
-		return nil, ErrDB.Wrap(authErrs.Err())
 	}
 
 	if err := authDB.add(ctx, userID, newAuths); err != nil {
@@ -118,8 +128,11 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return nil, ErrDB.Wrap(err)
+	if storage.ErrKeyNotFound.Has(err) {
+		return nil, ErrNotFound.New("userID: %s", userID)
+	}
+	if err != nil {
+		return nil, ErrDBInternal.Wrap(err)
 	}
 	if authsBytes == nil {
 		return nil, nil
@@ -127,7 +140,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 
 	var auths Group
 	if err := auths.Unmarshal(authsBytes); err != nil {
-		return nil, ErrDB.Wrap(err)
+		return nil, ErrDBInternal.Wrap(err)
 	}
 	return auths, nil
 }
@@ -144,7 +157,7 @@ func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 		}
 		return nil
 	})
-	return userIDs, err
+	return userIDs, ErrDBInternal.Wrap(err)
 }
 
 // List returns all authorizations in the database.
@@ -162,9 +175,9 @@ func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 			}
 			auths = append(auths, nextAuths...)
 		}
-		return listErrs.Err()
+		return ErrDBInternal.Wrap(listErrs.Err())
 	})
-	return auths, err
+	return auths, ErrDBInternal.Wrap(err)
 }
 
 // Claim marks an authorization as claimed and records claim information.
@@ -174,26 +187,26 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	reqTime := time.Unix(opts.Req.Timestamp, 0)
 	if (now.Sub(reqTime) > MaxClockSkew) ||
 		(reqTime.Sub(now) > MaxClockSkew) {
-		return Error.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
+		return ErrInvalidClaim.New("claim timestamp is outside of max skew window: %d", opts.Req.Timestamp)
 	}
 
 	ident, err := identity.PeerIdentityFromPeer(opts.Peer)
 	if err != nil {
-		return err
+		return ErrDBInternal.Wrap(err)
 	}
 
 	peerDifficulty, err := ident.ID.Difficulty()
 	if err != nil {
-		return err
+		return ErrDBInternal.Wrap(err)
 	}
 
 	if peerDifficulty < opts.MinDifficulty {
-		return Error.New("difficulty must be greater than: %d", opts.MinDifficulty)
+		return ErrInvalidClaim.New("difficulty must be greater than: %d", opts.MinDifficulty)
 	}
 
 	token, err := ParseToken(opts.Req.AuthToken)
 	if err != nil {
-		return err
+		return ErrInvalidClaim.Wrap(err)
 	}
 
 	auths, err := authDB.Get(ctx, token.UserID)
@@ -201,10 +214,12 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 		return err
 	}
 
+	foundMatch := false
 	for i, auth := range auths {
 		if auth.Token.Equal(token) {
+			foundMatch = true
 			if auth.Claim != nil {
-				return Error.New("authorization has already been claimed: %s", auth.String())
+				return ErrAlreadyClaimed.New("%s", auth.String())
 			}
 
 			auths[i] = &Authorization{
@@ -221,6 +236,12 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 			}
 			break
 		}
+	}
+	if !foundMatch {
+		tokenFmt := Authorization{
+			Token: *token,
+		}
+		return ErrNotFound.New("%s", tokenFmt.String())
 	}
 
 	mon.Meter("authorization_claim").Mark(1)
@@ -246,7 +267,7 @@ func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 			return authDB.put(ctx, token.UserID, auths)
 		}
 	}
-	mon.Meter("authorization_claim").Mark(1)
+	mon.Meter("authorization_unclaim").Mark(1)
 	return errs.New("token not found in authorizations DB")
 }
 
@@ -254,7 +275,7 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err e
 	defer mon.Task()(&ctx, userID)(&err)
 
 	auths, err := authDB.Get(ctx, userID)
-	if err != nil {
+	if err != nil && !ErrNotFound.Has(err) {
 		return err
 	}
 
@@ -267,11 +288,11 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 
 	authsBytes, err := auths.Marshal()
 	if err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 
 	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
-		return ErrDB.Wrap(err)
+		return ErrDBInternal.Wrap(err)
 	}
 	return nil
 }
