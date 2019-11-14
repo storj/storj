@@ -76,7 +76,7 @@ RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/josephspurrier/goversioninfo
 RUN go get github.com/loov/leakcheck
 
-RUN GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@2019.2.2
+RUN GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@2019.2.3
 
 # Output formatters
 
