@@ -67,8 +67,7 @@ func TestUserEmailCase(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 		for _, testCase := range []struct {
-			email    string
-			expected string
+			email string
 		}{
 			{email: "prettyandsimple@example.com"},
 			{email: "firstname.lastname@domain.com	"},

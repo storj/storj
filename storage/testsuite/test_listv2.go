@@ -122,49 +122,6 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				newItem("my-album/", "", true),
 			},
 		},
-		{"end before 2 recursive",
-			storage.ListOptions{
-				Recursive: true,
-				EndBefore: storage.Key("music/z-song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("music/my-album/song3.mp3", "", false),
-				newItem("music/my-album/song4.mp3", "", false),
-			},
-		},
-		{"end before non-existing 2 recursive",
-			storage.ListOptions{
-				Recursive: true,
-				EndBefore: storage.Key("music/my-album/song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("music/my-album/song3.mp3", "", false),
-				newItem("music/my-album/song4.mp3", "", false),
-			},
-		},
-		{"end before 2",
-			storage.ListOptions{
-				Prefix:    storage.Key("music/"),
-				EndBefore: storage.Key("z-song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("a-song2.mp3", "", false),
-				newItem("my-album/", "", true),
-			},
-		},
-		{"end before 2 prefixed",
-			storage.ListOptions{
-				Prefix:    storage.Key("music/my-album/"),
-				EndBefore: storage.Key("song4.mp3"),
-				Limit:     2,
-			},
-			false, storage.Items{
-				newItem("song3.mp3", "", false),
-			},
-		},
 	}
 
 	for _, test := range tests {

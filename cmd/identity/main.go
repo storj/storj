@@ -210,7 +210,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {
-		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
+		return err
 	}
 
 	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)

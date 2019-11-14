@@ -54,6 +54,9 @@ type (
 	// PiecestoreClient is an alias to the grpc client interface
 	PiecestoreClient = pb.PiecestoreClient
 
+	// ReferralManagerClient is an alias to the grpc client interface
+	ReferralManagerClient = pb.ReferralManagerClient
+
 	// SatelliteGracefulExitClient is an alias to the grpc client interface
 	SatelliteGracefulExitClient = pb.SatelliteGracefulExitClient
 
@@ -189,6 +192,16 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewReferralManagerClient returns the grpc version of a ReferralManagerClient
+func NewReferralManagerClient(rc *RawConn) ReferralManagerClient {
+	return pb.NewReferralManagerClient(rc)
+}
+
+// ReferralManagerClient returns a ReferralManagerClient for this connection
+func (c *Conn) ReferralManagerClient() ReferralManagerClient {
+	return NewReferralManagerClient(c.raw)
 }
 
 // NewSatelliteGracefulExitClient returns the grpc version of a SatelliteGracefulExitClient

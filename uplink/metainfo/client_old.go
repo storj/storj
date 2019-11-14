@@ -134,7 +134,7 @@ func (client *Client) DeleteSegmentOld(ctx context.Context, bucket string, path 
 }
 
 // ListSegmentsOld lists the available segments
-func (client *Client) ListSegmentsOld(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (client *Client) ListSegmentsOld(ctx context.Context, bucket string, prefix, startAfter, ignoredEndBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegmentsOld(ctx, &pb.ListSegmentsRequestOld{
@@ -142,7 +142,6 @@ func (client *Client) ListSegmentsOld(ctx context.Context, bucket string, prefix
 		Bucket:     []byte(bucket),
 		Prefix:     []byte(prefix),
 		StartAfter: []byte(startAfter),
-		EndBefore:  []byte(endBefore),
 		Recursive:  recursive,
 		Limit:      limit,
 		MetaFlags:  metaFlags,

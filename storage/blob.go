@@ -97,6 +97,8 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	// Close closes the blob store and any resources associated with it.
+	Close() error
 }
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with

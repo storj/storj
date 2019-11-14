@@ -23,7 +23,7 @@ func init() {
 // putMain is the function executed when putCmd is called
 func putMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 
 	ctx, _ := process.Ctx(cmd)
@@ -34,7 +34,7 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	src, err := fpath.New("-")
