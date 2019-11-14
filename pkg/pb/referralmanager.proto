@@ -12,31 +12,31 @@ package referralmanager;
 service ReferralManager {
   // GetTokens retrieves a list of unredeemed tokens for a user
   rpc GetTokens(GetTokensRequest) returns (GetTokensResponse);
-  // ValidateToken validates a referral token from referral manager
-  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
-  // SaveUserInfo saves newly created user info in referral manager
-  rpc SaveUserInfo(SaveUserInfoRequest) returns (SaveUserInfoResponse);
+  // ReserveToken validates a referral token from referral manager
+  rpc ReserveToken(ReserveTokenRequest) returns (ReserveTokenResponse);
+  // RedeemToken saves newly created user info in referral manager
+  rpc RedeemToken(RedeemTokenRequest) returns (RedeemTokenResponse);
 }
 
 message GetTokensRequest{
     bytes user_id = 1;
-    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes owner_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetTokensResponse {
  repeated bytes token = 1;
 }
 
-message ValidateTokenRequest {
+message ReserveTokenRequest {
     bytes token = 2;
-    bytes node_id = 3;
+    bytes redeeming_satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
-message ValidateTokenResponse{}
+message ReserveTokenResponse{}
 
-message SaveUserInfoRequest {
+message RedeemTokenRequest {
     bytes token = 1;
     bytes user_id = 2;
 }
 
-message SaveUserInfoResponse {}
+message RedeemTokenResponse {}
