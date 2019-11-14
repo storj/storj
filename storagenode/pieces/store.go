@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -270,14 +271,102 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if store.v0PieceInfo != nil {
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
+
 	return Error.Wrap(err)
 }
 
-// GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
+// MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
+// format v1. If the piece is not stored as a v0 piece it will return an error.
+// The follow failures are possible:
+// - Fail to open or read v0 piece. In this case no artifacts remain.
+// - Fail to Write or Commit v1 piece. In this case no artifacts remain.
+// - Fail to Delete v0 piece. In this case v0 piece may remain, but v1 piece
+//   will exist and be preferred in future calls.
+func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := store.v0PieceInfo.Get(ctx, satelliteID, pieceID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = func() (err error) {
+		r, err := store.Reader(ctx, satelliteID, pieceID)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, r.Close()) }()
+
+		w, err := store.Writer(ctx, satelliteID, pieceID)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(w, r)
+		if err != nil {
+			return errs.Combine(err, w.Cancel(ctx))
+		}
+
+		header := &pb.PieceHeader{
+			Hash:         w.Hash(),
+			CreationTime: info.PieceCreation,
+			Signature:    info.UplinkPieceHash.GetSignature(),
+			OrderLimit:   *info.OrderLimit,
+		}
+
+		return w.Commit(ctx, header)
+	}()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = store.blobs.DeleteWithStorageFormat(ctx, storage.BlobRef{
+		Namespace: satelliteID.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.FormatV0)
+
+	if store.v0PieceInfo != nil {
+		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satelliteID, pieceID))
+	}
+
+	return Error.Wrap(err)
+}
+
+// GetV0PieceInfoDBForTest returns this piece-store's reference to the V0 piece info DB (or nil,
 // if this piece-store does not have one). This is ONLY intended for use with testing
 // functionality.
-func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
-	return store.v0PieceInfo
+func (store StoreForTest) GetV0PieceInfoDBForTest() V0PieceInfoDBForTest {
+	if store.v0PieceInfo == nil {
+		return nil
+	}
+	return store.v0PieceInfo.(V0PieceInfoDBForTest)
+}
+
+// GetHashAndLimit returns the PieceHash and OrderLimit associated with the specified piece. The
+// piece must already have been opened for reading, and the associated *Reader passed in.
+//
+// Once we have migrated everything off of V0 storage and no longer need to support it, this can
+// cleanly become a method directly on *Reader and will need only the 'pieceID' parameter.
+func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
+	if reader.StorageFormatVersion() == filestore.FormatV0 {
+		info, err := store.GetV0PieceInfo(ctx, satellite, pieceID)
+		if err != nil {
+			return pb.PieceHash{}, pb.OrderLimit{}, err // err is already wrapped as a storagenodedb.ErrPieceInfo
+		}
+		return *info.UplinkPieceHash, *info.OrderLimit, nil
+	}
+	header, err := reader.GetPieceHeader()
+	if err != nil {
+		return pb.PieceHash{}, pb.OrderLimit{}, Error.Wrap(err)
+	}
+	pieceHash := pb.PieceHash{
+		PieceId:   pieceID,
+		Hash:      header.GetHash(),
+		PieceSize: reader.Size(),
+		Timestamp: header.GetCreationTime(),
+		Signature: header.GetSignature(),
+	}
+	return pieceHash, header.OrderLimit, nil
 }
 
 // WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
@@ -400,7 +489,7 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
 		if statErr != nil {
-			store.log.Error("failed to stat", zap.Error(statErr), zap.String("pieceID", access.PieceID().String()), zap.String("satellite", satelliteID.String()))
+			store.log.Error("failed to stat", zap.Error(statErr), zap.Stringer("Piece ID", access.PieceID()), zap.Stringer("Satellite ID", satelliteID))
 			// keep iterating; we want a best effort total here.
 			return nil
 		}
@@ -442,6 +531,12 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int
 		totalBySatellite[satelliteID] = totalUsed
 	}
 	return total, totalBySatellite, nil
+}
+
+// GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,
+// of no use when a piece does not have filestore.FormatV0 storage.
+func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Info, error) {
+	return store.v0PieceInfo.Get(ctx, satellite, pieceID)
 }
 
 // StorageStatus contains information about the disk store is using.

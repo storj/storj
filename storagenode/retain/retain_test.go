@@ -31,6 +31,7 @@ func TestRetainPieces(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB(), db.PieceSpaceUsedDB())
+		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 1000
 		const numPiecesToKeep = 990
@@ -100,7 +101,7 @@ func TestRetainPieces(t *testing.T) {
 				OrderLimit:      &pb.OrderLimit{},
 			}
 
-			v0db := store.GetV0PieceInfoDB().(pieces.V0PieceInfoDBForTest)
+			v0db := testStore.GetV0PieceInfoDBForTest()
 			err = v0db.Add(ctx, &pieceinfo0)
 			require.NoError(t, err)
 

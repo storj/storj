@@ -5,16 +5,16 @@
     <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
             <div v-if="!isProjectOwner" class="checkbox"></div>
-            <div class="user-container__base-info__avatar" :style="avatarData.style">
+            <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <div class="user-container__base-info__name-area">
-                <p class="user-container__base-info__name-area__user-name">{{itemName}}</p>
+            <div class="user-container__base-info__name-area" :title="itemData.name">
+                <p class="user-container__base-info__name-area__user-name">{{ itemData.formattedFullName() }}</p>
                 <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
             </div>
         </div>
-        <p class="user-container__date">{{itemDate}}</p>
-        <p class="user-container__user-email">{{itemEmail}}</p>
+        <p class="user-container__date">{{ itemData.joinedAtLocal() }}</p>
+        <p class="user-container__user-email">{{ itemData.formattedEmail() }}</p>
     </div>
 </template>
 
@@ -42,18 +42,6 @@ export default class ProjectMemberListItem extends Vue {
             letter,
             style,
         };
-    }
-
-    public get itemName(): string {
-        return this.itemData.formattedFullName();
-    }
-
-    public get itemDate(): string {
-        return this.itemData.joinedAtLocal();
-    }
-
-    public get itemEmail(): string {
-        return this.itemData.formattedEmail();
     }
 
     public get isProjectOwner(): boolean {
@@ -90,6 +78,7 @@ export default class ProjectMemberListItem extends Vue {
                 align-items: center;
                 justify-content: center;
                 background-color: #ff8658;
+                margin-left: 20px;
 
                 &__letter {
                     margin: 0;
@@ -131,7 +120,6 @@ export default class ProjectMemberListItem extends Vue {
 
     .checkbox {
         background-image: url('../../../static/images/team/checkboxEmpty.png');
-        margin-right: 20px;
         min-width: 23px;
         height: 23px;
     }
@@ -155,5 +143,9 @@ export default class ProjectMemberListItem extends Vue {
 
     .owner {
         cursor: default;
+    }
+
+    .extra-margin {
+        margin-left: 43px;
     }
 </style>

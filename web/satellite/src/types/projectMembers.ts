@@ -99,6 +99,10 @@ export class ProjectMember {
         this.isSelected = false;
     }
 
+    public get name(): string {
+        return this.user.getFullName();
+    }
+
     public formattedFullName(): string {
         let fullName: string = this.user.getFullName();
 

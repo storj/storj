@@ -2,15 +2,16 @@
 // See LICENSE for copying information.
 
 //go:generate go-bindata -o data.go -pkg schema -ignore ".*go" .
+//go:generate sed -i '1i //lint:file-ignore * generated file\n' data.go
 
 package schema
 
 import (
 	"database/sql"
 
-	"github.com/golang-migrate/migrate/v3"
-	"github.com/golang-migrate/migrate/v3/database/postgres"
-	bindata "github.com/golang-migrate/migrate/v3/source/go_bindata"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"

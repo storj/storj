@@ -14,7 +14,7 @@ import (
 func EditFile(fileToEdit string) error {
 	editorPath := getEditorPath()
 	if editorPath == "" {
-		return fmt.Errorf("Unable to find suitable editor for file %s", fileToEdit)
+		return fmt.Errorf("unable to find suitable editor for file %s", fileToEdit)
 	}
 	cmd := exec.Command(editorPath, fileToEdit)
 	cmd.Stdout = os.Stdout

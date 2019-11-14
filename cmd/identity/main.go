@@ -56,7 +56,7 @@ var (
 
 	//nolint
 	config struct {
-		Difficulty     uint64 `default:"30" help:"minimum difficulty for identity generation"`
+		Difficulty     uint64 `default:"36" help:"minimum difficulty for identity generation"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
@@ -210,7 +210,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {
-		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
+		return err
 	}
 
 	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)

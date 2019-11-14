@@ -46,6 +46,7 @@ pipeline {
                         sh 'go run ./scripts/atomicalign.go ./...'
                         sh 'go run ./scripts/check-errs.go ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'
+                        sh 'staticcheck ./...'
                         sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
@@ -116,9 +117,7 @@ pipeline {
                stage('Build [gomobile]') {
                     steps {
                         // just to verify its building with recent changes
-                        sh 'make libuplink-gomobile'
-                        sh 'rm libuplink-android-sources.jar'
-                        sh 'rm libuplink-android.aar'
+                        sh '(cd .build && ./../lib/uplink-gomobile/build.sh)'
                     }
                 }
 

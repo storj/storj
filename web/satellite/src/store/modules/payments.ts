@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { CreditCard, PaymentsApi } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi } from '@/types/payments';
 
 const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -10,6 +10,7 @@ const PAYMENTS_MUTATIONS = {
     CLEAR: 'CLEAR_PAYMENT_INFO',
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
     UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
+    SET_BILLING_HISTORY: 'SET_BILLING_HISTORY',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -22,6 +23,7 @@ export const PAYMENTS_ACTIONS = {
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
+    GET_BILLING_HISTORY: 'getBillingHistory',
 };
 
 const {
@@ -30,6 +32,7 @@ const {
     CLEAR,
     UPDATE_CARDS_SELECTION,
     UPDATE_CARDS_DEFAULT,
+    SET_BILLING_HISTORY,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -42,14 +45,16 @@ const {
     CLEAR_PAYMENT_INFO,
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
-class PaymentsState {
+export class PaymentsState {
     /**
      * balance stores in cents
      */
     public balance: number = 0;
     public creditCards: CreditCard[] = [];
+    public billingHistory: BillingHistoryItem[] = [];
 }
 
 /**
@@ -61,13 +66,13 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
     return {
         state: new PaymentsState(),
         mutations: {
-            [SET_BALANCE](state: PaymentsState, balance: number) {
+            [SET_BALANCE](state: PaymentsState, balance: number): void {
                 state.balance = balance;
             },
-            [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]) {
+            [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;
             },
-            [UPDATE_CARDS_SELECTION](state: PaymentsState, id: string | null) {
+            [UPDATE_CARDS_SELECTION](state: PaymentsState, id: string | null): void {
                 state.creditCards = state.creditCards.map(card => {
                     if (card.id === id) {
                         card.isSelected = !card.isSelected;
@@ -80,7 +85,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                     return card;
                 });
             },
-            [UPDATE_CARDS_DEFAULT](state: PaymentsState, id: string) {
+            [UPDATE_CARDS_DEFAULT](state: PaymentsState, id: string): void {
                 state.creditCards = state.creditCards.map(card => {
                     if (card.id === id) {
                         card.isDefault = !card.isDefault;
@@ -92,6 +97,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                     return card;
                 });
+            },
+            [SET_BILLING_HISTORY](state: PaymentsState, billingHistory: BillingHistoryItem[]): void {
+                state.billingHistory = billingHistory;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = 0;
@@ -135,6 +143,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);
+            },
+            [GET_BILLING_HISTORY]: async function({commit}: any): Promise<void> {
+                const billingHistory: BillingHistoryItem[] = await api.billingHistory();
+
+                commit(SET_BILLING_HISTORY, billingHistory);
             },
         },
     };

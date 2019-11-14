@@ -23,7 +23,7 @@ func init() {
 // catMain is the function executed when catCmd is called
 func catMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 
 	ctx, _ := process.Ctx(cmd)
@@ -34,7 +34,7 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if src.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	dst, err := fpath.New("-")

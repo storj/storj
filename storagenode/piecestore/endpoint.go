@@ -156,11 +156,11 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
-		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
+		endpoint.log.Error("delete failed", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
 		// TODO: report rpc status of internal server error or missing error,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
-		endpoint.log.Info("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
+		endpoint.log.Info("deleted", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
@@ -216,7 +216,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		return ErrProtocol.New("expected order limit as the first message")
 	}
 	limit := message.Limit
-	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	// TODO: verify that we have have expected amount of storage before continuing
 
@@ -247,13 +247,13 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -431,7 +431,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report rpc status unauthorized or bad request
@@ -463,13 +463,13 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -491,33 +491,10 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		var orderLimit pb.OrderLimit
-		var pieceHash pb.PieceHash
-
-		if pieceReader.StorageFormatVersion() == 0 {
-			// v0 stores this information in SQL
-			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-			if err != nil {
-				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = *info.OrderLimit
-			pieceHash = *info.UplinkPieceHash
-		} else {
-			//v1+ stores this information in the file
-			header, err := pieceReader.GetPieceHeader()
-			if err != nil {
-				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = header.OrderLimit
-			pieceHash = pb.PieceHash{
-				PieceId:   limit.PieceId,
-				Hash:      header.GetHash(),
-				PieceSize: pieceReader.Size(),
-				Timestamp: header.GetCreationTime(),
-				Signature: header.GetSignature(),
-			}
+		pieceHash, orderLimit, err := endpoint.store.GetHashAndLimit(ctx, limit.SatelliteId, limit.PieceId, pieceReader)
+		if err != nil {
+			endpoint.log.Error("could not get hash and order limit", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
@@ -690,7 +667,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		Filter:        filter,
 	})
 	if !queued {
-		endpoint.log.Debug("Retain job not queued for satellite", zap.String("satellite ID", peer.ID.String()))
+		endpoint.log.Debug("Retain job not queued for satellite", zap.Stringer("Satellite ID", peer.ID))
 	}
 
 	return &pb.RetainResponse{}, nil

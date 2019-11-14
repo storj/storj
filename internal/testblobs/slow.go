@@ -65,6 +65,11 @@ func (slow *SlowBlobs) Create(ctx context.Context, ref storage.BlobRef, size int
 	return slow.blobs.Create(ctx, ref, size)
 }
 
+// Close closes the blob store and any resources associated with it.
+func (slow *SlowBlobs) Close() error {
+	return slow.blobs.Close()
+}
+
 // Open opens a reader with the specified namespace and key.
 func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
 	slow.sleep()
@@ -82,6 +87,12 @@ func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.Bl
 func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	slow.sleep()
 	return slow.blobs.Delete(ctx, ref)
+}
+
+// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version
+func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
+	slow.sleep()
+	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
 }
 
 // Stat looks up disk metadata on the blob file

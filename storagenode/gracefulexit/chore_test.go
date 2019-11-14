@@ -23,9 +23,10 @@ import (
 )
 
 func TestChore(t *testing.T) {
+	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 10,
+		StorageNodeCount: successThreshold + 2,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite1 := planet.Satellites[0]
@@ -34,10 +35,10 @@ func TestChore(t *testing.T) {
 		satellite1.GracefulExit.Chore.Loop.Pause()
 
 		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     8,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     successThreshold,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite1, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))

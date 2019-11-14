@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -26,26 +27,20 @@ import (
 const (
 	// Bucket is the bucket used with a bolt-backed authorizations DB.
 	Bucket = "authorizations"
-	// MaxClaimDelaySeconds is the max duration in seconds in the past or
-	// future that a claim timestamp is allowed to have and still be valid.
-	MaxClaimDelaySeconds = 15
-	tokenDataLength      = 64 // 2^(64*8) =~ 1.34E+154
-	tokenDelimiter       = ":"
-	tokenVersion         = 0
+	// MaxClockSkew is the max duration in the past or future that a claim
+	// timestamp is allowed to have and still be valid.
+	MaxClockSkew    = 5 * time.Minute
+	tokenDataLength = 64 // 2^(64*8) =~ 1.34E+154
+	tokenDelimiter  = ":"
+	tokenVersion    = 0
 )
 
 var (
 	mon = monkit.Package()
 	// Error is used when an error occurs involving an authorization.
 	Error = errs.Class("authorization error")
-	// ErrDB is used when an error occurs involving the authorization database.
-	ErrDB = errs.Class("authorization db error")
 	// ErrInvalidToken is used when a token is invalid.
-	ErrInvalidToken = errs.Class("invalid token error")
-	// ErrCount is used when attempting to create an invalid number of authorizations.
-	ErrCount = ErrDB.New("cannot add less than one authorizations")
-	// ErrEmptyUserID is used when a user ID is required but not provided.
-	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
+	ErrInvalidToken = errs.Class("authorization token error")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.
