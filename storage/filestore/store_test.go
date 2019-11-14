@@ -218,7 +218,10 @@ func TestDeleteWhileReading(t *testing.T) {
 	require.Equal(t, data, result)
 
 	// collect trash
-	_ = store.GarbageCollect(ctx)
+	gStore := store.(interface {
+		GarbageCollect(ctx context.Context) error
+	})
+	_ = gStore.GarbageCollect(ctx)
 
 	// flaky test, for checking whether files have been actually deleted from disk
 	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, err error) error {
@@ -232,15 +235,18 @@ func TestDeleteWhileReading(t *testing.T) {
 	}
 }
 
-func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobRef storage.BlobRef, data []byte, formatVersion storage.FormatVersion) {
+func writeABlob(ctx context.Context, t testing.TB, store storage.Blobs, blobRef storage.BlobRef, data []byte, formatVersion storage.FormatVersion) {
 	var (
 		blobWriter storage.BlobWriter
 		err        error
 	)
 	switch formatVersion {
 	case filestore.FormatV0:
-		tStore := &filestore.StoreForTest{store}
-		blobWriter, err = tStore.TestCreateV0(ctx, blobRef)
+		fStore, ok := store.(interface {
+			TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+		})
+		require.Truef(t, ok, "can't make a WriterForFormatVersion with this blob store (%T)", store)
+		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
 		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
 	default:
@@ -271,7 +277,7 @@ func verifyBlobInfo(ctx context.Context, t testing.TB, blobInfo storage.BlobInfo
 	assert.Equal(t, int64(expectDataLen), stat.Size())
 }
 
-func tryOpeningABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobRef storage.BlobRef, expectDataLen int, expectFormat storage.FormatVersion) {
+func tryOpeningABlob(ctx context.Context, t testing.TB, store storage.Blobs, blobRef storage.BlobRef, expectDataLen int, expectFormat storage.FormatVersion) {
 	reader, err := store.Open(ctx, blobRef)
 	require.NoError(t, err)
 	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
@@ -349,7 +355,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	assert.Nil(t, reader)
 }
 
-// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.Store
+// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.blobStore
 // work as expected.
 func TestStoreSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
