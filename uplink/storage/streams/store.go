@@ -135,24 +135,23 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	var (
-		streamID         storj.StreamID
-		uploadedSegments int64
+		currentSegment int64
+		streamID       storj.StreamID
 	)
 	defer func() {
 		if err != nil {
-			s.cancelHandler(context.Background(), streamID, uploadedSegments, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, currentSegment, path, pathCipher)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
-			s.cancelHandler(context.Background(), streamID, uploadedSegments, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, currentSegment, path, pathCipher)
 		default:
 		}
 	}()
 
 	var (
-		currentSegment       int64 = -1
 		contentKey           storj.Key
 		lastCommitSegmentReq *metainfo.CommitSegmentParams
 		streamSize           int64
@@ -242,6 +241,9 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 					return Meta{}, err
 				}
 			}
+
+			currentSegment++
+
 			segResponse, err := responses[1].BeginSegment()
 			if err != nil {
 				return Meta{}, err
@@ -254,8 +256,6 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			if err != nil {
 				return Meta{}, err
 			}
-
-			uploadedSegments++
 
 			lastCommitSegmentReq = &metainfo.CommitSegmentParams{
 				SegmentID:         segmentID,
@@ -297,18 +297,25 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 					return Meta{}, err
 				}
 			}
+
+			currentSegment++
 		}
 
 		lastSegmentSize = sizeReader.Size()
 		streamSize += lastSegmentSize
 	}
 
+	// currentSegment is incremented in one before the next iteration starts so
+	// when the loop condition breaks it has been incremented in 1 before knowing
+	// eofReader reaches the end or it has stop due to an error.
+	totalSegments := currentSegment
+
 	if eofReader.hasError() {
 		return Meta{}, eofReader.err
 	}
 
 	streamInfo, err := proto.Marshal(&pb.StreamInfo{
-		DeprecatedNumberOfSegments: currentSegment + 1,
+		DeprecatedNumberOfSegments: totalSegments,
 		SegmentsSize:               s.segmentSize,
 		LastSegmentSize:            lastSegmentSize,
 		Metadata:                   metadata,
@@ -324,7 +331,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	streamMeta := pb.StreamMeta{
-		NumberOfSegments:    currentSegment + 1,
+		NumberOfSegments:    totalSegments,
 		EncryptedStreamInfo: encryptedStreamInfo,
 		EncryptionType:      int32(s.cipher),
 		EncryptionBlockSize: int32(s.encBlockSize),
