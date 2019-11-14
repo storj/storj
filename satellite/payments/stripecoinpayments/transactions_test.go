@@ -207,6 +207,28 @@ func TestTransactionsDBList(t *testing.T) {
 	})
 }
 
+func TestTransactionsDBRates(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		transactions := db.StripeCoinPayments().Transactions()
+
+		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
+		require.True(t, ok)
+
+		const txID = "tx_id"
+
+		err := transactions.LockRate(ctx, txID, val)
+		require.NoError(t, err)
+
+		rate, err := transactions.GetLockedRate(ctx, txID)
+		require.NoError(t, err)
+
+		assert.Equal(t, val, rate)
+	})
+}
+
 // compareTransactions is a helper method to compare tx used to create db entry,
 // with the tx returned from the db. Method doesn't compare created at field, but
 // ensures that is not empty.
