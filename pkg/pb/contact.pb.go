@@ -6,11 +6,9 @@ package pb
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
-
+	math "math"
 	drpc "storj.io/drpc"
 )
 

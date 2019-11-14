@@ -6,15 +6,13 @@ package pb
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-	time "time"
-
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
-
+	math "math"
 	drpc "storj.io/drpc"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
