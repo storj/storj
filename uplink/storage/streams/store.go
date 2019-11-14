@@ -355,7 +355,8 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		EncryptedMetadata: objectMetadata,
 	}
 	if prevSegmentCommitReq != nil {
-		_, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
+		var responses []metainfo.BatchResponse
+		responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
 		if len(responses) > 0 {
 			committedSegments++
 		}
