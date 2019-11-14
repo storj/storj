@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -70,8 +69,8 @@ func TestProjectListBuckets(t *testing.T) {
 			// List with restrictions
 			scope.APIKey, scope.EncryptionAccess, err =
 				scope.EncryptionAccess.Restrict(scope.APIKey,
-					libuplink.EncryptionRestriction{Bucket: "test0"},
-					libuplink.EncryptionRestriction{Bucket: "test1"})
+					uplink.EncryptionRestriction{Bucket: "test0"},
+					uplink.EncryptionRestriction{Bucket: "test1"})
 			require.NoError(t, err)
 
 			p, err = ul.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
