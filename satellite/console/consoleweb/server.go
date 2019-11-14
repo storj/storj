@@ -441,22 +441,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 	}
 }
 
-// serveJSONError writes JSON error to response output stream.
-func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		server.log.Error("failed to write json error response", zap.Error(err))
-	}
-}
-
 // grapqlHandler is graphql endpoint http handler function
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

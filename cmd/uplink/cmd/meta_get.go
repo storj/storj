@@ -29,14 +29,14 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 
 	switch len(args) {
 	case 0:
-		return fmt.Errorf("No object specified")
+		return fmt.Errorf("no object specified")
 	case 1:
 		path = args[0]
 	case 2:
 		key = &args[0]
 		path = args[1]
 	default:
-		return fmt.Errorf("Too many arguments")
+		return fmt.Errorf("too many arguments")
 	}
 
 	ctx, _ := process.Ctx(cmd)
@@ -46,7 +46,7 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if src.IsLocal() {
-		return fmt.Errorf("The source destination must be a Storj URL")
+		return fmt.Errorf("the source destination must be a Storj URL")
 	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket())
@@ -69,8 +69,8 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		value, ok := object.Meta.Metadata[keyNorm]
-		if ok != true {
-			return fmt.Errorf("Key does not exist")
+		if !ok {
+			return fmt.Errorf("key does not exist")
 		}
 
 		str, err := json.Marshal(value)

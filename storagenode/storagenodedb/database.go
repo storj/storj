@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -79,10 +78,7 @@ type Config struct {
 type DB struct {
 	log *zap.Logger
 
-	pieces interface {
-		storage.Blobs
-		Close() error
-	}
+	pieces storage.Blobs
 
 	dbDirectory string
 
@@ -236,7 +232,6 @@ func (db *DB) openDatabase(dbName string) error {
 
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return nil
 }
 
