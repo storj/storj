@@ -159,22 +159,6 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return err
-	}
-
-	err = endpoint.validateRedundancy(ctx, req.Redundancy)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
