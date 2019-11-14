@@ -82,7 +82,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		response, err := c.Recv()
 		if errs.Is(err, io.EOF) {
 			// Done
-			break
+			return nil
 		}
 		if err != nil {
 			// TODO what happened
@@ -91,7 +91,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 		switch msg := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_NotReady:
-			break // wait until next worker execution
+			return nil
+
 		case *pb.SatelliteMessage_TransferPiece:
 			transferPieceMsg := msg.TransferPiece
 			worker.limiter.Go(ctx, func() {
@@ -100,6 +101,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 					worker.log.Error("failed to transfer piece.", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(errs.Wrap(err)))
 				}
 			})
+
 		case *pb.SatelliteMessage_DeletePiece:
 			deletePieceMsg := msg.DeletePiece
 			worker.limiter.Go(ctx, func() {
@@ -119,10 +121,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
 			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitFailed, msg.ExitFailed.GetExitFailureSignature())
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			break
+			return errs.Wrap(err)
+
 		case *pb.SatelliteMessage_ExitCompleted:
 			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteID))
 
@@ -132,18 +132,13 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 			// delete all remaining pieces
 			err = worker.deleteOnePieceOrAll(ctx, nil)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			break
+			return errs.Wrap(err)
+
 		default:
 			// TODO handle err
 			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteID))
 		}
-
 	}
-
-	return errs.Wrap(err)
 }
 
 type gracefulExitStream interface {
