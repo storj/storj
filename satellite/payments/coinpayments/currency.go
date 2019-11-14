@@ -11,11 +11,11 @@ const (
 	CurrencyUSD Currency = "USD"
 	// CurrencyLTCT defines LTCT, coins used for testing purpose.
 	CurrencyLTCT Currency = "LTCT"
-	// CurrencySTORJ defines STORJ tokens
+	// CurrencySTORJ defines STORJ tokens.
 	CurrencySTORJ Currency = "STORJ"
 )
 
-// String returns Currency string representation
+// String returns Currency string representation.
 func (c Currency) String() string {
 	return string(c)
 }
