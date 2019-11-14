@@ -155,8 +155,8 @@ Taking one of these approaches will require a study on how to keep the less amou
 
 ### (2) Satellite:
 
-1. Implement delete request logic with long-tail cancellations like uploads.
-1. Implement ["leaky bucket as a meter" algorithm](https://en.wikipedia.org/wiki/Leaky_bucket) for controlling backpressure.
+1. Implement delete request logic with backpressure mechanism to only confirm the operation when certain amount of storage nodes confirm successful.
+   It's like what we do for upload long-tail cancellations.
 1. Adapt protocol buffers definitions for delete operation.
    The current uplink RPC requests are:
 
@@ -169,6 +169,7 @@ Taking one of these approaches will require a study on how to keep the less amou
 ### (3) Uplink:
 
 1. Change logic to not send delete requests to storage nodes.
+1. Uplink `rm` command will wait until satellite responds.
 
 ### Considerations
 
@@ -184,5 +185,4 @@ If we plan to release the feature in several steps:
 
 1. Should we track how much each storage node is storing extra due not sending deletes? For the storage nodes that accumulate too much garbage, we could send garbage collection request outside of the normal schedule.
 1. Discuss backward-incompatibility that we may introduce when adapting the protocol buffer definitions in the storage node and satellite side. Should we reuse the current definition as much as possible although it isn't ideal?
-1. Which is the value to reach for triggering the long-tail cancellation?
-1. What the resources and the amount of them to control the backpressure?
+1. How many storage nodes must confirm the deletion successful to allow the satellite to return a response to the uplink?
