@@ -620,7 +620,11 @@ func TestTrashAndRestore(t *testing.T) {
 			for _, file := range ref.files {
 				var w storage.BlobWriter
 				if file.formatVer == filestore.FormatV0 {
-					w, err = store.TestCreateV0(ctx, blobref)
+					fStore, ok := store.(interface {
+						TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+					})
+					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
+					w, err = fStore.TestCreateV0(ctx, blobref)
 				} else if file.formatVer == filestore.FormatV1 {
 					w, err = store.Create(ctx, blobref, int64(size))
 				}
@@ -673,7 +677,7 @@ func TestTrashAndRestore(t *testing.T) {
 	}
 }
 
-func requireFileMatches(ctx context.Context, t *testing.T, store *filestore.Store, data []byte, ref storage.BlobRef, formatVer storage.FormatVersion) {
+func requireFileMatches(ctx context.Context, t *testing.T, store storage.Blobs, data []byte, ref storage.BlobRef, formatVer storage.FormatVersion) {
 	r, err := store.OpenWithStorageFormat(ctx, ref, formatVer)
 	require.NoError(t, err)
 

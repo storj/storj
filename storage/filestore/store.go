@@ -102,14 +102,14 @@ func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref storage
 }
 
 // Trash moves the ref to a trash directory
-func (store *Store) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
+func (store *blobStore) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.Trash(ctx, ref)
 	return Error.Wrap(err)
 }
 
 // RestoreTrash moves every piece in the trash back into the regular location
-func (store *Store) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
+func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.RestoreTrash(ctx, namespace)
 	return Error.Wrap(err)
