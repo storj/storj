@@ -15,17 +15,15 @@ import (
 // Error is the default error class for notification package.
 var Error = errs.Class("notification")
 
-// Endpoint is
+// Endpoint is the handler for notification messages
 type Endpoint struct {
-	log     *zap.Logger
-	service *Service
+	log *zap.Logger
 }
 
 // NewEndpoint creates a new notification endpoint.
-func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
+func NewEndpoint(log *zap.Logger) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		service: service,
+		log: log,
 	}
 }
 

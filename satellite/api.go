@@ -135,8 +135,7 @@ type API struct {
 	}
 
 	Notification struct {
-		Service  *notification.Service
-		Endpoint *notification.Endpoint
+		Service *notification.Service
 	}
 }
 
@@ -491,15 +490,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Log.Named("notification:service"),
 			config.Notification,
 			peer.Dialer,
-			peer.Overlay.DB,
+			peer.Overlay.Service,
 			peer.Mail.Service,
 		)
-		peer.Notification.Endpoint = notification.NewEndpoint(
-			peer.Log.Named("notification:endpoint"),
-			peer.Notification.Service,
-		)
-		pb.RegisterNotificationServer(peer.Server.GRPC(), peer.Notification.Endpoint)
-		pb.DRPCRegisterNotification(peer.Server.DRPC(), peer.Notification.Endpoint.DRPC())
 	}
 
 	return peer, nil

@@ -26,7 +26,7 @@ func TestProcessNotification(t *testing.T) {
 	satellite := planet.Satellites[0]
 	storagenode := planet.StorageNodes[0]
 
-	_, err = satellite.Notification.Endpoint.ProcessNotification(ctx, &pb.NotificationMessage{
+	err = satellite.Notification.Service.ProcessNotification(&pb.NotificationMessage{
 		NodeId:   storagenode.ID(),
 		Loglevel: pb.LogLevel_WARN,
 		Message:  []byte("test message"),
