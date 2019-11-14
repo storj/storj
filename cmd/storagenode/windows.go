@@ -69,28 +69,26 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				zap.S().Info("Interrogate request received.")
-				changes <- c.CurrentStatus
-				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-				time.Sleep(100 * time.Millisecond)
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				zap.S().Info("Stop/Shutdown request received.")
-				changes <- svc.Status{State: svc.StopPending}
-				// Cancel the command's root context to cleanup resources
-				_, cancel := process.Ctx(runCmd)
-				cancel()
-				_ = group.Wait() // process.Exec does not return an error
-				// After returning the Windows Service is stopped and the process terminates
-				return
-			default:
-				zap.S().Infof("Unexpected control request: %d\n", c)
-			}
+	for c := range r {
+		switch c.Cmd {
+		case svc.Interrogate:
+			zap.S().Info("Interrogate request received.")
+			changes <- c.CurrentStatus
+			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+			time.Sleep(100 * time.Millisecond)
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			zap.S().Info("Stop/Shutdown request received.")
+			changes <- svc.Status{State: svc.StopPending}
+			// Cancel the command's root context to cleanup resources
+			_, cancel := process.Ctx(runCmd)
+			cancel()
+			_ = group.Wait() // process.Exec does not return an error
+			// After returning the Windows Service is stopped and the process terminates
+			return
+		default:
+			zap.S().Infof("Unexpected control request: %d\n", c)
 		}
 	}
+	return
 }
