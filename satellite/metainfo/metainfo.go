@@ -758,31 +758,28 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err == nil {
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 	}
-
-	// create the bucket
-	if storj.ErrBucketNotFound.Has(err) {
-		bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		convBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: convBucket,
-		}, nil
+	if !storj.ErrBucketNotFound.Has(err) {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	// some other error happened
-	return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	convBucket, err := convertBucketToProto(ctx, bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.BucketCreateResponse{
+		Bucket: convBucket,
+	}, nil
 }
 
 // DeleteBucket deletes a bucket
@@ -918,7 +915,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	// check if attribution is set for given bucket
 	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
-		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
 		return nil
 	}
 
@@ -943,6 +940,24 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
+	// checks if bucket exists before updates it or makes a new entry
+	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
+	if err == nil {
+		return rpcstatus.Error(rpcstatus.NotFound, "bucket does not exist")
+	}
+	if !bucket.PartnerID.IsZero() {
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
+		return nil
+	}
+
+	// update bucket information
+	bucket.PartnerID = partnerID
+	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// update attribution table
 	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: bucketName,
