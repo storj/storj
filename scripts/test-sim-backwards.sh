@@ -24,7 +24,7 @@ latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
 # delete this file that forces production config settings
-rm "$RELEASE_DIR/internal/version/release.go"
+rm "$RELEASE_DIR/private/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
