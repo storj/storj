@@ -45,6 +45,7 @@ type Transaction struct {
 	Received  big.Float
 	Status    coinpayments.Status
 	Key       string
+	Timeout   time.Duration
 	CreatedAt time.Time
 }
 

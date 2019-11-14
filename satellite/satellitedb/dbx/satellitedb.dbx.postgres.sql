@@ -48,6 +48,7 @@ CREATE TABLE coinpayments_transactions (
 	received bytea NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
+	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );

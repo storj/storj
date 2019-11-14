@@ -313,6 +313,7 @@ CREATE TABLE coinpayments_transactions (
 	received bytea NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
+	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -1258,6 +1259,7 @@ type CoinpaymentsTransaction struct {
 	Received  []byte
 	Status    int
 	Key       string
+	Timeout   int
 	CreatedAt time.Time
 }
 
@@ -1400,6 +1402,25 @@ func (f CoinpaymentsTransaction_Key_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_Key_Field) _Column() string { return "key" }
+
+type CoinpaymentsTransaction_Timeout_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func CoinpaymentsTransaction_Timeout(v int) CoinpaymentsTransaction_Timeout_Field {
+	return CoinpaymentsTransaction_Timeout_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Timeout_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Timeout_Field) _Column() string { return "timeout" }
 
 type CoinpaymentsTransaction_CreatedAt_Field struct {
 	_set   bool
@@ -6720,7 +6741,8 @@ func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
 	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
-	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -6731,15 +6753,16 @@ func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	__received_val := coinpayments_transaction_received.value()
 	__status_val := coinpayments_transaction_status.value()
 	__key_val := coinpayments_transaction_key.value()
+	__timeout_val := coinpayments_transaction_timeout.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8395,7 +8418,7 @@ func (obj *postgresImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Crea
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 	rows []*CoinpaymentsTransaction, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coinpayments_transaction_user_id.value())
@@ -8411,7 +8434,7 @@ func (obj *postgresImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Crea
 
 	for __rows.Next() {
 		coinpayments_transaction := &CoinpaymentsTransaction{}
-		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8430,7 +8453,7 @@ func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqua
 	limit int, offset int64) (
 	rows []*CoinpaymentsTransaction, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.created_at <= ? AND coinpayments_transactions.status = ? ORDER BY coinpayments_transactions.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.created_at <= ? AND coinpayments_transactions.status = ? ORDER BY coinpayments_transactions.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coinpayments_transaction_created_at_less_or_equal.value(), coinpayments_transaction_status.value())
@@ -8448,7 +8471,7 @@ func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqua
 
 	for __rows.Next() {
 		coinpayments_transaction := &CoinpaymentsTransaction{}
-		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -9568,7 +9591,7 @@ func (obj *postgresImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Contex
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9597,7 +9620,7 @@ func (obj *postgresImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10962,13 +10985,14 @@ func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
 	coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
-	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount, coinpayments_transaction_received, coinpayments_transaction_status, coinpayments_transaction_key)
+	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount, coinpayments_transaction_received, coinpayments_transaction_status, coinpayments_transaction_key, coinpayments_transaction_timeout)
 
 }
 
@@ -12207,7 +12231,8 @@ type Methods interface {
 		coinpayments_transaction_amount CoinpaymentsTransaction_Amount_Field,
 		coinpayments_transaction_received CoinpaymentsTransaction_Received_Field,
 		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
-		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field) (
+		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
+		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
 	Create_Offer(ctx context.Context,

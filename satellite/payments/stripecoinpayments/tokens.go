@@ -5,8 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-	"math/big"
-	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -71,9 +69,9 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 			AccountID: userID,
 			Address:   tx.Address,
 			Amount:    tx.Amount,
-			Received:  big.Float{},
 			Status:    coinpayments.StatusPending,
 			Key:       key,
+			Timeout:   tx.Timeout,
 		},
 	)
 	if err != nil {
@@ -87,6 +85,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		Received:  *payments.NewTokenAmount(),
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
+		Timeout:   tx.Timeout,
 		CreatedAt: cpTX.CreatedAt,
 	}, nil
 }
@@ -119,15 +118,13 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 
 		infos = append(infos,
 			payments.TransactionInfo{
-				ID:       []byte(tx.ID),
-				Amount:   *payments.TokenAmountFromBigFloat(&tx.Amount),
-				Received: *payments.TokenAmountFromBigFloat(&tx.Received),
-				Address:  tx.Address,
-				Status:   status,
-				Link:     link,
-				// CoinPayments deposit transaction expires in an hour after creation.
-				// TODO: decide if it's better to calculate expiration time during tx creation, or updating.
-				ExpiresAt: tx.CreatedAt.Add(time.Hour),
+				ID:        []byte(tx.ID),
+				Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
+				Received:  *payments.TokenAmountFromBigFloat(&tx.Received),
+				Address:   tx.Address,
+				Status:    status,
+				Link:      link,
+				ExpiresAt: tx.CreatedAt.Add(tx.Timeout),
 				CreatedAt: tx.CreatedAt,
 			},
 		)

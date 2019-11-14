@@ -60,6 +60,7 @@ func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 		dbx.CoinpaymentsTransaction_Received(received),
 		dbx.CoinpaymentsTransaction_Status(tx.Status.Int()),
 		dbx.CoinpaymentsTransaction_Key(tx.Key),
+		dbx.CoinpaymentsTransaction_Timeout(int(tx.Timeout.Seconds())),
 	)
 	if err != nil {
 		return nil, err
