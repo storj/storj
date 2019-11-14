@@ -15,10 +15,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/telemetry"
+	"storj.io/storj/private/version"
 )
 
 var (

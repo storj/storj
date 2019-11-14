@@ -9,7 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 )
 
 var (

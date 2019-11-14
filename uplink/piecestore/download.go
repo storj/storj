@@ -10,11 +10,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
 )
 
 // Downloader is interface that can be used for downloading content.

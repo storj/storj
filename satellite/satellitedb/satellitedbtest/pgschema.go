@@ -7,8 +7,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
