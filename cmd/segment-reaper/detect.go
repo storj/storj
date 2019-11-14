@@ -44,5 +44,5 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
-	return err
+	return nil
 }
