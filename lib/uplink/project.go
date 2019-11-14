@@ -101,7 +101,17 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg = cfg.clone()
 	cfg.setDefaults()
 
+	var partnerID uuid.UUID
+	if p.uplinkCfg.Volatile.PartnerID != "" {
+		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return storj.Bucket{}, Error.Wrap(err)
+		}
+		partnerID = *id
+	}
+
 	bucket = storj.Bucket{
+		PartnerID:                   partnerID,
 		PathCipher:                  cfg.PathCipher,
 		DefaultEncryptionParameters: cfg.EncryptionParameters,
 		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,

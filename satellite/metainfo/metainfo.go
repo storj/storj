@@ -873,6 +873,8 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
+// resolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
+// returns empty uuid when neither is defined.
 func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
 	if len(partnerIDBytes) > 0 {
 		partnerID, err := bytesToUUID(partnerIDBytes)
@@ -887,6 +889,7 @@ func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.Reque
 	}
 
 	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
+	fmt.Printf("==>>>>>  %v %v \n", string(header.UserAgent), partner.UUID)
 	if err != nil || partner.UUID == nil {
 		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
 	}
@@ -910,7 +913,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 	if partnerID.IsZero() {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "user agent or partner id missing")
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
 	}
 
 	// check if attribution is set for given bucket
