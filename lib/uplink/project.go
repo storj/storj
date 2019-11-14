@@ -243,20 +243,18 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 		return nil
 	}
 
-	if p.uplinkCfg.Volatile.UserAgent != "" {
-		// UserAgent is sent via RequestHeader
-		return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-			Bucket: bucketName,
-		})
+	var partnerID uuid.UUID
+	if p.uplinkCfg.Volatile.PartnerID != "" {
+		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		partnerID = *id
 	}
 
-	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
+	// UserAgent is sent via RequestHeader
 	return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 		Bucket:    bucketName,
-		PartnerID: *partnerID,
+		PartnerID: partnerID,
 	})
 }
