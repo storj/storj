@@ -91,7 +91,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
@@ -195,7 +195,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
