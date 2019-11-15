@@ -4,8 +4,12 @@
 package trust
 
 import (
+	"bufio"
+	"context"
+	"io"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -76,4 +80,33 @@ func ParseSatelliteURL(s string) (SatelliteURL, error) {
 		Host: host,
 		Port: port,
 	}, nil
+}
+
+// ParseSatelliteURLList parses a newline separated list of Satellite URLs.
+// Empty lines or lines starting with '#' (comments) are ignored.
+func ParseSatelliteURLList(ctx context.Context, r io.Reader) (urls []SatelliteURL, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 {
+			continue
+		}
+		if line[0] == '#' {
+			continue
+		}
+
+		url, err := ParseSatelliteURL(line)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return urls, nil
 }
