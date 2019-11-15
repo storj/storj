@@ -35,12 +35,24 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         const meta = document.querySelector("meta[name='satellite-name']");
+        const segmentMeta = document.querySelector("meta[name='segment-io']");
         let satelliteName;
+        let segmentio;
 
         if (meta) {
             satelliteName = meta.getAttribute('content');
+        }
+
+        if (segmentMeta) {
+            if (!window['analytics']) {
+                await this.$notify.error('Segment.io library not loaded');
+            }      
+            segmentio = segmentMeta.getAttribute('content');
+            this.$segment = window['analytics'];
+            this.$segment.load(segmentio);
+            this.$segment.page();
         }
 
         if (satelliteName) {
