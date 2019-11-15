@@ -5,6 +5,7 @@ import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
+import { SegmentioPlugin } from '@/utils/plugins/segment';
 
 import App from './App.vue';
 import { router } from './router';
@@ -15,8 +16,10 @@ Vue.config.performance = true;
 Vue.config.productionTip = false;
 
 const notificator = new NotificatorPlugin();
+const segmentio = new SegmentioPlugin();
 
 Vue.use(notificator);
+Vue.use(segmentio);
 
 let clickOutsideEvent: EventListener;
 
