@@ -99,7 +99,6 @@ func TestInstaller_Config(t *testing.T) {
 		t.Fatalf("MSIExec error:\n============================\n%s", err)
 	}
 
-	t.Logf("installDir: %s", installDir)
 	files, err := ioutil.ReadDir(installDir)
 	require.NoError(t, err)
 	for _, f := range files {
@@ -113,7 +112,10 @@ func TestInstaller_Config(t *testing.T) {
 	err = yaml.Unmarshal(configData, config)
 	require.NoError(t, err)
 
+	// TODO: assert config values match input props
 	t.Logf("config:\n%+v", config)
+
+	// TODO: uninstall
 }
 
 func requireInstaller(ctx *testcontext.Context, t *testing.T) {
