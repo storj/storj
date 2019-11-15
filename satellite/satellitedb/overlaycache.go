@@ -1365,7 +1365,7 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 }
 
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
-func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address.GetAddress() == "" {
@@ -1400,11 +1400,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$1, $2, $3, $4, $5,
 				$6, $7, $8, $9,
 				$10::bool::int, 1,
-				CASE WHEN $10 IS TRUE THEN current_timestamp
-					ELSE '0001-01-01 00:00:00+00'
+				CASE WHEN $10 IS TRUE THEN $24::timestamptz
+					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $10 IS FALSE THEN current_timestamp
-					ELSE '0001-01-01 00:00:00+00'
+				CASE WHEN $10 IS FALSE THEN $24::timestamptz
+					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$11, $12, $13, $14,
 				$18, $19, $20, $21, $22, $23
@@ -1425,17 +1425,17 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
 				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
 				last_contact_success = CASE WHEN $10 IS TRUE
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_success
 				END,
 				last_contact_failure = CASE WHEN $10 IS FALSE
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
 				-- this disqualified case statement resolves to: 
 				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
 				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.disqualified
 				END;
 			`
@@ -1452,6 +1452,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
 		// args $18 - $23
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		// args $24
+		timestamp,
 	)
 	if err != nil {
 		return Error.Wrap(err)
