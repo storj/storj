@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 )
 
 // ErrVersion defines version service error.
@@ -38,7 +38,7 @@ func (version *VersionService) Run(ctx context.Context) (err error) {
 
 	return ErrVersion.Wrap(version.Cycle.Run(ctx,
 		func(ctx context.Context) error {
-			version.log.Info("running conversion rates update cycle")
+			version.log.Debug("running conversion rates update cycle")
 
 			if err := version.service.UpdateRates(ctx); err != nil {
 				version.log.Error("conversion rates update cycle failed", zap.Error(ErrChore.Wrap(err)))
