@@ -124,9 +124,18 @@ export default class Login extends Vue {
             return;
         }
 
-        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-        this.isLoading = false;
-        await this.$router.push(RouteConfig.ProjectDashboard.path);
+        if (window.self !== window.top) {
+            top.location.href = window.self.location.origin + '/project-overview/details';
+        }
+
+        this.activateLoadingOverlay();
+
+        setTimeout(() => {
+            AuthToken.set(this.authToken);
+            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+            this.isLoading = false;
+            this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+        }, 2000);
     }
 
     /**
