@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
+	"storj.io/storj/private/fpath"
 )
 
 // TLSFilesStatus is the status of keys
