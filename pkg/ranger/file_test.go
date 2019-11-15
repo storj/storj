@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/testcontext"
 )
 
 func TestFileRanger(t *testing.T) {

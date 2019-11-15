@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 type gracefulExitClient struct {

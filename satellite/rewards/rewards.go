@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/currency"
+	"storj.io/storj/private/currency"
 )
 
 var (

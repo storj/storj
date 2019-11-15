@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/accounting"
 )
 

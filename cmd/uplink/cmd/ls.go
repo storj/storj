@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
 )
 
 var (
