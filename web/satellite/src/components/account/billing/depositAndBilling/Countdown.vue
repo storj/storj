@@ -56,7 +56,7 @@ export default class Countdown extends Vue {
         return Math.trunc((this.expirationDateTime - this.now) / 60) % 60;
     }
 
-    public ready() {
+    public ready(): void {
         this.intervalID = setInterval(() => {
             if ((this.expirationDateTime - this.now) < 0) {
                 this.isExpired = true;
