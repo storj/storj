@@ -37,6 +37,8 @@ type ScopedPath struct {
 	ProjectID       uuid.UUID
 	ProjectIDString string
 	BucketName      string
+	Segment         string
+	ObjectPath      string
 
 	// TODO: should these be a []byte?
 
@@ -198,6 +200,7 @@ waitformore:
 				path := ScopedPath{
 					Raw:             rawPath,
 					ProjectIDString: pathElements[0],
+					Segment:         pathElements[1],
 					BucketName:      pathElements[2],
 				}
 
@@ -268,4 +271,94 @@ func handlePointer(ctx context.Context, observer *observerContext, path ScopedPa
 // Safe to be called concurrently.
 func (loop *Loop) Wait() {
 	<-loop.done
+}
+
+// IterateDatabase iterate over PointerDB and notify specified observers about results
+func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
+	obsContexts := make([]*observerContext, len(observers))
+	for i, observer := range observers {
+		obsContexts[i] = &observerContext{
+			Observer: observer,
+			ctx:      ctx,
+			done:     make(chan error),
+		}
+	}
+	return iterateDatabase(ctx, db, obsContexts)
+}
+
+func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext) (err error) {
+	defer func() {
+		if err != nil {
+			for _, observer := range observers {
+				observer.HandleError(err)
+			}
+			return
+		}
+		finishObservers(observers)
+	}()
+
+	err = db.Iterate(ctx, storage.IterateOptions{Recurse: true},
+		func(ctx context.Context, it storage.Iterator) error {
+			var item storage.ListItem
+
+			// iterate over every segment in metainfo
+			for it.Next(ctx, &item) {
+				rawPath := item.Key.String()
+				pointer := &pb.Pointer{}
+
+				err := proto.Unmarshal(item.Value, pointer)
+				if err != nil {
+					return LoopError.New("unexpected error unmarshalling pointer %s", err)
+				}
+
+				pathElements := storj.SplitPath(rawPath)
+				if len(pathElements) < 3 {
+					return LoopError.New("invalid path %q", rawPath)
+				}
+
+				isLastSegment := pathElements[1] == "l"
+
+				path := ScopedPath{
+					Raw:             rawPath,
+					ProjectIDString: pathElements[0],
+					Segment:         pathElements[1],
+					BucketName:      pathElements[2],
+					ObjectPath:      storj.JoinPaths(pathElements[3:]...),
+				}
+
+				projectID, err := uuid.Parse(path.ProjectIDString)
+				if err != nil {
+					return LoopError.Wrap(err)
+				}
+				path.ProjectID = *projectID
+
+				nextObservers := observers[:0]
+				for _, observer := range observers {
+					keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
+					if keepObserver {
+						nextObservers = append(nextObservers, observer)
+					}
+				}
+
+				observers = nextObservers
+				if len(observers) == 0 {
+					return nil
+				}
+
+				// if context has been canceled exit. Otherwise, continue
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+			}
+			return nil
+		})
+	return err
+}
+
+func finishObservers(observers []*observerContext) {
+	for _, observer := range observers {
+		observer.Finish()
+	}
 }

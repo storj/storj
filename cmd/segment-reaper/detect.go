@@ -17,9 +17,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storage"
 )
 
 const maxNumOfSegments = byte(64)
@@ -65,6 +63,97 @@ type Object struct {
 // ObjectsMap map that keeps objects representation
 type ObjectsMap map[Cluster]map[string]*Object
 
+// Observer metainfo.Loop observer for zombie reaper
+type Observer struct {
+	db      metainfo.PointerDB
+	objects ObjectsMap
+	writer  *csv.Writer
+
+	lastProjectID string
+
+	inlineSegments     int
+	lastInlineSegments int
+	remoteSegments     int
+}
+
+// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
+func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	return observer.processSegment(ctx, path, pointer)
+}
+
+// InlineSegment returns nil because we're only auditing for storage nodes for now
+func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	return observer.processSegment(ctx, path, pointer)
+}
+
+// Object returns nil because the audit service does not interact with objects
+func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	return nil
+}
+
+func (observer *Observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+	cluster := Cluster{
+		projectID: path.ProjectIDString,
+		bucket:    path.BucketName,
+	}
+
+	object := findOrCreate(cluster, path.ObjectPath, observer.objects)
+	if observer.lastProjectID != "" && observer.lastProjectID != cluster.projectID {
+		err := analyzeProject(ctx, observer.db, observer.objects, observer.writer)
+		if err != nil {
+			return err
+		}
+
+		// cleanup map to free memory
+		observer.objects = make(ObjectsMap)
+	}
+
+	isLastSegment := path.Segment == "l"
+	if isLastSegment {
+		object.hasLastSegment = true
+
+		streamMeta := pb.StreamMeta{}
+		err := proto.Unmarshal(pointer.Metadata, &streamMeta)
+		if err != nil {
+			return errs.New("unexpected error unmarshalling pointer metadata %s", err)
+		}
+
+		if streamMeta.NumberOfSegments > 0 {
+			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
+				return errs.New("unsupported number of segments: %d", streamMeta.NumberOfSegments)
+			}
+			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
+		}
+	} else {
+		segmentIndex, err := strconv.Atoi(path.Segment[1:])
+		if err != nil {
+			return err
+		}
+		if segmentIndex >= int(maxNumOfSegments) {
+			return errs.New("unsupported segment index: %d", segmentIndex)
+		}
+
+		if object.segments&(1<<uint64(segmentIndex)) != 0 {
+			// TODO make path displayable
+			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+		}
+
+		object.segments |= 1 << uint64(segmentIndex)
+	}
+
+	// collect number of pointers for report
+	if pointer.Type == pb.Pointer_INLINE {
+		observer.inlineSegments++
+		if isLastSegment {
+			observer.lastInlineSegments++
+		}
+	} else {
+		observer.remoteSegments++
+	}
+	observer.lastProjectID = cluster.projectID
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(detectCmd)
 
@@ -94,6 +183,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
+
 	headers := []string{
 		"ProjectID",
 		"SegmentIndex",
@@ -106,101 +196,19 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	objects := make(ObjectsMap)
-	inlineSegments := 0
-	lastInlineSegments := 0
-	remoteSegments := 0
-	lastProjectID := ""
+	observer := &Observer{
+		objects: make(ObjectsMap),
+		db:      db,
+		writer:  writer,
+	}
+	err = metainfo.IterateDatabase(ctx, db, observer)
+	if err != nil {
+		return err
+	}
 
-	// iterate method is serving entries in sorted order
-	err = db.Iterate(ctx, storage.IterateOptions{Recurse: true},
-		func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
-
-			// iterate over every segment in metainfo
-			for it.Next(ctx, &item) {
-				rawPath := item.Key.String()
-				pointer := &pb.Pointer{}
-
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return errs.New("unexpected error unmarshalling pointer %s", err)
-				}
-
-				streamMeta := pb.StreamMeta{}
-				err = proto.Unmarshal(pointer.Metadata, &streamMeta)
-				if err != nil {
-					return errs.New("unexpected error unmarshalling pointer metadata %s", err)
-				}
-
-				pathElements := storj.SplitPath(rawPath)
-				if len(pathElements) < 3 {
-					return errs.New("invalid path %q", rawPath)
-				}
-
-				if len(pathElements) < 4 {
-					return nil
-				}
-
-				cluster := Cluster{
-					projectID: pathElements[0],
-					bucket:    pathElements[2],
-				}
-				objectPath := storj.JoinPaths(storj.JoinPaths(pathElements[3:]...))
-				object := findOrCreate(cluster, objectPath, objects)
-				if lastProjectID != "" && lastProjectID != cluster.projectID {
-					err = analyzeProject(ctx, db, objects, writer)
-					if err != nil {
-						return err
-					}
-
-					// cleanup map to free memory
-					objects = make(ObjectsMap)
-				}
-
-				isLastSegment := pathElements[1] == "l"
-				if isLastSegment {
-					object.hasLastSegment = true
-					if streamMeta.NumberOfSegments != 0 {
-						if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
-							return errs.New("unsupported number of segments: %d", streamMeta.NumberOfSegments)
-						}
-						object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
-					}
-				} else {
-					segmentIndex, err := strconv.Atoi(pathElements[1][1:])
-					if err != nil {
-						return err
-					}
-					if segmentIndex >= int(maxNumOfSegments) {
-						return errs.New("unsupported segment index: %d", segmentIndex)
-					}
-
-					if object.segments&(1<<uint64(segmentIndex)) != 0 {
-						// TODO make path displayable
-						return errs.New("fatal error this segment is duplicated: %s", rawPath)
-					}
-
-					object.segments |= 1 << uint64(segmentIndex)
-				}
-
-				// collect number of pointers for report
-				if pointer.Type == pb.Pointer_INLINE {
-					inlineSegments++
-					if isLastSegment {
-						lastInlineSegments++
-					}
-				} else {
-					remoteSegments++
-				}
-
-				lastProjectID = cluster.projectID
-			}
-			return nil
-		})
-	log.Info("number of inline segments", zap.Int("segments", inlineSegments))
-	log.Info("number of last inline segments", zap.Int("segments", lastInlineSegments))
-	log.Info("number of remote segments", zap.Int("segments", remoteSegments))
+	log.Info("number of inline segments", zap.Int("segments", observer.inlineSegments))
+	log.Info("number of last inline segments", zap.Int("segments", observer.lastInlineSegments))
+	log.Info("number of remote segments", zap.Int("segments", observer.remoteSegments))
 	return nil
 }
 
