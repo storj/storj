@@ -132,7 +132,7 @@ func TestGetObjectStream(t *testing.T) {
 			PathCipher: storj.EncNull,
 		}
 		_, err = db.GetObjectStream(ctx, emptyBucket, "")
-		assert.True(t, storj.ErrNoPath.Has(err))
+		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		_, err = db.GetObjectStream(ctx, bucket, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
@@ -294,13 +294,13 @@ func TestDeleteObject(t *testing.T) {
 
 func TestListObjectsEmpty(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		_, err := db.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
-		_, err = db.ListObjects(ctx, "", storj.ListOptions{})
+		_, err = db.ListObjects(ctx, storj.Bucket{}, storj.ListOptions{})
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = db.ListObjects(ctx, TestBucket, storj.ListOptions{})
+		_, err = db.ListObjects(ctx, testBucketInfo, storj.ListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
 		// TODO for now we are supporting only storj.After
@@ -308,7 +308,7 @@ func TestListObjectsEmpty(t *testing.T) {
 			// storj.Forward,
 			storj.After,
 		} {
-			list, err := db.ListObjects(ctx, TestBucket, storj.ListOptions{Direction: direction})
+			list, err := db.ListObjects(ctx, testBucketInfo, storj.ListOptions{Direction: direction})
 			if assert.NoError(t, err) {
 				assert.False(t, list.More)
 				assert.Equal(t, 0, len(list.Items))
@@ -420,7 +420,7 @@ func TestListObjects(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			list, err := db.ListObjects(ctx, TestBucket, tt.options)
+			list, err := db.ListObjects(ctx, bucket, tt.options)
 
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, list.More, errTag)

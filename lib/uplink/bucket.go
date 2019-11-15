@@ -125,7 +125,7 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.
 	if cfg == nil {
 		cfg = &storj.ListOptions{Direction: storj.After}
 	}
-	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
+	return b.metainfo.ListObjects(ctx, b.bucket, *cfg)
 }
 
 // NewWriter creates a writer which uploads the object.
