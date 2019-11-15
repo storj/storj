@@ -33,13 +33,15 @@ type Bucket struct {
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := b.metainfo.GetObject(ctx, b.Name, path)
+	info, err := b.metainfo.GetObject(ctx, b.bucket, path)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Object{
 		Meta: ObjectMeta{
+			bucketInfo: b.bucket,
+
 			Bucket:      info.Bucket.Name,
 			Path:        info.Path,
 			IsPrefix:    info.IsPrefix,
@@ -123,7 +125,7 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.
 	if cfg == nil {
 		cfg = &storj.ListOptions{Direction: storj.After}
 	}
-	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
+	return b.metainfo.ListObjects(ctx, b.bucket, *cfg)
 }
 
 // NewWriter creates a writer which uploads the object.
@@ -166,7 +168,7 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 		EncryptionParameters: opts.Volatile.EncryptionParameters,
 	}
 
-	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	obj, err := b.metainfo.CreateObject(ctx, b.bucket, path, &createInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +193,7 @@ func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadClose
 func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, path)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +205,7 @@ func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser
 func (b *Bucket) DownloadRange(ctx context.Context, path storj.Path, start, limit int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, path)
 	if err != nil {
 		return nil, err
 	}
