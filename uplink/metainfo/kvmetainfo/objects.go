@@ -74,6 +74,10 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, path sto
 func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if bucket.Name == "" {
+		return nil, storj.ErrNoBucket.New("")
+	}
+
 	if path == "" {
 		return nil, storj.ErrNoPath.New("")
 	}
