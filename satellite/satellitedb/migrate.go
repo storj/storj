@@ -1414,7 +1414,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add timeout field to coinpayments_transaction",
 				Version:     69,
 				Action: migrate.SQL{
-					`DROP TABLE coinpayments_transactions CASCADE`,
+					`DROP TABLE coinpayments_transactions CASCADE;`,
+					`DELETE FROM stripecoinpayments_apply_balance_intents`,
 					`CREATE TABLE coinpayments_transactions (
 						id text NOT NULL,
 						user_id bytea NOT NULL,
@@ -1427,6 +1428,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+					`ALTER TABLE stripecoinpayments_apply_balance_intents
+						ADD CONSTRAINT fk_transactions FOREIGN KEY(tx_id) REFERENCES coinpayments_transactions(id) 
+						ON DELETE CASCADE;`,
 				},
 			},
 		},
