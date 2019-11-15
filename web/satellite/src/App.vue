@@ -35,7 +35,7 @@ export default class App extends Vue {
                 'paymentSelect',
             ];
 
-    public async mounted(): Promise<void> {
+    public mounted(): void {
         const meta = document.querySelector("meta[name='satellite-name']");
         const segmentMeta = document.querySelector("meta[name='segment-io']");
         let satelliteName;
@@ -47,8 +47,8 @@ export default class App extends Vue {
 
         if (segmentMeta) {
             if (!window['analytics']) {
-                await this.$notify.error('Segment.io library not loaded');
-            }      
+                return;
+            }
             segmentio = segmentMeta.getAttribute('content');
             this.$segment = window['analytics'];
             this.$segment.load(segmentio);
