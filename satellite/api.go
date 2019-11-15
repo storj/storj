@@ -127,14 +127,9 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Version  *stripecoinpayments.VersionService
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
-	}
-
-	Referrals struct {
-		Service *referrals.Service
+		Accounts  payments.Accounts
+		Inspector *stripecoinpayments.Endpoint
+		Version   *stripecoinpayments.VersionService
 	}
 
 	Console struct {
@@ -557,6 +552,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.Accounts = service.Accounts()
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
 
+			peer.Payments.Version = stripecoinpayments.NewVersionService(
+				peer.Log.Named("stripecoinpayments version service"),
+				service,
+				pc.StripeCoinPayments.ConversionRatesCycleInterval)
+
 			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
 			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
 		}
@@ -705,18 +705,65 @@ func (peer *API) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
+	})
+	group.Go(func() error {
+		// Don't change the format of this comment, it is used to figure out the node id.
+		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	})
+	if peer.Payments.Version != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.Payments.Version.Run(ctx))
+		})
+	}
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *API) Close() error {
-	return errs.Combine(
-		peer.Servers.Close(),
-		peer.Services.Close(),
-	)
+	var errlist errs.Group
+
+	// close servers, to avoid new connections to closing subsystems
+	if peer.Server != nil {
+		errlist.Add(peer.Server.Close())
+	}
+	if peer.Marketing.Endpoint != nil {
+		errlist.Add(peer.Marketing.Endpoint.Close())
+	} else if peer.Marketing.Listener != nil {
+		errlist.Add(peer.Marketing.Listener.Close())
+	}
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
+	}
+	if peer.Mail.Service != nil {
+		errlist.Add(peer.Mail.Service.Close())
+	}
+	if peer.Payments.Version != nil {
+		errlist.Add(peer.Payments.Version.Close())
+	}
+	if peer.Metainfo.Endpoint2 != nil {
+		errlist.Add(peer.Metainfo.Endpoint2.Close())
+	}
+	if peer.Contact.Service != nil {
+		errlist.Add(peer.Contact.Service.Close())
+	}
+	if peer.Overlay.Service != nil {
+		errlist.Add(peer.Overlay.Service.Close())
+	}
+	return errlist.Err()
 }
 
 // ID returns the peer ID.

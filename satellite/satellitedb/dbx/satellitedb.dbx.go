@@ -330,23 +330,6 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE consumed_serials (
-	storage_node_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, serial_number )
-);
-CREATE TABLE coupons (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	description text NOT NULL,
-	type integer NOT NULL,
-	status integer NOT NULL,
-	duration bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE coupon_usages (
 	coupon_id bytea NOT NULL,
 	amount bigint NOT NULL,
@@ -10463,18 +10446,17 @@ func (obj *pgxImpl) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
-
-	var __values []interface{}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+type CoinpaymentsTransaction struct {
+	Id        string
+	UserId    []byte
+	Address   string
+	Amount    []byte
+	Received  []byte
+	Status    int
+	Key       string
+	Timeout   int
+	CreatedAt time.Time
+}
 
 	for __rows.Next() {
 		row := &Id_Row{}
@@ -10634,7 +10616,30 @@ func (obj *pgxImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
 	audit_history *AuditHistory, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
+type CoinpaymentsTransaction_Timeout_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func CoinpaymentsTransaction_Timeout(v int) CoinpaymentsTransaction_Timeout_Field {
+	return CoinpaymentsTransaction_Timeout_Field{_set: true, _value: v}
+}
+
+func (f CoinpaymentsTransaction_Timeout_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CoinpaymentsTransaction_Timeout_Field) _Column() string { return "timeout" }
+
+type CoinpaymentsTransaction_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
 
 	var __values []interface{}
 	__values = append(__values, audit_history_node_id.value())
@@ -13493,7 +13498,87 @@ func (obj *pgxImpl) UpdateNoReturn_Offer_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ?")}}
+type StripecoinpaymentsTxConversionRate struct {
+	TxId      string
+	Rate      []byte
+	CreatedAt time.Time
+}
+
+func (StripecoinpaymentsTxConversionRate) _Table() string {
+	return "stripecoinpayments_tx_conversion_rates"
+}
+
+type StripecoinpaymentsTxConversionRate_Update_Fields struct {
+}
+
+type StripecoinpaymentsTxConversionRate_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripecoinpaymentsTxConversionRate_TxId(v string) StripecoinpaymentsTxConversionRate_TxId_Field {
+	return StripecoinpaymentsTxConversionRate_TxId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_TxId_Field) _Column() string { return "tx_id" }
+
+type StripecoinpaymentsTxConversionRate_Rate_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsTxConversionRate_Rate(v []byte) StripecoinpaymentsTxConversionRate_Rate_Field {
+	return StripecoinpaymentsTxConversionRate_Rate_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_Rate_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_Rate_Field) _Column() string { return "rate" }
+
+type StripecoinpaymentsTxConversionRate_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsTxConversionRate_CreatedAt(v time.Time) StripecoinpaymentsTxConversionRate_CreatedAt_Field {
+	return StripecoinpaymentsTxConversionRate_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsTxConversionRate_CreatedAt_Field) _Column() string { return "created_at" }
+
+type User struct {
+	Id              []byte
+	Email           string
+	NormalizedEmail string
+	FullName        string
+	ShortName       *string
+	PasswordHash    []byte
+	Status          int
+	PartnerId       []byte
+	CreatedAt       time.Time
+}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -16305,14 +16390,11 @@ func (obj *pgxcockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount, received, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
-	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val)
-
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16388,11 +16470,10 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 
 }
 
-func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
+func (obj *postgresImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
 	stripecoinpayments_tx_conversion_rate_rate StripecoinpaymentsTxConversionRate_Rate_Field) (
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
-	defer mon.Task()(&ctx)(&err)
 
 	__now := obj.db.Hooks.Now().UTC()
 	__tx_id_val := stripecoinpayments_tx_conversion_rate_tx_id.value()
@@ -16401,14 +16482,11 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate, stripecoinpayments_tx_conversion_rates.created_at")
 
-	var __values []interface{}
-	__values = append(__values, __tx_id_val, __rate_val, __created_at_val)
-
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
+	obj.logStmt(__stmt, __tx_id_val, __rate_val, __created_at_val)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16416,102 +16494,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx conte
 
 }
 
-func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
-	coupon_id Coupon_Id_Field,
-	coupon_user_id Coupon_UserId_Field,
-	coupon_amount Coupon_Amount_Field,
-	coupon_description Coupon_Description_Field,
-	coupon_type Coupon_Type_Field,
-	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
-	coupon *Coupon, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := coupon_id.value()
-	__user_id_val := coupon_user_id.value()
-	__amount_val := coupon_amount.value()
-	__description_val := coupon_description.value()
-	__type_val := coupon_type.value()
-	__status_val := coupon_status.value()
-	__duration_val := coupon_duration.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return coupon, nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_CouponUsage(ctx context.Context,
-	coupon_usage_coupon_id CouponUsage_CouponId_Field,
-	coupon_usage_amount CouponUsage_Amount_Field,
-	coupon_usage_status CouponUsage_Status_Field,
-	coupon_usage_period CouponUsage_Period_Field) (
-	coupon_usage *CouponUsage, err error) {
-	defer mon.Task()(&ctx)(&err)
-	__coupon_id_val := coupon_usage_coupon_id.value()
-	__amount_val := coupon_usage_amount.value()
-	__status_val := coupon_usage_status.value()
-	__period_val := coupon_usage_period.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_usages ( coupon_id, amount, status, period ) VALUES ( ?, ?, ?, ? ) RETURNING coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.status, coupon_usages.period")
-
-	var __values []interface{}
-	__values = append(__values, __coupon_id_val, __amount_val, __status_val, __period_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return coupon_usage, nil
-
-}
-
-func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
-	node_api_version_id NodeApiVersion_Id_Field,
-	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := node_api_version_id.value()
-	__api_version_val := node_api_version_api_version.value()
-	__created_at_val := __now
-	__updated_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO node_api_versions ( id, api_version, created_at, updated_at ) VALUES ( ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __api_version_val, __created_at_val, __updated_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 	value_attribution *ValueAttribution, err error) {
@@ -18719,7 +18702,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_Create
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value(), coupon_status.value())
@@ -18734,8 +18717,8 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_Create
 	defer __rows.Close()
 
 	for __rows.Next() {
-		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		coinpayments_transaction := &CoinpaymentsTransaction{}
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18753,7 +18736,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx con
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount, coinpayments_transactions.received, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.created_at <= ? AND coinpayments_transactions.status = ? ORDER BY coinpayments_transactions.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_status.value())
@@ -18768,8 +18751,8 @@ func (obj *pgxcockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx con
 	defer __rows.Close()
 
 	for __rows.Next() {
-		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		coinpayments_transaction := &CoinpaymentsTransaction{}
+		err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18857,29 +18840,28 @@ func (obj *pgxcockroachImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Numb
 
 }
 
-func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
-	node_api_version_id NodeApiVersion_Id_Field,
-	node_api_version_api_version_greater_or_equal NodeApiVersion_ApiVersion_Field) (
-	has bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (obj *postgresImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM node_api_versions WHERE node_api_versions.id = ? AND node_api_versions.api_version >= ? )")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, node_api_version_id.value(), node_api_version_api_version_greater_or_equal.value())
+	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
-		return false, obj.makeErr(err)
+		return nil, obj.makeErr(err)
 	}
-	return has, nil
+	return stripecoinpayments_tx_conversion_rate, nil
 
 }
 
-func (obj *pgxcockroachImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
+func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
 	pending_audits *PendingAudits, err error) {
@@ -20100,7 +20082,7 @@ func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -21100,7 +21082,17 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_tx_conversion_rates;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_invoice_project_records;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -21901,50 +21893,6 @@ func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 		return
 	}
 	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount, coinpayments_transaction_received, coinpayments_transaction_status, coinpayments_transaction_key, coinpayments_transaction_timeout)
-
-}
-
-func (rx *Rx) Create_Coupon(ctx context.Context,
-	coupon_id Coupon_Id_Field,
-	coupon_user_id Coupon_UserId_Field,
-	coupon_amount Coupon_Amount_Field,
-	coupon_description Coupon_Description_Field,
-	coupon_type Coupon_Type_Field,
-	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
-	coupon *Coupon, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_Coupon(ctx, coupon_id, coupon_user_id, coupon_amount, coupon_description, coupon_type, coupon_status, coupon_duration)
-
-}
-
-func (rx *Rx) Create_CouponUsage(ctx context.Context,
-	coupon_usage_coupon_id CouponUsage_CouponId_Field,
-	coupon_usage_amount CouponUsage_Amount_Field,
-	coupon_usage_status CouponUsage_Status_Field,
-	coupon_usage_period CouponUsage_Period_Field) (
-	coupon_usage *CouponUsage, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_CouponUsage(ctx, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_status, coupon_usage_period)
-
-}
-
-func (rx *Rx) Create_NodesOfflineTime(ctx context.Context,
-	nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
-	nodes_offline_time_tracked_at NodesOfflineTime_TrackedAt_Field,
-	nodes_offline_time_seconds NodesOfflineTime_Seconds_Field) (
-	nodes_offline_time *NodesOfflineTime, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_NodesOfflineTime(ctx, nodes_offline_time_node_id, nodes_offline_time_tracked_at, nodes_offline_time_seconds)
 
 }
 

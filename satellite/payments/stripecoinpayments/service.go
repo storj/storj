@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -34,37 +33,35 @@ var (
 	mon = monkit.Package()
 )
 
-// $0,013689253935661 is a price per TBh for storagebased
-// $50 per tb egress,
-// $0.00000168 per object
-
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
 	StripePublicKey              string        `help:"stripe API public key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
-	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m"`
-	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m"`
-	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m"`
-	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
-	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
 //
 // architecture: Service
 type Service struct {
-	log            *zap.Logger
-	db             DB
-	config         Config
-	projectsDB     console.Projects
-	usageDB        accounting.ProjectAccounting
-	stripeClient   *client.API
-	coinPayments   *coinpayments.Client
+	log          *zap.Logger
+	db           DB
+	projectsDB   console.Projects
+	usageDB      accounting.ProjectAccounting
+	stripeClient *client.API
+	coinPayments *coinpayments.Client
+
 	PerObjectPrice int64
 	EgressPrice    int64
 	TBhPrice       int64
+
+	mu       sync.Mutex
+	rates    coinpayments.CurrencyRateInfos
+	ratesErr error
 }
 
 // NewService creates a Service instance.
@@ -81,7 +78,6 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	return &Service{
 		log:            log,
 		db:             db,
-		config:         config,
 		projectsDB:     projectsDB,
 		usageDB:        usageDB,
 		stripeClient:   stripeClient,
@@ -285,15 +281,20 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	cents := convertToCents(rate, &tx.Received)
+	if err = service.db.Transactions().Consume(ctx, tx.ID); err != nil {
+		return err
+	}
 
-	if cents <= 0 {
-		service.log.Warn("Trying to deposit non-positive amount.",
-			zap.Int64("USD cents", cents),
-			zap.Stringer("Transaction ID", tx.ID),
-			zap.Stringer("User ID", tx.AccountID),
-		)
-		return service.db.Transactions().Consume(ctx, tx.ID)
+	amount := new(big.Float).Mul(rate, &tx.Amount)
+
+	f, _ := amount.Float64()
+	cents := int64(math.Floor(f * 100))
+
+	params := &stripe.CustomerBalanceTransactionParams{
+		Amount:      stripe.Int64(cents),
+		Customer:    stripe.String(cusID),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Description: stripe.String("storj token deposit"),
 	}
 
 	// Check for balance transactions created from previous failed attempt
@@ -369,6 +370,23 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 
 		service.log.Info("Coinpayment client is missing public key")
 	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.rates = rates
+	service.ratesErr = err
+
+	// TODO: 0 amount will return an error, how to handle that?
+	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
+	return err
+}
+
+// UpdateRates fetches new rates and updates service rate cache.
+func (service *Service) UpdateRates(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rates, err := service.coinPayments.ConversionRates().Get(ctx)
 
 	service.mu.Lock()
 	defer service.mu.Unlock()

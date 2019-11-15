@@ -309,7 +309,10 @@ func TestTransactionsDBList(t *testing.T) {
 }
 
 func TestTransactionsDBRates(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		transactions := db.StripeCoinPayments().Transactions()
 
 		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")

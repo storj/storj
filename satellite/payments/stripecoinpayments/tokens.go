@@ -5,10 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-	"encoding/json"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/stripe/stripe-go"
 	"go.uber.org/zap"
@@ -60,12 +56,10 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencySTORJ, coinpayments.CurrencyUSD)
+	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencyLTCT, coinpayments.CurrencyUSD)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	tokenAmount := convertFromCents(rate, amount).SetPrec(payments.STORJTokenPrecision)
 
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
@@ -110,7 +104,6 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
 		Timeout:   tx.Timeout,
-		Link:      tx.CheckoutURL,
 		CreatedAt: cpTX.CreatedAt,
 	}, nil
 }
@@ -148,16 +141,14 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 
 		infos = append(infos,
 			payments.TransactionInfo{
-				ID:            []byte(tx.ID),
-				Amount:        *payments.TokenAmountFromBigFloat(&tx.Amount),
-				Received:      *payments.TokenAmountFromBigFloat(&tx.Received),
-				AmountCents:   convertToCents(rate, &tx.Amount),
-				ReceivedCents: convertToCents(rate, &tx.Received),
-				Address:       tx.Address,
-				Status:        status,
-				Link:          link,
-				ExpiresAt:     tx.CreatedAt.Add(tx.Timeout),
-				CreatedAt:     tx.CreatedAt,
+				ID:        []byte(tx.ID),
+				Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
+				Received:  *payments.TokenAmountFromBigFloat(&tx.Received),
+				Address:   tx.Address,
+				Status:    status,
+				Link:      link,
+				ExpiresAt: tx.CreatedAt.Add(tx.Timeout),
+				CreatedAt: tx.CreatedAt,
 			},
 		)
 	}

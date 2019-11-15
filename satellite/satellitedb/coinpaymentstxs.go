@@ -115,34 +115,12 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.db.Rebind(` 
-		WITH intent AS (
-			SELECT tx_id, state FROM stripecoinpayments_apply_balance_intents WHERE tx_id = ? 
-		), updated AS (
-			UPDATE stripecoinpayments_apply_balance_intents AS ints
-				SET 
-					state = ? 
-				FROM intent
-				WHERE intent.tx_id = ints.tx_id  AND ints.state = ?
-			RETURNING 1
-		)
-		SELECT EXISTS(SELECT 1 FROM intent) AS intent_exists, EXISTS(SELECT 1 FROM updated) AS intent_consumed;
-	`)
-
-	row := db.db.QueryRowContext(ctx, query, id, applyBalanceIntentStateConsumed, applyBalanceIntentStateUnapplied)
-
-	var exists, consumed bool
-	if err = row.Scan(&exists, &consumed); err != nil {
-		return err
-	}
-
-	if !exists {
-		return errs.New("can not consume transaction without apply balance intent")
-	}
-	if !consumed {
-		return stripecoinpayments.ErrTransactionConsumed
-	}
-
+	_, err = db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
+		dbx.StripecoinpaymentsApplyBalanceIntent_TxId(id.String()),
+		dbx.StripecoinpaymentsApplyBalanceIntent_Update_Fields{
+			State: dbx.StripecoinpaymentsApplyBalanceIntent_State(applyBalanceIntentStateConsumed.Int()),
+		},
+	)
 	return err
 }
 
@@ -208,6 +186,8 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 // ListPending returns paginated list of pending transactions.
 func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	var page stripecoinpayments.TransactionsPage
 
 	query := db.db.Rebind(`SELECT 
 				id,

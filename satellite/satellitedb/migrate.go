@@ -1002,6 +1002,43 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_tx_conversion_rates",
+				Version:     68,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
+						tx_id text NOT NULL,
+						rate bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add timeout field to coinpayments_transaction",
+				Version:     69,
+				Action: migrate.SQL{
+					`DROP TABLE coinpayments_transactions CASCADE;`,
+					`DELETE FROM stripecoinpayments_apply_balance_intents`,
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						timeout integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`ALTER TABLE stripecoinpayments_apply_balance_intents
+						ADD CONSTRAINT fk_transactions FOREIGN KEY(tx_id) REFERENCES coinpayments_transactions(id) 
+						ON DELETE CASCADE;`,
+				},
+			},
 		},
 	}
 }
