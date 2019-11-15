@@ -7,7 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )

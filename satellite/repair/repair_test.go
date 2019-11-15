@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
@@ -597,7 +597,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
@@ -1036,7 +1036,7 @@ func getRemoteSegment(
 
 	// get a remote segment from metainfo
 	metainfo := satellite.Metainfo.Service
-	listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+	listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
 	require.NoError(t, err)
 
 	for _, v := range listResponse {

@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/private/testcontext"
 )
 
 var (

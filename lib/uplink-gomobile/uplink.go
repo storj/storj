@@ -6,9 +6,9 @@ package mobile
 import (
 	"fmt"
 
-	"storj.io/storj/internal/memory"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 // Config represents configuration options for an Uplink
