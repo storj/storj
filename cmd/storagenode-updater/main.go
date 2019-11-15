@@ -339,10 +339,6 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
-func main() {
-	process.Exec(rootCmd)
-}
-
 // TODO: improve logging; other commands use zap but due to an apparent
 // windows bug we're unable to use the existing process logging infrastructure.
 func openLog() (closeFunc func() error, err error) {
@@ -358,4 +354,8 @@ func openLog() (closeFunc func() error, err error) {
 		return logFile.Close, nil
 	}
 	return closeFunc, nil
+}
+
+func main() {
+	process.Exec(rootCmd)
 }
