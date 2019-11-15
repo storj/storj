@@ -39,7 +39,7 @@ Vue.directive('click-outside', {
     },
 });
 
-Vue.filter('two_digits', function (value) {
+Vue.filter('twoDigits', function (value) {
     if (value.toString().length <= 1) {
         return `0${value.toString()}`;
     }

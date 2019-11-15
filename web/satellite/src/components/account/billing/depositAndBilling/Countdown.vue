@@ -6,9 +6,9 @@
         <div v-if="isExpired">{{date}}</div>
         <div class="row" v-else>
             <p>Expires in </p>
-            <p class="digit margin">{{ minutes | two_digits }}</p>
+            <p class="digit margin">{{ minutes | twoDigits }}</p>
             <p>:</p>
-            <p class="digit">{{ seconds | two_digits }}</p>
+            <p class="digit">{{ seconds | twoDigits }}</p>
         </div>
     </div>
 </template>
