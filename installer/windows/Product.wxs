@@ -39,9 +39,8 @@
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot;"
-          >
-            <ServiceDependency Id="LanmanServer"/>
-            <ServiceDependency Id="Dnscache"/>
+          />
+        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="both" Name="storagenode" Wait="yes" />
 
         </ServiceInstall>
         <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="both" Name="storagenode" Wait="yes" />
@@ -61,7 +60,7 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --binary-location &quot;[INSTALLFOLDER]storagenode.exe&quot; --log.output &quot;winfile:///[INSTALLFOLDER]storagenode-updater.log&quot;">
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
             <util:ServiceConfig
               ServiceName="storagenode-updater"
               ResetPeriodInDays="1"
@@ -71,8 +70,6 @@
               ThirdFailureActionType="runCommand"
               ProgramCommandLine="cmd /c &quot;(echo %date% %time% recovery triggered to execute in 3 minutes &amp;&amp; timeout 180 >NUL &amp;&amp; echo %date% %time% recovery command executed: &amp;&amp; copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; net start storagenode-updater) >> &quot;[INSTALLFOLDER]storagenode-updater-recovery.log&quot; 2>&amp;1&quot;"
             />
-            <ServiceDependency Id="LanmanServer"/>
-            <ServiceDependency Id="Dnscache"/>
           </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="both" Name="storagenode-updater" Wait="yes" />
       </Component>

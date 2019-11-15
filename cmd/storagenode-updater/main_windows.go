@@ -50,11 +50,12 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.StartPending}
 
-	var group errgroup.Group
-	group.Go(func() error {
-		process.Exec(rootCmd)
-		return nil
-	})
+	go func() {
+		err := rootCmd.Execute()
+		if err != nil {
+			os.Exit(1)
+		}
+	}()
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
