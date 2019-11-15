@@ -469,146 +469,148 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if pointer.Type == pb.Pointer_REMOTE {
-		remote := pointer.Remote
-
-		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
-		if err != nil {
-			return err
-		}
-
-		type invalidPiece struct {
-			NodeID   storj.NodeID
-			PieceNum int32
-			Reason   string
-		}
-
-		var (
-			remotePieces  []*pb.RemotePiece
-			invalidPieces []invalidPiece
-			lastPieceSize int64
-			allSizesValid = true
-		)
-		for _, piece := range remote.RemotePieces {
-			// Verify storagenode signature on piecehash
-			peerID, ok := peerIDMap[piece.NodeId]
-			if !ok {
-				endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
-					zap.Stringer("Node ID", piece.NodeId),
-					zap.Int32("Piece ID", piece.PieceNum),
-				)
-
-				invalidPieces = append(invalidPieces, invalidPiece{
-					NodeID:   piece.NodeId,
-					PieceNum: piece.PieceNum,
-					Reason:   "Identity chain unknown for node",
-				})
-				continue
-			}
-			signee := signing.SigneeFromPeerIdentity(peerID)
-
-			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
-			if err != nil {
-				endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
-				invalidPieces = append(invalidPieces, invalidPiece{
-					NodeID:   piece.NodeId,
-					PieceNum: piece.PieceNum,
-					Reason:   err.Error(),
-				})
-				continue
-			}
-
-			if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
-				allSizesValid = false
-				break
-			}
-			lastPieceSize = piece.Hash.PieceSize
-
-			remotePieces = append(remotePieces, piece)
-		}
-
-		if allSizesValid {
-			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-			if err != nil {
-				endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
-				)
-			}
-
-			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
-			if expectedPieceSize != lastPieceSize {
-				endpoint.log.Debug("expected piece size is different from provided",
-					zap.Int64("expectedSize", expectedPieceSize),
-					zap.Int64("actualSize", lastPieceSize),
-				)
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"expected piece size is different from provided (%d != %d)",
-					expectedPieceSize, lastPieceSize,
-				)
-			}
-		} else {
-			errMsg := "all pieces needs to have the same size"
-			endpoint.log.Debug(errMsg)
-			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-		}
-
-		// We repair when the number of healthy files is less than or equal to the repair threshold
-		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
-		if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
-			endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
-				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-				zap.Int("validPieces", len(remotePieces)),
-				zap.Int("invalidPieces", len(invalidPieces)),
-				zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
-			)
-
-			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
-				len(remotePieces),
-				remote.Redundancy.RepairThreshold,
-				len(remote.RemotePieces),
-			)
-			if len(invalidPieces) > 0 {
-				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
-
-				for _, p := range invalidPieces {
-					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
-						errMsg, p.NodeID, p.PieceNum, p.Reason,
-					)
-				}
-			}
-
-			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-		}
-
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			endpoint.log.Debug("Number of valid pieces is less than the success threshold",
-				zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-				zap.Int("validPieces", len(remotePieces)),
-				zap.Int("invalidPieces", len(invalidPieces)),
-				zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
-			)
-
-			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
-				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
-				len(remote.RemotePieces),
-			)
-			if len(invalidPieces) > 0 {
-				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
-
-				for _, p := range invalidPieces {
-					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
-						errMsg, p.NodeID, p.PieceNum, p.Reason,
-					)
-				}
-			}
-
-			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-		}
-
-		remote.RemotePieces = remotePieces
+	if pointer.Type != pb.Pointer_REMOTE {
+		return nil
 	}
+
+	remote := pointer.Remote
+
+	peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+	if err != nil {
+		return err
+	}
+
+	type invalidPiece struct {
+		NodeID   storj.NodeID
+		PieceNum int32
+		Reason   string
+	}
+
+	var (
+		remotePieces  []*pb.RemotePiece
+		invalidPieces []invalidPiece
+		lastPieceSize int64
+		allSizesValid = true
+	)
+	for _, piece := range remote.RemotePieces {
+		// Verify storagenode signature on piecehash
+		peerID, ok := peerIDMap[piece.NodeId]
+		if !ok {
+			endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
+				zap.Stringer("Node ID", piece.NodeId),
+				zap.Int32("Piece ID", piece.PieceNum),
+			)
+
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   "Identity chain unknown for node",
+			})
+			continue
+		}
+		signee := signing.SigneeFromPeerIdentity(peerID)
+
+		err = endpoint.validatePieceHash(ctx, piece, limits, signee)
+		if err != nil {
+			endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   err.Error(),
+			})
+			continue
+		}
+
+		if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
+			allSizesValid = false
+			break
+		}
+		lastPieceSize = piece.Hash.PieceSize
+
+		remotePieces = append(remotePieces, piece)
+	}
+
+	if allSizesValid {
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+		if err != nil {
+			endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
+			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
+			)
+		}
+
+		expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
+		if expectedPieceSize != lastPieceSize {
+			endpoint.log.Debug("expected piece size is different from provided",
+				zap.Int64("expectedSize", expectedPieceSize),
+				zap.Int64("actualSize", lastPieceSize),
+			)
+			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"expected piece size is different from provided (%d != %d)",
+				expectedPieceSize, lastPieceSize,
+			)
+		}
+	} else {
+		errMsg := "all pieces needs to have the same size"
+		endpoint.log.Debug(errMsg)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	// We repair when the number of healthy files is less than or equal to the repair threshold
+	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
+	if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+		endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
+			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("invalidPieces", len(invalidPieces)),
+			zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
+		)
+
+		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
+			len(remotePieces),
+			remote.Redundancy.RepairThreshold,
+			len(remote.RemotePieces),
+		)
+		if len(invalidPieces) > 0 {
+			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+			for _, p := range invalidPieces {
+				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				)
+			}
+		}
+
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("invalidPieces", len(invalidPieces)),
+			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
+		)
+
+		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
+			len(remotePieces),
+			remote.Redundancy.SuccessThreshold,
+			len(remote.RemotePieces),
+		)
+		if len(invalidPieces) > 0 {
+			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+			for _, p := range invalidPieces {
+				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				)
+			}
+		}
+
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	remote.RemotePieces = remotePieces
 
 	return nil
 }
