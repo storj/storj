@@ -963,7 +963,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := pb.Marshal(signedSegmentID)
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
