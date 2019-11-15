@@ -63,6 +63,7 @@ export interface PaymentsApi {
     billingHistory(): Promise<BillingHistoryItem[]>;
 
     /**
+     * Creates token transaction in CoinPayments
      *
      * @param amount
      * @throws Error

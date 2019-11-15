@@ -159,8 +159,8 @@ export default class PaymentMethods extends Vue {
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
 
         this.areaState = PaymentMethodsBlockState.DEFAULT;

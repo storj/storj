@@ -8,7 +8,7 @@
             :start-date="billingItem.start"
             :expiration-date="billingItem.end"
             :type="billingItem.type"
-        ></Countdown>
+        />
         <p class="container__item description">{{billingItem.description}}</p>
         <p class="container__item status">{{billingItem.status}}</p>
         <p class="container__item amount">
