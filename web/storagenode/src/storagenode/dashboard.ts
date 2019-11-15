@@ -14,6 +14,7 @@ export class Dashboard {
         public lastPinged: Date,
         public startedAt: Date,
         public version: string,
+        public allowedVersion: AllowedVersion,
         public isUpToDate: boolean) {}
 }
 
@@ -50,5 +51,23 @@ export class BandwidthInfo {
         public used: number,
         public available: number) {
         this.remaining = available - used;
+    }
+}
+
+/**
+ * AllowedVersion represents a minimal allowed version
+ */
+export class AllowedVersion {
+    public constructor(
+        public major: number,
+        public minor: number,
+        public patch: number) {}
+
+    /**
+     * Converts allowed version numbers to string type
+     * @returns allowed version - string of allowed version value
+     */
+    public toString(): string {
+        return `v${this.major}.${this.minor}.${this.patch}`;
     }
 }

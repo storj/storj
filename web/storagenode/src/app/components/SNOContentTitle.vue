@@ -35,7 +35,7 @@
             <VInfo
                 v-if="info.isLastVersion"
                 text="Running the minimal allowed version:"
-                bold-text="v0.0.0"
+                :bold-text="info.allowedVersion.toString()"
                 is-custom-position="true"
             >
                 <div class="version-svg-container">
@@ -81,13 +81,15 @@ class NodeInfo {
     public id: string;
     public status: string;
     public version: string;
+    public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
 
-    public constructor(id: string, status: string, version: string, wallet: string, isLastVersion: boolean) {
+    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean) {
         this.id = id;
         this.status = status;
         this.version = version;
+        this.allowedVersion = allowedVersion;
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
     }

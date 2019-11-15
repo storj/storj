@@ -35,9 +35,10 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	checked sync2.Fence
-	mu      sync.Mutex
-	allowed bool
+	checked         sync2.Fence
+	mu              sync.Mutex
+	allowed         bool
+	acceptedVersion version.OldSemVer
 }
 
 // NewService creates a Version Check Client with default configuration
@@ -85,31 +86,42 @@ func (srv *Service) Run(ctx context.Context) (err error) {
 }
 
 // IsAllowed returns whether if the Service is allowed to operate or not
-func (srv *Service) IsAllowed(ctx context.Context) bool {
+func (srv *Service) IsAllowed(ctx context.Context) (version.OldSemVer, bool) {
 	if !srv.checked.Wait(ctx) {
-		return false
+		return version.OldSemVer{}, false
 	}
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	return srv.allowed
+	return srv.acceptedVersion, srv.allowed
 }
 
 // CheckVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	defer mon.Task()(&ctx)(nil)
 
+	var err error
+	var minimum version.OldSemVer
+
 	defer func() {
 		srv.mu.Lock()
 		srv.allowed = allowed
+		if err == nil {
+			srv.acceptedVersion = minimum
+		}
 		srv.mu.Unlock()
 		srv.checked.Release()
 	}()
 
 	if !srv.info.Release {
+		minimum = version.OldSemVer{
+			Major: int64(srv.info.Version.Major),
+			Minor: int64(srv.info.Version.Minor),
+			Patch: int64(srv.info.Version.Patch),
+		}
 		return true
 	}
 
-	minimum, err := srv.client.OldMinimum(ctx, srv.service)
+	minimum, err = srv.client.OldMinimum(ctx, srv.service)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
 		srv.log.Sugar().Errorf("Failed to do periodic version check: %s", err.Error())
