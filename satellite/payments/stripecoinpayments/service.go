@@ -268,16 +268,16 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 	defer service.mu.Unlock()
 
 	if service.ratesErr != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	info1, ok := service.rates[curr1]
 	if !ok {
-		return nil, errs.New("no rate for currency %s", curr1)
+		return nil, Error.New("no rate for currency %s", curr1)
 	}
 	info2, ok := service.rates[curr2]
 	if !ok {
-		return nil, errs.New("no rate for currency %s", curr2)
+		return nil, Error.New("no rate for currency %s", curr2)
 	}
 
 	return new(big.Float).Quo(&info1.RateBTC, &info2.RateBTC), nil
