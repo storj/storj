@@ -263,7 +263,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					UptimeCount:       0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
-					OnlineWindow:      0,
+					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
 
 					AuditReputationRepairWeight:  1,
