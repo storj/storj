@@ -76,14 +76,14 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	stripePublicKey string
-
 	config      Config
 	service     *console.Service
 	mailService *mailservice.Service
 
 	listener net.Listener
 	server   http.Server
+
+	stripePublicKey string
 
 	schema    graphql.Schema
 	templates struct {

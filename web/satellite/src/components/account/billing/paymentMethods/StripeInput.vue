@@ -14,7 +14,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import {MetaRepository} from "@/utils/metaContentExtractor";
+import { MetaUtils } from '@/utils/meta';
 
 // StripeInput encapsulates Stripe add card addition logic
 @Component
@@ -35,7 +35,7 @@ export default class StripeInput extends Vue {
             return;
         }
 
-        const stripePublicKey = MetaRepository.getMetaContent('stripe-public-key');
+        const stripePublicKey = MetaUtils.getMetaContent('stripe-public-key');
 
         this.stripe = window['Stripe'](stripePublicKey);
 
