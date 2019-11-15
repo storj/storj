@@ -352,6 +352,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # coinpayments API public key
 # payments.stripe-coin-payments.coinpayments-public-key: ""
 
+# amount of time we wait before running next conversion rates update loop
+# payments.stripe-coin-payments.conversion-rates-cycle-interval: 10m0s
+
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 

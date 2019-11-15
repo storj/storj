@@ -871,13 +871,14 @@ read limitoffset (
 model coinpayments_transaction (
     key id
 
-    field id       text
-    field user_id  blob
-    field address  text
-    field amount   blob
-    field received blob ( updatable )
-    field status   int  ( updatable )
-    field key      text
+    field id        text
+    field user_id   blob
+    field address   text
+    field amount    blob
+    field received  blob ( updatable )
+    field status    int  ( updatable )
+    field key       text
+    field timeout   int
 
     field created_at timestamp ( autoinsert )
 )
@@ -950,4 +951,20 @@ read limitoffset (
     where stripecoinpayments_invoice_project_record.created_at <= ?
     where stripecoinpayments_invoice_project_record.state = ?
     orderby desc stripecoinpayments_invoice_project_record.created_at
+)
+
+model stripecoinpayments_tx_conversion_rate (
+    key tx_id
+
+    field tx_id        text
+    field rate         blob
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_tx_conversion_rate ()
+
+read one (
+    select stripecoinpayments_tx_conversion_rate
+    where stripecoinpayments_tx_conversion_rate.tx_id = ?
 )
