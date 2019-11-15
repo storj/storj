@@ -40,6 +40,7 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
+import { MetaRepository } from '@/utils/metaContentExtractor';
 
 const {
     SETUP_ACCOUNT,

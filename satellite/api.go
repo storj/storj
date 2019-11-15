@@ -364,6 +364,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		}
 	}
 
+	config.Payments.Provider = "stripecoinpayments"
+	config.Payments.StripeCoinPayments.StripeSecretKey = "sk_test_7GTCJenzqFOzJz8Zwr5LJ7ma00tpQMKjme"
+	config.Payments.StripeCoinPayments.StripePublicKey = "pk_test_tR0oQtAcpVfXfPHtSOD10duN00YUkupTOf"
+
 	{ // setup payments
 		log.Debug("Satellite API Process setting up payments")
 		pc := config.Payments

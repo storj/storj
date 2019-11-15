@@ -5,7 +5,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
 import { APP_STATE_MUTATIONS } from '../mutationConstants';
-import {User} from "@/types/users";
 
 export const appStateModule = {
     state: {
@@ -26,7 +25,6 @@ export const appStateModule = {
             isPaymentSelectionShown: false,
         },
         satelliteName: '',
-        stripePublicKey: '',
     },
     mutations: {
         // Mutation changing add projectMembers members popup visibility
@@ -98,9 +96,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_NAME](state: any, satelliteName: string): void {
             state.satelliteName = satelliteName;
-        },
-        [APP_STATE_MUTATIONS.SET_STRIPE_PK](state: any, stripePublicKey: string): void {
-            state.stripePublicKey = stripePublicKey;
         },
     },
     actions: {
@@ -204,11 +199,5 @@ export const appStateModule = {
         [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: any, satelliteName: string): void {
             commit(APP_STATE_MUTATIONS.SET_NAME, satelliteName);
         },
-        [APP_STATE_ACTIONS.SET_STRIPE_PK]: function ({commit}: any, stripePublicKey: string): void {
-            commit(APP_STATE_MUTATIONS.SET_STRIPE_PK, stripePublicKey);
-        },
-    },
-    getters: {
-        stripePublicKey: (state: any): string => state.stripePublicKey,
     },
 };
