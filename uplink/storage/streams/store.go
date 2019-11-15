@@ -358,6 +358,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		var responses []metainfo.BatchResponse
 		responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
 		if len(responses) > 0 {
+			// We increment because the first request has succeeded
 			committedSegments++
 		}
 	} else {
