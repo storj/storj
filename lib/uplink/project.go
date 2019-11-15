@@ -9,10 +9,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"

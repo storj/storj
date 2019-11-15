@@ -71,6 +71,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp,
+	order_limit_send_count integer NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (

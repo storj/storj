@@ -9,8 +9,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 // RollupStats is a convenience alias

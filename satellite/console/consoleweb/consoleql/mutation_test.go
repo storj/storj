@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/currency"
-	"storj.io/storj/internal/post"
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/private/currency"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"

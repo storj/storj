@@ -13,9 +13,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )

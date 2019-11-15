@@ -15,7 +15,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
-	"storj.io/storj/internal/version/checker"
+	"storj.io/storj/private/version/checker"
 )
 
 var (
