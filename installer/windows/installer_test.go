@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/sync2"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storagenode"
 )
 
@@ -34,9 +34,12 @@ var (
 
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
-	downloadVersion = "v0.25.1"
-
+	downloadVersion    = "v0.25.1"
 	buildInstallerOnce = sync.Once{}
+	msiBaseArgs        = []string{
+		"/passive", "/qb",
+		"/norestart",
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -70,8 +73,8 @@ func TestInstaller_Config(t *testing.T) {
 	defer ctx.Cleanup()
 
 	requireInstaller(ctx, t)
+	uninstall(t, ctx)
 
-	installLog := ctx.File("install.log")
 	installDir := ctx.Dir("install")
 	configFile := ctx.File("install", "config.yaml")
 
@@ -80,24 +83,12 @@ func TestInstaller_Config(t *testing.T) {
 	publicAddr := "127.0.0.1:0"
 
 	args := []string{
-		"/i", msiPath,
-		"/passive", "/qb",
-		"/norestart",
-		"/log", installLog,
 		fmt.Sprintf("INSTALLFOLDER=%s", installDir),
-		fmt.Sprintf(`STORJ_WALLET="%s"`, walletAddr),
-		fmt.Sprintf(`STORJ_EMAIL="%s"`, email),
-		fmt.Sprintf(`STORJ_PUBLIC_ADDRESSS="%s"`, publicAddr),
+		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
+		fmt.Sprintf("STORJ_EMAIL=%s", email),
+		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
 	}
-	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
-	if !assert.NoError(t, err) {
-		installLogData, err := ioutil.ReadFile(installLog)
-		if assert.NoError(t, err) {
-			t.Logf("MSIExec install.log:\n============================\n%s", string(installLogData))
-		}
-		t.Logf("MSIExec output:\n============================\n%s", string(installOut))
-		t.Fatalf("MSIExec error:\n============================\n%s", err)
-	}
+	install(t, ctx, args...)
 
 	files, err := ioutil.ReadDir(installDir)
 	require.NoError(t, err)
@@ -112,10 +103,44 @@ func TestInstaller_Config(t *testing.T) {
 	err = yaml.Unmarshal(configData, config)
 	require.NoError(t, err)
 
+	t.Logf("configData: %s", string(configData))
+
 	// TODO: assert config values match input props
 	t.Logf("config:\n%+v", config)
 
 	// TODO: uninstall
+}
+
+func install(t *testing.T, ctx *testcontext.Context, args ...string) {
+	logPath := ctx.File("install.log")
+	args = append(append([]string{
+		"/i", msiPath,
+		"/log", logPath,
+	}, msiBaseArgs...), args...)
+
+	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
+	if !assert.NoError(t, err) {
+		installLogData, err := ioutil.ReadFile(logPath)
+		if assert.NoError(t, err) {
+			t.Logf("MSIExec log:\n============================\n%s", string(installLogData))
+		}
+		t.Logf("MSIExec output:\n============================\n%s", string(installOut))
+		t.Fatal()
+	}
+}
+
+func uninstall(t *testing.T, ctx *testcontext.Context) {
+	logPath := ctx.File("uninstall.log")
+	args := append([]string{"/uninstall", msiPath}, msiBaseArgs...)
+
+	uninstallOut, err := exec.Command("msiexec", args...).CombinedOutput()
+	if err != nil {
+		uninstallLogData, err := ioutil.ReadFile(logPath)
+		if assert.NoError(t, err) {
+			t.Logf("MSIExec log:\n============================\n%s", string(uninstallLogData))
+		}
+		t.Logf("MSIExec output:\n============================\n%s", string(uninstallOut))
+	}
 }
 
 func requireInstaller(ctx *testcontext.Context, t *testing.T) {
