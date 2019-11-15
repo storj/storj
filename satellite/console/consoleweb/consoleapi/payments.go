@@ -79,6 +79,29 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ProjectsCharges returns how much money current user will be charged for each project which he owns.
+func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	charges, err := p.service.Payments().ProjectsCharges(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(charges)
+	if err != nil {
+		p.log.Error("failed to write json response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // AddCreditCard is used to save new credit card and attach it to payment account.
 func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

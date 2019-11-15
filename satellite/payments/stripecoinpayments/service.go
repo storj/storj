@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -25,6 +26,10 @@ var (
 
 	mon = monkit.Package()
 )
+
+// $0,013689253935661 is a price per TBh for storagebased
+// $50 per tb egress,
+// $0.00000168 per object
 
 // Config stores needed information for payment service initialization.
 type Config struct {
@@ -39,15 +44,20 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log          *zap.Logger
-	db           DB
-	projectsDB   console.Projects
-	stripeClient *client.API
-	coinPayments *coinpayments.Client
+	log            *zap.Logger
+	db             DB
+	config         Config
+	projectsDB     console.Projects
+	usageDB        accounting.ProjectAccounting
+	stripeClient   *client.API
+	coinPayments   *coinpayments.Client
+	PerObjectPrice int64
+	EgressPrice    int64
+	TBhPrice       int64
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -58,11 +68,16 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	)
 
 	return &Service{
-		log:          log,
-		db:           db,
-		projectsDB:   projectsDB,
-		stripeClient: stripeClient,
-		coinPayments: coinPaymentsClient,
+		log:            log,
+		db:             db,
+		config:         config,
+		projectsDB:     projectsDB,
+		usageDB:        usageDB,
+		stripeClient:   stripeClient,
+		coinPayments:   coinPaymentsClient,
+		TBhPrice:       tbhPrice,
+		PerObjectPrice: perObjectPrice,
+		EgressPrice:    egressPrice,
 	}
 }
 

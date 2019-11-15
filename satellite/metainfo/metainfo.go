@@ -72,7 +72,7 @@ type Endpoint struct {
 	overlay           *overlay.Service
 	partnerinfo       attribution.DB
 	peerIdentities    overlay.PeerIdentities
-	projectUsage      *accounting.ProjectUsage
+	projectUsage      *accounting.Service
 	apiKeys           APIKeys
 	createRequests    *createRequests
 	requiredRSConfig  RSConfig
@@ -82,7 +82,7 @@ type Endpoint struct {
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,

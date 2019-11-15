@@ -334,6 +334,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# price in cents user should pay for each TB of egress
+# payments.egress-price: 0
+
+# price in cents user should pay for each object storing in network
+# payments.per-object-price: 0
+
 # payments provider to use
 # payments.provider: ""
 
@@ -351,6 +357,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 30m0s
+
+# price in cents user should pay for storing each TB per hour
+# payments.tbh-price: 0
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s

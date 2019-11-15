@@ -96,7 +96,7 @@ type API struct {
 	}
 
 	Accounting struct {
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -223,7 +223,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
-		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
@@ -376,7 +376,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 				peer.Log.Named("stripecoinpayments service"),
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects())
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
@@ -431,6 +435,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.ProjectAccounting(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
