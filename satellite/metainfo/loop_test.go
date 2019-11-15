@@ -16,12 +16,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )

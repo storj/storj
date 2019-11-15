@@ -21,6 +21,11 @@ export interface PaymentsApi {
     getBalance(): Promise<number>;
 
     /**
+     *
+     */
+    projectsCharges(): Promise<any>;
+
+    /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error

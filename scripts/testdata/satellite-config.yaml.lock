@@ -124,6 +124,9 @@ contact.external-address: ""
 # maximum inactive time frame of transfer activities per node.
 # graceful-exit.max-inactive-time-frame: 500h0m0s
 
+# maximum number of order limits a satellite sends to a node before marking piece transfer failed
+# graceful-exit.max-order-limit-send-count: 5
+
 # maximum percentage of transfer failures per node.
 # graceful-exit.overall-max-failures-percentage: 10
 
@@ -331,6 +334,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# price in cents user should pay for each TB of egress
+# payments.egress-price: 0
+
+# price in cents user should pay for each object storing in network
+# payments.per-object-price: 0
+
 # payments provider to use
 # payments.provider: ""
 
@@ -343,11 +352,17 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # coinpayments API public key
 # payments.stripe-coin-payments.coinpayments-public-key: ""
 
+# amount of time we wait before running next conversion rates update loop
+# payments.stripe-coin-payments.conversion-rates-cycle-interval: 10m0s
+
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 30m0s
+
+# price in cents user should pay for storing each TB per hour
+# payments.tbh-price: 0
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s

@@ -16,8 +16,8 @@ import (
 
 	"github.com/loov/hrtime"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/s3client"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/s3client"
 )
 
 func main() {

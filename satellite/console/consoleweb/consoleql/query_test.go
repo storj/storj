@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -43,12 +43,13 @@ func TestGraphqlQuery(t *testing.T) {
 		)
 
 		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects())
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects(), db.ProjectAccounting(), 0, 0, 0)
 
 		service, err := console.NewService(
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			db.ProjectAccounting(),
 			db.Rewards(),
 			partnersService,
 			payments.Accounts(),
