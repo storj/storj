@@ -101,7 +101,10 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		"EncodedEncryptedPath",
 		"CreationDate",
 	}
-	writer.Write(headers)
+	err = writer.Write(headers)
+	if err != nil {
+		return err
+	}
 
 	objects := make(ObjectsMap)
 	inlineSegments := 0
@@ -146,7 +149,10 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 				objectPath := storj.JoinPaths(storj.JoinPaths(pathElements[3:]...))
 				object := findOrCreate(cluster, objectPath, objects)
 				if lastProjectID != "" && lastProjectID != cluster.projectID {
-					analyzeProject(ctx, db, objects, writer)
+					err = analyzeProject(ctx, db, objects, writer)
+					if err != nil {
+						return err
+					}
 
 					// cleanup map to free memory
 					objects = make(ObjectsMap)
