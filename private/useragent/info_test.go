@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/useragent"
+	"storj.io/storj/private/useragent"
 )
 
 func TestUserAgent(t *testing.T) {
