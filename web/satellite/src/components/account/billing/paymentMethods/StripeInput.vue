@@ -14,6 +14,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
 
 // StripeInput encapsulates Stripe add card addition logic
