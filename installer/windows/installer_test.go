@@ -4,43 +4,43 @@
 package windows
 
 import (
+	"archive/zip"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/storagenode"
 )
 
 var (
-	compileContext *testcontext.Context
 	installerDir   string
 	storagenodeBin string
 	updaterBin     string
 	msiPath        string
 
-	testVersion    = "v0.0.1"
-	storagenodePkg = "storj.io/storj/cmd/storagenode"
-	updaterPkg     = "storj.io/storj/cmd/storagenode-updater"
+	// TODO: make this more dynamic and/or use versioncontrol server?
+	// (NB: can't use versioncontrol server until updater process is added to response)
+	downloadVersion = "v0.25.1"
+
+	buildInstallerOnce = sync.Once{}
 )
 
-/* NB: rather than reimplement testcontext#CompileWithVersion, `TestCompile`
-builds the binaries and installer once and tests that depend on them
-can call `requireInstaller`.
-*/
 func TestMain(m *testing.M) {
-	var err error
-	installerDir, err = filepath.Abs(filepath.Join("..", "..", "installer", "windows"))
+	installerDir, err := filepath.Abs(filepath.Join("..", "..", "installer", "windows"))
 	if err != nil {
 		panic(err)
 	}
@@ -53,61 +53,23 @@ func TestMain(m *testing.M) {
 
 	status := m.Run()
 
-	compileContext.Cleanup()
+	err = os.Remove(storagenodeBin)
+	if err != nil && !os.IsNotExist(err) {
+		log.Printf("unable to cleanup temp storagenode binary at \"%s\": %s", storagenodeBin, err)
+	}
+	err = os.Remove(updaterBin)
+	if err != nil && !os.IsNotExist(err) {
+		log.Printf("unable to cleanup temp updater binary at \"%s\": %s", updaterBin, err)
+	}
 
 	os.Exit(status)
 }
 
-func TestCompileDependencies(t *testing.T) {
-	compileContext = testcontext.New(t)
-
-	ver, err := version.NewSemVer(testVersion)
-	require.NoError(t, err)
-
-	versionInfo := version.Info{
-		Timestamp:  time.Now(),
-		CommitHash: "",
-		Version:    ver,
-		Release:    false,
-	}
-
-	tempBin := compileContext.CompileWithVersion(storagenodePkg, versionInfo)
-	copyBin(compileContext, t, tempBin, storagenodeBin)
-
-	tempBin = compileContext.CompileWithVersion(updaterPkg, versionInfo)
-	copyBin(compileContext, t, tempBin, updaterBin)
-
-	// TODO: goversioninfo stuff so msbuild won't fail
-
-	for name, bin := range map[string]string{
-		"storagenode":         storagenodeBin,
-		"storagenode-updater": updaterBin,
-	} {
-		if bin == "" {
-			t.Fatalf("empty %s binary path", name)
-		}
-		if _, err := os.Stat(bin); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	args := []string{
-		filepath.Join(installerDir, "windows.sln"),
-		"/t:Build",
-		"/p:Configuration=Release",
-	}
-	msbuildOut, err := exec.Command("msbuild", args...).CombinedOutput()
-	if !assert.NoError(t, err) {
-		t.Log(string(msbuildOut))
-		t.Fatal(err)
-	}
-}
-
 func TestInstaller_Config(t *testing.T) {
-	requireInstaller(t)
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	requireInstaller(ctx, t)
 
 	installLog := ctx.File("install.log")
 	installDir := ctx.Dir("install")
@@ -154,26 +116,87 @@ func TestInstaller_Config(t *testing.T) {
 	t.Logf("config:\n%+v", config)
 }
 
-func requireInstaller(t *testing.T) {
-	if msiPath == "" {
-		t.Fatalf("empty msi path")
-	}
-	if _, err := os.Stat(msiPath); err != nil {
-		t.Fatal(err)
-	}
+func requireInstaller(ctx *testcontext.Context, t *testing.T) {
+	t.Helper()
+
+	require.NotEmpty(t, msiPath)
+
+	buildInstallerOnce.Do(func() {
+		for name, path := range map[string]string{
+			"storagenode":         storagenodeBin,
+			"storagenode-updater": updaterBin,
+		} {
+			require.NotEmpty(t, path)
+
+			downloadBin(ctx, t, name, path)
+
+			_, err := os.Stat(path)
+			require.NoError(t, err)
+		}
+
+		args := []string{
+			filepath.Join(installerDir, "windows.sln"),
+			"/t:Build",
+			"/p:Configuration=Release",
+		}
+		msbuildOut, err := exec.Command("msbuild", args...).CombinedOutput()
+		if !assert.NoError(t, err) {
+			t.Log(string(msbuildOut))
+			t.Fatal(err)
+		}
+	})
+
+	_, err := os.Stat(msiPath)
+	require.NoError(t, err)
 }
 
-// TODO: move to internal / consolidate with cmd/storagnode-updater/main_test's `coypBin`?
-// TODO: swap src/dst arg positions
-func copyBin(ctx *testcontext.Context, t *testing.T, src, dst string) {
-	s, err := os.Open(src)
-	require.NoError(t, err)
-	defer ctx.Check(s.Close)
+func downloadBin(ctx *testcontext.Context, t *testing.T, name, dst string) {
+	t.Helper()
 
-	d, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0755)
-	require.NoError(t, err)
-	defer ctx.Check(d.Close)
+	zip := ctx.File("archive", name+".exe.zip")
+	urlTemplate := "https://github.com/storj/storj/releases/download/{version}/{service}_{os}_{arch}.exe.zip"
 
-	_, err = io.Copy(d, s)
+	url := strings.Replace(urlTemplate, "{version}", downloadVersion, 1)
+	url = strings.Replace(url, "{service}", name, 1)
+	url = strings.Replace(url, "{os}", runtime.GOOS, 1)
+	url = strings.Replace(url, "{arch}", runtime.GOARCH, 1)
+
+	downloadArchive(ctx, t, url, zip)
+	unpackBinary(ctx, t, zip, dst)
+}
+
+func downloadArchive(ctx *testcontext.Context, t *testing.T, url, dst string) {
+	t.Helper()
+
+	resp, err := http.Get(url)
+	require.NoError(t, err)
+	defer ctx.Check(resp.Body.Close)
+
+	require.Truef(t, resp.StatusCode == http.StatusOK, resp.Status)
+
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
+	require.NoError(t, err)
+	defer ctx.Check(dstFile.Close)
+
+	_, err = sync2.Copy(ctx, dstFile, resp.Body)
+	require.NoError(t, err)
+}
+
+func unpackBinary(ctx *testcontext.Context, t *testing.T, archive, dst string) {
+	zipReader, err := zip.OpenReader(archive)
+	require.NoError(t, err)
+	defer ctx.Check(zipReader.Close)
+
+	require.Len(t, zipReader.File, 1)
+
+	zipedExec, err := zipReader.File[0].Open()
+	require.NoError(t, err)
+	defer ctx.Check(zipedExec.Close)
+
+	newExec, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
+	require.NoError(t, err)
+	defer ctx.Check(newExec.Close)
+
+	_, err = sync2.Copy(ctx, newExec, zipedExec)
 	require.NoError(t, err)
 }
