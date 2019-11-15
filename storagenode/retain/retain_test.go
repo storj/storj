@@ -12,14 +12,14 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/retain"
@@ -31,6 +31,7 @@ func TestRetainPieces(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB(), db.PieceSpaceUsedDB())
+		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 1000
 		const numPiecesToKeep = 990
@@ -100,7 +101,7 @@ func TestRetainPieces(t *testing.T) {
 				OrderLimit:      &pb.OrderLimit{},
 			}
 
-			v0db := store.GetV0PieceInfoDB().(pieces.V0PieceInfoDBForTest)
+			v0db := testStore.GetV0PieceInfoDBForTest()
 			err = v0db.Add(ctx, &pieceinfo0)
 			require.NoError(t, err)
 

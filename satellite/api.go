@@ -13,11 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/post"
-	"storj.io/storj/internal/post/oauth2"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -27,6 +22,11 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -96,7 +96,7 @@ type API struct {
 	}
 
 	Accounting struct {
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -110,6 +110,7 @@ type API struct {
 	Payments struct {
 		Accounts  payments.Accounts
 		Inspector *stripecoinpayments.Endpoint
+		Version   *stripecoinpayments.VersionService
 	}
 
 	Console struct {
@@ -223,7 +224,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
-		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
@@ -364,10 +365,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		}
 	}
 
-	config.Payments.Provider = "stripecoinpayments"
-	config.Payments.StripeCoinPayments.StripeSecretKey = "sk_test_7GTCJenzqFOzJz8Zwr5LJ7ma00tpQMKjme"
-	config.Payments.StripeCoinPayments.StripePublicKey = "pk_test_tR0oQtAcpVfXfPHtSOD10duN00YUkupTOf"
-
 	{ // setup payments
 		log.Debug("Satellite API Process setting up payments")
 		pc := config.Payments
@@ -380,10 +377,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 				peer.Log.Named("stripecoinpayments service"),
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects())
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			peer.Payments.Version = stripecoinpayments.NewVersionService(
+				peer.Log.Named("stripecoinpayments version service"),
+				service,
+				pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
 			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
@@ -435,6 +441,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.ProjectAccounting(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
@@ -503,6 +510,11 @@ func (peer *API) Run(ctx context.Context) (err error) {
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
+	if peer.Payments.Version != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.Payments.Version.Run(ctx))
+		})
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
@@ -533,6 +545,9 @@ func (peer *API) Close() error {
 	}
 	if peer.Mail.Service != nil {
 		errlist.Add(peer.Mail.Service.Close())
+	}
+	if peer.Payments.Version != nil {
+		errlist.Add(peer.Payments.Version.Close())
 	}
 	if peer.Metainfo.Endpoint2 != nil {
 		errlist.Add(peer.Metainfo.Endpoint2.Close())

@@ -144,6 +144,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
@@ -443,22 +444,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
-	}
-}
-
-// serveJSONError writes JSON error to response output stream.
-func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		server.log.Error("failed to write json error response", zap.Error(err))
 	}
 }
 

@@ -42,7 +42,9 @@ type coinPaymentsTransactions struct {
 }
 
 // Insert inserts new coinpayments transaction into DB.
-func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (*stripecoinpayments.Transaction, error) {
+func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (_ *stripecoinpayments.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	amount, err := tx.Amount.GobEncode()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -60,6 +62,7 @@ func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 		dbx.CoinpaymentsTransaction_Received(received),
 		dbx.CoinpaymentsTransaction_Status(tx.Status.Int()),
 		dbx.CoinpaymentsTransaction_Key(tx.Key),
+		dbx.CoinpaymentsTransaction_Timeout(int(tx.Timeout.Seconds())),
 	)
 	if err != nil {
 		return nil, err
@@ -69,7 +72,9 @@ func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 }
 
 // Update updates status and received for set of transactions.
-func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate, applies coinpayments.TransactionIDList) error {
+func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripecoinpayments.TransactionUpdate, applies coinpayments.TransactionIDList) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(updates) == 0 {
 		return nil
 	}
@@ -107,8 +112,10 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 }
 
 // Consume marks transaction as consumed, so it won't participate in apply account balance loop.
-func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) error {
-	_, err := db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
+func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
 		dbx.StripecoinpaymentsApplyBalanceIntent_TxId(id.String()),
 		dbx.StripecoinpaymentsApplyBalanceIntent_Update_Fields{
 			State: dbx.StripecoinpaymentsApplyBalanceIntent_State(applyBalanceIntentStateConsumed.Int()),
@@ -117,8 +124,45 @@ func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments
 	return err
 }
 
+// LockRate locks conversion rate for transaction.
+func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	buff, err := rate.GobEncode()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	_, err = db.db.Create_StripecoinpaymentsTxConversionRate(ctx,
+		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
+		dbx.StripecoinpaymentsTxConversionRate_Rate(buff))
+
+	return err
+}
+
+// GetLockedRate returns locked conversion rate for transaction or error if non exists.
+func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (_ *big.Float, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxRate, err := db.db.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx,
+		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rate := new(big.Float)
+	if err = rate.GobDecode(dbxRate.Rate); err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return rate, nil
+}
+
 // ListAccount returns all transaction for specific user.
-func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) ([]stripecoinpayments.Transaction, error) {
+func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) (_ []stripecoinpayments.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	dbxTXs, err := db.db.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx,
 		dbx.CoinpaymentsTransaction_UserId(userID[:]),
 	)
@@ -140,7 +184,9 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 }
 
 // ListPending returns paginated list of pending transactions.
-func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (stripecoinpayments.TransactionsPage, error) {
+func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var page stripecoinpayments.TransactionsPage
 
 	dbxTXs, err := db.db.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(
@@ -177,6 +223,8 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 
 // List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
 func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	query := db.db.Rebind(`SELECT 
 				txs.id,
 				txs.user_id,
@@ -280,6 +328,7 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 		Received:  received,
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
+		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),
 		CreatedAt: dbxCPTX.CreatedAt,
 	}, nil
 }
