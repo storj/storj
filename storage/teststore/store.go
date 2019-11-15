@@ -277,41 +277,6 @@ func (cursor *forward) Advance() (*storage.ListItem, bool) {
 	return cursor.next()
 }
 
-type backward struct{ cursor }
-
-func (cursor *backward) PositionToFirst(prefix, first storage.Key) {
-	if prefix.IsZero() {
-		// there's no prefix
-		if first.IsZero() {
-			// and no first item, so start from the end
-			cursor.positionLast()
-		} else {
-			// theres a first item, so try to position on that or one before that
-			cursor.positionBackward(first)
-		}
-	} else {
-		// there's a prefix
-		if first.IsZero() || storage.AfterPrefix(prefix).Less(first) {
-			// there's no first, or it's after our prefix
-			// storage.AfterPrefix("axxx/") is the next item after prefixes
-			// so we position to the item before
-			cursor.positionBefore(storage.AfterPrefix(prefix))
-		} else {
-			// otherwise try to position on first or one before that
-			cursor.positionBackward(first)
-		}
-	}
-}
-
-func (cursor *backward) SkipPrefix(prefix storage.Key) (*storage.ListItem, bool) {
-	cursor.positionBefore(prefix)
-	return cursor.prev()
-}
-
-func (cursor *backward) Advance() (*storage.ListItem, bool) {
-	return cursor.prev()
-}
-
 // cursor implements iterating over items with basic repositioning when the items change
 type cursor struct {
 	store     *Client
@@ -333,35 +298,6 @@ func (cursor *cursor) positionForward(key storage.Key) {
 	store := cursor.store
 	cursor.version = store.version
 	cursor.nextIndex, _ = store.indexOf(key)
-	cursor.lastKey = storage.CloneKey(key)
-}
-
-// positionLast positions at the last item
-func (cursor *cursor) positionLast() {
-	store := cursor.store
-	cursor.version = store.version
-	cursor.nextIndex = len(store.Items) - 1
-	cursor.lastKey = storage.NextKey(store.Items[cursor.nextIndex].Key)
-}
-
-// positionBefore positions before key
-func (cursor *cursor) positionBefore(key storage.Key) {
-	store := cursor.store
-	cursor.version = store.version
-	cursor.nextIndex, _ = store.indexOf(key)
-	cursor.nextIndex--
-	cursor.lastKey = storage.CloneKey(key) // TODO: probably not the right
-}
-
-// positionBackward positions at key or before key
-func (cursor *cursor) positionBackward(key storage.Key) {
-	store := cursor.store
-	cursor.version = store.version
-	var ok bool
-	cursor.nextIndex, ok = store.indexOf(key)
-	if !ok {
-		cursor.nextIndex--
-	}
 	cursor.lastKey = storage.CloneKey(key)
 }
 
@@ -388,34 +324,6 @@ func (cursor *cursor) next() (*storage.ListItem, bool) {
 	item := &store.Items[cursor.nextIndex]
 	cursor.lastKey = item.Key
 	cursor.nextIndex++
-	return item, true
-}
-
-func (cursor *cursor) prev() (*storage.ListItem, bool) {
-	store := cursor.store
-	if cursor.done {
-		return nil, false
-	}
-
-	if cursor.version != store.version {
-		cursor.version = store.version
-		var ok bool
-		cursor.nextIndex, ok = store.indexOf(cursor.lastKey)
-		if !ok {
-			cursor.nextIndex--
-		}
-	}
-	if cursor.nextIndex >= len(store.Items) {
-		cursor.nextIndex = len(store.Items) - 1
-	}
-	if cursor.nextIndex < 0 {
-		cursor.close()
-		return nil, false
-	}
-
-	item := &store.Items[cursor.nextIndex]
-	cursor.lastKey = item.Key
-	cursor.nextIndex--
 	return item, true
 }
 

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 )
 
 // ErrChore is stripecoinpayments clearing loop chore error class.
