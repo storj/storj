@@ -17,6 +17,8 @@ import (
 var ErrVersion = errs.Class("version service error")
 
 // VersionService updates conversion rates in a loop.
+//
+// architecture: Service
 type VersionService struct {
 	log     *zap.Logger
 	service *Service
