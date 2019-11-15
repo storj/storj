@@ -84,7 +84,7 @@ func TestInstaller_Config(t *testing.T) {
 		"/passive", "/qb",
 		"/norestart",
 		"/log", installLog,
-		fmt.Sprintf(`INSTALLFOLDER="%s"`, installDir),
+		fmt.Sprintf("INSTALLFOLDER=%s", installDir),
 		fmt.Sprintf(`STORJ_WALLET="%s"`, walletAddr),
 		fmt.Sprintf(`STORJ_EMAIL="%s"`, email),
 		fmt.Sprintf(`STORJ_PUBLIC_ADDRESSS="%s"`, publicAddr),
@@ -93,10 +93,10 @@ func TestInstaller_Config(t *testing.T) {
 	if !assert.NoError(t, err) {
 		installLogData, err := ioutil.ReadFile(installLog)
 		if assert.NoError(t, err) {
-			t.Logf("MSIExec install.log:\n====================\n%s", string(installLogData))
+			t.Logf("MSIExec install.log:\n============================\n%s", string(installLogData))
 		}
-		t.Logf("MSIExec output:\n===============\n%s", string(installOut))
-		t.Fatalf("MSIExec error:\n==============%s", err)
+		t.Logf("MSIExec output:\n============================\n%s", string(installOut))
+		t.Fatalf("MSIExec error:\n============================\n%s", err)
 	}
 
 	t.Logf("installDir: %s", installDir)
