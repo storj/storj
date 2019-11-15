@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -46,8 +47,13 @@ type Service struct {
 	log          *zap.Logger
 	db           DB
 	projectsDB   console.Projects
+	usageDB      accounting.ProjectAccounting
 	stripeClient *client.API
 	coinPayments *coinpayments.Client
+
+	PerObjectPrice int64
+	EgressPrice    int64
+	TBhPrice       int64
 
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
@@ -55,7 +61,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
 	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
@@ -66,11 +72,15 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	)
 
 	return &Service{
-		log:          log,
-		db:           db,
-		projectsDB:   projectsDB,
-		stripeClient: stripeClient,
-		coinPayments: coinPaymentsClient,
+		log:            log,
+		db:             db,
+		projectsDB:     projectsDB,
+		usageDB:        usageDB,
+		stripeClient:   stripeClient,
+		coinPayments:   coinPaymentsClient,
+		TBhPrice:       tbhPrice,
+		PerObjectPrice: perObjectPrice,
+		EgressPrice:    egressPrice,
 	}
 }
 
