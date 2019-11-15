@@ -141,17 +141,6 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
-	defer func() {
-		if err != nil {
-			for _, observer := range observers {
-				observer.HandleError(err)
-			}
-			return
-		}
-		for _, observer := range observers {
-			observer.Finish()
-		}
-	}()
 
 	// wait for the first observer, or exit because context is canceled
 	select {
@@ -171,11 +160,25 @@ waitformore:
 		case <-timer.C:
 			break waitformore
 		case <-ctx.Done():
+			finishObservers(observers)
 			return ctx.Err()
 		}
 	}
 
 	return iterateDatabase(ctx, loop.db, observers)
+}
+
+// IterateDatabase iterate over PointerDB and notify specified observers about results
+func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
+	obsContexts := make([]*observerContext, len(observers))
+	for i, observer := range observers {
+		obsContexts[i] = &observerContext{
+			Observer: observer,
+			ctx:      ctx,
+			done:     make(chan error),
+		}
+	}
+	return iterateDatabase(ctx, db, obsContexts)
 }
 
 // handlePointer deals with a pointer for a single observer
@@ -215,20 +218,17 @@ func (loop *Loop) Wait() {
 	<-loop.done
 }
 
-// IterateDatabase iterate over PointerDB and notify specified observers about results
-func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
-	obsContexts := make([]*observerContext, len(observers))
-	for i, observer := range observers {
-		obsContexts[i] = &observerContext{
-			Observer: observer,
-			ctx:      ctx,
-			done:     make(chan error),
-		}
-	}
-	return iterateDatabase(ctx, db, obsContexts)
-}
-
 func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext) (err error) {
+	defer func() {
+		if err != nil {
+			for _, observer := range observers {
+				observer.HandleError(err)
+			}
+			return
+		}
+		finishObservers(observers)
+	}()
+
 	err = db.Iterate(ctx, storage.IterateOptions{Recurse: true},
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
@@ -286,4 +286,10 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 			return nil
 		})
 	return err
+}
+
+func finishObservers(observers []*observerContext) {
+	for _, observer := range observers {
+		observer.Finish()
+	}
 }
