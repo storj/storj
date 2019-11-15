@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -47,6 +48,7 @@ func TestDataRepair(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -119,7 +121,19 @@ func TestDataRepair(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 		}
@@ -150,7 +164,6 @@ func TestDataRepair(t *testing.T) {
 			if _, ok := nodesToKeepAlive[piece.NodeId]; ok && nodesToKillForMinThreshold > 0 {
 				stopNodeByID(t, ctx, planet, piece.NodeId)
 				nodesToKillForMinThreshold--
-			}
 		}
 
 		// we should be able to download data without any of the original nodes
@@ -239,7 +252,19 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 		}
@@ -360,7 +385,19 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 		}
@@ -649,7 +686,19 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 		}
