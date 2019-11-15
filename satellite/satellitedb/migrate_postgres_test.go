@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/dbutil/dbschema"
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite/satellitedb"
 )
 

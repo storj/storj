@@ -15,6 +15,8 @@ import (
 	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
+// drpcHeader is the first bytes we send on a connection so that the remote
+// knows to expect drpc on the wire instead of grpc.
 const drpcHeader = "DRPC!!!1"
 
 // dial performs the dialing to the drpc endpoint with tls.
@@ -41,7 +43,8 @@ func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config)
 	}, nil
 }
 
-func (d Dialer) dialTransport(ctx context.Context, address string, tlsConfig *tls.Config) (_ *tls.Conn, err error) {
+// dialTransport performs dialing to the drpc endpoint with tls.
+func (d Dialer) dialTransport(ctx context.Context, address string, tlsConfig *tls.Config) (_ *tlsConnWrapper, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// open the tcp socket to the address
@@ -75,7 +78,10 @@ func (d Dialer) dialTransport(ctx context.Context, address string, tlsConfig *tl
 		return nil, Error.Wrap(err)
 	}
 
-	return conn, nil
+	return &tlsConnWrapper{
+		Conn:       conn,
+		Underlying: rawConn,
+	}, nil
 }
 
 // dialUnencrypted performs dialing to the drpc endpoint with no tls.
@@ -107,3 +113,14 @@ func (d Dialer) dialTransportUnencrypted(ctx context.Context, address string) (_
 
 	return conn, nil
 }
+
+// tlsConnWrapper is a wrapper around a *tls.Conn that calls Close on the
+// underlying connection when closed rather than trying to send a
+// notification to the other side which may block forever.
+type tlsConnWrapper struct {
+	*tls.Conn
+	Underlying net.Conn
+}
+
+// Close closes the underlying connection
+func (t *tlsConnWrapper) Close() error { return t.Underlying.Close() }
