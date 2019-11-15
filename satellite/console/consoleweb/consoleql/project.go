@@ -362,7 +362,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 	return
 }
 
-// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args.
+// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
 func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)

@@ -141,11 +141,9 @@ type Satellite struct {
 	}
 
 	Accounting struct {
-		Tally            *tally.Service
-		Rollup           *rollup.Service
-		ProjectUsage     *accounting.Service
-		ReportedRollup   *reportedrollup.Chore
-		ProjectBWCleanup *projectbwcleanup.Chore
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {

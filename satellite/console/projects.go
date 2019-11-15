@@ -21,8 +21,8 @@ type Projects interface {
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
 	// GetByUserID returns a list of projects where user is a project member.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
-	// GetOwn returns a list of projects where user is an owner.
-	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwn is a method for querying all projects created by current user from the database.
+	GetOwn(ctx context.Context, userID uuid.UUID) (_ []Project, err error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.

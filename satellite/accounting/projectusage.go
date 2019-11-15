@@ -35,7 +35,7 @@ type Service struct {
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL time.Duration) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, maxAlphaUsage memory.Size) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
@@ -48,7 +48,8 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, lim
 // ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
-func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
+// Ref: https://storjlabs.atlassian.net/browse/V3-1274
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
@@ -102,7 +103,10 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	return false, limit, nil
 }
 
-// ExceedsStorageUsage returns true if the storage usage for a project is currently over that project's limit.
+// ExceedsStorageUsage returns true if the storage usage limits have been exceeded
+// for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
+// expansion factor, so that the uplinks have a raw limit.
+// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -132,9 +136,8 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 	return false, limit, nil
 }
 
-// GetProjectStorageTotals returns total amount of storage used by project.
-func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
+func (usage *Service) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	total, err = usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
 
@@ -191,14 +194,9 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added spaceUsed bytes of storage (from the user's
-// perspective; i.e. segment size).
-func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
-}
-
-// SetNow allows tests to have the Service act as if the current time is whatever they want.
-func (usage *Service) SetNow(now func() time.Time) {
-	usage.nowFn = now
+// project has just added inlineSpaceUsed bytes of inline space usage
+// and remoteSpaceUsed bytes of remote space usage.
+func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
 }

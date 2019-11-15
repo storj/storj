@@ -47,7 +47,7 @@ func (projects *projects) GetOwn(ctx context.Context, userID uuid.UUID) (_ []con
 	return projectsFromDbxSlice(ctx, projectsDbx)
 }
 
-// GetCreatedBefore retrieves all projects created before provided date.
+// GetCreatedBefore retrieves all projects created before provided date
 func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 

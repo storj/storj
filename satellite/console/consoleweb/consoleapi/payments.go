@@ -88,23 +88,7 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	w.Header().Set("Content-Type", "application/json")
-
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
-	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
-	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
-
-	charges, err := p.service.Payments().ProjectsCharges(ctx, since, before)
+	charges, err := p.service.Payments().ProjectsCharges(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)

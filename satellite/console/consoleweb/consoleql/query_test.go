@@ -43,53 +43,14 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini()
-		require.NoError(t, err)
-		defer ctx.Check(redis.Close)
-
-		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
-		require.NoError(t, err)
-
-		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
-
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute)
-
-		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
-		pc := paymentsconfig.Config{
-			StorageTBPrice: "10",
-			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
-		}
-
-		paymentsService, err := stripecoinpayments.NewService(
-			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
-				db.StripeCoinPayments().Customers(),
-				db.Console().Users(),
-			),
-			pc.StripeCoinPayments,
-			db.StripeCoinPayments(),
-			db.Console().Projects(),
-			db.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration,
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
-		require.NoError(t, err)
+		paymentsConfig := stripecoinpayments.Config{}
+		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects(), db.ProjectAccounting(), 0, 0, 0)
 
 		service, err := console.NewService(
 			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.ProjectAccounting(),
-			projectUsage,
-			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),

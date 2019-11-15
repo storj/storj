@@ -5,12 +5,12 @@ package stripecoinpayments
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/stripe/stripe-go"
 
-	"storj.io/common/uuid"
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -215,6 +215,38 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 
 	if err = iter.Err(); err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	return charges, nil
+}
+
+// ProjectCharges returns how much money current user will be charged for each project.
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	// to return empty slice instead of nil if there are no projects
+	charges = make([]payments.ProjectCharge, 0)
+
+	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	start, end := date.MonthBoundary(time.Now().UTC())
+
+	for _, project := range projects {
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
+		if err != nil {
+			return charges, Error.Wrap(err)
+		}
+
+		charges = append(charges, payments.ProjectCharge{
+			ProjectID: project.ID,
+			Egress:    usage.Egress / int64(memory.TB) * accounts.service.EgressPrice,
+			// TODO: check precision
+			ObjectCount:  int64(usage.ObjectCount) * accounts.service.PerObjectPrice,
+			StorageGbHrs: int64(usage.Storage) / int64(memory.TB) * accounts.service.TBhPrice,
+		})
 	}
 
 	return charges, nil

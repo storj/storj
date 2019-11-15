@@ -306,6 +306,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup accounting project usage
+		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
@@ -543,7 +544,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.Console().Users(),
 			)
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
+
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
 		}
 
 		peer.Payments.Service, err = stripecoinpayments.NewService(
@@ -605,8 +620,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
-			peer.Accounting.ProjectUsage,
-			peer.DB.Buckets(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,

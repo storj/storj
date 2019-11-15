@@ -67,6 +67,24 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new Error('can not setup account');
     }
 
+    public async projectsCharges(): Promise<any> {
+        const path = `${this.ROOT_PATH}/account/charges`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not get projects charges');
+        }
+
+        // TODO: fiish mapping
+        const charges = await response.json();
+
+        return [];
+    }
+
     /**
      * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */

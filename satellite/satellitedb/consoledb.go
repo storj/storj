@@ -73,8 +73,8 @@ func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
 }
 
-// WithTx is a method for executing and retrying transaction.
-func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
+// BeginTx is a method for opening transaction.
+func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {
 		return errs.New("DB is not initialized!")
 	}

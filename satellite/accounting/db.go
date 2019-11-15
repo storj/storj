@@ -66,23 +66,17 @@ type StorageNodeUsage struct {
 }
 
 // ProjectUsage consist of period total storage, egress
-// and objects count per hour for certain Project in bytes.
+// and objects count per hour for certain Project in bytes
 type ProjectUsage struct {
-	Storage     float64 `json:"storage"`
-	Egress      int64   `json:"egress"`
-	ObjectCount float64 `json:"objectCount"`
+	Storage     float64
+	Egress      int64
+	ObjectCount float64
 
-	Since  time.Time `json:"since"`
-	Before time.Time `json:"before"`
+	Since  time.Time
+	Before time.Time
 }
 
-// ProjectLimits contains the storage and bandwidth limits.
-type ProjectLimits struct {
-	Usage     *int64
-	Bandwidth *int64
-}
-
-// BucketUsage consist of total bucket usage for period.
+// BucketUsage consist of total bucket usage for period
 type BucketUsage struct {
 	ProjectID  uuid.UUID
 	BucketName string
@@ -96,14 +90,14 @@ type BucketUsage struct {
 }
 
 // BucketUsageCursor holds info for bucket usage
-// cursor pagination.
+// cursor pagination
 type BucketUsageCursor struct {
 	Search string
 	Limit  uint
 	Page   uint
 }
 
-// BucketUsagePage represents bucket usage page result.
+// BucketUsagePage represents bucket usage page result
 type BucketUsagePage struct {
 	BucketUsages []BucketUsage
 
@@ -117,7 +111,7 @@ type BucketUsagePage struct {
 }
 
 // BucketUsageRollup is total bucket usage info
-// for certain period.
+// for certain period
 type BucketUsageRollup struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -183,21 +177,10 @@ type ProjectAccounting interface {
 
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
-	// UpdateProjectUsageLimit updates project usage limit.
-	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
-	// UpdateProjectBandwidthLimit updates project bandwidth limit.
-	UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
-	// GetProjectStorageLimit returns project storage usage limit.
-	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
-	// GetProjectBandwidthLimit returns project bandwidth usage limit.
-	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
-	// GetProjectLimits returns current project limit for both storage and bandwidth.
-	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
-	// GetProjectTotal returns project usage summary for specified period of time.
+	// GetProjectUsageLimits returns project usage limit
+	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
-	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
-	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 }
 

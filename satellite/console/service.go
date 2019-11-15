@@ -18,9 +18,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/macaroon"
-	"storj.io/common/memory"
-	"storj.io/common/uuid"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
@@ -54,25 +53,14 @@ const (
 	projLimitErrMsg    = "Sorry, project creation is limited for your account. Please contact support!"
 )
 
-var (
-	// Error describes internal console error.
-	Error = errs.Class("service error")
+// Error describes internal console error.
+var Error = errs.Class("service error")
 
-	// ErrNoMembership is error type of not belonging to a specific project.
-	ErrNoMembership = errs.Class("no membership error")
+// ErrNoMembership is error type of not belonging to a specific project.
+var ErrNoMembership = errs.Class("no membership error")
 
-	// ErrTokenExpiration is error type of token reached expiration time.
-	ErrTokenExpiration = errs.Class("token expiration error")
-
-	// ErrProjLimit is error type of project limit.
-	ErrProjLimit = errs.Class("project limit error")
-
-	// ErrUsage is error type of project usage.
-	ErrUsage = errs.Class("project usage error")
-
-	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
-	ErrEmailUsed = errs.Class("email used")
-)
+// ErrTokenExpiration is error type of token reached expiration time.
+var ErrTokenExpiration = errs.Class("token expiration error")
 
 // Service is handling accounts related logic
 //
@@ -80,11 +68,9 @@ var (
 type Service struct {
 	Signer
 
-	log, auditLogger  *zap.Logger
+	log               *zap.Logger
 	store             DB
 	projectAccounting accounting.ProjectAccounting
-	projectUsage      *accounting.Service
-	buckets           Buckets
 	rewards           rewards.DB
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
@@ -107,7 +93,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -123,17 +109,13 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 
 	return &Service{
 		log:               log,
-		auditLogger:       log.Named("auditlog"),
 		Signer:            signer,
 		store:             store,
 		projectAccounting: projectAccounting,
-		projectUsage:      projectUsage,
-		buckets:           buckets,
 		rewards:           rewards,
 		partners:          partners,
 		accounts:          accounts,
-		config:            config,
-		minCoinPayment:    minCoinPayment,
+		passwordCost:      passwordCost,
 	}, nil
 }
 
@@ -258,6 +240,18 @@ func (paymentService PaymentsService) ProjectsCharges(ctx context.Context, since
 	}
 
 	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID, since, before)
+}
+
+// ProjectsCharges returns how much money current user will be charged for each project which he owns.
+func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return payments.service.accounts.ProjectCharges(ctx, auth.User.ID)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
@@ -1384,7 +1378,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 	return
 }
 
-// GetProjectUsage retrieves project usage for a given period.
+// GetProjectUsage retrieves project usage for a given period
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1395,7 +1389,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	projectUsage, err := s.projectAccounting.GetProjectTotal(ctx, projectID, since, before)
@@ -1406,7 +1400,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	return projectUsage, nil
 }
 
-// GetBucketTotals retrieves paged bucket total usages since project creation.
+// GetBucketTotals retrieves paged bucket total usages since project creation
 func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1417,7 +1411,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 
 	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	usage, err := s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
@@ -1428,7 +1422,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	return usage, nil
 }
 
-// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
+// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
 func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1439,7 +1433,7 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
@@ -1558,9 +1552,8 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	if len(projects) >= limit {
-		return ErrProjLimit.New(projLimitErrMsg)
+	if len(projects) >= registrationToken.ProjectLimit {
+		return ErrUnauthorized.Wrap(errs.New(projLimitVanguardErrMsg))
 	}
 
 	return nil

@@ -26,6 +26,11 @@ export interface PaymentsApi {
     projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
 
     /**
+     *
+     */
+    projectsCharges(): Promise<any>;
+
+    /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error

@@ -19,7 +19,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -35,8 +34,9 @@ var (
 	mon = monkit.Package()
 )
 
-// hoursPerMonth is the number of months in a billing month. For the purpose of billing, the billing month is always 30 days.
-const hoursPerMonth = 24 * 30
+// $0,013689253935661 is a price per TBh for storagebased
+// $50 per tb egress,
+// $0.00000168 per object
 
 // Config stores needed information for payment service initialization.
 type Config struct {
@@ -55,39 +55,21 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log          *zap.Logger
-	db           DB
-	projectsDB   console.Projects
-	usageDB      accounting.ProjectAccounting
-	stripeClient StripeClient
-	coinPayments *coinpayments.Client
-
-	StorageMBMonthPriceCents decimal.Decimal
-	EgressMBPriceCents       decimal.Decimal
-	ObjectMonthPriceCents    decimal.Decimal
-	// BonusRate amount of percents
-	BonusRate int64
-	// Coupon Values
-	CouponValue        int64
-	CouponDuration     int64
-	CouponProjectLimit memory.Size
-	// Minimum CoinPayment to create a coupon
-	MinCoinPayment int64
-
-	// Stripe Extended Features
-	AutoAdvance bool
-
-	mu       sync.Mutex
-	rates    coinpayments.CurrencyRateInfos
-	ratesErr error
-
-	listingLimit      int
-	nowFn             func() time.Time
-	PaywallProportion float64
+	log            *zap.Logger
+	db             DB
+	config         Config
+	projectsDB     console.Projects
+	usageDB        accounting.ProjectAccounting
+	stripeClient   *client.API
+	coinPayments   *coinpayments.Client
+	PerObjectPrice int64
+	EgressPrice    int64
+	TBhPrice       int64
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
+	stripeClient := client.New(config.StripeSecretKey, nil)
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -96,9 +78,17 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		},
 	)
 
-	storageTBMonthDollars, err := decimal.NewFromString(storageTBPrice)
-	if err != nil {
-		return nil, err
+	return &Service{
+		log:            log,
+		db:             db,
+		config:         config,
+		projectsDB:     projectsDB,
+		usageDB:        usageDB,
+		stripeClient:   stripeClient,
+		coinPayments:   coinPaymentsClient,
+		TBhPrice:       tbhPrice,
+		PerObjectPrice: perObjectPrice,
+		EgressPrice:    egressPrice,
 	}
 	egressTBDollars, err := decimal.NewFromString(egressTBPrice)
 	if err != nil {

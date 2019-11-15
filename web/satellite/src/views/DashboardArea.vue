@@ -50,6 +50,7 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -133,6 +134,8 @@ export default class DashboardArea extends Vue {
 
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+            new PaymentsHttpApi().projectsCharges();
         } catch (error) {
             await this.$notify.error(`Unable to get credit cards. ${error.message}`);
         }

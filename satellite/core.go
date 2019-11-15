@@ -115,10 +115,9 @@ type Core struct {
 	}
 
 	Accounting struct {
-		Tally                 *tally.Service
-		Rollup                *rollup.Service
-		ReportedRollupChore   *reportedrollup.Chore
-		ProjectBWCleanupChore *projectbwcleanup.Chore
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -242,6 +241,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup live accounting
 		peer.LiveAccounting.Cache = liveAccounting
+	}
+
+	{ // setup accounting project usage
+		log.Debug("Setting up accounting project usage")
+		peer.Accounting.ProjectUsage = accounting.NewService(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			config.Rollup.MaxAlphaUsage,
+		)
 	}
 
 	{ // setup orders
@@ -455,28 +463,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.Console().Users(),
 			)
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
-		}
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
 
-		service, err := stripecoinpayments.NewService(
-			peer.Log.Named("payments.stripe:service"),
-			stripeClient,
-			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Console().Projects(),
-			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration,
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			peer.Payments.Accounts = service.Accounts()
 
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
+			peer.Payments.Chore = stripecoinpayments.NewChore(
+				peer.Log.Named("stripecoinpayments clearing loop"),
+				service,
+				pc.StripeCoinPayments.TransactionUpdateInterval,
+				pc.StripeCoinPayments.AccountBalanceUpdateInterval)
 		}
 
 		peer.Payments.Accounts = service.Accounts()

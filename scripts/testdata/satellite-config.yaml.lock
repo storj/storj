@@ -577,6 +577,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # proportion of users which require a balance to create projects [0-1]
 # payments.paywall-proportion: 1
 
+# price in cents user should pay for each TB of egress
+# payments.egress-price: 0
+
+# price in cents user should pay for each object storing in network
+# payments.per-object-price: 0
+
 # payments provider to use
 # payments.provider: ""
 
@@ -621,6 +627,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the URL for referral manager
 # referrals.referral-manager-url: ""
+
+# price in cents user should pay for storing each TB per hour
+# payments.tbh-price: 0
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
