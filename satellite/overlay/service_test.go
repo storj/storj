@@ -568,8 +568,8 @@ func TestUpdateCheckIn(t *testing.T) {
 
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
-		startOfTest := time.Now()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, startOfTest.Add(time.Second), overlay.NodeSelectionConfig{})
+		startOfTest := time.Now().UTC()
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -578,7 +578,6 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, actualNode.Reputation.LastContactSuccess.After(startOfTest))
 		require.True(t, actualNode.Reputation.LastContactFailure.UTC().Equal(time.Time{}.UTC()))
-		actualNode.Address = expectedNode.Address
 
 		// we need to overwrite the times so that the deep equal considers them the same
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
@@ -612,7 +611,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, startOfUpdateTest.Add(time.Second), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), config)
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -640,8 +639,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, startOfUpdateTest2.Add(time.Second), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), config)
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)

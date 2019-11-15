@@ -39,26 +39,23 @@ type overlaycache struct {
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `
-		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes
-			WHERE disqualified IS NULL
-			AND unknown_audit_suspended IS NULL
-			AND exit_initiated_at IS NULL
-			AND type = $1
-			AND free_disk >= $2
-			AND last_contact_success > $3
-	`
-	args := []interface{}{
-		// $1
-		int(pb.NodeType_STORAGE),
-		// $2
-		selectionCfg.MinimumDiskSpace.Int64(),
-		// $3
-		time.Now().Add(-selectionCfg.OnlineWindow),
-	}
-	if selectionCfg.MinimumVersion != "" {
-		version, err := version.NewSemVer(selectionCfg.MinimumVersion)
+	nodeType := int(pb.NodeType_STORAGE)
+
+	safeQuery := `
+		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND total_audit_count >= ?
+		AND total_uptime_count >= ?
+		AND last_contact_success > ?`
+	args := append(make([]interface{}, 0, 13),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
+		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -75,14 +72,27 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var reputableNodes []*overlay.SelectedNode
-	var newNodes []*overlay.SelectedNode
-	for rows.Next() {
-		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{}
-		var lastIPPort sql.NullString
-		var vettedAt *time.Time
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt)
+	return nodes, nil
+}
+
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeType := int(pb.NodeType_STORAGE)
+
+	safeQuery := `
+		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND (total_audit_count < ? OR total_uptime_count < ?)
+		AND last_contact_success > ?`
+	args := append(make([]interface{}, 0, 10),
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -196,8 +206,10 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
-			AND last_contact_success < $2
-		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+			AND (
+				last_contact_success < $2
+			)
+		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -229,10 +241,8 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND unknown_audit_suspended IS NULL
-			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -253,7 +263,33 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			badNodes = append(badNodes, id)
 		}
 	}
-	return badNodes, Error.Wrap(rows.Err())
+	return badNodes, nil
+}
+
+// Reliable returns all reliable nodes.
+func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	// get reliable and online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE disqualified IS NULL
+		  AND last_contact_success > ?`),
+		time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, id)
+	}
+	return nodes, nil
 }
 
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
@@ -1481,12 +1517,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
-				$6, $7, $8,
-				$9::bool::int, 1,
-				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
+				$6, $7, $8, $9,
+				$10::bool::int, 1,
+				CASE WHEN $10 IS TRUE THEN $24::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $9::bool IS FALSE THEN $18::timestamptz
+				CASE WHEN $10 IS FALSE THEN $24::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$10, $11,
@@ -1505,16 +1541,23 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				free_disk=$8,
 				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
 				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_success_count = nodes.uptime_success_count + $9::bool::int,
-				last_contact_success = CASE WHEN $9::bool IS TRUE
-					THEN $18::timestamptz
+				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
+				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
+				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
+				last_contact_success = CASE WHEN $10 IS TRUE
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_success
 				END,
-				last_contact_failure = CASE WHEN $9::bool IS FALSE
-					THEN $18::timestamptz
+				last_contact_failure = CASE WHEN $10 IS FALSE
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$19;
+				-- this disqualified case statement resolves to: 
+				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
+				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
+					THEN $24::timestamptz
+					ELSE nodes.disqualified
+				END;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
@@ -1527,10 +1570,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		1, 0,
 		// args $12 - $17
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		// args $18
+		// args $24
 		timestamp,
-		// args $19
-		node.LastIPPort,
 	)
 	if err != nil {
 		return Error.Wrap(err)

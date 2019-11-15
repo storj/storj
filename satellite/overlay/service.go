@@ -67,9 +67,6 @@ type DB interface {
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
-	// UpdateAuditHistory updates a node's audit history with an online or offline audit.
-	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *pb.AuditHistory, err error)
-
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
@@ -475,13 +472,6 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
-}
-
-// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
 // GetMissingPieces returns the list of offline nodes.

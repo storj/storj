@@ -116,6 +116,30 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		for _, node := range planet.StorageNodes {
+			if nodesToKill[node.ID()] {
+				err = planet.StopPeer(node)
+				require.NoError(t, err)
+
+				// mark node as offline in overlay
+				info := overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					IsUp:   true,
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().UTC().Add(-4*time.Hour))
+				require.NoError(t, err)
+			}
+
+		}
 		// confirm that we marked the correct number of storage nodes as offline
 		nodes, err := satellite.Overlay.Service.Reliable(ctx)
 		require.NoError(t, err)

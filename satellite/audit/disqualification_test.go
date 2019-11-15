@@ -207,7 +207,12 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
+		config := overlay.NodeSelectionConfig{
+			UptimeReputationLambda: 0,
+			UptimeReputationWeight: 1,
+			UptimeReputationDQ:     0,
+		}
+		err := satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -232,4 +237,27 @@ func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplane
 	require.NoError(t, err)
 
 	return node.Disqualified != nil
+}
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
+	info := overlay.NodeCheckInInfo{
+		NodeID: nodeID,
+		IsUp:   false,
+		Address: &pb.NodeAddress{
+			Address: "1.2.3.4",
+		},
+		Version: &pb.NodeVersion{
+			Version:    "v0.0.0",
+			CommitHash: "",
+			Timestamp:  time.Time{},
+			Release:    false,
+		},
+	}
+	config := overlay.NodeSelectionConfig{
+		UptimeReputationLambda: 1,
+		UptimeReputationWeight: 1,
+		UptimeReputationDQ:     1,
+	}
+	err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
+	require.NoError(t, err)
+	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

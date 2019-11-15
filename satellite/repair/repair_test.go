@@ -127,7 +127,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 				continue
 			}
 			if nodesToKill[node.ID()] {
-				require.NoError(t, planet.StopNodeAndUpdate(ctx, node))
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -246,7 +246,14 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		require.NotNil(t, corruptedNodeID)
 		require.NotNil(t, corruptedPieceID)
 
-		corruptedNode := planet.FindNode(corruptedNodeID)
+		for _, node := range planet.StorageNodes {
+			if node.ID() == corruptedNodeID {
+				corruptedNode = node
+			}
+			if nodesToKill[node.ID()] {
+				stopNodeByID(t, ctx, planet, node.ID())
+			}
+		}
 		require.NotNil(t, corruptedNode)
 
 		overlay := planet.Satellites[0].Overlay.Service
@@ -365,7 +372,14 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		require.NotNil(t, corruptedPieceID)
 		require.NotNil(t, corruptedPiece)
 
-		corruptedNode := planet.FindNode(corruptedNodeID)
+		for _, node := range planet.StorageNodes {
+			if node.ID() == corruptedNodeID {
+				corruptedNode = node
+			}
+			if nodesToKill[node.ID()] {
+				stopNodeByID(t, ctx, planet, node.ID())
+			}
+		}
 		require.NotNil(t, corruptedNode)
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
@@ -878,8 +892,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
-				err := planet.StopNodeAndUpdate(ctx, node)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -968,8 +981,7 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				err := planet.StopNodeAndUpdate(ctx, node)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -1063,8 +1075,7 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				err := planet.StopNodeAndUpdate(ctx, node)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -1202,8 +1213,7 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 				}
 
 				if len(killedNodes) < numNodesToKill {
-					err := planet.StopNodeAndUpdate(ctx, node)
-					require.NoError(t, err)
+					stopNodeByID(t, ctx, planet, node.ID())
 
 					killedNodes[node.ID()] = struct{}{}
 				}
@@ -1386,7 +1396,38 @@ func getRemoteSegment(
 	}
 
 	t.Fatal("satellite doesn't have any remote segment")
-	return nil, key
+	return nil, ""
+}
+
+// nolint:golint
+func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) {
+	t.Helper()
+
+	for _, node := range planet.StorageNodes {
+		if node.ID() == nodeID {
+			err := planet.StopPeer(node)
+			require.NoError(t, err)
+
+			for _, satellite := range planet.Satellites {
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
+				require.NoError(t, err)
+			}
+
+			break
+		}
+	}
 }
 
 // corruptPieceData manipulates piece data on a storage node.
