@@ -24,23 +24,23 @@ type Metainfo interface {
 	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
-	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
+	GetObject(ctx context.Context, bucket Bucket, path Path) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
+	GetObjectStream(ctx context.Context, bucket Bucket, path Path) (ReadOnlyStream, error)
 
 	// CreateObject creates a mutable object for uploading stream info
-	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
+	CreateObject(ctx context.Context, bucket Bucket, path Path, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates a mutable object for updating a partially uploaded object
-	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	ModifyObject(ctx context.Context, bucket Bucket, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket Bucket, path Path) error
 	// ListObjects lists objects in bucket based on the ListOptions
-	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+	ListObjects(ctx context.Context, bucket Bucket, options ListOptions) (ObjectList, error)
 
 	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
-	ModifyPendingObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	ModifyPendingObject(ctx context.Context, bucket Bucket, path Path) (MutableObject, error)
 	// ListPendingObjects lists pending objects in bucket based on the ListOptions
-	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+	ListPendingObjects(ctx context.Context, bucket Bucket, options ListOptions) (ObjectList, error)
 }
 
 // CreateObject has optional parameters that can be set
@@ -77,9 +77,9 @@ func (create CreateObject) Object(bucket Bucket, path Path) Object {
 type ListDirection int8
 
 const (
-	// Before lists backwards from cursor, without cursor
+	// Before lists backwards from cursor, without cursor [NOT SUPPORTED]
 	Before = ListDirection(-2)
-	// Backward lists backwards from cursor, including cursor
+	// Backward lists backwards from cursor, including cursor [NOT SUPPORTED]
 	Backward = ListDirection(-1)
 	// Forward lists forwards from cursor, including cursor
 	Forward = ListDirection(1)
@@ -114,24 +114,12 @@ func (opts ListOptions) NextPage(list ObjectList) ListOptions {
 		return ListOptions{}
 	}
 
-	switch opts.Direction {
-	case Before, Backward:
-		return ListOptions{
-			Prefix:    opts.Prefix,
-			Cursor:    list.Items[0].Path,
-			Direction: Before,
-			Limit:     opts.Limit,
-		}
-	case After, Forward:
-		return ListOptions{
-			Prefix:    opts.Prefix,
-			Cursor:    list.Items[len(list.Items)-1].Path,
-			Direction: After,
-			Limit:     opts.Limit,
-		}
+	return ListOptions{
+		Prefix:    opts.Prefix,
+		Cursor:    list.Items[len(list.Items)-1].Path,
+		Direction: After,
+		Limit:     opts.Limit,
 	}
-
-	return ListOptions{}
 }
 
 // BucketListOptions lists objects
@@ -153,22 +141,11 @@ func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
 		return BucketListOptions{}
 	}
 
-	switch opts.Direction {
-	case Before, Backward:
-		return BucketListOptions{
-			Cursor:    list.Items[0].Name,
-			Direction: Before,
-			Limit:     opts.Limit,
-		}
-	case After, Forward:
-		return BucketListOptions{
-			Cursor:    list.Items[len(list.Items)-1].Name,
-			Direction: After,
-			Limit:     opts.Limit,
-		}
+	return BucketListOptions{
+		Cursor:    list.Items[len(list.Items)-1].Name,
+		Direction: After,
+		Limit:     opts.Limit,
 	}
-
-	return BucketListOptions{}
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="!(bind.FileVersion.Storagenodeexe)" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute"/>
@@ -40,7 +40,7 @@
           ErrorControl="normal"
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot;"
           />
-        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode" Wait="yes" />
+        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="both" Name="storagenode" Wait="yes" />
 
         <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
       </Component>
@@ -57,9 +57,18 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
-          />
-        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;">
+            <util:ServiceConfig
+              ServiceName="storagenode-updater"
+              ResetPeriodInDays="1"
+              RestartServiceDelayInSeconds="60"
+              FirstFailureActionType="restart"
+              SecondFailureActionType="runCommand"
+              ThirdFailureActionType="runCommand"
+              ProgramCommandLine="cmd /c &quot;(echo %date% %time% recovery triggered to execute in 3 minutes &amp;&amp; timeout 180 >NUL &amp;&amp; echo %date% %time% recovery command executed: &amp;&amp; copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; net start storagenode-updater) >> &quot;[INSTALLFOLDER]storagenode-updater-recovery.log&quot; 2>&amp;1&quot;"
+            />
+          </ServiceInstall>
+        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="both" Name="storagenode-updater" Wait="yes" />
       </Component>
       
       <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}" Win64="yes">

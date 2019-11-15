@@ -16,10 +16,12 @@ import (
 type Projects interface {
 	// GetAll is a method for querying all projects from the database.
 	GetAll(ctx context.Context) ([]Project, error)
-	// GetCreatedBefore retrieves all projects created before provided date
+	// GetCreatedBefore retrieves all projects created before provided date.
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwn is a method for querying all projects created by current user from the database.
+	GetOwn(ctx context.Context, userID uuid.UUID) (_ []Project, err error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
