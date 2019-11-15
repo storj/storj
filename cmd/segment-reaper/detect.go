@@ -57,7 +57,9 @@ type Object struct {
 	// if skip is true segments from object should be removed from memory when last segment is found
 	// or iteration is finished,
 	// mark it as true if one of the segments from this object is newer then specified threshold
-	skip bool
+
+	// will be used later
+	// skip bool
 }
 
 // ObjectsMap map that keeps objects representation
