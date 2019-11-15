@@ -43,7 +43,7 @@ type Store interface {
 	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type objStore struct {
@@ -123,11 +123,11 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	return err
 }
 
-func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (
+func (o *objStore) List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	strItems, more, err := o.store.List(ctx, prefix, startAfter, endBefore, o.pathCipher, recursive, limit, metaFlags)
+	strItems, more, err := o.store.List(ctx, prefix, startAfter, o.pathCipher, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}

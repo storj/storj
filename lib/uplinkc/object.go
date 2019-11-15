@@ -12,9 +12,9 @@ import (
 	"time"
 	"unsafe"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
 )
 
 // Object is a scoped uplink.Object
