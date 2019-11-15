@@ -33,9 +33,10 @@
             <input
                 class="custom-input"
                 type="number"
+                min="0"
                 placeholder="Enter Amount"
-                v-model="customAmount"
-                @change="onCustomAmountChange"
+                :value="customAmount"
+                @input="onCustomAmountChange"
             >
             <div class="input-svg" @click="toggleCustomAmount">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -51,6 +52,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Validator } from '@/utils/validation';
 
 @Component
 export default class TokenDepositSelection extends Vue {
@@ -74,8 +76,14 @@ export default class TokenDepositSelection extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION);
     }
 
-    public onCustomAmountChange(): void {
-        this.$emit('onChangeTokenValue', this.customAmount);
+    public onCustomAmountChange(event): void {
+        const newValue = event.target.value;
+        const isValueValid = Validator.validateTokenAmount(newValue);
+        this.customAmount = '';
+
+        this.customAmount = isValueValid ? newValue : '0';
+
+        this.$emit('onChangeTokenValue', parseFloat(this.customAmount).toFixed(2));
     }
 
     public toggleCustomAmount(): void {
@@ -102,6 +110,7 @@ export default class TokenDepositSelection extends Vue {
         font-size: 16px;
         line-height: 28px;
         color: #354049;
+        -moz-appearance: textfield;
     }
 
     .custom-input::-webkit-inner-spin-button,

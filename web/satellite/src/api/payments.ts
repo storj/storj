@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import {BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi} from '@/types/payments';
+import { BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -165,6 +165,8 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.id,
                     item.description,
                     item.amount,
+                    item.tokenAmount,
+                    item.tokenReceived,
                     item.status,
                     item.link,
                     new Date(item.start),
@@ -182,11 +184,8 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @throws Error
      */
     public async makeTokenDeposit(amount: string): Promise<DepositInfo> {
-        console.log('processCoinPayment', amount)
         const path = `${this.ROOT_PATH}/tokens/deposit`;
         const response = await this.client.post(path, JSON.stringify({amount}));
-
-        console.log('processCoinPayment response.json()', await response.json())
 
         if (!response.ok) {
             if (response.status === 401) {

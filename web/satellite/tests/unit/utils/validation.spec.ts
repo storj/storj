@@ -3,8 +3,8 @@
 
 import {
     validateEmail,
-    validatePassword,
- } from '@/utils/validation';
+    validatePassword, Validator,
+} from '@/utils/validation';
 
 describe('validation', () => {
     it('validatePassword regex works correctly', () => {
@@ -41,5 +41,34 @@ describe('validation', () => {
         expect(validateEmail(testString5)).toBe(true);
         expect(validateEmail(testString6)).toBe(false);
         expect(validateEmail(testString7)).toBe(true);
+    });
+
+    it('Validator validateTokenAmount works correctly', () => {
+        const expectedValidAmounts = [
+            '10',
+            '0.1',
+            '00.1111',
+            '0001.2',
+            '01',
+            '023.11',
+        ];
+
+        const expectedInvalidAmounts = [
+            '-21',
+            're',
+            '',
+            '21.',
+            's.12',
+            '.23',
+            '23,21',
+            '-',
+        ];
+
+        expectedValidAmounts.forEach(amount => {
+            expect(Validator.validateTokenAmount(amount)).toBe(true);
+        });
+        expectedInvalidAmounts.forEach(amount => {
+            expect(Validator.validateTokenAmount(amount)).toBe(false);
+        });
     });
 });

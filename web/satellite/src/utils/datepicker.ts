@@ -217,4 +217,18 @@ export class DateFormat {
 
         return [month, day, year].join(separator);
     }
+
+    /**
+     * getTimeAmount transforms milliseconds into time string
+     * @param milliseconds - Date to format
+     * @returns formatted time string
+     */
+    public static getTimeAmount(milliseconds: number): string {
+        const minutes = Math.floor(milliseconds / 60000);
+        const seconds: number = ((milliseconds % 60000) / 1000);
+        const zero = seconds < 10 ? '0' : '';
+        seconds.toFixed(0);
+
+        return `${minutes} : ${zero}${seconds}`;
+    }
 }

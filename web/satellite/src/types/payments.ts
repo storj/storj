@@ -100,16 +100,16 @@ export class BillingHistoryItem {
         public readonly type: BillingHistoryItemType = 0,
     ) {}
 
-    public date(): string {
-        if (this.type) {
-            return this.start.toLocaleDateString();
+    public get quantity(): Amount {
+        if (this.tokenAmount === '') {
+            return new Amount('$', this.amountDollars());
         }
 
-        return `${this.start.toLocaleDateString()} - ${this.end.toLocaleDateString()}`;
+        return new Amount('$', this.tokenAmount, this.tokenReceived);
     }
 
-    public amountDollars(): string {
-        return `$${this.amount / 100}`;
+    private amountDollars(): string {
+        return `${this.amount / 100}`;
     }
 
     public downloadLinkHtml(): string {
@@ -129,4 +129,12 @@ export enum BillingHistoryItemType {
 
 export class DepositInfo {
     constructor(public amount: string, public address: string) {}
+}
+
+class Amount {
+    public constructor(
+        public currency: string = '',
+        public total: string = '0',
+        public received: string = '',
+    ) {}
 }

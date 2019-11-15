@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import {BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi} from '@/types/payments';
+import { BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi } from '@/types/payments';
 
 const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',

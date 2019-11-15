@@ -67,8 +67,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -152,15 +152,15 @@ export default class PaymentMethods extends Vue {
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue);
             await this.$notify.success(`Successfully created new deposit transaction!\nAddress:${tokenResponse.address}\nAmount:${tokenResponse.amount}`);
-        } catch (e){
-            await this.$notify.error(e.message)
+        } catch (e) {
+            await this.$notify.error(e.message);
         }
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
         } catch (e) {
-            await this.$notify.error(e.message)
+            await this.$notify.error(e.message);
         }
 
         this.areaState = PaymentMethodsBlockState.DEFAULT;
