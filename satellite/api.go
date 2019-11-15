@@ -380,7 +380,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 				peer.DB.ProjectAccounting(),
 				pc.PerObjectPrice,
 				pc.EgressPrice,
-				pc.TBhPrice)
+				pc.TbhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)

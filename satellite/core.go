@@ -304,7 +304,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				peer.DB.ProjectAccounting(),
 				pc.PerObjectPrice,
 				pc.EgressPrice,
-				pc.TBhPrice)
+				pc.TbhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 

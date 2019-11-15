@@ -13,5 +13,5 @@ type Config struct {
 	StripeCoinPayments stripecoinpayments.Config
 	PerObjectPrice     int64 `help:"price in cents user should pay for each object storing in network" devDefault:"0" releaseDefault:"0"`
 	EgressPrice        int64 `help:"price in cents user should pay for each TB of egress" devDefault:"0" releaseDefault:"0"`
-	TBhPrice           int64 `help:"price in cents user should pay for storing each TB per hour" devDefault:"0" releaseDefault:"0"`
+	TbhPrice           int64 `help:"price in cents user should pay for storing each TB per hour" devDefault:"0" releaseDefault:"0"`
 }

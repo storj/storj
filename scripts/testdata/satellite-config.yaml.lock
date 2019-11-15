@@ -359,7 +359,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.stripe-coin-payments.transaction-update-interval: 30m0s
 
 # price in cents user should pay for storing each TB per hour
-# payments.t-bh-price: 0
+# payments.tbh-price: 0
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
