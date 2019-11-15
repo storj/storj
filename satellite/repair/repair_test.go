@@ -164,12 +164,13 @@ func TestDataRepair(t *testing.T) {
 			if _, ok := nodesToKeepAlive[piece.NodeId]; ok && nodesToKillForMinThreshold > 0 {
 				stopNodeByID(t, ctx, planet, piece.NodeId)
 				nodesToKillForMinThreshold--
-		}
+			}
 
-		// we should be able to download data without any of the original nodes
-		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
-		require.NoError(t, err)
-		require.Equal(t, newData, testData)
+			// we should be able to download data without any of the original nodes
+			newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
+			require.NoError(t, err)
+			require.Equal(t, newData, testData)
+		}
 	})
 }
 
