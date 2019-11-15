@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -74,7 +73,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Serv
 	// handle api endpoints
 	apiRouter.Handle("/dashboard", http.HandlerFunc(server.dashboardHandler)).Methods(http.MethodGet)
 	apiRouter.Handle("/satellites", http.HandlerFunc(server.satellitesHandler)).Methods(http.MethodGet)
-	apiRouter.Handle("/satellite", http.HandlerFunc(server.satelliteHandler)).Methods(http.MethodGet)
+	apiRouter.Handle("/satellite/{id}", http.HandlerFunc(server.satelliteHandler)).Methods(http.MethodGet)
 
 	server.server = http.Server{
 		Handler: router,
@@ -148,13 +147,16 @@ func (server *Server) satellitesHandler(w http.ResponseWriter, r *http.Request) 
 func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	var err error
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	params := mux.Vars(r)
+	id, ok := params["id"]
+	if !ok {
+		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(strings.TrimPrefix(r.URL.Path, "/api/satellite/"))
+	satelliteID, err := storj.NodeIDFromString(id)
 	if err != nil {
 		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
