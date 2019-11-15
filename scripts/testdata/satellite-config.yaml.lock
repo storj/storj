@@ -58,6 +58,9 @@
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
 
+# used to initialize segment.io at web satellite console
+# console.segment-io-public-key: ""
+
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
@@ -134,10 +137,10 @@ contact.external-address: ""
 # graceful-exit.recv-timeout: 10m0s
 
 # path to the certificate chain for this identity
-identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
+identity.cert-path: /Users/yingrongzhao/Library/Application Support/Storj/Identity/Satellite/identity.cert
 
 # path to the private key for this identity
-identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+identity.key-path: /Users/yingrongzhao/Library/Application Support/Storj/Identity/Satellite/identity.key
 
 # what to use for storing real-time accounting data
 # live-accounting.storage-backend: memory
