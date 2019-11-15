@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {

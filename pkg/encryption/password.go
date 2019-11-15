@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/argon2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 func sha256hmac(key, data []byte) ([]byte, error) {

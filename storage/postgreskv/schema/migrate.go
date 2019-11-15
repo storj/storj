@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 //go:generate go-bindata -o data.go -pkg schema -ignore ".*go" .
+//go:generate sed -i '1i //lint:file-ignore * generated file\n' data.go
 
 package schema
 
@@ -13,7 +14,7 @@ import (
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/pgutil"
 )
 
 // PrepareDB applies schema migrations as necessary to the given database to
