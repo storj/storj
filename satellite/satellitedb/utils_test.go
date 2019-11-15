@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testrand"
 )
 
 func TestBytesToUUID(t *testing.T) {
