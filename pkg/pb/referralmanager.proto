@@ -30,8 +30,9 @@ message ReserveTokenRequest {
 
 message ReserveTokenResponse{
     enum Status {
-        INVALID = 0;
-        ACCEPTED = 1;
+        ACCEPTED = 0;
+        INVALID = 1;
+        NOT_FOUND = 2;
     }
     Status status = 1;
 }
