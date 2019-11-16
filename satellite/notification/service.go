@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/sap"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/overlay"
 )
