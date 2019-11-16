@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 )
 

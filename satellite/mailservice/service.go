@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 )
 
 // Config defines values needed by mailservice service

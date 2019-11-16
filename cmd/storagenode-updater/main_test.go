@@ -20,12 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testrand"
+	"storj.io/storj/private/version"
 	"storj.io/storj/versioncontrol"
 )
 

@@ -14,10 +14,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/internal/wizard"
-	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/private/fpath"
 )
 
 var (
