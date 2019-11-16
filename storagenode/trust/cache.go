@@ -36,7 +36,7 @@ func LoadCache(path string) (*Cache, error) {
 	data, err := LoadCacheData(path)
 	switch {
 	case err == nil:
-	case os.IsNotExist(errs.Unwrap(err)):
+	case errs.IsFunc(err, os.IsNotExist):
 		data = NewCacheData()
 	default:
 		return nil, err
