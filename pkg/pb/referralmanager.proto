@@ -2,9 +2,6 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "gogo.proto";
-import "google/protobuf/timestamp.proto";
-import "metainfo.proto";
-import "orders.proto";
 
 package referralmanager;
 
@@ -42,6 +39,13 @@ message ReserveTokenResponse{
 message RedeemTokenRequest {
     bytes token = 1;
     bytes user_id = 2;
+    bytes satellite_id = 3;
 }
 
-message RedeemTokenResponse {}
+message RedeemTokenResponse {
+    enum Status {
+        SUCCESS = 0;
+        FAIL = 1;
+    }
+    Status status = 1;
+}
