@@ -47,6 +47,11 @@ func (c *Client) Transactions() Transactions {
 	return Transactions{client: c}
 }
 
+// ConversionRates returns ConversionRates API.
+func (c *Client) ConversionRates() ConversionRates {
+	return ConversionRates{client: c}
+}
+
 // do handles base API request routines.
 func (c *Client) do(ctx context.Context, cmd string, values url.Values) (_ json.RawMessage, err error) {
 	values.Set("version", "1")

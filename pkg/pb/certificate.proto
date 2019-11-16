@@ -6,8 +6,6 @@ option go_package = "pb";
 
 package node;
 
-import "gogo.proto";
-
 service Certificates {
     rpc Sign(SigningRequest) returns (SigningResponse);
 }

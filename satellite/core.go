@@ -90,7 +90,7 @@ type Core struct {
 	Accounting struct {
 		Tally        *tally.Service
 		Rollup       *rollup.Service
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -160,7 +160,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup accounting project usage
 		log.Debug("Setting up accounting project usage")
-		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
@@ -317,7 +317,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				peer.Log.Named("stripecoinpayments service"),
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects())
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
 
 			peer.Payments.Accounts = service.Accounts()
 

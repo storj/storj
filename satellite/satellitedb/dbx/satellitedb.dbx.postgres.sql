@@ -48,6 +48,7 @@ CREATE TABLE coinpayments_transactions (
 	received bytea NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
+	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -225,6 +226,12 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
+);
+CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id text NOT NULL,
+	rate bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,
