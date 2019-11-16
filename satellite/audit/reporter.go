@@ -30,6 +30,7 @@ type Report struct {
 	Fails         storj.NodeIDList
 	Offlines      storj.NodeIDList
 	PendingAudits []*PendingAudit
+	Skipped       storj.NodeIDList
 }
 
 // NewReporter instantiates a reporter
