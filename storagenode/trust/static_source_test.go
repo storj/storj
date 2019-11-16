@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-func TestStaticSource(t *testing.T) {
+func TestStaticURLSource(t *testing.T) {
 	url := makeSatelliteURL("domain.test")
 
 	for _, tt := range []struct {
@@ -40,7 +40,7 @@ func TestStaticSource(t *testing.T) {
 	} {
 		tt := tt // quiet linting
 		t.Run(tt.name, func(t *testing.T) {
-			source, err := trust.NewStaticSource(tt.url)
+			source, err := trust.NewStaticURLSource(tt.url)
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
 				return

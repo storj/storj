@@ -233,7 +233,7 @@ And the following `untrusted` list:
 ```
 quz.test
 2@qiz.test:7777
-5
+5@
 ```
 
 The `trusted` list is pruned with the `untrusted` list, leaving the following `trusted` list:
