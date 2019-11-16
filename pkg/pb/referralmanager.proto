@@ -31,7 +31,13 @@ message ReserveTokenRequest {
     bytes redeeming_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
-message ReserveTokenResponse{}
+message ReserveTokenResponse{
+    enum Status {
+        INVALID = 0;
+        ACCEPTED = 1;
+    }
+    Status status = 1;
+}
 
 message RedeemTokenRequest {
     bytes token = 1;
