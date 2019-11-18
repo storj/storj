@@ -134,7 +134,9 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 
 var monLiveRequests = mon.TaskNamed("live-request")
 
-// Delete handles deleting a piece on piece store.
+// Delete handles deleting a piece on piece store requested by uplink.
+//
+// DEPRECATED in favor of DeletePiece.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -164,6 +166,42 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
+}
+
+// DeletePiece handles deleting a piece on piece store requested by satellite.
+//
+// It doesn't return an error if the piece isn't found by any reason.
+func (endpoint *Endpoint) DeletePiece(
+	ctx context.Context, req *pb.DeletePieceRequest,
+) (_ *pb.DeletePieceResponse, err error) {
+	defer mon.Task()(&ctx, req.PieceId.String())(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied,
+			Error.New("%s", "delete piece called with untrusted ID").Error(),
+		)
+	}
+
+	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
+	if err != nil {
+		endpoint.log.Error("delete piece failed",
+			zap.Error(Error.Wrap(err)),
+			zap.Stringer("Satellite ID", peer.ID),
+			zap.Stringer("Piece ID", req.PieceId),
+		)
+
+		return nil, rpcstatus.Error(rpcstatus.Internal,
+			Error.New("%s", "delete piece failed").Error(),
+		)
+	}
+
+	return &pb.DeletePieceResponse{}, nil
 }
 
 // Upload handles uploading a piece on piece store.
