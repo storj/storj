@@ -55,9 +55,7 @@ type Object struct {
 	// if skip is true segments from object should be removed from memory when last segment is found
 	// or iteration is finished,
 	// mark it as true if one of the segments from this object is newer then specified threshold
-
-	// will be used later
-	// skip bool
+	skip bool
 }
 
 // ObjectsMap map that keeps objects representation
@@ -97,7 +95,7 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 		bucket:    path.BucketName,
 	}
 
-	object := findOrCreate(cluster, path.ObjectPath, observer.objects)
+	object := findOrCreate(cluster, path.EncryptedObjectPath, observer.objects)
 	if observer.lastProjectID != "" && observer.lastProjectID != cluster.projectID {
 		err := analyzeProject(ctx, observer.db, observer.objects, observer.writer)
 		if err != nil {
@@ -120,7 +118,8 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 
 		if streamMeta.NumberOfSegments > 0 {
 			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
-				return errs.New("unsupported number of segments: %d", streamMeta.NumberOfSegments)
+				object.skip = true
+				zap.S().Warn("unsupported segment index", zap.Int64("index", streamMeta.NumberOfSegments))
 			}
 			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
 		}
@@ -130,7 +129,8 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 			return err
 		}
 		if segmentIndex >= int(maxNumOfSegments) {
-			return errs.New("unsupported segment index: %d", segmentIndex)
+			object.skip = true
+			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
 		}
 
 		if object.segments&(1<<uint64(segmentIndex)) != 0 {
