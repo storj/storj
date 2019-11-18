@@ -34,11 +34,11 @@ type Observer interface {
 
 // ScopedPath contains full expanded information about the path
 type ScopedPath struct {
-	ProjectID       uuid.UUID
-	ProjectIDString string
-	Segment         string
-	BucketName      string
-	ObjectPath      string
+	ProjectID           uuid.UUID
+	ProjectIDString     string
+	Segment             string
+	BucketName          string
+	EncryptedObjectPath string
 
 	// TODO: should these be a []byte?
 
@@ -245,18 +245,21 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				}
 
 				pathElements := storj.SplitPath(rawPath)
-				if len(pathElements) < 3 {
+
+				// we are not storing buckets in pointerDB anymore so
+				// it will be projectID/segmentIndex/bucket_name/encrypted_object_path
+				if len(pathElements) < 4 {
 					return LoopError.New("invalid path %q", rawPath)
 				}
 
 				isLastSegment := pathElements[1] == "l"
 
 				path := ScopedPath{
-					Raw:             rawPath,
-					ProjectIDString: pathElements[0],
-					Segment:         pathElements[1],
-					BucketName:      pathElements[2],
-					ObjectPath:      storj.JoinPaths(pathElements[3:]...),
+					Raw:                 rawPath,
+					ProjectIDString:     pathElements[0],
+					Segment:             pathElements[1],
+					BucketName:          pathElements[2],
+					EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
 				}
 
 				projectID, err := uuid.Parse(path.ProjectIDString)
