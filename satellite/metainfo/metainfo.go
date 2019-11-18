@@ -2123,6 +2123,9 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	if err != nil {
 		return nil, err
 	}
+	if satSegmentID.StreamId == nil {
+		return nil, errs.New("stream ID missing")
+	}
 
 	err = signing.VerifySegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {

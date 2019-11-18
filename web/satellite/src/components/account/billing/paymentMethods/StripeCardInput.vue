@@ -15,6 +15,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { MetaUtils } from '@/utils/meta';
+
 // StripeCardInput encapsulates Stripe add card addition logic
 @Component
 export default class StripeCardInput extends Vue {
@@ -34,7 +36,9 @@ export default class StripeCardInput extends Vue {
             return;
         }
 
-        this.stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
+        const stripePublicKey = MetaUtils.getMetaContent('stripe-public-key');
+
+        this.stripe = window['Stripe'](stripePublicKey);
 
         if (!this.stripe) {
             await this.$notify.error('Unable to initialize stripe');

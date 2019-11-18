@@ -37,7 +37,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencyLTCT, coinpayments.CurrencyUSD)
+	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencySTORJ, coinpayments.CurrencyUSD)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -45,8 +45,8 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
 			Amount:      *amount.BigFloat(),
-			CurrencyIn:  coinpayments.CurrencyLTCT,
-			CurrencyOut: coinpayments.CurrencyLTCT,
+			CurrencyIn:  coinpayments.CurrencySTORJ,
+			CurrencyOut: coinpayments.CurrencySTORJ,
 			BuyerEmail:  c.Email,
 		},
 	)
