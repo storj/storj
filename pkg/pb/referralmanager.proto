@@ -28,8 +28,7 @@ message ReserveTokenRequest {
     bytes redeeming_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
-message ReserveTokenResponse{
-}
+message ReserveTokenResponse{}
 
 message RedeemTokenRequest {
     bytes token = 1;
@@ -37,5 +36,4 @@ message RedeemTokenRequest {
     bytes satellite_id = 3;
 }
 
-message RedeemTokenResponse {
-}
+message RedeemTokenResponse {}
