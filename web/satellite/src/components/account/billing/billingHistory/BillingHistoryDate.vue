@@ -19,57 +19,55 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { BillingHistoryItemType } from '@/types/payments';
 
 @Component
-export default class Countdown extends Vue {
+export default class BillingHistoryDate extends Vue {
     @Prop({default: () => new Date()})
-    private readonly expirationDate: Date;
+    private readonly expiration: Date;
     @Prop({default: () => new Date()})
-    private readonly startDate: Date;
+    private readonly start: Date;
     @Prop({default: 0})
     private readonly type: BillingHistoryItemType;
 
-    private readonly expirationDateTime: number;
-    private now = Math.trunc((new Date()).getTime() / 1000);
+    private readonly expirationTimeInSeconds: number;
+    private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
     private intervalID;
 
-    public isExpired: boolean = true;
+    public isExpired: boolean;
 
     public constructor() {
         super();
 
-        this.expirationDateTime = Math.trunc(new Date(this.expirationDate).getTime() / 1000);
+        this.expirationTimeInSeconds = Math.trunc(new Date(this.expiration).getTime() / 1000);
+        this.isExpired = (this.expirationTimeInSeconds - this.nowInSeconds) < 0;
+
         this.ready();
     }
 
     public get date(): string {
         if (this.type === BillingHistoryItemType.Transaction) {
-            return this.startDate.toLocaleDateString();
+            return this.start.toLocaleDateString();
         }
 
-        return `${this.startDate.toLocaleDateString()} - ${this.expirationDate.toLocaleDateString()}`;
+        return `${this.start.toLocaleDateString()} - ${this.expiration.toLocaleDateString()}`;
     }
 
     public get seconds(): number {
-        return (this.expirationDateTime - this.now) % 60;
+        return (this.expirationTimeInSeconds - this.nowInSeconds) % 60;
     }
 
     public get minutes(): number {
-        return Math.trunc((this.expirationDateTime - this.now) / 60) % 60;
+        return Math.trunc((this.expirationTimeInSeconds - this.nowInSeconds) / 60) % 60;
     }
 
-    public ready(): void {
+    private ready(): void {
         this.intervalID = setInterval(() => {
-            if ((this.expirationDateTime - this.now) < 0) {
+            if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0) {
                 this.isExpired = true;
                 clearInterval(this.intervalID);
 
                 return;
             }
 
-            if (this.isExpired) {
-                this.isExpired = false;
-            }
-
-            this.now = Math.trunc((new Date()).getTime() / 1000);
+            this.nowInSeconds = Math.trunc(new Date().getTime() / 1000);
         }, 1000);
     }
 }

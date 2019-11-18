@@ -103,11 +103,11 @@ export class BillingHistoryItem {
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
-        public readonly type: BillingHistoryItemType = 0,
+        public readonly type: BillingHistoryItemType = BillingHistoryItemType.Invoice,
     ) {}
 
     public get quantity(): Amount {
-        if (this.tokenAmount === '') {
+        if (this.type === BillingHistoryItemType.Invoice) {
             return new Amount('$', this.amountDollars());
         }
 
@@ -119,7 +119,7 @@ export class BillingHistoryItem {
     }
 
     public downloadLinkHtml(): string {
-        const downloadLabel = this.type === 1 ? 'EtherScan' : 'PDF';
+        const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'PDF';
 
         return `<a class="download-link" href="${this.link}">${downloadLabel}</a>`;
     }

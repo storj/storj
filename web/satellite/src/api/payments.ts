@@ -213,6 +213,8 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not process coin payment');
         }
 
-        return await response.json();
+        const result = await response.json();
+
+        return new DepositInfo(result.amount, result.address);
     }
 }

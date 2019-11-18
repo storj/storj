@@ -30,7 +30,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import AccountBalance from '@/components/account/billing/balance/AccountBalance.vue';
-import DepositAndBilling from '@/components/account/billing/depositAndBilling/DepositAndBilling.vue';
+import DepositAndBilling from '@/components/account/billing/billingHistory/DepositAndBilling.vue';
 import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 

@@ -3,10 +3,10 @@
 
 <template>
     <div class="container">
-        <Countdown
+        <BillingHistoryDate
             class="container__item"
-            :start-date="billingItem.start"
-            :expiration-date="billingItem.end"
+            :start="billingItem.start"
+            :expiration="billingItem.end"
             :type="billingItem.type"
         />
         <p class="container__item description">{{billingItem.description}}</p>
@@ -32,13 +32,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Countdown from '@/components/account/billing/depositAndBilling/Countdown.vue';
+import BillingHistoryDate from '@/components/account/billing/billingHistory/BillingHistoryDate.vue';
 
 import { BillingHistoryItem } from '@/types/payments';
 
 @Component({
     components: {
-        Countdown,
+        BillingHistoryDate,
     },
 })
 export default class BillingItem extends Vue {
