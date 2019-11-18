@@ -13,6 +13,8 @@ import (
 var (
 	// ErrMigrate is for tracking migration errors
 	ErrMigrate = errs.Class("migrate")
+	// ErrMigrateMinVersion is for migration min version errors
+	ErrMigrateMinVersion = errs.Class("migrate min version")
 )
 
 // CreateTables is a method for creating all tables for database
@@ -30,10 +32,15 @@ func (db *DB) CreateTables() error {
 			}
 		}
 		migration := db.PostgresMigration()
+		minVersion := migration.Steps[0].Version
 		// since we merged migration steps 0-64, the step.Version should never be less than 65
-		if err := migration.ValidateMinVersion(db.log); err != nil {
-			return err
+		dbVersion, err := migration.CurrentVersion(db.log, db.db)
+		if dbVersion > -1 && dbVersion < minVersion {
+			return ErrMigrateMinVersion.New("current database version is %d, it shouldn't be less than the min version %d",
+				dbVersion, minVersion,
+			)
 		}
+
 		return migration.Run(db.log.Named("migrate"))
 	default:
 		return migrate.Create("database", db.db)
