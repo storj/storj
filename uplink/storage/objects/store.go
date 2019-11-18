@@ -40,7 +40,7 @@ type ListItem struct {
 // Store for objects
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
-	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
+	Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error)
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -72,21 +72,20 @@ func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err er
 	return convertMeta(m), err
 }
 
-func (o *objStore) Get(ctx context.Context, path storj.Path) (
-	rr ranger.Ranger, meta Meta, err error) {
+func (o *objStore) Get(ctx context.Context, path storj.Path, object storj.Object) (
+	rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return nil, Meta{}, storj.ErrNoPath.New("")
+		return nil, storj.ErrNoPath.New("")
 	}
 
-	rr, m, err := o.store.Get(ctx, path, o.pathCipher)
-
+	rr, err = o.store.Get(ctx, path, object, o.pathCipher)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
 
-	return rr, convertMeta(m), err
+	return rr, err
 }
 
 func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error) {
