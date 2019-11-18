@@ -253,6 +253,9 @@ func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj
 }
 
 // Delete deletes the specified piece.
+//
+// It doesn't return an error if the blog isn't found by any reason or it cannot
+// be deleted at this moment and it's delayed.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.blobs.Delete(ctx, storage.BlobRef{
