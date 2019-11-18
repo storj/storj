@@ -136,11 +136,6 @@
             ]
           }
         ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
         "package": {
           "name": "node"
         },
@@ -395,11 +390,6 @@
                 ]
               }
             ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
           }
         ],
         "package": {
@@ -5318,9 +5308,6 @@
         ],
         "imports": [
           {
-            "path": "gogo.proto"
-          },
-          {
             "path": "node.proto"
           }
         ],
@@ -5974,9 +5961,6 @@
             "path": "gogo.proto"
           },
           {
-            "path": "node.proto"
-          },
-          {
             "path": "orders.proto"
           }
         ],
@@ -6088,15 +6072,6 @@
         "imports": [
           {
             "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "metainfo.proto"
-          },
-          {
-            "path": "orders.proto"
           }
         ],
         "package": {
@@ -6136,9 +6111,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "gogo.proto"
-          },
           {
             "path": "encryption_access.proto"
           }

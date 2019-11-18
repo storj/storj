@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -43,11 +44,11 @@ func TestDataRepair(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -118,10 +119,7 @@ func TestDataRepair(t *testing.T) {
 				continue
 			}
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -153,7 +151,6 @@ func TestDataRepair(t *testing.T) {
 				nodesToKillForMinThreshold--
 			}
 		}
-
 		// we should be able to download data without any of the original nodes
 		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
@@ -177,7 +174,6 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
@@ -239,10 +235,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 				corruptedNode = node
 			}
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 		require.NotNil(t, corruptedNode)
@@ -297,7 +290,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
@@ -361,10 +353,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				corruptedNode = node
 			}
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 		require.NotNil(t, corruptedNode)
@@ -649,11 +638,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -687,7 +672,6 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Checker.RepairOverride = repairOverride
 			},
 		},
@@ -734,10 +718,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -776,7 +757,6 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = 0
 				config.Checker.RepairOverride = repairOverride
 			},
 		},
@@ -824,10 +804,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
+				stopNodeByID(t, ctx, planet, node.ID())
 			}
 		}
 
@@ -959,10 +936,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 				}
 
 				if len(killedNodes) < numNodesToKill {
-					err = planet.StopPeer(node)
-					require.NoError(t, err)
-					_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-					require.NoError(t, err)
+					stopNodeByID(t, ctx, planet, node.ID())
 
 					killedNodes[node.ID()] = struct{}{}
 				}
@@ -1062,7 +1036,19 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 			require.NoError(t, err)
 
 			for _, satellite := range planet.Satellites {
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					Address: &pb.NodeAddress{
+						Address: node.Addr(),
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}, time.Now().UTC().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 
