@@ -46,15 +46,8 @@ export default class App extends Vue {
         }
 
         if (segmentMeta) {
-            const segmentio = window['analytics'];
             segmentioID = segmentMeta.getAttribute('content');
-
-            if (!segmentio || segmentioID && segmentioID.length === 0) {
-                return;
-            }
-
-            segmentio.load(segmentioID);
-            segmentio.page();
+            this.$segment.init(segmentioID);
         }
 
         if (satelliteName) {
