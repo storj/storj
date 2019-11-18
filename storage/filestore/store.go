@@ -89,7 +89,7 @@ func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref storage.B
 
 // Delete deletes blobs with the specified ref.
 //
-// It doesn't return an error if the blog isn't found by any reason or it cannot
+// It doesn't return an error if the blob isn't found by any reason or it cannot
 // be deleted at this moment and it's delayed.
 func (store *blobStore) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
