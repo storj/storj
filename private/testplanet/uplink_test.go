@@ -176,6 +176,9 @@ func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error 
 func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	return nil, nil
 }
+func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.DeletePieceRequest) (_ *pb.DeletePieceResponse, err error) {
+	return nil, nil
+}
 func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest) (_ *pb.RetainResponse, err error) {
 	return nil, nil
 }
