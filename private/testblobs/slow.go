@@ -83,6 +83,18 @@ func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.Bl
 	return slow.blobs.OpenWithStorageFormat(ctx, ref, formatVer)
 }
 
+// Trash deletes the blob with the namespace and key.
+func (slow *SlowBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
+	slow.sleep()
+	return slow.blobs.Trash(ctx, ref)
+}
+
+// RestoreTrash restores all files in the trash
+func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
+	slow.sleep()
+	return slow.blobs.RestoreTrash(ctx, namespace)
+}
+
 // Delete deletes the blob with the namespace and key.
 func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	slow.sleep()
