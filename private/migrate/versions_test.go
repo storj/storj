@@ -22,6 +22,22 @@ import (
 	"storj.io/storj/private/testcontext"
 )
 
+func TestBasicMigrationSqliteNoRebind(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	basicMigration(t, db, db)
+}
+
+func TestBasicMigrationSqlite(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	basicMigration(t, db, &sqliteDB{DB: db})
+}
+
 func TestBasicMigrationPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)

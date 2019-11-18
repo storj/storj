@@ -31,7 +31,7 @@ func (db *DB) CreateTables() error {
 		}
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-64, the step.Version should never be less than 65
-		if err := migration.ValidateMinVersion(65); err != nil {
+		if err := migration.ValidateMinVersion(db.log); err != nil {
 			return err
 		}
 		return migration.Run(db.log.Named("migrate"))
@@ -40,7 +40,7 @@ func (db *DB) CreateTables() error {
 	}
 }
 
-// CheckVersion confirms confirms the database is at the desired version
+// CheckVersion confirms the database is at the desired version
 func (db *DB) CheckVersion() error {
 	switch db.driver {
 	case "postgres":
