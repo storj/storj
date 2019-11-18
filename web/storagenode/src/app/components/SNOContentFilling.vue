@@ -146,11 +146,11 @@ export default class SNOContentFilling extends Vue {
     }
 
     public get egressBandwidthSummary(): string {
-        return formatBytes(this.$store.state.node.egressBandwidthSummary);
+        return formatBytes(this.$store.state.node.egressSummary);
     }
 
     public get ingressBandwidthSummary(): string {
-        return formatBytes(this.$store.state.node.ingressBandwidthSummary);
+        return formatBytes(this.$store.state.node.ingressSummary);
     }
 
     public get storageSummary(): string {

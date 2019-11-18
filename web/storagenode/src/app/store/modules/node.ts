@@ -68,8 +68,8 @@ export const node = {
         storageChartData: new Array<Stamp>(),
         storageSummary: 0,
         bandwidthSummary: 0,
-        egressBandwidthSummary: 0,
-        ingressBandwidthSummary: 0,
+        egressSummary: 0,
+        ingressSummary: 0,
         checks: {
             uptime: 0,
             audit: 0,
@@ -134,8 +134,8 @@ export const node = {
             state.ingressBandwidthChartData = satelliteInfo.ingressBandwidthDaily;
             state.storageChartData = satelliteInfo.storageDaily;
             state.bandwidthSummary = satelliteInfo.bandwidthSummary;
-            state.egressBandwidthSummary = satelliteInfo.egressBandwidthSummary;
-            state.ingressBandwidthSummary = satelliteInfo.ingressBandwidthSummary;
+            state.egressSummary = satelliteInfo.egressSummary;
+            state.ingressSummary = satelliteInfo.ingressSummary;
             state.storageSummary = satelliteInfo.storageSummary;
         },
     },

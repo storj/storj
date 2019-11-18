@@ -177,15 +177,15 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID                      storj.NodeID            `json:"id"`
-	StorageDaily            []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily          []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	StorageSummary          float64                 `json:"storageSummary"`
-	BandwidthSummary        int64                   `json:"bandwidthSummary"`
-	EgressBandwidthSummary  int64                   `json:"egressBandwidthSummary"`
-	IngressBandwidthSummary int64                   `json:"ingressBandwidthSummary"`
-	Audit                   reputation.Metric       `json:"audit"`
-	Uptime                  reputation.Metric       `json:"uptime"`
+	ID               storj.NodeID            `json:"id"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	EgressSummary    int64                   `json:"egressSummary"`
+	IngressSummary   int64                   `json:"ingressSummary"`
+	Audit            reputation.Metric       `json:"audit"`
+	Uptime           reputation.Metric       `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -208,12 +208,12 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	egressBandwidthSummary, err := s.bandwidthDB.SatelliteEgressSummary(ctx, satelliteID, from, to)
+	egressSummary, err := s.bandwidthDB.SatelliteEgressSummary(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	ingressBandwidthSummary, err := s.bandwidthDB.SatelliteIngressSummary(ctx, satelliteID, from, to)
+	ingressSummary, err := s.bandwidthDB.SatelliteIngressSummary(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -229,15 +229,15 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 	}
 
 	return &Satellite{
-		ID:                      satelliteID,
-		StorageDaily:            storageDaily,
-		BandwidthDaily:          bandwidthDaily,
-		StorageSummary:          storageSummary,
-		BandwidthSummary:        bandwidthSummary.Total(),
-		EgressBandwidthSummary:  egressBandwidthSummary.Total(),
-		IngressBandwidthSummary: ingressBandwidthSummary.Total(),
-		Audit:                   rep.Audit,
-		Uptime:                  rep.Uptime,
+		ID:               satelliteID,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
+		EgressSummary:    egressSummary.Total(),
+		IngressSummary:   ingressSummary.Total(),
+		Audit:            rep.Audit,
+		Uptime:           rep.Uptime,
 	}, nil
 }
 

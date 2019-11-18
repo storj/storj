@@ -13,8 +13,8 @@ export class Satellite {
         public ingressBandwidthDaily: IngressBandwidthUsed[],
         public storageSummary: number,
         public bandwidthSummary: number,
-        public egressBandwidthSummary: number,
-        public ingressBandwidthSummary: number,
+        public egressSummary: number,
+        public ingressSummary: number,
         public audit: Metric,
         public uptime: Metric) {}
 }
@@ -175,6 +175,6 @@ export class Satellites {
         public ingressBandwidthDaily: IngressBandwidthUsed[],
         public storageSummary: number,
         public bandwidthSummary: number,
-        public egressBandwidthSummary: number,
-        public ingressBandwidthSummary: number) {}
+        public egressSummary: number,
+        public ingressSummary: number) {}
 }

@@ -97,7 +97,7 @@ export class SNOApi {
             json.uptime.beta, json.uptime.score);
 
         return new Satellite(json.id, storageDaily, bandwidthDaily, egressBandwidthDaily, ingressBandwidthDaily,
-            json.storageSummary, json.bandwidthSummary, json.egressBandwidthSummary, json.ingressBandwidthSummary,
+            json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary,
             audit, uptime);
     }
 
