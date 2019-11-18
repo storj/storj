@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
@@ -223,7 +223,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			UptimeReputationWeight: 1,
 			UptimeReputationDQ:     0,
 		}
-		err := satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, config)
+		err := satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -270,7 +270,7 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplane
 		UptimeReputationWeight: 1,
 		UptimeReputationDQ:     1,
 	}
-	err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, config)
+	err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 	require.NoError(t, err)
 	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -82,6 +83,8 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
+	stripePublicKey string
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -95,13 +98,14 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		stripePublicKey: stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -140,16 +144,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -211,10 +217,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	var data struct {
-		SatelliteName string
+		SatelliteName   string
+		StripePublicKey string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
@@ -439,22 +447,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 	}
 }
 
-// serveJSONError writes JSON error to response output stream.
-func (server *Server) serveJSONError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		server.log.Error("failed to write json error response", zap.Error(err))
-	}
-}
-
 // grapqlHandler is graphql endpoint http handler function
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -519,37 +511,28 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gzipHandler is used to gzip static content to minify resources if browser support such decoding
-func (server *Server) gzipHandler(fn http.Handler) http.Handler {
+// gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
+func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-		extension := filepath.Ext(r.RequestURI)
-		// we have gzipped only fonts, js and css bundles
-		formats := map[string]bool{
-			".js":  true,
-			".ttf": true,
-			".css": true,
-		}
-		isNeededFormatToGzip := formats[extension]
-
-		// because we have some static content outside of console frontend app.
-		// for example: 404 page, account activation, password reset, etc.
-		// TODO: find better solution, its a temporary fix
-		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
-
-		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
-		// just return original file
-		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
+		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+		if !isGzipSupported {
 			fn.ServeHTTP(w, r)
 			return
 		}
 
+		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".gz")
+		if err != nil {
+			fn.ServeHTTP(w, r)
+			return
+		}
+
+		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
-		// updating request URL
 		newRequest := new(http.Request)
 		*newRequest = *r
 		newRequest.URL = new(url.URL)
@@ -560,7 +543,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	})
 }
 
-// satelliteNameHandler retrieve satellites name.
+// satelliteNameHandler retrieves satellite name.
 func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
 	var response struct {
 		SatelliteName string `json:"satelliteName"`

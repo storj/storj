@@ -27,8 +27,8 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2/collect"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/private/version"
 )
 
 // DefaultCfgFilename is the default filename used for storing a configuration.
