@@ -32,12 +32,16 @@ func (db *DB) CreateTables() error {
 			}
 		}
 		migration := db.PostgresMigration()
-		minVersion := migration.Steps[0].Version
-		// since we merged migration steps 0-64, the step.Version should never be less than 65
+		// since we merged migration steps 0-64, the current db version should never be
+		// less than 65 unless the migration hasn't run yet
+		const minDBVersion = 65
 		dbVersion, err := migration.CurrentVersion(db.log, db.db)
-		if dbVersion > -1 && dbVersion < minVersion {
+		if err != nil {
+			return errs.New("error current version: %+v", err)
+		}
+		if dbVersion > -1 && dbVersion < minDBVersion {
 			return ErrMigrateMinVersion.New("current database version is %d, it shouldn't be less than the min version %d",
-				dbVersion, minVersion,
+				dbVersion, minDBVersion,
 			)
 		}
 
