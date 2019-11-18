@@ -182,7 +182,10 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	writer := csv.NewWriter(file)
-	defer writer.Flush()
+	defer func() {
+		writer.Flush()
+		err = writer.Error()
+	}()
 
 	headers := []string{
 		"ProjectID",
