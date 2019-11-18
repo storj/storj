@@ -97,6 +97,16 @@ func (migration *Migration) ValidateSteps() error {
 	return nil
 }
 
+// ValidateMinVersion checks that the version of the migration steps are never less than a minimum version
+func (migration *Migration) ValidateMinVersion(minVersion int) error {
+	for _, step := range migration.Steps {
+		if step.Version < minVersion {
+			return Error.New("step.Version is %d, it should not be less than the minVersion %d", step.Version, minVersion)
+		}
+	}
+	return nil
+}
+
 // ValidateVersions checks that the version of the migration matches the state of the database
 func (migration *Migration) ValidateVersions(log *zap.Logger) error {
 	for _, step := range migration.Steps {
@@ -133,10 +143,6 @@ func (migration *Migration) Run(log *zap.Logger) error {
 	}
 
 	for _, step := range migration.Steps {
-		// since we merged migration steps 0-64, the step.Version should never be less than 65
-		if step.Version < 65 {
-			return Error.New("step.Version is %d, it should not be less than 65", step.Version)
-		}
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}

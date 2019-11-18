@@ -30,6 +30,10 @@ func (db *DB) CreateTables() error {
 			}
 		}
 		migration := db.PostgresMigration()
+		// since we merged migration steps 0-64, the step.Version should never be less than 65
+		if err := migration.ValidateMinVersion(65); err != nil {
+			return err
+		}
 		return migration.Run(db.log.Named("migrate"))
 	default:
 		return migrate.Create("database", db.db)
