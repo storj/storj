@@ -89,16 +89,16 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	// validate the min version before we run the migration
-	err = m.ValidateMinVersion(nil)
+	dbVersion, err := m.CurrentVersion(nil, testDB)
 	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, -1)
 
 	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
 
-	// validate the min version after we run the migration
-	err = m.ValidateMinVersion(nil)
+	dbVersion, err = m.CurrentVersion(nil, testDB)
 	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
 
 	m2 := migrate.Migration{
 		Table: dbName,
@@ -111,8 +111,9 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	}
 	// if the min version is less than the min migration step
 	// we expect an error
-	err = m2.ValidateMinVersion(nil)
-	assert.Error(t, err)
+	dbVersion, err = m2.CurrentVersion(nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
 
 	var version int
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)

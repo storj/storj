@@ -99,34 +99,6 @@ func (migration *Migration) ValidateSteps() error {
 	return nil
 }
 
-// ValidateMinVersion checks that the current version of the database isn't less
-// than the lowest migration step version
-func (migration *Migration) ValidateMinVersion(log *zap.Logger) error {
-	// create a set for the databases in the migration to store
-	// the value of the lowest possible version for each database
-	dbSet := map[DB]int{}
-	for _, step := range migration.Steps {
-		// if the db isn't in the set already then this is the step with
-		// the lowest version and therefore is the minimum version the database
-		if _, ok := dbSet[step.DB]; !ok {
-			minVersion := step.Version
-			dbSet[step.DB] = minVersion
-
-			// check the database is at least the min version
-			dbVersion, err := migration.getLatestVersion(log, step.DB)
-			if err != nil {
-				return err
-			}
-			if dbVersion > -1 && dbVersion < minVersion {
-				return ErrValidateMinVersion.New("current database version is %d, it shouldn't be less than the min version %d",
-					dbVersion, minVersion,
-				)
-			}
-		}
-	}
-	return nil
-}
-
 // ValidateVersions checks that the version of the migration matches the state of the database
 func (migration *Migration) ValidateVersions(log *zap.Logger) error {
 	for _, step := range migration.Steps {
@@ -231,10 +203,6 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 
 // getLatestVersion finds the latest version table
 func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
-	err := migration.ensureVersionTable(log, db)
-	if err != nil {
-		return -1, Error.Wrap(err)
-	}
 	tx, err := db.Begin()
 	if err != nil {
 		return -1, Error.Wrap(err)
@@ -259,6 +227,15 @@ func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
 		version, time.Now().String(),
 	)
 	return err
+}
+
+// CurrentVersion finds the latest version for the db
+func (migration *Migration) CurrentVersion(log *zap.Logger, db DB) (int, error) {
+	err := migration.ensureVersionTable(log, db)
+	if err != nil {
+		return -1, Error.Wrap(err)
+	}
+	return migration.getLatestVersion(log, db)
 }
 
 // SQL statements that are executed on the database
