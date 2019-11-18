@@ -101,18 +101,18 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 
 func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID, token *uuid.UUID) error {
 	if userID.IsZero() || token.IsZero() {
-		return nil, Error.New("invalid argument")
+		return Error.New("invalid argument")
 	}
 
 	if service.conn == nil {
-		return nil, Error.New("no connection has been established")
+		return Error.New("no connection has been established")
 	}
 
 	client := service.conn.ReferralManagerClient()
 	_, err := client.RedeemToken(ctx, &pb.RedeemTokenRequest{
 		Token:             token[:],
 		RedeemUserId:      userID[:],
-		RedeemSatelliteId: service.signer.ID,
+		RedeemSatelliteId: service.signer.ID(),
 	})
 	if err != nil {
 		return Error.Wrap(err)
