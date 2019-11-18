@@ -13,21 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestInsertUpdateConsume(t *testing.T) {
+func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		transactions := db.CoinpaymentsTransactions()
+		transactions := db.StripeCoinPayments().Transactions()
 
 		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
 		require.True(t, ok)
@@ -42,6 +42,7 @@ func TestInsertUpdateConsume(t *testing.T) {
 			Received:  *received,
 			Status:    coinpayments.StatusReceived,
 			Key:       "testKey",
+			Timeout:   time.Second * 60,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -111,7 +112,7 @@ func TestInsertUpdateConsume(t *testing.T) {
 	})
 }
 
-func TestList(t *testing.T) {
+func TestTransactionsDBList(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -146,11 +147,11 @@ func TestList(t *testing.T) {
 	t.Run("pending transactions", func(t *testing.T) {
 		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 			for _, tx := range txs {
-				_, err := db.CoinpaymentsTransactions().Insert(ctx, tx)
+				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
 				require.NoError(t, err)
 			}
 
-			page, err := db.CoinpaymentsTransactions().ListPending(ctx, 0, transactionCount, time.Now())
+			page, err := db.StripeCoinPayments().Transactions().ListPending(ctx, 0, transactionCount, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, transactionCount, len(page.Transactions))
 
@@ -171,7 +172,7 @@ func TestList(t *testing.T) {
 			var applies coinpayments.TransactionIDList
 
 			for _, tx := range txs {
-				_, err := db.CoinpaymentsTransactions().Insert(ctx, tx)
+				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
 				require.NoError(t, err)
 
 				tx.Status = coinpayments.StatusReceived
@@ -188,10 +189,10 @@ func TestList(t *testing.T) {
 				updatedTxs = append(updatedTxs, tx)
 			}
 
-			err := db.CoinpaymentsTransactions().Update(ctx, updates, applies)
+			err := db.StripeCoinPayments().Transactions().Update(ctx, updates, applies)
 			require.NoError(t, err)
 
-			page, err := db.CoinpaymentsTransactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
+			page, err := db.StripeCoinPayments().Transactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, transactionCount, len(page.Transactions))
 
@@ -206,6 +207,28 @@ func TestList(t *testing.T) {
 	})
 }
 
+func TestTransactionsDBRates(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		transactions := db.StripeCoinPayments().Transactions()
+
+		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
+		require.True(t, ok)
+
+		const txID = "tx_id"
+
+		err := transactions.LockRate(ctx, txID, val)
+		require.NoError(t, err)
+
+		rate, err := transactions.GetLockedRate(ctx, txID)
+		require.NoError(t, err)
+
+		assert.Equal(t, val, rate)
+	})
+}
+
 // compareTransactions is a helper method to compare tx used to create db entry,
 // with the tx returned from the db. Method doesn't compare created at field, but
 // ensures that is not empty.
@@ -217,5 +240,6 @@ func compareTransactions(t *testing.T, exp, act stripecoinpayments.Transaction) 
 	assert.Equal(t, exp.Received, act.Received)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Key, act.Key)
+	assert.Equal(t, exp.Timeout, act.Timeout)
 	assert.False(t, act.CreatedAt.IsZero())
 }

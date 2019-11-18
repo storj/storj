@@ -40,21 +40,6 @@ CREATE TABLE bucket_storage_tallies (
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
-CREATE TABLE bucket_usages (
-	id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	rollup_end_time timestamp with time zone NOT NULL,
-	remote_stored_data bigint NOT NULL,
-	inline_stored_data bigint NOT NULL,
-	remote_segments integer NOT NULL,
-	inline_segments integer NOT NULL,
-	objects integer NOT NULL,
-	metadata_size bigint NOT NULL,
-	repair_egress bigint NOT NULL,
-	get_egress bigint NOT NULL,
-	audit_egress bigint NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -63,6 +48,7 @@ CREATE TABLE coinpayments_transactions (
 	received bytea NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
+	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -78,6 +64,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	node_id bytea NOT NULL,
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
+	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
 	queued_at timestamp NOT NULL,
 	requested_at timestamp,
@@ -85,6 +72,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp,
+	order_limit_send_count integer NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
@@ -226,6 +214,25 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
+CREATE TABLE stripecoinpayments_invoice_project_records (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	storage double precision NOT NULL,
+	egress bigint NOT NULL,
+	objects bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, period_start, period_end )
+);
+CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id text NOT NULL,
+	rate bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -315,7 +322,6 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
-CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );

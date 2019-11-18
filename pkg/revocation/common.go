@@ -4,9 +4,9 @@
 package revocation
 
 import (
-	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 )
@@ -27,7 +27,6 @@ func NewDB(dbURL string) (*DB, error) {
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
-
 	var db *DB
 	switch driver {
 	case "bolt":
@@ -43,7 +42,6 @@ func NewDB(dbURL string) (*DB, error) {
 	default:
 		return nil, extensions.ErrRevocationDB.New("database scheme not supported: %s", driver)
 	}
-
 	return db, nil
 }
 

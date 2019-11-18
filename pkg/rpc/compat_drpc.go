@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build drpc
+// +build !grpc
 
 package rpc
 
@@ -44,11 +44,17 @@ type (
 	// OverlayInspectorClient is an alias to the drpc client interface
 	OverlayInspectorClient = pb.DRPCOverlayInspectorClient
 
+	// PaymentsClient is an alias to the drpc client interface
+	PaymentsClient = pb.DRPCPaymentsClient
+
 	// PieceStoreInspectorClient is an alias to the drpc client interface
 	PieceStoreInspectorClient = pb.DRPCPieceStoreInspectorClient
 
 	// PiecestoreClient is an alias to the drpc client interface
 	PiecestoreClient = pb.DRPCPiecestoreClient
+
+	// ReferralManagerClient is an alias to the drpc client interface
+	ReferralManagerClient = pb.DRPCReferralManagerClient
 
 	// SatelliteGracefulExitClient is an alias to the drpc client interface
 	SatelliteGracefulExitClient = pb.DRPCSatelliteGracefulExitClient
@@ -157,6 +163,16 @@ func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
 }
 
+// NewPaymentsClient returns the drpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewDRPCPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
+}
+
 // NewPieceStoreInspectorClient returns the drpc version of a PieceStoreInspectorClient
 func NewPieceStoreInspectorClient(rc *RawConn) PieceStoreInspectorClient {
 	return pb.NewDRPCPieceStoreInspectorClient(rc)
@@ -175,6 +191,16 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewReferralManagerClient returns the drpc version of a ReferralManagerClient
+func NewReferralManagerClient(rc *RawConn) ReferralManagerClient {
+	return pb.NewDRPCReferralManagerClient(rc)
+}
+
+// ReferralManagerClient returns a ReferralManagerClient for this connection
+func (c *Conn) ReferralManagerClient() ReferralManagerClient {
+	return NewReferralManagerClient(c.raw)
 }
 
 // NewSatelliteGracefulExitClient returns the drpc version of a SatelliteGracefulExitClient

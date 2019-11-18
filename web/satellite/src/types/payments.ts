@@ -21,6 +21,11 @@ export interface PaymentsApi {
     getBalance(): Promise<number>;
 
     /**
+     *
+     */
+    projectsCharges(): Promise<any>;
+
+    /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error
@@ -48,6 +53,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeCreditCardDefault(cardId: string): Promise<void>;
+
+    /**
+     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     *
+     * @returns list of billing history items
+     * @throws Error
+     */
+    billingHistory(): Promise<BillingHistoryItem[]>;
 }
 
 export class CreditCard {
@@ -68,4 +81,44 @@ export class PaymentAmountOption {
         public value: number,
         public label: string = '',
     ) {}
+}
+
+// BillingHistoryItem holds all public information about billing history line.
+export class BillingHistoryItem {
+    public constructor(
+        public readonly id: string = '',
+        public readonly description: string = '',
+        public readonly amount: number = 0,
+        public readonly status: string = '',
+        public readonly link: string = '',
+        public readonly start: Date = new Date(),
+        public readonly end: Date = new Date(),
+        public readonly type: BillingHistoryItemType = 0,
+    ) {}
+
+    public date(): string {
+        if (this.type) {
+            return this.start.toLocaleDateString();
+        }
+
+        return `${this.start.toLocaleDateString()} - ${this.end.toLocaleDateString()}`;
+    }
+
+    public amountDollars(): string {
+        return `$${this.amount / 100}`;
+    }
+
+    public downloadLinkHtml(): string {
+        const downloadLabel = this.type === 1 ? 'EtherScan' : 'PDF';
+
+        return `<a class="download-link" href="${this.link}">${downloadLabel}</a>`;
+    }
+}
+
+// BillingHistoryItemType indicates type of billing history item.
+export enum BillingHistoryItemType {
+    // Invoice is a Stripe invoice billing item.
+    Invoice = 0,
+    // Transaction is a Coinpayments transaction billing item.
+    Transaction = 1,
 }

@@ -9,12 +9,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/objects"
@@ -40,7 +39,7 @@ var DefaultES = storj.EncryptionParameters{
 }
 
 // GetObject returns information about an object
-func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
+func (db *DB) GetObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, info, err = db.getInfo(ctx, bucket, path)
@@ -49,7 +48,7 @@ func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (in
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (stream storj.ReadOnlyStream, err error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, path storj.Path) (stream storj.ReadOnlyStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	meta, info, err := db.getInfo(ctx, bucket, path)
@@ -57,7 +56,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 		return nil, err
 	}
 
-	streamKey, err := encryption.DeriveContentKey(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
+	streamKey, err := encryption.DeriveContentKey(bucket.Name, meta.fullpath.UnencryptedPath(), db.encStore)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +71,11 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
+func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		return nil, err
+	if bucket.Name == "" {
+		return nil, storj.ErrNoBucket.New("")
 	}
 
 	if path == "" {
@@ -85,7 +83,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	}
 
 	info := storj.Object{
-		Bucket: bucketInfo,
+		Bucket: bucket,
 		Path:   path,
 	}
 
@@ -124,64 +122,54 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 }
 
 // ModifyObject modifies a committed object
-func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+func (db *DB) ModifyObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // DeleteObject deletes an object from database
-func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
+func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
-		return err
+	if bucket.Name == "" {
+		return storj.ErrNoBucket.New("")
 	}
+
 	prefixed := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
-		prefix: bucket,
+		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		prefix: bucket.Name,
 	}
 	return prefixed.Delete(ctx, path)
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
-func (db *DB) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+func (db *DB) ModifyPendingObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object storj.MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // ListPendingObjects lists pending objects in bucket based on the ListOptions
-func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+func (db *DB) ListPendingObjects(ctx context.Context, bucket storj.Bucket, options storj.ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return storj.ObjectList{}, errors.New("not implemented")
 }
 
 // ListObjects lists objects in bucket based on the ListOptions
-func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options storj.ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		return storj.ObjectList{}, err
+	if bucket.Name == "" {
+		return storj.ObjectList{}, storj.ErrNoBucket.New("")
 	}
 
 	objects := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
-		prefix: bucket,
+		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		prefix: bucket.Name,
 	}
 
-	var startAfter, endBefore string
+	var startAfter string
 	switch options.Direction {
 	// TODO for now we are supporting only storj.After
-	// case storj.Before:
-	// 	// before lists backwards from cursor, without cursor
-	// 	endBefore = options.Cursor
-	// case storj.Backward:
-	// 	// backward lists backwards from cursor, including cursor
-	// 	endBefore = keyAfter(options.Cursor)
 	// case storj.Forward:
 	// 	// forward lists forwards from cursor, including cursor
 	// 	startAfter = keyBefore(options.Cursor)
@@ -192,25 +180,20 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
-	// TODO: remove this hack-fix of specifying the last key
-	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
-		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
-	}
-
-	items, more, err := objects.List(ctx, options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
+	items, more, err := objects.List(ctx, options.Prefix, startAfter, options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}
 
 	list = storj.ObjectList{
-		Bucket: bucket,
+		Bucket: bucket.Name,
 		Prefix: options.Prefix,
 		More:   more,
 		Items:  make([]storj.Object, 0, len(items)),
 	}
 
 	for _, item := range items {
-		list.Items = append(list.Items, objectFromMeta(bucketInfo, item.Path, item.IsPrefix, item.Meta))
+		list.Items = append(list.Items, objectFromMeta(bucket, item.Path, item.IsPrefix, item.Meta))
 	}
 
 	return list, nil
@@ -225,28 +208,26 @@ type object struct {
 	streamMeta      pb.StreamMeta
 }
 
-func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
+func (db *DB) getInfo(ctx context.Context, bucket storj.Bucket, path storj.Path) (obj object, info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: we shouldn't need to go load the bucket metadata every time we get object info
-	bucketInfo, err := db.GetBucket(ctx, bucket)
-	if err != nil {
-		return object{}, storj.Object{}, err
+	if bucket.Name == "" {
+		return object{}, storj.Object{}, storj.ErrNoBucket.New("")
 	}
 
 	if path == "" {
 		return object{}, storj.Object{}, storj.ErrNoPath.New("")
 	}
 
-	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
+	fullpath := streams.CreatePath(bucket.Name, paths.NewUnencrypted(path))
 
-	encPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
+	encPath, err := encryption.EncryptPath(bucket.Name, paths.NewUnencrypted(path), bucket.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
 	objectInfo, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
-		Bucket:        []byte(bucket),
+		Bucket:        []byte(bucket.Name),
 		EncryptedPath: []byte(encPath.Raw()),
 	})
 	if err != nil {
@@ -273,14 +254,14 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		return object{}, storj.Object{}, err
 	}
 
-	info, err = objectStreamFromMeta(bucketInfo, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info, err = objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
 	return object{
 		fullpath:        fullpath,
-		bucket:          bucket,
+		bucket:          bucket.Name,
 		encPath:         encPath,
 		lastSegmentMeta: lastSegmentMeta,
 		streamInfo:      streamInfo,
@@ -389,7 +370,7 @@ func (object *mutableObject) DeleteStream(ctx context.Context) (err error) {
 
 func (object *mutableObject) Commit(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, info, err := object.db.getInfo(ctx, object.info.Bucket.Name, object.info.Path)
+	_, info, err := object.db.getInfo(ctx, object.info.Bucket, object.info.Path)
 	object.info = info
 	return err
 }

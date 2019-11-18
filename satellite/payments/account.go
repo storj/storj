@@ -22,8 +22,15 @@ type Accounts interface {
 	// Balance returns an integer amount in cents that represents the current balance of payment account.
 	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
 
+	// ProjectCharges returns how much money current user will be charged for each project.
+	ProjectCharges(ctx context.Context, userID uuid.UUID) ([]ProjectCharge, error)
+
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
+
 	// StorjTokens exposes all storj token related functionality.
 	StorjTokens() StorjTokens
+
+	// Invoices exposes all needed functionality to manage account invoices.
+	Invoices() Invoices
 }

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !drpc
+// +build grpc
 
 package rpc
 
@@ -45,11 +45,17 @@ type (
 	// OverlayInspectorClient is an alias to the grpc client interface
 	OverlayInspectorClient = pb.OverlayInspectorClient
 
+	// PaymentsClient is an alias to the grpc client interface
+	PaymentsClient = pb.PaymentsClient
+
 	// PieceStoreInspectorClient is an alias to the grpc client interface
 	PieceStoreInspectorClient = pb.PieceStoreInspectorClient
 
 	// PiecestoreClient is an alias to the grpc client interface
 	PiecestoreClient = pb.PiecestoreClient
+
+	// ReferralManagerClient is an alias to the grpc client interface
+	ReferralManagerClient = pb.ReferralManagerClient
 
 	// SatelliteGracefulExitClient is an alias to the grpc client interface
 	SatelliteGracefulExitClient = pb.SatelliteGracefulExitClient
@@ -158,6 +164,16 @@ func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
 }
 
+// NewPaymentsClient returns the grpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
+}
+
 // NewPieceStoreInspectorClient returns the grpc version of a PieceStoreInspectorClient
 func NewPieceStoreInspectorClient(rc *RawConn) PieceStoreInspectorClient {
 	return pb.NewPieceStoreInspectorClient(rc)
@@ -176,6 +192,16 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewReferralManagerClient returns the grpc version of a ReferralManagerClient
+func NewReferralManagerClient(rc *RawConn) ReferralManagerClient {
+	return pb.NewReferralManagerClient(rc)
+}
+
+// ReferralManagerClient returns a ReferralManagerClient for this connection
+func (c *Conn) ReferralManagerClient() ReferralManagerClient {
+	return NewReferralManagerClient(c.raw)
 }
 
 // NewSatelliteGracefulExitClient returns the grpc version of a SatelliteGracefulExitClient

@@ -13,11 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/post"
-	"storj.io/storj/internal/post/oauth2"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -27,6 +22,11 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -42,9 +42,10 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -95,7 +96,7 @@ type API struct {
 	}
 
 	Accounting struct {
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -107,8 +108,9 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Clearing payments.Clearing
+		Accounts  payments.Accounts
+		Inspector *stripecoinpayments.Endpoint
+		Version   *stripecoinpayments.VersionService
 	}
 
 	Console struct {
@@ -118,6 +120,8 @@ type API struct {
 	}
 
 	Marketing struct {
+		PartnersService *rewards.PartnersService
+
 		Listener net.Listener
 		Endpoint *marketingweb.Server
 	}
@@ -220,7 +224,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
-		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
@@ -362,20 +366,64 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup payments
-		config := paymentsconfig.Config{}
+		log.Debug("Satellite API Process setting up payments")
+		pc := config.Payments
 
-		service := stripecoinpayments.NewService(
-			peer.Log.Named("stripecoinpayments service"),
-			config.StripeCoinPayments,
-			peer.DB.Customers(),
-			peer.DB.CoinpaymentsTransactions())
+		switch pc.Provider {
+		default:
+			peer.Payments.Accounts = mockpayments.Accounts()
+		case "stripecoinpayments":
+			service := stripecoinpayments.NewService(
+				peer.Log.Named("stripecoinpayments service"),
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Console().Projects(),
+				peer.DB.ProjectAccounting(),
+				pc.PerObjectPrice,
+				pc.EgressPrice,
+				pc.TbhPrice)
 
-		peer.Payments.Accounts = service.Accounts()
-		peer.Payments.Clearing = stripecoinpayments.NewChore(
-			peer.Log.Named("stripecoinpayments clearing loop"),
-			service,
-			config.StripeCoinPayments.TransactionUpdateInterval,
-			config.StripeCoinPayments.AccountBalanceUpdateInterval)
+			peer.Payments.Accounts = service.Accounts()
+			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
+
+			peer.Payments.Version = stripecoinpayments.NewVersionService(
+				peer.Log.Named("stripecoinpayments version service"),
+				service,
+				pc.StripeCoinPayments.ConversionRatesCycleInterval)
+
+			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+		}
+	}
+
+	{ // setup marketing portal
+		log.Debug("Satellite API Process setting up marketing server")
+
+		peer.Marketing.PartnersService = rewards.NewPartnersService(
+			peer.Log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			config.Marketing,
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup console
@@ -393,38 +441,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.ProjectAccounting(),
 			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
 			peer.Console.Listener,
+			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
-	}
-
-	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-		marketingConfig := config.Marketing
-		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			marketingConfig,
-			peer.DB.Rewards(),
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup node stats endpoint
@@ -439,20 +473,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup graceful exit
-		log.Debug("Satellite API Process setting up graceful exit endpoint")
-		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
-			peer.Log.Named("gracefulexit:endpoint"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.DB.GracefulExit(),
-			peer.Overlay.DB,
-			peer.Overlay.Service,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.DB.PeerIdentities(),
-			config.GracefulExit)
+		if config.GracefulExit.Enabled {
+			log.Debug("Satellite API Process setting up graceful exit endpoint")
+			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+				peer.Log.Named("gracefulexit:endpoint"),
+				signing.SignerFromFullIdentity(peer.Identity),
+				peer.DB.GracefulExit(),
+				peer.Overlay.DB,
+				peer.Overlay.Service,
+				peer.Metainfo.Service,
+				peer.Orders.Service,
+				peer.DB.PeerIdentities(),
+				config.GracefulExit)
 
-		pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		}
 	}
 
 	return peer, nil
@@ -474,6 +510,11 @@ func (peer *API) Run(ctx context.Context) (err error) {
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 	})
+	if peer.Payments.Version != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(peer.Payments.Version.Run(ctx))
+		})
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
@@ -504,6 +545,9 @@ func (peer *API) Close() error {
 	}
 	if peer.Mail.Service != nil {
 		errlist.Add(peer.Mail.Service.Close())
+	}
+	if peer.Payments.Version != nil {
+		errlist.Add(peer.Payments.Version.Close())
 	}
 	if peer.Metainfo.Endpoint2 != nil {
 		errlist.Add(peer.Metainfo.Endpoint2.Close())

@@ -22,7 +22,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/go-redis/redis"
 
-	"storj.io/storj/internal/processgroup"
+	"storj.io/storj/private/processgroup"
 )
 
 const (

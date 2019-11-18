@@ -31,6 +31,7 @@ import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -42,6 +43,7 @@ export default class ProjectSelectionDropdown extends Vue {
 
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
