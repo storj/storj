@@ -152,8 +152,8 @@ export default class PaymentMethods extends Vue {
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue);
             await this.$notify.success(`Successfully created new deposit transaction!\nAddress:${tokenResponse.address}\nAmount:${tokenResponse.amount}`);
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
