@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -59,7 +60,7 @@ type Object struct {
 }
 
 // ObjectsMap map that keeps objects representation
-type ObjectsMap map[Cluster]map[string]*Object
+type ObjectsMap map[Cluster]map[storj.Path]*Object
 
 // Observer metainfo.Loop observer for zombie reaper
 type Observer struct {
