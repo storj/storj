@@ -39,13 +39,13 @@ var (
 	}
 )
 
-// Cluster key for objects map
+// Cluster key for objects map.
 type Cluster struct {
 	projectID string
 	bucket    string
 }
 
-// Object represents object with segments
+// Object represents object with segments.
 type Object struct {
 	// TODO verify if we have more than 64 segments for object in network
 	segments uint64
@@ -53,16 +53,15 @@ type Object struct {
 	expectedNumberOfSegments byte
 
 	hasLastSegment bool
-	// if skip is true segments from object should be removed from memory when last segment is found
-	// or iteration is finished, mark it as true if one of the segments from this object is newer
-	// then specified threshold
+	// if skip is true then segments from this object shouldn't be treated as zombie segments
+	// and printed out, e.g. when one of segments is out of specified date rage
 	skip bool
 }
 
-// ObjectsMap map that keeps objects representation
+// ObjectsMap map that keeps objects representation.
 type ObjectsMap map[Cluster]map[storj.Path]*Object
 
-// Observer metainfo.Loop observer for zombie reaper
+// Observer metainfo.Loop observer for zombie reaper.
 type Observer struct {
 	db      metainfo.PointerDB
 	objects ObjectsMap
@@ -75,17 +74,17 @@ type Observer struct {
 	remoteSegments     int
 }
 
-// RemoteSegment process segment to collect data needed to detect zombie segment
+// RemoteSegment processes a segment to collect data needed to detect zombie segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return observer.processSegment(ctx, path, pointer)
 }
 
-// InlineSegment process segment to collect data needed to detect zombie segment
+// InlineSegment processes a segment to collect data needed to detect zombie segment.
 func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return observer.processSegment(ctx, path, pointer)
 }
 
-// Object not used in this implementation
+// Object not used in this implementation.
 func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
@@ -96,7 +95,6 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 		bucket:    path.BucketName,
 	}
 
-	object := findOrCreate(cluster, path.EncryptedObjectPath, observer.objects)
 	if observer.lastProjectID != "" && observer.lastProjectID != cluster.projectID {
 		err := analyzeProject(ctx, observer.db, observer.objects, observer.writer)
 		if err != nil {
@@ -108,6 +106,7 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 	}
 
 	isLastSegment := path.Segment == "l"
+	object := findOrCreate(cluster, path.EncryptedObjectPath, observer.objects)
 	if isLastSegment {
 		object.hasLastSegment = true
 
@@ -214,6 +213,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 }
 
 func analyzeProject(ctx context.Context, db metainfo.PointerDB, objectsMap ObjectsMap, csvWriter *csv.Writer) error {
+	// TODO this part will be implemented in next PR
 	return nil
 }
 
