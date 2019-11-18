@@ -64,7 +64,7 @@ func TestBucket_PartnerAttribution(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()].Serialize())
