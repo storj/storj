@@ -70,7 +70,7 @@ func (service *Service) CloseConn() error {
 }
 
 func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
-	if userID == nil {
+	if userID.IsZero() {
 		return nil, Error.New("invalid argument")
 	}
 
@@ -99,8 +99,25 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 	return tokens, nil
 }
 
-func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID) error {
-	// TODO implement acutal logic
+func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID, token *uuid.UUID) error {
+	if userID.IsZero() || token.IsZero() {
+		return nil, Error.New("invalid argument")
+	}
+
+	if service.conn == nil {
+		return nil, Error.New("no connection has been established")
+	}
+
+	client := service.conn.ReferralManagerClient()
+	_, err := client.RedeemToken(ctx, &pb.RedeemTokenRequest{
+		Token:             token[:],
+		RedeemUserId:      userID[:],
+		RedeemSatelliteId: service.signer.ID,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 

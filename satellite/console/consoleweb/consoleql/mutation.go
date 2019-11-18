@@ -8,7 +8,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
@@ -128,7 +128,13 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = controller.referralsService.RedeemToken(ctx, userID)
+	referralToken, err := uuid.Parse(registerData.ReferralToken)
+	if err != nil {
+		controller.serveJSONError(w, err)
+		return
+	}
+
+	err = controller.referralsService.RedeemToken(ctx, userID, referralToken)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
