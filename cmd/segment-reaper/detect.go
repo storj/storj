@@ -218,14 +218,13 @@ func analyzeProject(ctx context.Context, db metainfo.PointerDB, objectsMap Objec
 }
 
 func findOrCreate(cluster Cluster, path string, objects ObjectsMap) *Object {
-	var object *Object
 	objectsMap, ok := objects[cluster]
 	if !ok {
 		objectsMap = make(map[storj.Path]*Object)
 		objects[cluster] = objectsMap
 	}
 
-	object, ok = objectsMap[path]
+	object, ok := objectsMap[path]
 	if !ok {
 		object = &Object{}
 		objectsMap[path] = object
