@@ -362,7 +362,7 @@ func (sf *storjFS) listObjects(ctx context.Context, path string, recursive bool,
 func (sf *storjFS) Unlink(path string) int {
 	zap.S().Debug("Unlink: ", path)
 
-	err := sf.bucket.DeleteObject(sf.ctx, path)
+	err := sf.bucket.DeleteObject(sf.ctx, path[1:])
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			return fuse.ENOENT
