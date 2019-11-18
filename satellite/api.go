@@ -432,15 +432,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Referrals.Service, err = referrals.NewService(
+		peer.Referrals.Service = referrals.NewService(
 			peer.Log.Named("referrals:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Referrals,
 			peer.Dialer,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),

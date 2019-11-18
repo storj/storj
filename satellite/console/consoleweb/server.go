@@ -126,7 +126,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
 
-	referralsController := consoleapi.NewReferrals(logger, service, mailService, referralsService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	referralsController := consoleapi.NewReferrals(logger, service, referralsService, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
 	referralsRouter.HandleFunc("/tokens", referralsController.GetTokens).Methods(http.MethodGet)
 	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)

@@ -69,7 +69,7 @@ func (controller *Referrals) GetTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := controller.referralsService.ReferralManagerConn(ctx)
+	err = controller.referralsService.ReferralManagerConn(ctx)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
@@ -77,7 +77,7 @@ func (controller *Referrals) GetTokens(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := controller.referralsService.CloseConn()
 		if err != nil {
-			controller.log.Debug("failed to close conncetion", err.Error())
+			controller.log.Debug("failed to close conncetion", zap.Error(err))
 		}
 	}()
 
@@ -122,22 +122,22 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := controller.referralsService.ReferralManagerConn(ctx)
+	err = controller.referralsService.ReferralManagerConn(ctx)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
 	}
 
-	err := controller.referralsService.RedeemToken(ctx, userID)
+	err = controller.referralsService.RedeemToken(ctx, userID)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
 	}
 
 	// need to generate a registration token for the referred user?
+	// TODO: add user ID onto CreateUser
 	user, err := controller.service.CreateUser(ctx,
 		console.CreateUser{
-			ID:        userID,
 			FullName:  registerData.FullName,
 			ShortName: registerData.ShortName,
 			Email:     registerData.Email,
