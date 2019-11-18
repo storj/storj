@@ -109,8 +109,6 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			},
 		},
 	}
-	// if the min version is less than the min migration step
-	// we expect an error
 	dbVersion, err = m2.CurrentVersion(nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
