@@ -19,6 +19,8 @@ var (
 	ErrValidateVersionQuery = errs.Class("validate db version query error")
 	// ErrValidateVersionMismatch is when the migration version does not match the current database version
 	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
+	// ErrValidateMinVersion is when the migration version does not match the current database version
+	ErrValidateMinVersion = errs.Class("validate minimum version error")
 )
 
 /*
@@ -97,11 +99,29 @@ func (migration *Migration) ValidateSteps() error {
 	return nil
 }
 
-// ValidateMinVersion checks that the version of the migration steps are never less than a minimum version
-func (migration *Migration) ValidateMinVersion(minVersion int) error {
+// ValidateMinVersion checks that the current version of the database isn't less
+// than the lowest migration step version
+func (migration *Migration) ValidateMinVersion(log *zap.Logger) error {
+	// create a set for the databases in the migration to store
+	// the value of the lowest possible version for each database
+	dbSet := map[DB]int{}
 	for _, step := range migration.Steps {
-		if step.Version < minVersion {
-			return Error.New("step.Version is %d, it should not be less than the minVersion %d", step.Version, minVersion)
+		// if the db isn't in the set already then this is the step with
+		// the lowest version and therefore is the minimum version the database
+		if _, ok := dbSet[step.DB]; !ok {
+			minVersion := step.Version
+			dbSet[step.DB] = minVersion
+
+			// check the database is at least the min version
+			dbVersion, err := migration.getLatestVersion(log, step.DB)
+			if err != nil {
+				return err
+			}
+			if dbVersion > -1 && dbVersion < minVersion {
+				return ErrValidateMinVersion.New("current database version is %d, it shouldn't be less than the min version %d",
+					dbVersion, minVersion,
+				)
+			}
 		}
 	}
 	return nil
@@ -211,6 +231,7 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 
 // getLatestVersion finds the latest version table
 func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
+	migration.ensureVersionTable(log, db)
 	tx, err := db.Begin()
 	if err != nil {
 		return -1, Error.Wrap(err)

@@ -22,22 +22,6 @@ import (
 	"storj.io/storj/private/testcontext"
 )
 
-func TestBasicMigrationSqliteNoRebind(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	basicMigration(t, db, db)
-}
-
-func TestBasicMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	basicMigration(t, db, &sqliteDB{DB: db})
-}
-
 func TestBasicMigrationPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
@@ -89,12 +73,30 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err = m.ValidateMinVersion(3)
-	assert.Error(t, err)
-	err = m.ValidateMinVersion(1)
+	// validate the min version before we run the migration
+	err = m.ValidateMinVersion(nil)
 	assert.NoError(t, err)
+
 	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
+
+	// validate the min version after we run the migration
+	err = m.ValidateMinVersion(nil)
+	assert.NoError(t, err)
+
+	m2 := migrate.Migration{
+		Table: dbName,
+		Steps: []*migrate.Step{
+			{
+				DB:      testDB,
+				Version: 3,
+			},
+		},
+	}
+	// if the min version is less than the min migration step
+	// we expect an error
+	err = m2.ValidateMinVersion(nil)
+	assert.Error(t, err)
 
 	var version int
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
