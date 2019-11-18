@@ -231,7 +231,10 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 
 // getLatestVersion finds the latest version table
 func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
-	migration.ensureVersionTable(log, db)
+	err := migration.ensureVersionTable(log, db)
+	if err != nil {
+		return -1, Error.Wrap(err)
+	}
 	tx, err := db.Begin()
 	if err != nil {
 		return -1, Error.Wrap(err)
