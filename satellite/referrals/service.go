@@ -34,7 +34,8 @@ type Service struct {
 	log    *zap.Logger
 	signer signing.Signer
 	config Config
-	dailer rpc.Dialer
+	dialer rpc.Dialer
+	conn   *rpc.Conn
 }
 
 // NewService returns a service for handling referrals information.
@@ -43,28 +44,41 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 		log:    log,
 		signer: signer,
 		config: config,
-		dailer: dialer,
+		dialer: dialer,
 	}
 }
 
-func (service *Service) ReferralManagerConn(ctx context.Context) (*rpc.Conn, error) {
+func (service *Service) ReferralManagerConn(ctx context.Context) (err error) {
 	if service.config.ReferralManagerURL.IsZero() {
-		return nil, ErrReferralsConfigMissing.New("")
+		return ErrReferralsConfigMissing.New("")
 	}
 
-	conn, err := service.dailer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
+	s.conn, err = service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
-	return conn, nil
+	return nil
 }
 
-func (service *Service) GetTokens(ctx context.Context, client rpc.ReferralManagerClient, userID *uuid.UUID) ([]uuid.UUID, error) {
+func (service *Service) CloseConn() error {
+	if service.conn == nil {
+		return Error.New("connection has been closed")
+	}
+
+	return service.conn.Close()
+}
+
+func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
 	if userID == nil {
 		return nil, Error.New("invalid argument")
 	}
 
+	if service.conn == nil {
+		return nil, Error.New("no connection has been established")
+	}
+
+	client := service.conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		UserId: userID[:],
 	})

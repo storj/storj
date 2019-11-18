@@ -69,20 +69,19 @@ func (controller *Referrals) GetTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := controller.referralsService.ReferralManagerConn(ctx)
-	if err != nil && !referrals.ErrReferralsConfigMissing.Has(err) {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	client := conn.ReferralManagerClient()
-	tokens, err := controller.referralsService.GetTokens(ctx, client, userID)
+	err := controller.referralsService.ReferralManagerConn(ctx)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
 	}
+	defer func() {
+		err := controller.referralsService.CloseConn()
+		if err != nil {
+			controller.log.Debug("failed to close conncetion", err.Error())
+		}
+	}()
 
-	err = conn.Close()
+	tokens, err := controller.referralsService.GetTokens(ctx, userID)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
@@ -117,8 +116,18 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: validate referral token
+	err := controller.referralsService.ReferralManagerConn(ctx)
+	if err != nil {
+		controller.serveJSONError(w, err)
+		return
+	}
 
+	err := controller.referralsService.ReserveToken(ctx, registerData.ReferralToken)
+	if err != nil {
+
+		controller.serveJSONError(w, err)
+		return
+	}
 	// need to generate a registration token for the referred user?
 	user, err := controller.service.CreateUser(ctx,
 		console.CreateUser{
