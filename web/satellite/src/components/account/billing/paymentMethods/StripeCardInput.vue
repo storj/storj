@@ -17,7 +17,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { MetaUtils } from '@/utils/meta';
 
-// StripeCardInput encapsulates Stripe add card addition logic
+// StripeInput encapsulates Stripe add card addition logic
 @Component
 export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})

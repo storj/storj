@@ -29,7 +29,6 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
-        const segmentioId = MetaUtils.getMetaContent('segment-io');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);

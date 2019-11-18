@@ -105,6 +105,8 @@ type Server struct {
 
 	stripePublicKey string
 
+	stripePublicKey string
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -118,25 +120,17 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:              logger,
-		config:           config,
-		listener:         listener,
-		service:          service,
-		mailService:      mailService,
-		referralsService: referralsService,
-		partners:         partners,
-		stripePublicKey:  stripePublicKey,
-		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		stripePublicKey: stripePublicKey,
 	}
 
-	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
-
-	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
-		Name: "_tokenKey",
-		Path: "/",
-	})
+	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
@@ -273,31 +267,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName                   string
-		SegmentIOPublicKey              string
-		StripePublicKey                 string
-		VerificationPageURL             string
-		PartneredSatelliteNames         string
-		GoogleTagManagerID              string
-		DefaultProjectLimit             int
-		GeneralRequestURL               string
-		ProjectLimitsIncreaseRequestURL string
+		SatelliteName   string
+		StripePublicKey string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
-	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
-	data.VerificationPageURL = server.config.VerificationPageURL
-	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
-	data.GoogleTagManagerID = server.config.GoogleTagManagerID
-	data.DefaultProjectLimit = server.config.DefaultProjectLimit
-	data.GeneralRequestURL = server.config.GeneralRequestURL
-	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
-
-	if server.templates.index == nil {
-		server.log.Error("index template is not set")
-		return
-	}
 
 	if err := server.templates.index.Execute(w, data); err != nil {
 		server.log.Error("index template could not be executed", zap.Error(err))
