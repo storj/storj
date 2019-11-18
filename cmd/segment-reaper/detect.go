@@ -53,8 +53,8 @@ type Object struct {
 
 	hasLastSegment bool
 	// if skip is true segments from object should be removed from memory when last segment is found
-	// or iteration is finished,
-	// mark it as true if one of the segments from this object is newer then specified threshold
+	// or iteration is finished, mark it as true if one of the segments from this object is newer
+	// then specified threshold
 	skip bool
 }
 
@@ -119,7 +119,7 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 		if streamMeta.NumberOfSegments > 0 {
 			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
 				object.skip = true
-				zap.S().Warn("unsupported segment index", zap.Int64("index", streamMeta.NumberOfSegments))
+				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
 			}
 			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
 		}
