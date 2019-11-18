@@ -13,7 +13,11 @@ import "orders.proto";
 service Piecestore {
     rpc Upload(stream PieceUploadRequest) returns (PieceUploadResponse) {}
     rpc Download(stream PieceDownloadRequest) returns (stream PieceDownloadResponse) {}
-    rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {}
+    rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {
+      option deprecated = true;
+    }
+    // DeletePiece deletes a piece from a satellite request
+    rpc DeletePiece(DeletePieceRequest) returns (DeletePieceResponse);
     rpc Retain(RetainRequest) returns (RetainResponse);
 }
 
@@ -62,7 +66,7 @@ message PieceDownloadRequest {
         int64 offset = 1;
         int64 chunk_size = 2;
     }
-    
+
     // request for the chunk
     Chunk chunk = 3;
 }
@@ -83,6 +87,13 @@ message PieceDeleteRequest {
 }
 
 message PieceDeleteResponse {
+}
+
+message DeletePieceRequest {
+    bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+}
+
+message DeletePieceResponse {
 }
 
 message RetainRequest {
