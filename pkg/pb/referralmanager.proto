@@ -23,8 +23,8 @@ message GetTokensResponse {
 
 message RedeemTokenRequest {
     bytes token = 1;
-    bytes user_id = 2;
-    bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes redeem_user_id = 2;
+    bytes redeem_satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message RedeemTokenResponse {}
