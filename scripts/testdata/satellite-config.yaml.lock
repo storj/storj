@@ -652,15 +652,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
-# time limit for an entire repair job, from queue pop to upload completion
-# repairer.total-timeout: 45m0s
-
-# how often to flush the reported serial rollups to the database
-# reported-rollup.interval: 5m0s
-
-# default queue batch size
-# reported-rollup.queue-batch-size: 10000
-
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
