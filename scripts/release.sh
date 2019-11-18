@@ -28,7 +28,7 @@ fi
 
 echo Running "go $@"
 exec go "$1" -ldflags \
-	"-s -w -X storj.io/storj/internal/version.buildTimestamp=$TIMESTAMP
-         -X storj.io/storj/internal/version.buildCommitHash=$COMMIT
-         -X storj.io/storj/internal/version.buildVersion=$VERSION
-         -X storj.io/storj/internal/version.buildRelease=$RELEASE" "${@:2}"
+	"-s -w -X storj.io/storj/private/version.buildTimestamp=$TIMESTAMP
+         -X storj.io/storj/private/version.buildCommitHash=$COMMIT
+         -X storj.io/storj/private/version.buildVersion=$VERSION
+         -X storj.io/storj/private/version.buildRelease=$RELEASE" "${@:2}"

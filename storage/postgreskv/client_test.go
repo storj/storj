@@ -12,7 +12,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )

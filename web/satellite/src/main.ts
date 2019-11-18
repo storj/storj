@@ -6,6 +6,8 @@ import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsPlugin } from '@/utils/plugins/analytics';
+import { SegmentioPlugin } from '@/utils/plugins/segment';
+
 import App from './App.vue';
 import { router } from './router';
 import { store } from './store';
@@ -18,8 +20,10 @@ Vue.config.productionTip = false;
 
 const notificator = new NotificatorPlugin();
 const analytics = new AnalyticsPlugin();
+const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
+Vue.use(segment);
 
 // TODO: needs to have access to sgement ID served from the backend
 Vue.use(analytics, {

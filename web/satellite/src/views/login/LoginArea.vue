@@ -88,6 +88,10 @@ export default class Login extends Vue {
             return;
         }
 
+        if (window.self !== window.top) {
+            top.location.href = window.self.location.origin + '/project-overview/details';
+        }
+
         this.activateLoadingOverlay();
 
         setTimeout(() => {
