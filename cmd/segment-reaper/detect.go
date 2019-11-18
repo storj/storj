@@ -75,17 +75,17 @@ type Observer struct {
 	remoteSegments     int
 }
 
-// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
+// RemoteSegment process segment to collect data needed to detect zombie segment
 func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return observer.processSegment(ctx, path, pointer)
 }
 
-// InlineSegment returns nil because we're only auditing for storage nodes for now
+// InlineSegment process segment to collect data needed to detect zombie segment
 func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return observer.processSegment(ctx, path, pointer)
 }
 
-// Object returns nil because the audit service does not interact with objects
+// Object not used in this implementation
 func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
