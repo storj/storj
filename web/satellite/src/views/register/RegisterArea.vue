@@ -211,10 +211,6 @@ export default class RegisterArea extends Vue {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
-
-    /**
-     * Sets user's password field from value string.
-     */
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;
