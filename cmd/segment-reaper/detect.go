@@ -221,7 +221,7 @@ func findOrCreate(cluster Cluster, path string, objects ObjectsMap) *Object {
 	var object *Object
 	objectsMap, ok := objects[cluster]
 	if !ok {
-		objectsMap = make(map[string]*Object)
+		objectsMap = make(map[storj.Path]*Object)
 		objects[cluster] = objectsMap
 	}
 
