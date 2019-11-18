@@ -11,8 +11,8 @@ import (
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/private/readcloser"
 )
 
 var mon = monkit.Package()

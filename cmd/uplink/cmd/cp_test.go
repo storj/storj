@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/s3client"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/s3client"
+	"storj.io/storj/private/testrand"
 )
 
 var benchmarkCases = []struct {

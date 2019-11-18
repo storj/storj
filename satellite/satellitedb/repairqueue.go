@@ -7,8 +7,8 @@ import (
 	"context"
 	"database/sql"
 
-	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil/pgutil"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )

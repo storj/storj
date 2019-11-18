@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -154,11 +154,13 @@ func BenchmarkOverlay(b *testing.B) {
 						Timestamp:  now,
 						Release:    false,
 					},
-				}, overlay.NodeSelectionConfig{
-					UptimeReputationLambda: 0.99,
-					UptimeReputationWeight: 1.0,
-					UptimeReputationDQ:     0,
-				})
+				},
+					now,
+					overlay.NodeSelectionConfig{
+						UptimeReputationLambda: 0.99,
+						UptimeReputationWeight: 1.0,
+						UptimeReputationDQ:     0,
+					})
 				require.NoError(b, err)
 			}
 		})

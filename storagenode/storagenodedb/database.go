@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -15,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -233,7 +232,6 @@ func (db *DB) openDatabase(dbName string) error {
 
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return nil
 }
 
