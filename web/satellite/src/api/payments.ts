@@ -54,6 +54,24 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new Error('can not setup account');
     }
 
+    public async projectsCharges(): Promise<any> {
+        const path = `${this.ROOT_PATH}/account/charges`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not get projects charges');
+        }
+
+        // TODO: fiish mapping
+        const charges = await response.json();
+
+        return [];
+    }
+
     /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
