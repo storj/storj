@@ -16,14 +16,14 @@ import (
 // architecture: Database
 type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
-	// MonthSummary returns summary of the current months bandwidth usages
+	// MonthSummary returns summary of the current months bandwidth usages.
 	MonthSummary(ctx context.Context) (int64, error)
 	Rollup(ctx context.Context) (err error)
-	// Summary returns summary of bandwidth usages
+	// Summary returns summary of bandwidth usages.
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
-	// EgressSummary returns summary of egress bandwidth usages
+	// EgressSummary returns summary of egress bandwidth usages.
 	EgressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
-	// IngressSummary returns summary of ingress bandwidth usages
+	// IngressSummary returns summary of ingress bandwidth usages.
 	IngressSummary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)

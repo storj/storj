@@ -5,8 +5,9 @@ import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storag
 import {
     BandwidthUsed,
     Egress,
-    EgressBandwidthUsed,
-    Ingress, IngressBandwidthUsed,
+    EgressUsed,
+    Ingress,
+    IngressUsed,
     Metric,
     Satellite,
     Satellites,
@@ -78,16 +79,16 @@ export class SNOApi {
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
-        const egressBandwidthDaily: EgressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        const egressDaily: EgressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
 
-            return new EgressBandwidthUsed(egress, new Date(bandwidth.intervalStart));
+            return new EgressUsed(egress, new Date(bandwidth.intervalStart));
         });
 
-        const ingressBandwidthDaily: IngressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        const ingressDaily: IngressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
-            return new IngressBandwidthUsed(ingress, new Date(bandwidth.intervalStart));
+            return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
         });
 
         const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
@@ -96,7 +97,7 @@ export class SNOApi {
         const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
             json.uptime.beta, json.uptime.score);
 
-        return new Satellite(json.id, storageDaily, bandwidthDaily, egressBandwidthDaily, ingressBandwidthDaily,
+        return new Satellite(json.id, storageDaily, bandwidthDaily, egressDaily, ingressDaily,
             json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary,
             audit, uptime);
     }
@@ -122,19 +123,19 @@ export class SNOApi {
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
-        const egressBandwidthDaily: EgressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        const egressDaily: EgressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
 
-            return new EgressBandwidthUsed(egress, new Date(bandwidth.intervalStart));
+            return new EgressUsed(egress, new Date(bandwidth.intervalStart));
         });
 
-        const ingressBandwidthDaily: IngressBandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        const ingressDaily: IngressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
-            return new IngressBandwidthUsed(ingress, new Date(bandwidth.intervalStart));
+            return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
         });
 
-        return new Satellites(storageDaily, bandwidthDaily, egressBandwidthDaily, ingressBandwidthDaily,
+        return new Satellites(storageDaily, bandwidthDaily, egressDaily, ingressDaily,
             json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary);
     }
 }

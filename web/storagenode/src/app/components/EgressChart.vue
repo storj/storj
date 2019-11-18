@@ -3,9 +3,9 @@
 
 <template>
     <div class="chart">
-        <p class="egress-bandwidth-chart__data-dimension">{{chartDataDimension}}</p>
+        <p class="egress-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
-            id="egress-bandwidth-chart"
+            id="egress-chart"
             :chart-data="chartData"
             :width="400"
             :height="240"
@@ -22,18 +22,18 @@ import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { EgressBandwidthUsed } from '@/storagenode/satellite';
+import { EgressUsed } from '@/storagenode/satellite';
 
 /**
  * stores egress bandwidth data for egress bandwidth chart's tooltip
  */
-class EgressBandwidthTooltip {
+class EgressTooltip {
     public normalEgress: string;
     public repairEgress: string;
     public auditEgress: string;
     public date: string;
 
-    public constructor(bandwidth: EgressBandwidthUsed) {
+    public constructor(bandwidth: EgressUsed) {
         this.normalEgress = formatBytes(bandwidth.egress.usage);
         this.repairEgress = formatBytes(bandwidth.egress.repair);
         this.auditEgress = formatBytes(bandwidth.egress.audit);
@@ -50,12 +50,12 @@ export default class EgressChart extends Vue {
     private readonly TOOLTIP_OPACITY: string = '1';
     private readonly TOOLTIP_POSITION: string = 'absolute';
 
-    private get allBandwidth(): EgressBandwidthUsed[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressBandwidthChartData);
+    private get allBandwidth(): EgressUsed[] {
+        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
     }
 
     public get chartDataDimension(): string {
-        if (!this.$store.state.node.egressBandwidthChartData.length) {
+        if (!this.$store.state.node.egressChartData.length) {
             return 'Bytes';
         }
 
@@ -82,20 +82,20 @@ export default class EgressChart extends Vue {
 
     public egressBandwidthTooltip(tooltipModel): void {
         // Tooltip Element
-        let tooltipEl = document.getElementById('egress-bandwidth-tooltip');
+        let tooltipEl = document.getElementById('egress-tooltip');
         // Create element on first render
         if (!tooltipEl) {
             tooltipEl = document.createElement('div');
-            tooltipEl.id = 'egress-bandwidth-tooltip';
+            tooltipEl.id = 'egress-tooltip';
             document.body.appendChild(tooltipEl);
         }
 
         // Tooltip Arrow
-        let tooltipArrow = document.getElementById('egress-bandwidth-tooltip-arrow');
+        let tooltipArrow = document.getElementById('egress-tooltip-arrow');
         // Create element on first render
         if (!tooltipArrow) {
             tooltipArrow = document.createElement('div');
-            tooltipArrow.id = 'egress-bandwidth-tooltip-arrow';
+            tooltipArrow.id = 'egress-tooltip-arrow';
             document.body.appendChild(tooltipArrow);
         }
 
@@ -110,7 +110,7 @@ export default class EgressChart extends Vue {
         // Set Text
         if (tooltipModel.body) {
             const dataIndex = tooltipModel.dataPoints[0].index;
-            const dataPoint = new EgressBandwidthTooltip(this.allBandwidth[dataIndex]);
+            const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
 
             tooltipEl.innerHTML = `<div class='egress-tooltip-body'>
                                        <div class='egress-tooltip-body__info'>
@@ -132,7 +132,7 @@ export default class EgressChart extends Vue {
         }
 
         // `this` will be the overall tooltip
-        const bandwidthChart = document.getElementById('egress-bandwidth-chart');
+        const bandwidthChart = document.getElementById('egress-chart');
         if (bandwidthChart) {
             const position = bandwidthChart.getBoundingClientRect();
             tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
@@ -156,7 +156,7 @@ export default class EgressChart extends Vue {
         margin: 0;
     }
 
-    .egress-bandwidth-chart {
+    .egress-chart {
 
         &__data-dimension {
             font-size: 13px;
@@ -166,7 +166,7 @@ export default class EgressChart extends Vue {
         }
     }
 
-    #egress-bandwidth-tooltip {
+    #egress-tooltip {
         background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
@@ -179,7 +179,7 @@ export default class EgressChart extends Vue {
         pointer-events: none;
     }
 
-    #egress-bandwidth-tooltip-arrow {
+    #egress-tooltip-arrow {
         background-image: url('../../../static/images/tooltipArrow.png');
         background-repeat: no-repeat;
         background-size: 50px 30px;

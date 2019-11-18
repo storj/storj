@@ -4,7 +4,7 @@
 import { datesDiffInMinutes } from '@/app/utils/date';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
-import { BandwidthUsed, EgressBandwidthUsed, IngressBandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
+import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Stamp } from '@/storagenode/satellite';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',
@@ -63,8 +63,8 @@ export const node = {
         disqualifiedSatellites: new Array<SatelliteInfo>(),
         selectedSatellite: allSatellites,
         bandwidthChartData: new Array<BandwidthUsed>(),
-        egressBandwidthChartData: new Array<EgressBandwidthUsed>(),
-        ingressBandwidthChartData: new Array<IngressBandwidthUsed>(),
+        egressChartData: new Array<EgressUsed>(),
+        ingressChartData: new Array<IngressUsed>(),
         storageChartData: new Array<Stamp>(),
         storageSummary: 0,
         bandwidthSummary: 0,
@@ -130,8 +130,8 @@ export const node = {
             }
 
             state.bandwidthChartData = satelliteInfo.bandwidthDaily;
-            state.egressBandwidthChartData = satelliteInfo.egressBandwidthDaily;
-            state.ingressBandwidthChartData = satelliteInfo.ingressBandwidthDaily;
+            state.egressChartData = satelliteInfo.egressDaily;
+            state.ingressChartData = satelliteInfo.ingressDaily;
             state.storageChartData = satelliteInfo.storageDaily;
             state.bandwidthSummary = satelliteInfo.bandwidthSummary;
             state.egressSummary = satelliteInfo.egressSummary;
