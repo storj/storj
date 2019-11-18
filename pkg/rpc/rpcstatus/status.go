@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build grpc
-
 package rpcstatus
 
 import (
@@ -16,10 +14,11 @@ import (
 	"storj.io/drpc/drpcerr"
 )
 
-// StatusCode is the type of status codes for drpc.
+// StatusCode is an enumeration of rpc status codes.
 type StatusCode uint64
 
-// These constants are all the rpc error codes.
+// These constants are all the rpc error codes. It is important that
+// their numerical values do not change.
 const (
 	Unknown StatusCode = iota
 	OK
@@ -43,22 +42,22 @@ const (
 // Code returns the status code associated with the error.
 func Code(err error) StatusCode {
 	// special case: if the error is context canceled or deadline exceeded, the code
-	// must be those.
+	// must be those. additionally, grpc returns OK for a nil error, so we will, too.
 	switch err {
+	case nil:
+		return OK
 	case context.Canceled:
 		return Canceled
 	case context.DeadlineExceeded:
 		return DeadlineExceeded
 	default:
-		code := StatusCode(drpcerr.Code(err))
-		if code == Unknown {
-			// it's unknown, but it might be a known grpc error
-			grpccode := status.Code(err)
-			if grpccode != codes.Unknown {
-				return codeGRPCToDRPC(grpccode)
-			}
+		if code := StatusCode(drpcerr.Code(err)); code != Unknown {
+			return code
 		}
-		return code
+		if grpccode := status.Code(err); grpccode != codes.Unknown {
+			return statusCodeFromGRPC(grpccode)
+		}
+		return Unknown
 	}
 }
 
@@ -66,8 +65,8 @@ func Code(err error) StatusCode {
 func Error(code StatusCode, msg string) error {
 	return &codeErr{
 		err:  errors.New(msg),
-		code: uint64(code),
-		grpc: status.New(codeDRPCToGRPC(code), msg),
+		code: code,
+		grpc: status.New(code.toGRPC(), msg),
 	}
 }
 
@@ -75,26 +74,27 @@ func Error(code StatusCode, msg string) error {
 func Errorf(code StatusCode, format string, a ...interface{}) error {
 	return &codeErr{
 		err:  fmt.Errorf(format, a...),
-		code: uint64(code),
-		grpc: status.Newf(codeDRPCToGRPC(code), format, a...),
+		code: code,
+		grpc: status.Newf(code.toGRPC(), format, a...),
 	}
 }
 
 // codeErr implements error that can work both in grpc and drpc.
 type codeErr struct {
 	err  error
-	code uint64
+	code StatusCode
 	grpc *status.Status
 }
 
 func (c *codeErr) Error() string              { return c.err.Error() }
 func (c *codeErr) Unwrap() error              { return c.err }
 func (c *codeErr) Cause() error               { return c.err }
-func (c *codeErr) Code() uint64               { return c.code }
+func (c *codeErr) Code() uint64               { return uint64(c.code) }
 func (c *codeErr) GRPCStatus() *status.Status { return c.grpc }
 
-func codeDRPCToGRPC(code StatusCode) codes.Code {
-	switch code {
+// toGRPC returns the grpc version of the status code.
+func (s StatusCode) toGRPC() codes.Code {
+	switch s {
 	case Unknown:
 		return codes.Unknown
 	case OK:
@@ -134,7 +134,8 @@ func codeDRPCToGRPC(code StatusCode) codes.Code {
 	}
 }
 
-func codeGRPCToDRPC(code codes.Code) StatusCode {
+// statusCodeFromGRPC turns the grpc status code into a StatusCode.
+func statusCodeFromGRPC(code codes.Code) StatusCode {
 	switch code {
 	case codes.Unknown:
 		return Unknown
