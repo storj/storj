@@ -116,21 +116,28 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, err := uuid.New()
+	if err != nil {
+		controller.serveJSONError(w, err)
+		return
+	}
+
 	err := controller.referralsService.ReferralManagerConn(ctx)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
 	}
 
-	err := controller.referralsService.ReserveToken(ctx, registerData.ReferralToken)
+	err := controller.referralsService.RedeemToken(ctx, userID)
 	if err != nil {
-
 		controller.serveJSONError(w, err)
 		return
 	}
+
 	// need to generate a registration token for the referred user?
 	user, err := controller.service.CreateUser(ctx,
 		console.CreateUser{
+			ID:        userID,
 			FullName:  registerData.FullName,
 			ShortName: registerData.ShortName,
 			Email:     registerData.Email,
@@ -144,8 +151,6 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		controller.serveJSONError(w, err)
 		return
 	}
-
-	//TODO: save user id to referral manager
 
 	token, err := controller.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {

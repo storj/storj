@@ -53,7 +53,7 @@ func (service *Service) ReferralManagerConn(ctx context.Context) (err error) {
 		return ErrReferralsConfigMissing.New("")
 	}
 
-	s.conn, err = service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
+	service.conn, err = service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -97,6 +97,11 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 	}
 
 	return tokens, nil
+}
+
+func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID) error {
+	// TODO implement acutal logic
+	return nil
 }
 
 // bytesToUUID is used to convert []byte to UUID
