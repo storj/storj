@@ -1,7 +1,200 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !windows
+package main
+
+import (
+	"archive/zip"
+	"bufio"
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
+	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/sync2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
+)
+
+const (
+	updaterServiceName = "storagenode-updater"
+	minCheckInterval   = time.Minute
+)
+
+var (
+	cancel context.CancelFunc
+	// TODO: replace with config value of random bytes in storagenode config.
+	nodeID storj.NodeID
+
+	rootCmd = &cobra.Command{
+		Use:   "storagenode-updater",
+		Short: "Version updater for storage node",
+	}
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run the storagenode-updater for storage node",
+		Args:  cobra.OnlyValidArgs,
+		RunE:  cmdRun,
+	}
+
+	runCfg struct {
+		// TODO: check interval default has changed from 6 hours to 15 min.
+		checker.Config
+		Identity identity.Config
+
+		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
+		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		// NB: can't use `log.output` because windows service command args containing "." are bugged.
+		Log string `help:"path to log file, if empty standard output will be used" default:""`
+	}
+
+	confDir     string
+	identityDir string
+)
+
+func init() {
+	// TODO: this will probably generate warnings for mismatched config fields.
+	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
+
+	rootCmd.AddCommand(runCmd)
+
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+}
+
+func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	closeLog, err := openLog()
+	defer func() { err = errs.Combine(err, closeLog()) }()
+
+	if !fileExists(runCfg.BinaryLocation) {
+		log.Fatal("unable to find storage node executable binary")
+	}
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		log.Fatalf("error loading identity: %s", err)
+	}
+	nodeID = ident.ID
+	if nodeID.IsZero() {
+		log.Fatal("empty node ID")
+	}
+
+	var ctx context.Context
+	ctx, cancel = process.Ctx(cmd)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-c
+
+		signal.Stop(c)
+		cancel()
+	}()
+
+	loopFunc := func(ctx context.Context) (err error) {
+		if err := update(ctx, runCfg.BinaryLocation, runCfg.ServiceName); err != nil {
+			// don't finish loop in case of error just wait for another execution
+			log.Println(err)
+		}
+
+		updaterBinName := os.Args[0]
+		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
+			// don't finish loop in case of error just wait for another execution
+			log.Println(err)
+		}
+		return nil
+	}
+
+	switch {
+	case runCfg.CheckInterval <= 0:
+		err = loopFunc(ctx)
+	case runCfg.CheckInterval < minCheckInterval:
+		log.Printf("check interval below minimum: \"%s\", setting to %s", runCfg.CheckInterval, minCheckInterval)
+		runCfg.CheckInterval = minCheckInterval
+		fallthrough
+	default:
+		loop := sync2.NewCycle(runCfg.CheckInterval)
+		err = loop.Run(ctx, loopFunc)
+	}
+	if err != nil && !errs2.IsCanceled(err) {
+		log.Fatal(err)
+	}
+	return nil
+}
+
+func update(ctx context.Context, binPath, serviceName string) (err error) {
+	if nodeID.IsZero() {
+		log.Fatal("empty node ID")
+	}
+
+	var currentVersion version.SemVer
+	if serviceName == updaterServiceName {
+		// TODO: find better way to check this binary version
+		currentVersion = version.Build.Version
+	} else {
+		currentVersion, err = binaryVersion(binPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	client := checker.New(runCfg.ClientConfig)
+	log.Println("downloading versions from", runCfg.ServerAddress)
+	processVersion, err := client.Process(ctx, serviceName)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// TODO: consolidate semver.Version and version.SemVer
+	suggestedVersion, err := processVersion.Suggested.SemVer()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if currentVersion.Compare(suggestedVersion) >= 0 {
+		log.Printf("%s version is up to date\n", serviceName)
+		return nil
+	}
+
+	if !version.ShouldUpdate(processVersion.Rollout, nodeID) {
+		log.Printf("new %s version available but not rolled out to this nodeID yet\n", serviceName)
+		return nil
+	}
+
+	tempArchive, err := ioutil.TempFile("", serviceName)
+	if err != nil {
+		return errs.New("cannot create temporary archive: %v", err)
+	}
+	defer func() {
+		err = errs.Combine(err,
+			tempArchive.Close(),
+			os.Remove(tempArchive.Name()),
+		)
+	}()
 
 package main
 

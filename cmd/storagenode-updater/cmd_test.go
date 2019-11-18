@@ -110,6 +110,9 @@ func TestAutoUpdater(t *testing.T) {
 		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Service": "storagenode-updater"}`) {
 			t.Log(logStr)
 		}
+		if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
+			t.Log(logStr)
+		}
 	} else {
 		t.Log(string(out))
 	}
@@ -128,18 +131,6 @@ func TestAutoUpdater(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, backupUpdaterInfo)
 	require.NotZero(t, backupUpdaterInfo.Size())
-}
-
-// CompileWithVersion compiles the specified package with the version variables set
-// to the passed version info values and returns the executable name.
-func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info) string {
-	ldFlagsX := map[string]string{
-		"storj.io/private/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
-		"storj.io/private/version.buildCommitHash": info.CommitHash,
-		"storj.io/private/version.buildVersion":    info.Version.String(),
-		"storj.io/private/version.buildRelease":    strconv.FormatBool(info.Release),
-	}
-	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
 
 func move(t *testing.T, src, dst string) {
