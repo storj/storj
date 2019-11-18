@@ -200,7 +200,6 @@ waitformore:
 				path := ScopedPath{
 					Raw:             rawPath,
 					ProjectIDString: pathElements[0],
-					Segment:         pathElements[1],
 					BucketName:      pathElements[2],
 				}
 
