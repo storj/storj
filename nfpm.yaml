@@ -26,6 +26,8 @@ license: "MIT"
 bindir: "/usr/local/bin"
 files:
   ./bin/storagenode: "/usr/local/bin/storagenode"
+  ./scripts/storagenode-service.sh: "/etc/init.d/storagenode.sh"
+  /home/fadila/.local/share/storj/storagenode/config.yaml: "/etc/config.yaml"
 #config_files:
 #  ./foobar.conf: "/etc/foobar.conf"
 #overrides:
