@@ -7,8 +7,6 @@ option go_package = "pb";
 
 package encryption_access;
 
-import "gogo.proto";
-
 message EncryptionAccess {
     message StoreEntry {
         bytes bucket = 1;
