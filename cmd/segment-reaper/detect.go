@@ -184,7 +184,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	writer := csv.NewWriter(file)
 	defer func() {
 		writer.Flush()
-		err = writer.Error()
+		err = errs.Combine(err, writer.Error())
 	}()
 
 	headers := []string{
