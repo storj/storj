@@ -72,7 +72,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			{
 				DB:          testDB,
 				Description: "Initialize Table",
-				Version:     1,
+				Version:     65,
 				Action: migrate.SQL{
 					`CREATE TABLE users (id int)`,
 					`INSERT INTO users (id) VALUES (1)`,
@@ -81,7 +81,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			{
 				DB:          testDB,
 				Description: "Move files",
-				Version:     2,
+				Version:     66,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
@@ -95,7 +95,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	var version int
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, version)
+	assert.Equal(t, 66, version)
 
 	var id int
 	err = db.QueryRow(`SELECT MAX(id) FROM users`).Scan(&id)
@@ -148,7 +148,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			{
 				DB:          testDB,
 				Description: "Step 1",
-				Version:     1,
+				Version:     65,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
@@ -157,7 +157,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			{
 				DB:          testDB,
 				Description: "Step 2",
-				Version:     2,
+				Version:     66,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
@@ -173,7 +173,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	m.Steps = append(m.Steps, &migrate.Step{
 		DB:          testDB,
 		Description: "Step 3",
-		Version:     3,
+		Version:     67,
 		Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 			steps++
 			return nil
@@ -185,7 +185,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	var version int
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
 	assert.NoError(t, err)
-	assert.Equal(t, 3, version)
+	assert.Equal(t, 67, version)
 
 	assert.Equal(t, 3, steps)
 }
@@ -223,7 +223,7 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			{
 				DB:          testDB,
 				Description: "Step 1",
-				Version:     1,
+				Version:     65,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return fmt.Errorf("migration failed")
 				}),
@@ -246,27 +246,27 @@ func TestTargetVersion(t *testing.T) {
 		Steps: []*migrate.Step{
 			{
 				Description: "Step 1",
-				Version:     1,
+				Version:     65,
 				Action:      migrate.SQL{},
 			},
 			{
 				Description: "Step 2",
-				Version:     2,
+				Version:     66,
 				Action:      migrate.SQL{},
 			},
 			{
 				Description: "Step 2.2",
-				Version:     2,
+				Version:     66,
 				Action:      migrate.SQL{},
 			},
 			{
 				Description: "Step 3",
-				Version:     3,
+				Version:     67,
 				Action:      migrate.SQL{},
 			},
 		},
 	}
-	testedMigration := m.TargetVersion(2)
+	testedMigration := m.TargetVersion(66)
 	assert.Equal(t, 3, len(testedMigration.Steps))
 }
 
@@ -275,16 +275,16 @@ func TestInvalidStepsOrder(t *testing.T) {
 		Table: "test",
 		Steps: []*migrate.Step{
 			{
-				Version: 0,
+				Version: 65,
 			},
 			{
-				Version: 1,
+				Version: 66,
 			},
 			{
-				Version: 4,
+				Version: 68,
 			},
 			{
-				Version: 2,
+				Version: 67,
 			},
 		},
 	}

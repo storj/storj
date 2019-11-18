@@ -133,10 +133,9 @@ func (migration *Migration) Run(log *zap.Logger) error {
 	}
 
 	for _, step := range migration.Steps {
-		// since we merged all the migration steps,
-		// the steps can only be version 0 or greater than 65
-		if step.Version > 0 && step.Version < 65 {
-			return Error.New("step.Version can only be 0 or greater than 65, actual = %d", step.Version)
+		// since we merged migration steps 0-64, the step.Version should never be less than 65
+		if step.Version < 65 {
+			return Error.New("step.Version is %d, it should not be less than 65", step.Version)
 		}
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
