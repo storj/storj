@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -27,6 +25,8 @@ import (
 	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
 )
 
 // TODO: test sad path

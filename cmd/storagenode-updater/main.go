@@ -26,15 +26,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/sync2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 )
 
 const (
@@ -121,12 +121,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			log.Println(err)
 		}
 
-		// TODO: enable self-autoupdate back when having reliable recovery mechanism
-		//updaterBinName := os.Args[0]
-		//if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
-		//	// don't finish loop in case of error just wait for another execution
-		//	log.Println(err)
-		//}
+		updaterBinName := os.Args[0]
+		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
+			// don't finish loop in case of error just wait for another execution
+			log.Println(err)
+		}
 		return nil
 	}
 
@@ -339,10 +338,6 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
-func main() {
-	process.Exec(rootCmd)
-}
-
 // TODO: improve logging; other commands use zap but due to an apparent
 // windows bug we're unable to use the existing process logging infrastructure.
 func openLog() (closeFunc func() error, err error) {
@@ -358,4 +353,8 @@ func openLog() (closeFunc func() error, err error) {
 		return logFile.Close, nil
 	}
 	return closeFunc, nil
+}
+
+func main() {
+	process.Exec(rootCmd)
 }
