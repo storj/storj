@@ -77,6 +77,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			interval := initialBackOff
 			attempts := 0
 			for {
+
+				mon.Counter("satellite.request").Inc(1)
+
 				err := chore.pingSatellite(ctx, satellite)
 				attempts++
 				if err == nil {
