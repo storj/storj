@@ -29,12 +29,6 @@ message ReserveTokenRequest {
 }
 
 message ReserveTokenResponse{
-    enum Status {
-        ACCEPTED = 0;
-        INVALID = 1;
-        NOT_FOUND = 2;
-    }
-    Status status = 1;
 }
 
 message RedeemTokenRequest {
@@ -44,9 +38,4 @@ message RedeemTokenRequest {
 }
 
 message RedeemTokenResponse {
-    enum Status {
-        SUCCESS = 0;
-        FAIL = 1;
-    }
-    Status status = 1;
 }
