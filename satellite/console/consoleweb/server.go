@@ -83,6 +83,8 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
+	stripePublicKey string
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -96,13 +98,14 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		stripePublicKey: stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -214,10 +217,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	var data struct {
-		SatelliteName string
+		SatelliteName   string
+		StripePublicKey string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
