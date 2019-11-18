@@ -99,11 +99,7 @@ func (migration *Migration) ValidateSteps() error {
 
 // ValidateVersions checks that the version of the migration matches the state of the database
 func (migration *Migration) ValidateVersions(log *zap.Logger) error {
-	DBsLatestVersion := map[DB]int{}
 	for _, step := range migration.Steps {
-		if step.Version > DBsLatestVersion[step.DB] {
-			DBsLatestVersion[step.DB] = step.Version
-		}
 		dbVersion, err := migration.getLatestVersion(log, step.DB)
 		if err != nil {
 			return ErrValidateVersionQuery.Wrap(err)
@@ -111,19 +107,6 @@ func (migration *Migration) ValidateVersions(log *zap.Logger) error {
 
 		if step.Version > dbVersion {
 			return ErrValidateVersionMismatch.New("expected %d <= %d", step.Version, dbVersion)
-		}
-	}
-
-	// confirm that each database version matches the latest migration version
-	for db, latestVersion := range DBsLatestVersion {
-		dbVersion, err := migration.getLatestVersion(log, db)
-		if err != nil {
-			return ErrValidateVersionQuery.Wrap(err)
-		}
-		if latestVersion != dbVersion {
-			return ErrValidateVersionMismatch.New("expected latest migration version (%d) to equal actual database version (%d)",
-				latestVersion, dbVersion,
-			)
 		}
 	}
 
@@ -150,6 +133,11 @@ func (migration *Migration) Run(log *zap.Logger) error {
 	}
 
 	for _, step := range migration.Steps {
+		// since we merged all the migration steps,
+		// the steps can only be version 0 or greater than 65
+		if step.Version > 0 && step.Version < 65 {
+			return Error.New("step.Version can only be 0 or greater than 65, actual = %d", step.Version)
+		}
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
