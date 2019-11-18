@@ -36,6 +36,7 @@ type Observer interface {
 type ScopedPath struct {
 	ProjectID       uuid.UUID
 	ProjectIDString string
+	Segment         string
 	BucketName      string
 	ObjectPath      string
 
@@ -253,6 +254,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				path := ScopedPath{
 					Raw:             rawPath,
 					ProjectIDString: pathElements[0],
+					Segment:         pathElements[1],
 					BucketName:      pathElements[2],
 					ObjectPath:      storj.JoinPaths(pathElements[3:]...),
 				}
