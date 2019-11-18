@@ -130,7 +130,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	for _, pending := range report.PendingAudits {
 		skip[pending.NodeID] = true
 	}
-	for _, nodeID := range report.Skipped {
+	for _, nodeID := range report.Unknown {
 		skip[nodeID] = true
 	}
 

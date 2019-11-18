@@ -811,7 +811,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		require.Len(t, report.Fails, 0)
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 1)
-		require.Len(t, report.Skipped, 0)
+		require.Len(t, report.Unknown, 0)
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 	})
 }
