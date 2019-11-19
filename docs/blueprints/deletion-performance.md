@@ -151,7 +151,7 @@ Taking one of these approaches will require a study on how to keep the less amou
 
 1. Adapt protocol buffers definitions for delete operation.
        Satellite doesn't have to send order limits; it only has to send piece ID.
-1. Create a new endpoint to receive delete requests from the satellite.
+1. Adapt the delete endpoint to receive requests from the satellite.
 
 ### (2) Satellite:
 
