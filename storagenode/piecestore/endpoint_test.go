@@ -324,7 +324,7 @@ func TestDelete(t *testing.T) {
 	planet.Start(ctx)
 
 	pieceID := storj.PieceID{1}
-	_, _, _ = uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+	uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
 
@@ -643,7 +643,7 @@ func downloadPiece(
 		if err != nil {
 			// Ignore err in Close if an error happened in Download because it's also
 			// returned by Close.
-			downloader.Close()
+			_ = downloader.Close()
 			return
 		}
 
