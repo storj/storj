@@ -9,19 +9,15 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 )
 
-var (
-	// Error is the default error class for referrals package.
-	Error = errs.Class("referrals")
-
-	// ErrReferralsConfigMissing is a error class for reporting missing referrals service configuration
-	ErrReferralsConfigMissing = errs.Class("misssing referrals service configuration")
-)
+// ErrReferralsConfigMissing is a error class for reporting missing referrals service configuration.
+var ErrReferralsConfigMissing = errs.Class("misssing referrals service configuration")
 
 type Config struct {
 	ReferralManagerURL storj.NodeURL
@@ -35,7 +31,6 @@ type Service struct {
 	signer signing.Signer
 	config Config
 	dialer rpc.Dialer
-	conn   *rpc.Conn
 }
 
 // NewService returns a service for handling referrals information.
@@ -48,42 +43,24 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 	}
 }
 
-func (service *Service) ReferralManagerConn(ctx context.Context) (err error) {
-	if service.config.ReferralManagerURL.IsZero() {
-		return ErrReferralsConfigMissing.New("")
-	}
-
-	service.conn, err = service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (service *Service) CloseConn() error {
-	if service.conn == nil {
-		return Error.New("connection has been closed")
-	}
-
-	return service.conn.Close()
-}
-
 func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
+	conn, err := service.referralManagerConn(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	defer conn.Close()
+
 	if userID.IsZero() {
-		return nil, Error.New("invalid argument")
+		return nil, errs.New("invalid argument")
 	}
 
-	if service.conn == nil {
-		return nil, Error.New("no connection has been established")
-	}
-
-	client := service.conn.ReferralManagerClient()
+	client := conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		UserId: userID[:],
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
 	tokensInBytes := response.GetToken()
@@ -99,26 +76,41 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 	return tokens, nil
 }
 
-func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID, token *uuid.UUID) error {
-	if userID.IsZero() || token.IsZero() {
-		return Error.New("invalid argument")
+func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID, token string) error {
+	conn, err := service.referralManagerConn(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer conn.Close()
+
+	if userID.IsZero() || len(token) == 0 {
+		return errs.New("invalid argument")
 	}
 
-	if service.conn == nil {
-		return Error.New("no connection has been established")
+	referralToken, err := uuid.Parse(token)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
-	client := service.conn.ReferralManagerClient()
-	_, err := client.RedeemToken(ctx, &pb.RedeemTokenRequest{
-		Token:             token[:],
+	client := conn.ReferralManagerClient()
+	_, err = client.RedeemToken(ctx, &pb.RedeemTokenRequest{
+		Token:             referralToken[:],
 		RedeemUserId:      userID[:],
 		RedeemSatelliteId: service.signer.ID(),
 	})
 	if err != nil {
-		return Error.Wrap(err)
+		return errs.Wrap(err)
 	}
 
 	return nil
+}
+
+func (service *Service) referralManagerConn(ctx context.Context) (*rpc.Conn, error) {
+	if service.config.ReferralManagerURL.IsZero() {
+		return nil, ErrReferralsConfigMissing.New("")
+	}
+
+	return service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
 }
 
 // bytesToUUID is used to convert []byte to UUID

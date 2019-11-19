@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -72,6 +73,7 @@ type Service struct {
 	projectAccounting accounting.ProjectAccounting
 	rewards           rewards.DB
 	partners          *rewards.PartnersService
+	referrals         *referrals.Service
 	accounts          payments.Accounts
 
 	passwordCost int
@@ -83,7 +85,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, rewards rewards.DB, partners *rewards.PartnersService, referrals *referrals.Service, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -104,6 +106,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		projectAccounting: projectAccounting,
 		rewards:           rewards,
 		partners:          partners,
+		referrals:         referrals,
 		accounts:          accounts,
 		passwordCost:      passwordCost,
 	}, nil
@@ -270,16 +273,26 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *paymen
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, referralToken string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
+	userID, err := uuid.New()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = s.referrals.RedeemToken(ctx, userID, referralToken)
+	if err != nil && !referrals.ErrReferralsConfigMissing.Has(err) {
+		return nil, Error.Wrap(err)
+	}
+
 	offerType := rewards.FreeCredit
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
-	} else if refUserID != "" {
+	} else if referralToken != "" {
 		offerType = rewards.Referral
 	}
 
@@ -362,14 +375,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
-			var refID *uuid.UUID
-			if refUserID != "" {
-				refID, err = uuid.Parse(refUserID)
+			var refToken *uuid.UUID
+			if referralToken != "" {
+				refToken, err = uuid.Parse(referralToken)
 				if err != nil {
 					return Error.Wrap(err)
 				}
 			}
-			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refToken)
 			if err != nil {
 				return err
 			}

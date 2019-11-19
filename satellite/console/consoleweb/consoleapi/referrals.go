@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -53,35 +52,13 @@ func (controller *Referrals) GetTokens(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var tokensRequest struct {
-		UserID string `json:"userId"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&tokensRequest)
+	auth, err := console.GetAuth(ctx)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
 	}
 
-	userID, err := uuid.Parse(tokensRequest.UserID)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	err = controller.referralsService.ReferralManagerConn(ctx)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-	defer func() {
-		err := controller.referralsService.CloseConn()
-		if err != nil {
-			controller.log.Debug("failed to close conncetion", zap.Error(err))
-		}
-	}()
-
-	tokens, err := controller.referralsService.GetTokens(ctx, userID)
+	tokens, err := controller.referralsService.GetTokens(ctx, &auth.User.ID)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
@@ -111,30 +88,6 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	userID, err := uuid.New()
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	err = controller.referralsService.ReferralManagerConn(ctx)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	referralToken, err := uuid.Parse(registerData.ReferralToken)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	err = controller.referralsService.RedeemToken(ctx, userID, referralToken)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
@@ -199,7 +152,7 @@ func (controller *Referrals) serveJSONError(w http.ResponseWriter, err error) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		controller.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
+		controller.log.Error("failed to write json error response", zap.Error(ErrReferralsAPI.Wrap(err)))
 	}
 }
 
