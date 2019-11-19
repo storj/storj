@@ -276,6 +276,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
+	userID, err := uuid.New()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: validate referral token
+
 	offerType := rewards.FreeCredit
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
@@ -300,7 +307,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// when user uses an open source partner referral link, there won't be a registration token in the link.
 	// therefore, we need to create one so we can still control the project limit on the account level
 	var registrationToken *RegistrationToken
-	if user.PartnerID != "" {
+	if user.PartnerID != "" || user.ReferralToken != "" {
 		// set the project limit to be 1 for open source partner invitees
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
 		if err != nil {
@@ -335,10 +342,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
-		userID, err := uuid.New()
-		if err != nil {
-			return Error.Wrap(err)
-		}
 		newUser := &User{
 			ID:           *userID,
 			Email:        user.Email,
