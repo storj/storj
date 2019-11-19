@@ -178,36 +178,9 @@ func TestDownload(t *testing.T) {
 
 	planet.Start(ctx)
 
-	// upload test piece
+	pieceID := storj.PieceID{1}
+	expectedData, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
-	defer ctx.Check(client.Close)
-
-	expectedData := testrand.Bytes(10 * memory.KiB)
-	serialNumber := testrand.SerialNumber()
-
-	orderLimit, piecePrivateKey := GenerateOrderLimit(
-		t,
-		planet.Satellites[0].ID(),
-		planet.StorageNodes[0].ID(),
-		storj.PieceID{1},
-		pb.PieceAction_PUT,
-		serialNumber,
-		24*time.Hour,
-		24*time.Hour,
-		int64(len(expectedData)),
-	)
-	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-	require.NoError(t, err)
-
-	uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-	require.NoError(t, err)
-
-	_, err = uploader.Write(expectedData)
-	require.NoError(t, err)
-
-	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -216,7 +189,7 @@ func TestDownload(t *testing.T) {
 		errs    []string
 	}{
 		{ // should successfully download data
-			pieceID: orderLimit.PieceId,
+			pieceID: pieceID,
 			action:  pb.PieceAction_GET,
 		},
 		{ // should err with piece ID not specified
@@ -230,7 +203,7 @@ func TestDownload(t *testing.T) {
 			errs:    []string{"file does not exist", "The system cannot find the path specified"},
 		},
 		{ // should successfully download data
-			pieceID: orderLimit.PieceId,
+			pieceID: pieceID,
 			action:  pb.PieceAction_PUT,
 			errs:    []string{"expected get or get repair or audit action got PUT"},
 		},
@@ -289,39 +262,14 @@ func TestDownloadGetRepair(t *testing.T) {
 
 	planet.Start(ctx)
 
-	// upload test piece
+	pieceID := storj.PieceID{1}
+	expectedData, ulOrderLimit, originHash := uploadPiece(
+		t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0],
+	)
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
-	defer ctx.Check(client.Close)
 
-	expectedData := testrand.Bytes(10 * memory.KiB)
 	serialNumber := testrand.SerialNumber()
-
-	ulOrderLimit, piecePrivateKey := GenerateOrderLimit(
-		t,
-		planet.Satellites[0].ID(),
-		planet.StorageNodes[0].ID(),
-		storj.PieceID{1},
-		pb.PieceAction_PUT,
-		serialNumber,
-		24*time.Hour,
-		24*time.Hour,
-		int64(len(expectedData)),
-	)
-	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	ulOrderLimit, err = signing.SignOrderLimit(ctx, signer, ulOrderLimit)
-	require.NoError(t, err)
-
-	uploader, err := client.Upload(ctx, ulOrderLimit, piecePrivateKey)
-	require.NoError(t, err)
-
-	_, err = uploader.Write(expectedData)
-	require.NoError(t, err)
-
-	originHash, err := uploader.Commit(ctx)
-	require.NoError(t, err)
-
-	serialNumber = testrand.SerialNumber()
 
 	dlOrderLimit, piecePrivateKey := GenerateOrderLimit(
 		t,
@@ -334,6 +282,7 @@ func TestDownloadGetRepair(t *testing.T) {
 		24*time.Hour,
 		int64(len(expectedData)),
 	)
+	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 	dlOrderLimit, err = signing.SignOrderLimit(ctx, signer, dlOrderLimit)
 	require.NoError(t, err)
 
@@ -374,36 +323,9 @@ func TestDelete(t *testing.T) {
 
 	planet.Start(ctx)
 
-	// upload test piece
+	pieceID := storj.PieceID{1}
+	_, _, _ = uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
-	defer ctx.Check(client.Close)
-
-	expectedData := testrand.Bytes(10 * memory.KiB)
-	serialNumber := testrand.SerialNumber()
-
-	orderLimit, piecePrivateKey := GenerateOrderLimit(
-		t,
-		planet.Satellites[0].ID(),
-		planet.StorageNodes[0].ID(),
-		storj.PieceID{1},
-		pb.PieceAction_PUT,
-		serialNumber,
-		24*time.Hour,
-		24*time.Hour,
-		int64(len(expectedData)),
-	)
-	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-	require.NoError(t, err)
-
-	uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-	require.NoError(t, err)
-
-	_, err = uploader.Write(expectedData)
-	require.NoError(t, err)
-
-	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -412,7 +334,7 @@ func TestDelete(t *testing.T) {
 		err     string
 	}{
 		{ // should successfully delete data
-			pieceID: orderLimit.PieceId,
+			pieceID: pieceID,
 			action:  pb.PieceAction_DELETE,
 			err:     "",
 		},
@@ -427,7 +349,7 @@ func TestDelete(t *testing.T) {
 			err:     "missing piece id",
 		},
 		{ // should err due to incorrect action
-			pieceID: orderLimit.PieceId,
+			pieceID: pieceID,
 			action:  pb.PieceAction_GET,
 			err:     "expected delete action got GET",
 		},
@@ -587,4 +509,45 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.
 		PieceExpiration: now.Add(pieceExpiration),
 		Limit:           limit,
 	}, piecePrivateKey
+}
+
+// uploadPiece uploads piece to storageNode.
+func uploadPiece(
+	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, storageNode *storagenode.Peer,
+	uplink *testplanet.Uplink, satellite *testplanet.SatelliteSystem,
+) (uploadedData []byte, _ *pb.OrderLimit, _ *pb.PieceHash) {
+	t.Helper()
+
+	client, err := uplink.DialPiecestore(ctx, storageNode)
+	require.NoError(t, err)
+	defer ctx.Check(client.Close)
+
+	serialNumber := testrand.SerialNumber()
+	uploadedData = testrand.Bytes(10 * memory.KiB)
+
+	orderLimit, piecePrivateKey := GenerateOrderLimit(
+		t,
+		satellite.ID(),
+		storageNode.ID(),
+		piece,
+		pb.PieceAction_PUT,
+		serialNumber,
+		24*time.Hour,
+		24*time.Hour,
+		int64(len(uploadedData)),
+	)
+	signer := signing.SignerFromFullIdentity(satellite.Identity)
+	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+	require.NoError(t, err)
+
+	uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
+	require.NoError(t, err)
+
+	_, err = uploader.Write(uploadedData)
+	require.NoError(t, err)
+
+	hash, err := uploader.Commit(ctx)
+	require.NoError(t, err)
+
+	return uploadedData, orderLimit, hash
 }
