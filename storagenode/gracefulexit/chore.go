@@ -54,8 +54,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		mon.Counter("satellite.request").Inc(1)
-
 		chore.log.Debug("checking pending exits")
 
 		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
@@ -70,6 +68,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, satellite := range satellites {
+			mon.Counter("satellite_gracefulexit_request").Inc(1) //locked
 			if satellite.FinishedAt != nil {
 				continue
 			}
