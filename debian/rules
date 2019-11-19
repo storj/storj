@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+GO_VERSION ?= 1.13.4
+TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+CONFIG = /home/fadila/.local/share/storj/storagenode/config.yaml
+# For now we embed identity files
+IDENTITYDIR = /home/fadila/.local/share/storj/local-network/storagenode/4
+PKGDIR = debian/storagenode
+%:
+	dh $@
+
+override_dh_auto_clean:
+	rm -f ${PKGDIR}/usr/bin/storagenode
+	rm -f ${PKGDIR}/usr/bin/storagenode-updater 
+	rm -f ${PKGDIR}/etc/storagenode/config.yaml
+override_dh_auto_test:
+override_dh_auto_build:
+	#make build-dev-deps
+	#make storagenode_linux_amd64
+	#make storagenode-updater_linux_amd64
+override_dh_auto_install:
+	mkdir -p ${PKGDIR}/usr/bin
+	mkdir -p ${PKGDIR}/etc/storagenode
+	mkdir -p ${PKGDIR}/var/storagenode
+	cp release/bin/storagenode_linux_amd64 ${PKGDIR}/usr/bin/storagenode
+	cp release/bin/storagenode-updater_linux_amd64 ${PKGDIR}/usr/bin/storagenode-updater
+	cp ${CONFIG} ${PKGDIR}/etc/storagenode/
+	cp ${IDENTITYDIR}/identity.cert ${PKGDIR}/etc/storagenode
+	cp ${IDENTITYDIR}/identity.key ${PKGDIR}/etc/storagenode
+	dh_installsystemd debian/storagenode.service
+
+#override_dh_gencontrol:
+#	dh_gencontrol -- -v$(PACKAGEVERSION)
+

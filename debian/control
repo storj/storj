@@ -1,0 +1,8 @@
+Source: storagenode
+Maintainer: Storj<storjstorj.io>
+
+Package: storagenode
+Architecture: any
+Description: Storj Storage Node
+
+
