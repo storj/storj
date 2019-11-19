@@ -6,7 +6,6 @@ package streams_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -32,81 +31,6 @@ import (
 const (
 	TestEncKey = "test-encryption-key"
 )
-
-func TestStreamsStorePutGet(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
-		bucketName := "bucket-name"
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-		require.NoError(t, err)
-
-		for _, tt := range []struct {
-			name       string
-			path       string
-			metadata   []byte
-			expiration time.Time
-			content    []byte
-		}{
-			{"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-			{"test remote put/get", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-		} {
-			test := tt
-
-			path := storj.JoinPaths(bucketName, test.path)
-			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
-			require.NoError(t, err, test.name)
-
-			rr, metadata, err := streamStore.Get(ctx, path, storj.EncNull)
-			require.NoError(t, err, test.name)
-			require.Equal(t, test.metadata, metadata.Data)
-
-			reader, err := rr.Range(ctx, 0, rr.Size())
-			require.NoError(t, err, test.name)
-			content, err := ioutil.ReadAll(reader)
-			require.NoError(t, err, test.name)
-			require.Equal(t, test.content, content)
-
-			require.NoError(t, reader.Close(), test.name)
-		}
-	})
-}
-
-func TestStreamsStoreDelete(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
-		bucketName := "bucket-name"
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-		require.NoError(t, err)
-
-		for _, tt := range []struct {
-			name       string
-			path       string
-			metadata   []byte
-			expiration time.Time
-			content    []byte
-		}{
-			{"test inline delete", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-			{"test remote delete", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-		} {
-			test := tt
-
-			path := storj.JoinPaths(bucketName, test.path)
-			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
-			require.NoError(t, err, test.name)
-
-			// delete existing
-			err = streamStore.Delete(ctx, path, storj.EncNull)
-			require.NoError(t, err, test.name)
-
-			_, _, err = streamStore.Get(ctx, path, storj.EncNull)
-			require.Error(t, err, test.name)
-			require.True(t, storj.ErrObjectNotFound.Has(err))
-
-			// delete non existing
-			err = streamStore.Delete(ctx, path, storj.EncNull)
-			require.Error(t, err, test.name)
-			require.True(t, storj.ErrObjectNotFound.Has(err))
-		}
-	})
-}
 
 // TestStreamsInterruptedDelete tests a special case where the delete command is
 // interrupted before all segments are deleted. On subsequent calls to

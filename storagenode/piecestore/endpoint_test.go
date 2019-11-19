@@ -229,7 +229,7 @@ func TestDownload(t *testing.T) {
 			action:  pb.PieceAction_GET,
 			errs:    []string{"file does not exist", "The system cannot find the path specified"},
 		},
-		{ // should successfully download data
+		{ // should err with invalid action
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_PUT,
 			errs:    []string{"expected get or get repair or audit action got PUT"},
