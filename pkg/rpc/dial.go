@@ -16,6 +16,7 @@ import (
 	"storj.io/drpc/drpcstream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc/rpcpool"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
 )
@@ -48,8 +49,8 @@ type Dialer struct {
 	// the size per second if it is non-zero.
 	TransferRate memory.Size
 
-	// PoolCapacity is the maximum number of cached connections to hold.
-	PoolCapacity int
+	// PoolOptions controls options for the connection pool.
+	PoolOptions rpcpool.Options
 
 	// ConnectionOptions controls the options that we pass to drpc connections.
 	ConnectionOptions drpcconn.Options
@@ -58,9 +59,12 @@ type Dialer struct {
 // NewDefaultDialer returns a Dialer with default timeouts set.
 func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 	return Dialer{
-		TLSOptions:   tlsOptions,
-		DialTimeout:  20 * time.Second,
-		PoolCapacity: 5,
+		TLSOptions:  tlsOptions,
+		DialTimeout: 20 * time.Second,
+		PoolOptions: rpcpool.Options{
+			Capacity:       5,
+			IdleExpiration: 2 * time.Minute,
+		},
 		ConnectionOptions: drpcconn.Options{
 			Manager: NewDefaultManagerOptions(),
 		},
