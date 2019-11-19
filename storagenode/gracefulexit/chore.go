@@ -68,7 +68,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, satellite := range satellites {
-			mon.Counter("satellite_gracefulexit_request").Inc(1) //locked
+			mon.Meter("satellite_gracefulexit_request").Mark(1) //locked
 			if satellite.FinishedAt != nil {
 				continue
 			}
