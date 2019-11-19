@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -64,6 +65,10 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		done:       make(chan struct{}),
 	}
 
+	serverOptions := drpcserver.Options{
+		Manager: rpc.NewDefaultManagerOptions(),
+	}
+
 	unaryInterceptor := server.logOnErrorUnaryInterceptor
 	if interceptor != nil {
 		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
@@ -75,7 +80,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	}
 	server.public = public{
 		listener: publicListener,
-		drpc:     drpcserver.New(),
+		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
@@ -89,7 +94,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	}
 	server.private = private{
 		listener: privateListener,
-		drpc:     drpcserver.New(),
+		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc:     grpc.NewServer(),
 	}
 
