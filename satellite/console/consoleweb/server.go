@@ -84,6 +84,8 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
+	stripePublicKey string
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -97,13 +99,14 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		stripePublicKey: stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -122,7 +125,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -217,10 +219,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	var data struct {
 		SatelliteName      string
 		SegmentIOPublicKey string
+		StripePublicKey string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
+	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
@@ -539,20 +543,6 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
-}
-
-// satelliteNameHandler retrieves satellite name.
-func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
-	var response struct {
-		SatelliteName string `json:"satelliteName"`
-	}
-
-	response.SatelliteName = server.config.SatelliteName
-
-	if err := json.NewEncoder(w).Encode(&response); err != nil {
-		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
-		return
-	}
 }
 
 // initializeTemplates is used to initialize all templates

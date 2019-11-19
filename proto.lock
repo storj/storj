@@ -5990,7 +5990,7 @@
             ]
           },
           {
-            "name": "ReserveTokenRequest",
+            "name": "RedeemTokenRequest",
             "fields": [
               {
                 "id": 1,
@@ -5999,7 +5999,12 @@
               },
               {
                 "id": 2,
-                "name": "redeeming_satellite_id",
+                "name": "redeem_user_id",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "redeem_satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -6015,24 +6020,6 @@
             ]
           },
           {
-            "name": "ReserveTokenResponse"
-          },
-          {
-            "name": "RedeemTokenRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "user_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
             "name": "RedeemTokenResponse"
           }
         ],
@@ -6044,11 +6031,6 @@
                 "name": "GetTokens",
                 "in_type": "GetTokensRequest",
                 "out_type": "GetTokensResponse"
-              },
-              {
-                "name": "ReserveToken",
-                "in_type": "ReserveTokenRequest",
-                "out_type": "ReserveTokenResponse"
               },
               {
                 "name": "RedeemToken",

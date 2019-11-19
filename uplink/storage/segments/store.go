@@ -187,6 +187,5 @@ func CalcNeededNodes(rs storj.RedundancyScheme) int32 {
 	if needed > int32(rs.TotalShares) {
 		needed = int32(rs.TotalShares)
 	}
-
 	return needed
 }

@@ -15,6 +15,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {

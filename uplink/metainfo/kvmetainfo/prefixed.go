@@ -29,14 +29,14 @@ func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta obje
 	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
 }
 
-func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta objects.Meta, err error) {
+func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return nil, objects.Meta{}, storj.ErrNoPath.New("")
+		return nil, storj.ErrNoPath.New("")
 	}
 
-	return o.store.Get(ctx, storj.JoinPaths(o.prefix, path))
+	return o.store.Get(ctx, storj.JoinPaths(o.prefix, path), object)
 }
 
 func (o *prefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta objects.Meta, err error) {
