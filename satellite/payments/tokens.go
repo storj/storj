@@ -54,6 +54,7 @@ type Transaction struct {
 	Received  TokenAmount
 	Address   string
 	Status    TransactionStatus
+	Timeout   time.Duration
 	CreatedAt time.Time
 }
 

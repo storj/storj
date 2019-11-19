@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )

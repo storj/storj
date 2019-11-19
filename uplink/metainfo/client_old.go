@@ -9,10 +9,10 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
 	"storj.io/storj/storage"
 )
 

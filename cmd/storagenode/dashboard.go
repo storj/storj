@@ -18,11 +18,11 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/version"
 )
 
 const contactWindow = time.Hour * 2

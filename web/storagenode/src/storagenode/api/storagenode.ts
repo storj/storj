@@ -45,7 +45,7 @@ export class SNOApi {
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
 
-            return new SatelliteInfo(satellite.id, disqualified);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified);
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);

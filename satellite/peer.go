@@ -6,9 +6,9 @@ package satellite
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/server"
+	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"

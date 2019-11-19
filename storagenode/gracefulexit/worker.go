@@ -13,12 +13,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
@@ -82,7 +82,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		response, err := c.Recv()
 		if errs.Is(err, io.EOF) {
 			// Done
-			break
+			return nil
 		}
 		if err != nil {
 			// TODO what happened
@@ -91,7 +91,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 		switch msg := response.GetMessage().(type) {
 		case *pb.SatelliteMessage_NotReady:
-			break // wait until next worker execution
+			return nil
+
 		case *pb.SatelliteMessage_TransferPiece:
 			transferPieceMsg := msg.TransferPiece
 			worker.limiter.Go(ctx, func() {
@@ -100,6 +101,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 					worker.log.Error("failed to transfer piece.", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(errs.Wrap(err)))
 				}
 			})
+
 		case *pb.SatelliteMessage_DeletePiece:
 			deletePieceMsg := msg.DeletePiece
 			worker.limiter.Go(ctx, func() {
@@ -119,10 +121,8 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
 			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitFailed, msg.ExitFailed.GetExitFailureSignature())
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			break
+			return errs.Wrap(err)
+
 		case *pb.SatelliteMessage_ExitCompleted:
 			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteID))
 
@@ -132,18 +132,13 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 			// delete all remaining pieces
 			err = worker.deleteOnePieceOrAll(ctx, nil)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			break
+			return errs.Wrap(err)
+
 		default:
 			// TODO handle err
 			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteID))
 		}
-
 	}
-
-	return errs.Wrap(err)
 }
 
 type gracefulExitStream interface {
@@ -171,7 +166,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	addrLimit := transferPiece.GetAddressedOrderLimit()
 	pk := transferPiece.PrivateKey
 
-	originalHash, originalOrderLimit, err := worker.getHashAndLimit(ctx, reader, addrLimit.GetLimit())
+	originalHash, originalOrderLimit, err := worker.store.GetHashAndLimit(ctx, worker.satelliteID, pieceID, reader)
 	if err != nil {
 		worker.log.Error("failed to get piece hash and order limit.",
 			zap.Stringer("Satellite ID", worker.satelliteID),
@@ -244,8 +239,8 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 		Message: &pb.StorageNodeMessage_Succeeded{
 			Succeeded: &pb.TransferSucceeded{
 				OriginalPieceId:      transferPiece.OriginalPieceId,
-				OriginalPieceHash:    originalHash,
-				OriginalOrderLimit:   originalOrderLimit,
+				OriginalPieceHash:    &originalHash,
+				OriginalOrderLimit:   &originalOrderLimit,
 				ReplacementPieceHash: pieceHash,
 			},
 		},
@@ -329,36 +324,4 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 func (worker *Worker) Close() error {
 	// TODO not sure this is needed yet.
 	return nil
-}
-
-// TODO This comes from piecestore.Endpoint. It should probably be an exported method so I don't have to duplicate it here.
-func (worker *Worker) getHashAndLimit(ctx context.Context, pieceReader *pieces.Reader, limit *pb.OrderLimit) (pieceHash *pb.PieceHash, orderLimit *pb.OrderLimit, err error) {
-
-	if pieceReader.StorageFormatVersion() == 0 {
-		// v0 stores this information in SQL
-		info, err := worker.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-		if err != nil {
-			worker.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-			return nil, nil, err
-		}
-		orderLimit = info.OrderLimit
-		pieceHash = info.UplinkPieceHash
-	} else {
-		//v1+ stores this information in the file
-		header, err := pieceReader.GetPieceHeader()
-		if err != nil {
-			worker.log.Error("error getting header from piecereader", zap.Error(err))
-			return nil, nil, err
-		}
-		orderLimit = &header.OrderLimit
-		pieceHash = &pb.PieceHash{
-			PieceId:   orderLimit.PieceId,
-			Hash:      header.GetHash(),
-			PieceSize: pieceReader.Size(),
-			Timestamp: header.GetCreationTime(),
-			Signature: header.GetSignature(),
-		}
-	}
-
-	return
 }

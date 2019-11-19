@@ -6,6 +6,7 @@ package contact
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -86,7 +87,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Operator: req.Operator,
 		Version:  req.Version,
 	}
-	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
+	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
 		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
