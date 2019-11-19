@@ -27,10 +27,6 @@ var (
 	mon = monkit.Package()
 )
 
-// $0,013689253935661 is a price per TBh for storagebased
-// $50 per tb egress,
-// $0.00000168 per object
-
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`

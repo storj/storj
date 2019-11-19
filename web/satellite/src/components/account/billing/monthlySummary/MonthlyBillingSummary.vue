@@ -8,14 +8,6 @@
                 <h1 class="current-month-area__header__month-info__title">Current Month</h1>
                 <h2 class="current-month-area__header__month-info__title-info">{{currentPeriod}}</h2>
             </div>
-            <div class="current-month-area__header__usage-info" v-if="false">
-                <span class="current-month-area__header__usage-info__data">Usage <b class="current-month-area__header__usage-info__data__bold-text">$12.44</b></span>
-                <VButton
-                    label="Earn Credits"
-                    width="153px"
-                    height="48px"
-                />
-            </div>
         </div>
         <div class="current-month-area__content">
             <h2 class="current-month-area__content__title">DETAILED SUMMARY</h2>
@@ -30,10 +22,10 @@
                         </svg>
                         <span>Usage Charges</span>
                     </div>
-                    <span>Estimated total $82.44</span>
+                    <span>Estimated total {{ chargesSummary | centsToDollars }}</span>
                 </div>
                 <div class="current-month-area__content__usage-charges__content" v-if="areUsageChargesShown" @click.stop>
-                    <UsageChargeItem class="item"></UsageChargeItem>
+                    <UsageChargeItem v-for="usageCharge in usageCharges" :item="usageCharge" class="item"></UsageChargeItem>
                 </div>
             </div>
         </div>
@@ -46,6 +38,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import UsageChargeItem from '@/components/account/billing/monthlySummary/UsageChargeItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { ProjectCharge } from '@/types/payments';
+
 @Component({
     components: {
         VButton,
@@ -53,8 +47,17 @@ import VButton from '@/components/common/VButton.vue';
     },
 })
 export default class MonthlyBillingSummary extends Vue {
+    /**
+     * areUsageChargesShown indicates if area with all projects is expanded.
+     */
     private areUsageChargesShown: boolean = false;
 
+    /**
+     * usageCharges is an array of all ProjectCharges.
+     */
+    public usageCharges: ProjectCharge[] = this.$store.state.paymentsModule.charges;
+
+    // TODO: unused.
     public get currentPeriod(): string {
         const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const now: Date = new Date();
@@ -69,6 +72,18 @@ export default class MonthlyBillingSummary extends Vue {
         return `${months[monthNumber]} 1 - ${date} ${year}`;
     }
 
+    /**
+     * chargesSummary returns summary of all projects.
+     */
+    public get chargesSummary(): number {
+        const usageItemSummaries = this.usageCharges.map(item => item.summary());
+
+        return usageItemSummaries.reduce((accumulator, current) => accumulator + current);
+    }
+
+    /**
+     * toggleUsageChargesPopup is used to open/close area with list of project charges.
+     */
     public toggleUsageChargesPopup(): void {
         this.areUsageChargesShown = !this.areUsageChargesShown;
     }
