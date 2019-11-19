@@ -15,6 +15,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -36,12 +37,7 @@ export default class App extends Vue {
             ];
 
     public mounted(): void {
-        const meta = document.querySelector("meta[name='satellite-name']");
-        let satelliteName;
-
-        if (meta) {
-            satelliteName = meta.getAttribute('content');
-        }
+        const satelliteName = MetaUtils.getMetaContent('satellite-name');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
