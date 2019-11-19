@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
@@ -1055,5 +1056,96 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.Len(t, report.PendingAudits, 1)
 		require.Len(t, report.Unknown, 0)
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+	})
+}
+
+// TestReverifyUnknownError checks that a node that returns an unknown error during an audit does not get marked as successful, failed, or contained.
+func TestReverifyUnknownError(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		badPiece := pointer.Remote.RemotePieces[0]
+		badNode := badPiece.NodeId
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		rootPieceID := pointer.GetRemote().RootPieceId
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, badNode, badPiece.PieceNum, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            badNode,
+			PieceID:           pointer.Remote.RootPieceId,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			Path:              path,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			if node.ID() == badNode {
+				badNodeDB := node.DB.(*testblobs.BadDB)
+				// return an error when the satellite requests a share
+				badNodeDB.SetError(errs.New("unknown error"))
+				break
+			}
+		}
+
+		report, err := audits.Verifier.Reverify(ctx, path)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.Unknown, 1)
+		require.Equal(t, report.Unknown[0], badNode)
 	})
 }

@@ -250,7 +250,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Binary("Segment", []byte(path)), zap.Error(err))
 	}
 
-	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
+	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
 
 	totalInPointer := len(pointer.GetRemote().GetRemotePieces())
 	numOffline := len(offlineNodes)
@@ -802,7 +802,7 @@ func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
@@ -810,6 +810,9 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, off
 	}
 	for _, offline := range offlineNodes {
 		fails[offline] = true
+	}
+	for _, unknown := range unknownNodes {
+		fails[unknown] = true
 	}
 	for _, contained := range containedNodes {
 		fails[contained] = true

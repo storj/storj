@@ -815,3 +815,60 @@ func TestVerifierSlowDownload(t *testing.T) {
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 	})
 }
+
+// TestVerifierUnknownError checks that a node that returns an unknown error in response to an audit request
+// does not get marked as successful, failed, or contained
+func TestVerifierUnknownError(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		badNode := pointer.Remote.RemotePieces[0].NodeId
+		for _, node := range planet.StorageNodes {
+			if node.ID() == badNode {
+				badNodeDB := node.DB.(*testblobs.BadDB)
+				// return an error when the verifier attempts to download from this node
+				badNodeDB.SetError(errs.New("unknown error"))
+				break
+			}
+		}
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 3)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.Unknown, 1)
+		require.Equal(t, report.Unknown[0], badNode)
+	})
+}
