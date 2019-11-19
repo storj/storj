@@ -4,8 +4,8 @@
 import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsPlugin } from '@/utils/plugins/analytics';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { SegmentioPlugin } from '@/utils/plugins/segment';
 
 import App from './App.vue';
@@ -15,8 +15,6 @@ import { store } from './store';
 Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
-
-
 
 const notificator = new NotificatorPlugin();
 const analytics = new AnalyticsPlugin();
