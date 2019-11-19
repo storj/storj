@@ -114,6 +114,10 @@ export class BillingHistoryItem {
         return new Amount('$', this.tokenAmount, this.tokenReceived);
     }
 
+    public get formattedStatus(): string {
+        return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
     private amountDollars(): string {
         return `${this.amount / 100}`;
     }

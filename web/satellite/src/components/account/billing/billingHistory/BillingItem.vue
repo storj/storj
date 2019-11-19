@@ -10,7 +10,7 @@
             :type="billingItem.type"
         />
         <p class="container__item description">{{billingItem.description}}</p>
-        <p class="container__item status">{{billingItem.status}}</p>
+        <p class="container__item status">{{billingItem.formattedStatus}}</p>
         <p class="container__item amount">
             <b>
                 {{billingItem.quantity.currency}}
