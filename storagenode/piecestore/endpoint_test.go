@@ -381,6 +381,66 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDeletePiece(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(t, 1, 1, 1)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	var (
+		planetSat = planet.Satellites[0]
+		planetSN  = planet.StorageNodes[0]
+	)
+
+	t.Run("OK", func(t *testing.T) {
+		var client *piecestore.Client
+		{
+			dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
+			require.NoError(t, err)
+
+			client, err = piecestore.Dial(
+				ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
+			)
+			require.NoError(t, err)
+		}
+
+		t.Run("Found", func(t *testing.T) {
+			pieceID := storj.PieceID{1}
+			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+			require.NoError(t, err)
+
+			err := client.DeletePiece(ctx.Context, pieceID)
+			require.NoError(t, err)
+
+			_, err = downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			require.Error(t, err)
+
+			require.Condition(t, func() bool {
+				return strings.Contains(err.Error(), "file does not exist") ||
+					strings.Contains(err.Error(), "The system cannot find the path specified")
+			}, "unexpected error message")
+		})
+
+		t.Run("Not found", func(t *testing.T) {
+			client.DeletePiece(ctx.Context, storj.PieceID{})
+			require.NoError(t, err)
+		})
+	})
+
+	t.Run("error: permission denied", func(t *testing.T) {
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
+		require.NoError(t, err)
+
+		err = client.DeletePiece(ctx.Context, storj.PieceID{})
+		require.Error(t, err)
+		require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
+	})
+}
+
 func TestTooManyRequests(t *testing.T) {
 	t.Skip("flaky, because of EOF issues")
 
@@ -550,4 +610,48 @@ func uploadPiece(
 	require.NoError(t, err)
 
 	return uploadedData, orderLimit, hash
+}
+
+// downloadPiece downlodads piece from storageNode.
+func downloadPiece(
+	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, limit int64,
+	storageNode *storagenode.Peer, uplink *testplanet.Uplink, satellite *testplanet.SatelliteSystem,
+) (pieceData []byte, err error) {
+	t.Helper()
+
+	serialNumber := testrand.SerialNumber()
+	orderLimit, piecePrivateKey := GenerateOrderLimit(
+		t,
+		satellite.ID(),
+		storageNode.ID(),
+		piece,
+		pb.PieceAction_GET,
+		serialNumber,
+		24*time.Hour,
+		24*time.Hour,
+		limit,
+	)
+	signer := signing.SignerFromFullIdentity(satellite.Identity)
+	orderLimit, err = signing.SignOrderLimit(ctx.Context, signer, orderLimit)
+	require.NoError(t, err)
+
+	client, err := uplink.DialPiecestore(ctx, storageNode)
+	require.NoError(t, err)
+
+	downloader, err := client.Download(ctx.Context, orderLimit, piecePrivateKey, 0, limit)
+	require.NoError(t, err)
+	defer func() {
+		if err != nil {
+			// Ignore err in Close if an error happened in Download because it's also
+			// returned by Close.
+			downloader.Close()
+			return
+		}
+
+		err = downloader.Close()
+	}()
+
+	buffer := make([]byte, limit)
+	n, err := downloader.Read(buffer)
+	return buffer[:n], err
 }
