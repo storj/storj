@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/date"
-	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storagenode/bandwidth"
 )
 

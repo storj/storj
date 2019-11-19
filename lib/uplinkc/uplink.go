@@ -9,9 +9,10 @@ import "C"
 import (
 	"fmt"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/lib/uplink"
 	"time"
+
+	"storj.io/storj/lib/uplink"
+	"storj.io/storj/private/memory"
 )
 
 var universe = newHandles()

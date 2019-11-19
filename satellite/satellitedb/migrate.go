@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
@@ -1386,6 +1386,51 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     66,
 				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Alter graceful_exit_transfer_queue to add order_limit_send_count.",
+				Version:     67,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN order_limit_send_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add stripecoinpayments_tx_conversion_rates",
+				Version:     68,
+				Action: migrate.SQL{
+					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
+						tx_id text NOT NULL,
+						rate bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add timeout field to coinpayments_transaction",
+				Version:     69,
+				Action: migrate.SQL{
+					`DROP TABLE coinpayments_transactions CASCADE;`,
+					`DELETE FROM stripecoinpayments_apply_balance_intents`,
+					`CREATE TABLE coinpayments_transactions (
+						id text NOT NULL,
+						user_id bytea NOT NULL,
+						address text NOT NULL,
+						amount bytea NOT NULL,
+						received bytea NOT NULL,
+						status integer NOT NULL,
+						key text NOT NULL,
+						timeout integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`ALTER TABLE stripecoinpayments_apply_balance_intents
+						ADD CONSTRAINT fk_transactions FOREIGN KEY(tx_id) REFERENCES coinpayments_transactions(id) 
+						ON DELETE CASCADE;`,
 				},
 			},
 		},

@@ -21,17 +21,18 @@ type Progress struct {
 
 // TransferQueueItem represents the persisted graceful exit queue record.
 type TransferQueueItem struct {
-	NodeID          storj.NodeID
-	Path            []byte
-	PieceNum        int32
-	RootPieceID     storj.PieceID
-	DurabilityRatio float64
-	QueuedAt        time.Time
-	RequestedAt     *time.Time
-	LastFailedAt    *time.Time
-	LastFailedCode  *int
-	FailedCount     *int
-	FinishedAt      *time.Time
+	NodeID              storj.NodeID
+	Path                []byte
+	PieceNum            int32
+	RootPieceID         storj.PieceID
+	DurabilityRatio     float64
+	QueuedAt            time.Time
+	RequestedAt         *time.Time
+	LastFailedAt        *time.Time
+	LastFailedCode      *int
+	FailedCount         *int
+	FinishedAt          *time.Time
+	OrderLimitSendCount int
 }
 
 // DB implements CRUD operations for graceful exit service
@@ -61,4 +62,6 @@ type DB interface {
 	GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
 	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
 	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*TransferQueueItem, error)
+	// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
+	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) error
 }

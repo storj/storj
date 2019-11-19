@@ -173,7 +173,7 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 // GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
 func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at 
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
 			FROM graceful_exit_transfer_queue 
 			WHERE node_id = ? 
 			AND finished_at is NULL 
@@ -198,7 +198,7 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 // GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that haven't failed, ordered by durability ratio and queued date ascending.
 func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at 
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
 			FROM graceful_exit_transfer_queue 
 			WHERE node_id = ? 
 			AND finished_at is NULL
@@ -224,7 +224,7 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 // GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
 func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at 
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
 			FROM graceful_exit_transfer_queue 
 			WHERE node_id = ? 
 			AND finished_at is NULL
@@ -248,13 +248,31 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 	return transferQueueItemRows, nil
 }
 
+// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
+func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sql := db.db.Rebind(
+		`UPDATE graceful_exit_transfer_queue SET order_limit_send_count = graceful_exit_transfer_queue.order_limit_send_count + 1
+		WHERE node_id = ?
+		AND path = ?
+		AND piece_num = ?`,
+	)
+	_, err = db.db.ExecContext(ctx, sql, nodeID, path, pieceNum)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
 	for rows.Next() {
 		transferQueueItem := &gracefulexit.TransferQueueItem{}
 		var pieceIDBytes []byte
 		err = rows.Scan(&transferQueueItem.NodeID, &transferQueueItem.Path, &transferQueueItem.PieceNum, &pieceIDBytes,
 			&transferQueueItem.DurabilityRatio, &transferQueueItem.QueuedAt, &transferQueueItem.RequestedAt, &transferQueueItem.LastFailedAt,
-			&transferQueueItem.LastFailedCode, &transferQueueItem.FailedCount, &transferQueueItem.FinishedAt)
+			&transferQueueItem.LastFailedCode, &transferQueueItem.FailedCount, &transferQueueItem.FinishedAt, &transferQueueItem.OrderLimitSendCount)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -277,11 +295,12 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 	}
 
 	item = &gracefulexit.TransferQueueItem{
-		NodeID:          nID,
-		Path:            dbxTransferQueue.Path,
-		PieceNum:        int32(dbxTransferQueue.PieceNum),
-		DurabilityRatio: dbxTransferQueue.DurabilityRatio,
-		QueuedAt:        dbxTransferQueue.QueuedAt,
+		NodeID:              nID,
+		Path:                dbxTransferQueue.Path,
+		PieceNum:            int32(dbxTransferQueue.PieceNum),
+		DurabilityRatio:     dbxTransferQueue.DurabilityRatio,
+		QueuedAt:            dbxTransferQueue.QueuedAt,
+		OrderLimitSendCount: dbxTransferQueue.OrderLimitSendCount,
 	}
 	if dbxTransferQueue.RootPieceId != nil {
 		item.RootPieceID, err = storj.PieceIDFromBytes(dbxTransferQueue.RootPieceId)

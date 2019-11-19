@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"

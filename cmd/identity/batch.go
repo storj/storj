@@ -19,13 +19,13 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/cui"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/cui"
 )
 
 var (

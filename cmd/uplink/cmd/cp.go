@@ -17,9 +17,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -57,7 +57,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 			return err
 		}
 		if expiration.Before(time.Now()) {
-			return fmt.Errorf("Invalid expiration date: (%s) has already passed", *expires)
+			return fmt.Errorf("invalid expiration date: (%s) has already passed", *expires)
 		}
 	}
 
@@ -270,10 +270,10 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 // copyMain is the function executed when cpCmd is called.
 func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 	if len(args) == 1 {
-		return fmt.Errorf("No destination specified")
+		return fmt.Errorf("no destination specified")
 	}
 
 	ctx, _ := process.Ctx(cmd)
@@ -290,7 +290,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if both local
 	if src.IsLocal() && dst.IsLocal() {
-		return errors.New("At least one of the source or the desination must be a Storj URL")
+		return errors.New("at least one of the source or the desination must be a Storj URL")
 	}
 
 	// if uploading

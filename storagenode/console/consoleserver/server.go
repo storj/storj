@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -57,12 +57,13 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Serv
 		listener: listener,
 	}
 
-	mux := http.NewServeMux()
+	router := mux.NewRouter()
+	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	if assets != nil {
 		fs := http.FileServer(assets)
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		router.PathPrefix("/static/").Handler(server.cacheMiddleware(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			req := r.Clone(r.Context())
 			req.URL.Path = "/dist/"
 			fs.ServeHTTP(w, req)
@@ -70,12 +71,12 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Serv
 	}
 
 	// handle api endpoints
-	mux.Handle("/api/dashboard", http.HandlerFunc(server.dashboardHandler))
-	mux.Handle("/api/satellites", http.HandlerFunc(server.satellitesHandler))
-	mux.Handle("/api/satellite/", http.HandlerFunc(server.satelliteHandler))
+	apiRouter.Handle("/dashboard", http.HandlerFunc(server.dashboardHandler)).Methods(http.MethodGet)
+	apiRouter.Handle("/satellites", http.HandlerFunc(server.satellitesHandler)).Methods(http.MethodGet)
+	apiRouter.Handle("/satellite/{id}", http.HandlerFunc(server.satelliteHandler)).Methods(http.MethodGet)
 
 	server.server = http.Server{
-		Handler: mux,
+		Handler: router,
 	}
 
 	return &server
@@ -146,13 +147,16 @@ func (server *Server) satellitesHandler(w http.ResponseWriter, r *http.Request) 
 func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+	var err error
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	params := mux.Vars(r)
+	id, ok := params["id"]
+	if !ok {
+		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(strings.TrimPrefix(r.URL.Path, "/api/satellite/"))
+	satelliteID, err := storj.NodeIDFromString(id)
 	if err != nil {
 		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
@@ -170,6 +174,16 @@ func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	server.writeData(w, data)
+}
+
+// cacheMiddleware is a middleware for caching static files.
+func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		fn.ServeHTTP(w, r)
+	})
 }
 
 // jsonOutput defines json structure of api response data.
