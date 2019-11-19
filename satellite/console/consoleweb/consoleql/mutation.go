@@ -57,7 +57,7 @@ const (
 	FieldNewPassword = "newPassword"
 	// Secret is a field name for registration token for user creation during Vanguard release
 	Secret = "secret"
-	// referralToken is a field name for passing referral token from referral links
+	// ReferralToken is a field name for passing referral token from referral links
 	ReferralToken = "referralToken"
 )
 
