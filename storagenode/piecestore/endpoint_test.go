@@ -311,6 +311,31 @@ func TestDownloadGetRepair(t *testing.T) {
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
 
+	for _, tt := range []struct {
+		pieceID storj.PieceID
+		action  pb.PieceAction
+		errs    []string
+	}{
+		{ // should successfully download data
+			pieceID: orderLimit.PieceId,
+			action:  pb.PieceAction_GET,
+		},
+		{ // should err with piece ID not specified
+			pieceID: storj.PieceID{},
+			action:  pb.PieceAction_GET,
+			errs:    []string{"missing piece id"},
+		},
+		{ // should err with piece ID not specified
+			pieceID: storj.PieceID{2},
+			action:  pb.PieceAction_GET,
+			errs:    []string{"file does not exist", "The system cannot find the path specified"},
+		},
+		{ // should err with invalid action
+			pieceID: orderLimit.PieceId,
+			action:  pb.PieceAction_PUT,
+			errs:    []string{"expected get or get repair or audit action got PUT"},
+		},
+	} {
 		serialNumber := testrand.SerialNumber()
 
 		dlOrderLimit, piecePrivateKey := GenerateOrderLimit(
