@@ -19,8 +19,6 @@ var (
 	ErrValidateVersionQuery = errs.Class("validate db version query error")
 	// ErrValidateVersionMismatch is when the migration version does not match the current database version
 	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
-	// ErrValidateMinVersion is when the migration version does not match the current database version
-	ErrValidateMinVersion = errs.Class("validate minimum version error")
 )
 
 /*
