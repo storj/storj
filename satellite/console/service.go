@@ -270,7 +270,7 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *paymen
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, referralToken string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
@@ -307,7 +307,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// when user uses an open source partner referral link, there won't be a registration token in the link.
 	// therefore, we need to create one so we can still control the project limit on the account level
 	var registrationToken *RegistrationToken
-	if user.PartnerID != "" || user.ReferralToken != "" {
+	if user.PartnerID != "" || referralToken != "" {
 		// set the project limit to be 1 for open source partner invitees
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
 		if err != nil {
@@ -371,7 +371,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 		if currentReward != nil {
 			var refID *uuid.UUID
-			if refUserID != "" {
+			if referralToken != "" {
 				refID, err = uuid.Parse(refUserID)
 				if err != nil {
 					return Error.Wrap(err)
