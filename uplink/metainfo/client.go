@@ -1010,6 +1010,9 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 
 	response, err := client.client.DownloadSegment(ctx, params.toRequest(client.header()))
 	if err != nil {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
+			return storj.SegmentDownloadInfo{}, nil, storj.ErrObjectNotFound.Wrap(err)
+		}
 		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
 	}
 

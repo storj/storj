@@ -11,11 +11,24 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/drpc/drpcconn"
+	"storj.io/drpc/drpcmanager"
+	"storj.io/drpc/drpcstream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
 )
+
+// NewDefaultManagerOptions returns the default options we use for drpc managers.
+func NewDefaultManagerOptions() drpcmanager.Options {
+	return drpcmanager.Options{
+		WriterBufferSize: 1024,
+		Stream: drpcstream.Options{
+			SplitSize: (4096 * 2) - 256,
+		},
+	}
+}
 
 // Dialer holds configuration for dialing.
 type Dialer struct {
@@ -37,6 +50,9 @@ type Dialer struct {
 
 	// PoolCapacity is the maximum number of cached connections to hold.
 	PoolCapacity int
+
+	// ConnectionOptions controls the options that we pass to drpc connections.
+	ConnectionOptions drpcconn.Options
 }
 
 // NewDefaultDialer returns a Dialer with default timeouts set.
@@ -45,6 +61,9 @@ func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 		TLSOptions:   tlsOptions,
 		DialTimeout:  20 * time.Second,
 		PoolCapacity: 5,
+		ConnectionOptions: drpcconn.Options{
+			Manager: NewDefaultManagerOptions(),
+		},
 	}
 }
 
