@@ -20,7 +20,7 @@ import (
 // Error is the default error class for piecestore client.
 var Error = errs.Class("piecestore")
 
-// Config defines piecestore client parameters fro upload and download.
+// Config defines piecestore client parameters for upload and download.
 type Config struct {
 	UploadBufferSize   int64
 	DownloadBufferSize int64
