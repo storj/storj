@@ -426,7 +426,7 @@ func TestDeletePiece(t *testing.T) {
 		})
 
 		t.Run("Not found", func(t *testing.T) {
-			client.DeletePiece(ctx.Context, storj.PieceID{})
+			err := client.DeletePiece(ctx.Context, storj.PieceID{})
 			require.NoError(t, err)
 		})
 	})
