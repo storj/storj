@@ -83,9 +83,10 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 	}
 
 	config := &tls.Config{
-		Certificates:       []tls.Certificate{*opts.Cert},
-		InsecureSkipVerify: true,
-		MinVersion:         tls.VersionTLS12,
+		Certificates:                []tls.Certificate{*opts.Cert},
+		InsecureSkipVerify:          true,
+		MinVersion:                  tls.VersionTLS12,
+		DynamicRecordSizingDisabled: true, // always start with big records
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			verificationFuncs...,
 		),

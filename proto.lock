@@ -136,11 +136,6 @@
             ]
           }
         ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
         "package": {
           "name": "node"
         },
@@ -395,11 +390,6 @@
                 ]
               }
             ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
           }
         ],
         "package": {
@@ -5318,9 +5308,6 @@
         ],
         "imports": [
           {
-            "path": "gogo.proto"
-          },
-          {
             "path": "node.proto"
           }
         ],
@@ -5963,9 +5950,6 @@
             "path": "gogo.proto"
           },
           {
-            "path": "node.proto"
-          },
-          {
             "path": "orders.proto"
           }
         ],
@@ -6006,7 +5990,7 @@
             ]
           },
           {
-            "name": "ReserveTokenRequest",
+            "name": "RedeemTokenRequest",
             "fields": [
               {
                 "id": 1,
@@ -6015,7 +5999,12 @@
               },
               {
                 "id": 2,
-                "name": "redeeming_satellite_id",
+                "name": "redeem_user_id",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "redeem_satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -6027,24 +6016,6 @@
                     "value": "false"
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "name": "ReserveTokenResponse"
-          },
-          {
-            "name": "RedeemTokenRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "user_id",
-                "type": "bytes"
               }
             ]
           },
@@ -6062,11 +6033,6 @@
                 "out_type": "GetTokensResponse"
               },
               {
-                "name": "ReserveToken",
-                "in_type": "ReserveTokenRequest",
-                "out_type": "ReserveTokenResponse"
-              },
-              {
                 "name": "RedeemToken",
                 "in_type": "RedeemTokenRequest",
                 "out_type": "RedeemTokenResponse"
@@ -6077,15 +6043,6 @@
         "imports": [
           {
             "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "metainfo.proto"
-          },
-          {
-            "path": "orders.proto"
           }
         ],
         "package": {
@@ -6125,9 +6082,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "gogo.proto"
-          },
           {
             "path": "encryption_access.proto"
           }

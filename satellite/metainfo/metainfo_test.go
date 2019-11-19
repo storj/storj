@@ -1527,7 +1527,7 @@ func TestIDs(t *testing.T) {
 
 		{ // streamID expired
 			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
 
@@ -1543,9 +1543,30 @@ func TestIDs(t *testing.T) {
 			require.Error(t, err)
 		}
 
+		{ // segment id missing stream id
+			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+				CreationDate: time.Now().Add(-1 * time.Hour),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
+
 		{ // segmentID expired
 			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
+				StreamId: &pb.SatStreamID{
+					CreationDate: time.Now(),
+				},
 			})
 			require.NoError(t, err)
 

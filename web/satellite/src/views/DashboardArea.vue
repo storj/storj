@@ -41,6 +41,7 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,

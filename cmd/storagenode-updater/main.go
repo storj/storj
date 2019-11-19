@@ -121,12 +121,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			log.Println(err)
 		}
 
-		// TODO: enable self-autoupdate back when having reliable recovery mechanism
-		//updaterBinName := os.Args[0]
-		//if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
-		//	// don't finish loop in case of error just wait for another execution
-		//	log.Println(err)
-		//}
+		updaterBinName := os.Args[0]
+		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
+			// don't finish loop in case of error just wait for another execution
+			log.Println(err)
+		}
 		return nil
 	}
 
@@ -339,10 +338,6 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
-func main() {
-	process.Exec(rootCmd)
-}
-
 // TODO: improve logging; other commands use zap but due to an apparent
 // windows bug we're unable to use the existing process logging infrastructure.
 func openLog() (closeFunc func() error, err error) {
@@ -358,4 +353,8 @@ func openLog() (closeFunc func() error, err error) {
 		return logFile.Close, nil
 	}
 	return closeFunc, nil
+}
+
+func main() {
+	process.Exec(rootCmd)
 }
