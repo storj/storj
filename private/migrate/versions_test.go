@@ -88,14 +88,11 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		},
 	}
 
-	dbVersion, err := m.CurrentVersion(ctx, nil, testDB)
+	dbVersion, err := m.CurrentVersion(nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, -1)
 
-	err = m.Run(ctx, zap.NewNop())
-	assert.NoError(t, err)
-
-	dbVersion, err = m.CurrentVersion(ctx, nil, testDB)
+	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
@@ -109,6 +106,23 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		},
 	}
 	dbVersion, err = m2.CurrentVersion(ctx, nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
+
+	dbVersion, err = m.CurrentVersion(nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
+
+	m2 := migrate.Migration{
+		Table: dbName,
+		Steps: []*migrate.Step{
+			{
+				DB:      testDB,
+				Version: 3,
+			},
+		},
+	}
+	dbVersion, err = m2.CurrentVersion(nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
