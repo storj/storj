@@ -97,7 +97,7 @@ func (bad *BadBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
 	return bad.blobs.Trash(ctx, ref)
 }
 
-// RestoreTrash restores all files in the trash
+// RestoreTrash restores all files in the trash.
 func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
 	if bad.err != nil {
 		return bad.err
@@ -113,7 +113,7 @@ func (bad *BadBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	return bad.blobs.Delete(ctx, ref)
 }
 
-// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version
+// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
 func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
 	if bad.err != nil {
 		return bad.err
@@ -121,7 +121,7 @@ func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.Bl
 	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
 }
 
-// Stat looks up disk metadata on the blob file
+// Stat looks up disk metadata on the blob file.
 func (bad *BadBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	if bad.err != nil {
 		return nil, bad.err
@@ -165,7 +165,7 @@ func (bad *BadBlobs) FreeSpace() (int64, error) {
 	return bad.blobs.FreeSpace()
 }
 
-// SpaceUsed adds up how much is used in all namespaces
+// SpaceUsed adds up how much is used in all namespaces.
 func (bad *BadBlobs) SpaceUsed(ctx context.Context) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
@@ -173,7 +173,7 @@ func (bad *BadBlobs) SpaceUsed(ctx context.Context) (int64, error) {
 	return bad.blobs.SpaceUsed(ctx)
 }
 
-// SpaceUsedInNamespace adds up how much is used in the given namespace
+// SpaceUsedInNamespace adds up how much is used in the given namespace.
 func (bad *BadBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
