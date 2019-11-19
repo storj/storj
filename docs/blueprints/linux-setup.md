@@ -30,11 +30,6 @@ All these distributions are shipped with systemD as a service manager.
 
 
 ## Design
-
-- support for debian packaging, dirty way
-- well-formed debian package
-- convert to RPM (may need some adaptations: for instance there are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs)
-- create the manpage (automatically?)
 - When installing the package, it should prompt for user input for:
   - Wallet address
   - Email
@@ -46,11 +41,17 @@ All these distributions are shipped with systemD as a service manager.
   - Storage directory
 - Generate `config.yaml` file with the user configuration.
 
+The installer will be a debian package. We choose to auto-update the binary, even if this will make the package not following debian guidelines. The debian :
+- simple binary debian package
+- well-formed debian package (binary package generated from source package)
+- convert to RPM (may need some adaptations: for instance there are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs)
+
+We choose to reuse the storagenode-updater and the updater-updater used in windows. They will be daemonized using systemD.
 ## Rationale
 
 ### storagenode service
 As stated earlier, systemD is the commonly used service manager. It is the default on raspbian, debian, ubuntu, redhat, archlinux.
-Hence, we should use systemD for building our storagenode service.
+Hence, we should use systemD for building our storagenode service. 
 
 ### Installation
 #### Custom installer
@@ -132,24 +133,17 @@ We are thinking of using native packaging for the following reasons:
 - covering deb and rpm packaging would make us cover most used distributions
 - with proper packaging, we could directly be included in the distributions
 
-### Updater
-The updater could either be a service or a cron job.
-It should query the version server to check if an update should occur as specified in the [storage node automatic updater design doc](storage-node-automatic-updater.md). In this case, it should:
-- ...
-
-[TODO: see if we can use dpkg command from a service or a cron job - is it debian compliant?]
-
-### Updater-updater
-
 ## Implementation
 ### Debian package
 - Use nfpm to generate a "draft" package. This will be a binary package (not following debian guidelines). Nevertheless, it will allow us to implement and test in parallel the different parts of the packaging solution.
 - Implement a systemD service running storagenode binary.
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
-- Implement the storage node updater
 - Create the debconf script that will gather user inputs and saves the config.yaml file in the configuration folder.
     - http://www.fifi.org/doc/debconf-doc/tutorial.html
+- Adapt the storage node updater
+- Implement a service running the storage node updater
+- Adapt the recovery mechanism
 - create the man page
 - add a menu entry
     - https://www.debian.org/doc/packaging-manuals/menu.html/ch3.html
