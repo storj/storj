@@ -244,12 +244,12 @@ func TestIngressSummary(t *testing.T) {
 
 		// test ingress summarizing.
 		t.Run("test ingress summary", func(t *testing.T) {
-			usage, err := bandwidthdb.EgressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			usage, err := bandwidthdb.IngressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageTotal, usage)
 
 			// only range capturing second satellite.
-			usage, err = bandwidthdb.EgressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			usage, err = bandwidthdb.IngressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsage, usage)
 		})
