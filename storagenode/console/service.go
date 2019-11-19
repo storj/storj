@@ -154,10 +154,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
-				URL: storj.NodeURL{
-					Address: url,
-					ID:      data.NodeID,
-				}.Address,
+				URL:          url,
 			},
 		)
 	}
