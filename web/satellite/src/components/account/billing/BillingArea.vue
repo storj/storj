@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-billing-area">
-        <div class="account-billing-area__notification-container">
+        <div class="account-billing-area__notification-container" v-if="hasNoCreditCard">
             <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect width="40" height="40" rx="10" fill="#EB5757"/>
@@ -57,6 +57,10 @@ export default class BillingArea extends Vue {
         this.$store.dispatch(CLEAR_PAYMENT_INFO);
     }
 
+    public get hasNoCreditCard(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
     public get isBalanceNegative(): boolean {
         return this.$store.state.paymentsModule.balance < 0;
     }
@@ -71,6 +75,7 @@ export default class BillingArea extends Vue {
     .account-billing-area {
 
         &__notification-container {
+            margin-top: 35px;
 
             &__negative-balance,
             &__low-balance {
