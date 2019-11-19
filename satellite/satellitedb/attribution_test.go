@@ -40,8 +40,6 @@ func TestUsers(t *testing.T) {
 		require.NoError(t, err)
 
 		// create an user with no partnerID
-		userID, err := uuid.New()
-		require.NoError(t, err)
 		_, err = consoleDB.Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
 			FullName:     "John Doe",
