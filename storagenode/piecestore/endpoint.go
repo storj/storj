@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -190,6 +191,12 @@ func (endpoint *Endpoint) DeletePiece(
 
 	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
 	if err != nil {
+		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
+		// Once this method returns error classes change the following conditional
+		if strings.Contains(err.Error(), "file does not exist") {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
+		}
+
 		endpoint.log.Error("delete piece failed",
 			zap.Error(Error.Wrap(err)),
 			zap.Stringer("Satellite ID", peer.ID),
