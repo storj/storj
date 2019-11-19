@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -70,6 +71,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.ProjectAccounting(),
 			db.Rewards(),
 			partnersService,
+			&referrals.Service{},
 			payments.Accounts(),
 			console.TestPasswordCost,
 		)
