@@ -110,10 +110,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
-				CacheSyncInterval:     defaultInterval,
-				ExpirationGracePeriod: 0,
-				MaxConcurrentRequests: 100,
-				OrderLimitGracePeriod: time.Hour,
+				CacheSyncInterval:      defaultInterval,
+				ExpirationGracePeriod:  0,
+				MaxConcurrentRequests:  100,
+				OrderLimitGracePeriod:  time.Hour,
+				StreamOperationTimeout: time.Hour,
 				Orders: orders.Config{
 					SenderInterval:  defaultInterval,
 					SenderTimeout:   10 * time.Minute,
