@@ -73,7 +73,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
@@ -149,6 +149,8 @@ export default class PaymentMethods extends Vue {
     }
 
     public async onConfirmAddSTORJ(): Promise<void> {
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION);
+
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue);
             await this.$notify.success(`Successfully created new deposit transaction!\nAddress:${tokenResponse.address}\nAmount:${tokenResponse.amount}`);

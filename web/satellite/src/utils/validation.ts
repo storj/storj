@@ -11,11 +11,3 @@ export function validateEmail(email: string): boolean {
 export function validatePassword(password: string): boolean {
     return typeof password !== 'undefined' && password.length >= 6;
 }
-
-export class Validator {
-    public static validateTokenAmount(amount: string): boolean {
-        const rgx = /^\d+(\.\d+)?$/;
-
-        return rgx.test(amount);
-    }
-}

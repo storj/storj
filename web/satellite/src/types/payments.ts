@@ -125,7 +125,7 @@ export class BillingHistoryItem {
     public downloadLinkHtml(): string {
         const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'PDF';
 
-        return `<a class="download-link" href="${this.link}">${downloadLabel}</a>`;
+        return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 }
 

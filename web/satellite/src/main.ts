@@ -39,6 +39,17 @@ Vue.directive('click-outside', {
     },
 });
 
+Vue.directive('number', {
+    bind (el: HTMLElement) {
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+            const keyCode = parseInt(e.key);
+            if (isNaN(keyCode)) {
+                e.preventDefault();
+            }
+        });
+    },
+});
+
 Vue.filter('twoDigits', function (value: number): string {
     if (value.toString().length <= 1) {
         return `0${value.toString()}`;
