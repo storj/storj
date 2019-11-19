@@ -120,11 +120,9 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 
 // SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
-	ID                 storj.NodeID `json:"id"`
-	URL                string       `json:"url"`
-	Disqualified       *time.Time   `json:"disqualified"`
-	Suspended          *time.Time   `json:"suspended"`
-	CurrentStorageUsed int64        `json:"currentStorageUsed"`
+	ID           storj.NodeID `json:"id"`
+	URL          string       `json:"url"`
+	Disqualified *time.Time   `json:"disqualified"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -165,26 +163,16 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	for _, rep := range stats {
-		url, err := s.trust.GetNodeURL(ctx, rep.SatelliteID)
+		url, err := s.trust.GetAddress(ctx, rep.SatelliteID)
 		if err != nil {
-			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", rep.SatelliteID.String()),
-				zap.Error(SNOServiceErr.Wrap(err)))
-			continue
-		}
-		_, currentStorageUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, rep.SatelliteID)
-		if err != nil {
-			s.log.Warn("unable to get Satellite Current Storage Used", zap.String("Satellite ID", rep.SatelliteID.String()),
-				zap.Error(SNOServiceErr.Wrap(err)))
-			continue
+			return nil, SNOServiceErr.Wrap(err)
 		}
 
 		data.Satellites = append(data.Satellites,
 			SatelliteInfo{
-				ID:                 rep.SatelliteID,
-				Disqualified:       rep.DisqualifiedAt,
-				Suspended:          rep.SuspendedAt,
-				URL:                url.Address,
-				CurrentStorageUsed: currentStorageUsed,
+				ID:           rep.SatelliteID,
+				Disqualified: rep.Disqualified,
+				URL:          url,
 			},
 		)
 	}

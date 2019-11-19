@@ -47,7 +47,7 @@ export class SNOApi {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
             const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 
-            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified);
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available, json.diskSpace.trash);

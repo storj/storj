@@ -790,7 +790,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates.
+// initializeTemplates is used to initialize all templates
 func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {

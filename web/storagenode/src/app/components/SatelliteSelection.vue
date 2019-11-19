@@ -97,8 +97,8 @@ export default class SatelliteSelection extends Vue {
         return this.$store.state.node.satellites;
     }
 
-    public get selectedSatellite(): SatelliteInfo {
-        return this.$store.state.node.selectedSatellite;
+    public get selectedSatellite(): string {
+        return this.$store.state.node.selectedSatellite.url;
     }
 
     public get isPopupShown(): boolean {

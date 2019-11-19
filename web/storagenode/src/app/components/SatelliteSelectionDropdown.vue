@@ -10,12 +10,16 @@
                 </button>
             </div>
             <!-- loop for rendering satellites -->
-            <SatelliteSelectionDropdownItem
-                v-for="satellite in satellites"
-                :satellite="satellite"
-                :key="satellite.id"
-                @onSatelliteClick="onSatelliteClick"
-            />
+            <div class="satellite-selection-overflow-container__satellite-choice"
+                v-for="satellite in satellites" :key="satellite.id"
+                @click.stop="onSatelliteClick(satellite.id)">
+                <DisqualificationIcon
+                    class="satellite-selection-overflow-container__satellite-choice__image"
+                    v-if="satellite.disqualified"
+                    alt="disqualified image"
+                />
+                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.url}}</p>
+            </div>
         </div>
     </div>
 </template>
