@@ -9,7 +9,7 @@
             :chart-data="chartData"
             :width="400"
             :height="240"
-            :tooltip-constructor="egressBandwidthTooltip"
+            :tooltip-constructor="egressTooltip"
         />
     </div>
 </template>
@@ -80,7 +80,7 @@ export default class EgressChart extends Vue {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public egressBandwidthTooltip(tooltipModel): void {
+    public egressTooltip(tooltipModel): void {
         // Tooltip Element
         let tooltipEl = document.getElementById('egress-tooltip');
         // Create element on first render

@@ -27,8 +27,8 @@
                     <div class="chart-container__title-area__chart-choice-item">Ingress</div>
                 </div>
                 <p class="chart-container__amount" v-if="!isEgressChartShown"><b>{{bandwidthSummary}}</b></p>
-                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressBandwidthSummary}}</b></p>
-                <p class="chart-container__amount" v-if="false"><b>{{ingressBandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressSummary}}</b></p>
+                <p class="chart-container__amount" v-if="false"><b>{{ingressSummary}}</b></p>
                 <div class="chart-container__chart">
                     <BandwidthChart v-if="!isEgressChartShown"/>
                     <EgressChart v-if="isEgressChartShown"/>
@@ -145,11 +145,11 @@ export default class SNOContentFilling extends Vue {
         return formatBytes(this.$store.state.node.bandwidthSummary);
     }
 
-    public get egressBandwidthSummary(): string {
+    public get egressSummary(): string {
         return formatBytes(this.$store.state.node.egressSummary);
     }
 
-    public get ingressBandwidthSummary(): string {
+    public get ingressSummary(): string {
         return formatBytes(this.$store.state.node.ingressSummary);
     }
 
