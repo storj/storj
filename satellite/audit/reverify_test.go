@@ -12,21 +12,22 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/pkcrypto"
-	"storj.io/common/rpc"
-	"storj.io/common/storj"
-	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testblobs"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/uplink"
 )
 
 func TestReverifySuccess(t *testing.T) {
@@ -1066,43 +1067,43 @@ func TestReverifyExpired2(t *testing.T) {
 }
 
 // TestReverifySlowDownload checks that a node that times out while sending data to the
-// audit service gets put into containment mode.
+// audit service gets put into containment mode
 func TestReverifySlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
-				config.Audit.MinDownloadTimeout = 1 * time.Second
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 2
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
+				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
+		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
 		slowPiece := pointer.Remote.RemotePieces[0]
@@ -1114,15 +1115,18 @@ func TestReverifySlowDownload(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, bucket, slowNode, slowPiece.PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, slowNode, slowPiece.PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -1138,11 +1142,15 @@ func TestReverifySlowDownload(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		node := planet.FindNode(slowNode)
-		slowNodeDB := node.DB.(*testblobs.SlowDB)
-		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 1 * time.Second
-		slowNodeDB.SetLatency(delay)
+		for _, node := range planet.StorageNodes {
+			if node.ID() == slowNode {
+				slowNodeDB := node.DB.(*testblobs.SlowDB)
+				// make downloads on storage node slower than the timeout on the satellite for downloading shares
+				delay := 1 * time.Second
+				slowNodeDB.SetLatency(delay)
+				break
+			}
+		}
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
@@ -1153,9 +1161,6 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.Len(t, report.PendingAudits, 1)
 		require.Len(t, report.Unknown, 0)
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
-
-		_, err = containment.Get(ctx, slowNode)
-		require.NoError(t, err)
 	})
 }
 
@@ -1164,29 +1169,33 @@ func TestReverifyUnknownError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
-			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
+		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
 		badPiece := pointer.Remote.RemotePieces[0]
@@ -1198,15 +1207,18 @@ func TestReverifyUnknownError(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, bucket, badNode, badPiece.PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, badNode, badPiece.PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -1222,10 +1234,14 @@ func TestReverifyUnknownError(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		node := planet.FindNode(badNode)
-		badNodeDB := node.DB.(*testblobs.BadDB)
-		// return an error when the satellite requests a share
-		badNodeDB.SetError(errs.New("unknown error"))
+		for _, node := range planet.StorageNodes {
+			if node.ID() == badNode {
+				badNodeDB := node.DB.(*testblobs.BadDB)
+				// return an error when the satellite requests a share
+				badNodeDB.SetError(errs.New("unknown error"))
+				break
+			}
+		}
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
@@ -1236,13 +1252,5 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Unknown, 1)
 		require.Equal(t, report.Unknown[0], badNode)
-
-		// record  audit
-		_, err = audits.Reporter.RecordAudits(ctx, report, path)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
-		_, err = containment.Get(ctx, pending.NodeID)
-		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }

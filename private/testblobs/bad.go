@@ -5,11 +5,9 @@ package testblobs
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -100,19 +98,11 @@ func (bad *BadBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
 }
 
 // RestoreTrash restores all files in the trash.
-func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
+func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
 	if bad.err != nil {
-		return nil, bad.err
+		return bad.err
 	}
 	return bad.blobs.RestoreTrash(ctx, namespace)
-}
-
-// EmptyTrash empties the trash.
-func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
-	if bad.err != nil {
-		return 0, nil, bad.err
-	}
-	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
 
 // Delete deletes the blob with the namespace and key.
@@ -129,14 +119,6 @@ func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.Bl
 		return bad.err
 	}
 	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
-}
-
-// DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
-func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
-	if bad.err != nil {
-		return bad.err
-	}
-	return bad.blobs.DeleteNamespace(ctx, ref)
 }
 
 // Stat looks up disk metadata on the blob file.
@@ -183,53 +165,20 @@ func (bad *BadBlobs) FreeSpace() (int64, error) {
 	return bad.blobs.FreeSpace()
 }
 
-// CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (bad *BadBlobs) CheckWritability() error {
-	if bad.err != nil {
-		return bad.err
-	}
-	return bad.blobs.CheckWritability()
-}
-
-// SpaceUsedForBlobs adds up how much is used in all namespaces.
-func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
+// SpaceUsed adds up how much is used in all namespaces.
+func (bad *BadBlobs) SpaceUsed(ctx context.Context) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
 	}
-	return bad.blobs.SpaceUsedForBlobs(ctx)
+	return bad.blobs.SpaceUsed(ctx)
 }
 
-// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
-func (bad *BadBlobs) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+// SpaceUsedInNamespace adds up how much is used in the given namespace.
+func (bad *BadBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
 	}
-	return bad.blobs.SpaceUsedForBlobsInNamespace(ctx, namespace)
-}
-
-// SpaceUsedForTrash adds up how much is used in all namespaces.
-func (bad *BadBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
-	if bad.err != nil {
-		return 0, bad.err
-	}
-	return bad.blobs.SpaceUsedForTrash(ctx)
-}
-
-// CreateVerificationFile creates a file to be used for storage directory verification.
-func (bad *BadBlobs) CreateVerificationFile(id storj.NodeID) error {
-	if bad.err != nil {
-		return bad.err
-	}
-	return bad.blobs.CreateVerificationFile(id)
-}
-
-// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
-// of the verification file.
-func (bad *BadBlobs) VerifyStorageDir(id storj.NodeID) error {
-	if bad.err != nil {
-		return bad.err
-	}
-	return bad.blobs.VerifyStorageDir(id)
+	return bad.blobs.SpaceUsedInNamespace(ctx, namespace)
 }
 
 // SetError configures the blob store to return a specific error for all operations.
