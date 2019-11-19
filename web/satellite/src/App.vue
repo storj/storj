@@ -39,22 +39,15 @@ export default class App extends Vue {
         const meta = document.querySelector("meta[name='satellite-name']");
         const segmentMeta = document.querySelector("meta[name='segment-io']");
         let satelliteName;
-        let segmentID;
+        let segmentioId;
 
         if (meta) {
             satelliteName = meta.getAttribute('content');
         }
 
         if (segmentMeta) {
-            const segment = window['analytics'];
-            segmentID = segmentMeta.getAttribute('content');
-
-            if (!segment || !segmentID && segmentID.length === 0) {
-                return;
-            }
-
-            segment.load(segmentID);
-            segment.page();
+            segmentioId = segmentMeta.getAttribute('content');
+            this.$segment.init(segmentioId);
         }
 
         if (satelliteName) {
