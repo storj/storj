@@ -99,7 +99,7 @@ func (db *pieceExpirationDB) DeleteFailed(ctx context.Context, satelliteID storj
 	return ErrPieceExpiration.Wrap(err)
 }
 
-// Trash marks a piece expiration as "trashed".
+// Trash marks a piece expiration as "trashed"
 func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -112,7 +112,7 @@ func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storj.NodeID
 	return ErrPieceExpiration.Wrap(err)
 }
 
-// Restore restores all trashed pieces.
+// Restore restores all trashed pieces
 func (db *pieceExpirationDB) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

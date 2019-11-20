@@ -195,7 +195,6 @@ func TestTrashAndRestore(t *testing.T) {
 		pieceID    storj.PieceID
 		files      []testfile
 		expiration time.Time
-		trashDur   time.Duration
 	}
 	type testsatellite struct {
 		satelliteID storj.NodeID
@@ -214,8 +213,6 @@ func TestTrashAndRestore(t *testing.T) {
 	privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
 	require.NoError(t, err)
 
-	trashDurToBeEmptied := 7 * 24 * time.Hour
-	trashDurToBeKept := 3 * 24 * time.Hour
 	satellites := []testsatellite{
 		{
 			satelliteID: testrand.NodeID(),
@@ -223,7 +220,6 @@ func TestTrashAndRestore(t *testing.T) {
 				{
 					expiration: time.Time{}, // no expiration
 					pieceID:    testrand.PieceID(),
-					trashDur:   trashDurToBeEmptied,
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
@@ -234,7 +230,6 @@ func TestTrashAndRestore(t *testing.T) {
 				{
 					pieceID:    testrand.PieceID(),
 					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeEmptied,
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
@@ -245,29 +240,6 @@ func TestTrashAndRestore(t *testing.T) {
 				{
 					pieceID:    testrand.PieceID(),
 					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeKept,
-					files: []testfile{
-						{
-							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV1,
-						},
-					},
-				},
-				{
-					pieceID:    testrand.PieceID(),
-					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeKept,
-					files: []testfile{
-						{
-							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV1,
-						},
-					},
-				},
-				{
-					pieceID:    testrand.PieceID(),
-					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeKept,
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
@@ -287,18 +259,6 @@ func TestTrashAndRestore(t *testing.T) {
 				{
 					pieceID:    testrand.PieceID(),
 					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeKept,
-					files: []testfile{
-						{
-							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV1,
-						},
-					},
-				},
-				{
-					pieceID:    testrand.PieceID(),
-					expiration: time.Now().Add(24 * time.Hour),
-					trashDur:   trashDurToBeEmptied,
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
@@ -310,29 +270,21 @@ func TestTrashAndRestore(t *testing.T) {
 		},
 	}
 
-	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		dir, err := filestore.NewDir(zaptest.NewLogger(t), ctx.Dir("store"))
-		require.NoError(t, err)
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-		blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)
+		blobs, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 		require.NoError(t, err)
 		defer ctx.Check(blobs.Close)
 
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 
-		store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, db.PieceExpirationDB(), nil, pieces.DefaultConfig)
+		store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, db.PieceExpirationDB(), nil)
 		tStore := &pieces.StoreForTest{store}
 
-		var satelliteURLs []trust.SatelliteURL
-		for i, satellite := range satellites {
-			// host:port pair must be unique or the trust pool will aggregate
-			// them into a single entry with the first one "winning".
-			satelliteURLs = append(satelliteURLs, trust.SatelliteURL{
-				ID:   satellite.satelliteID,
-				Host: "localhost",
-				Port: i,
-			})
+		for _, satellite := range satellites {
 			now := time.Now()
 			for _, piece := range satellite.pieces {
 				// If test has expiration, add to expiration db
@@ -379,10 +331,6 @@ func TestTrashAndRestore(t *testing.T) {
 
 				}
 
-				trashDurToUse := piece.trashDur
-				dir.ReplaceTrashnow(func() time.Time {
-					return time.Now().Add(-trashDurToUse)
-				})
 				// Trash the piece
 				require.NoError(t, store.Trash(ctx, satellite.satelliteID, piece.pieceID))
 
@@ -406,26 +354,6 @@ func TestTrashAndRestore(t *testing.T) {
 			}
 		}
 
-		// Initialize a trust pool
-		poolConfig := trust.Config{
-			CachePath: ctx.File("trust-cache.json"),
-		}
-		for _, satelliteURL := range satelliteURLs {
-			poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: satelliteURL})
-		}
-		trust, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
-		require.NoError(t, err)
-		require.NoError(t, trust.Refresh(ctx))
-
-		// Empty trash by running the chore once
-		trashDur := 4 * 24 * time.Hour
-		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
-		ctx.Go(func() error {
-			return chore.Run(ctx)
-		})
-		chore.TriggerWait(ctx)
-		require.NoError(t, chore.Close())
-
 		// Restore all pieces in the first satellite
 		require.NoError(t, store.RestoreTrash(ctx, satellites[0].satelliteID))
 
@@ -433,39 +361,17 @@ func TestTrashAndRestore(t *testing.T) {
 		// MaxFormatVersionSupported (regardless of which version they began
 		// with), and that signature matches.
 		for _, piece := range satellites[0].pieces {
-			if piece.trashDur < trashDur {
-				// Expect the piece to be there
-				lastFile := piece.files[len(piece.files)-1]
-				verifyPieceData(ctx, t, store, satellites[0].satelliteID, piece.pieceID, filestore.MaxFormatVersionSupported, lastFile.data, piece.expiration, publicKey)
-			} else {
-				// Expect the piece to be missing, it should be removed from the trash on EmptyTrash
-				r, err := store.Reader(ctx, satellites[1].satelliteID, piece.pieceID)
-				require.Error(t, err)
-				require.Nil(t, r)
-			}
+			lastFile := piece.files[len(piece.files)-1]
+			verifyPieceData(ctx, t, store, satellites[0].satelliteID, piece.pieceID, filestore.MaxFormatVersionSupported, lastFile.data, piece.expiration, publicKey)
 		}
 
-		// Confirm 2nd satellite pieces are still in the trash
+		// Confirm 2nd satellite pieces are still missing
 		for _, piece := range satellites[1].pieces {
 			r, err := store.Reader(ctx, satellites[1].satelliteID, piece.pieceID)
 			require.Error(t, err)
 			require.Nil(t, r)
 		}
 
-		// Restore satellite[1] and make sure they're back (confirming they were not deleted on EmptyTrash)
-		require.NoError(t, store.RestoreTrash(ctx, satellites[1].satelliteID))
-		for _, piece := range satellites[1].pieces {
-			if piece.trashDur < trashDur {
-				// Expect the piece to be there
-				lastFile := piece.files[len(piece.files)-1]
-				verifyPieceData(ctx, t, store, satellites[1].satelliteID, piece.pieceID, filestore.MaxFormatVersionSupported, lastFile.data, piece.expiration, publicKey)
-			} else {
-				// Expect the piece to be missing, it should be removed from the trash on EmptyTrash
-				r, err := store.Reader(ctx, satellites[1].satelliteID, piece.pieceID)
-				require.Error(t, err)
-				require.Nil(t, r)
-			}
-		}
 	})
 }
 

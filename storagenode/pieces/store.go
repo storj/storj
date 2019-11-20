@@ -352,31 +352,44 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 	return Error.Wrap(err)
 }
 
-// EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
-func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
+// Trash moves the specified piece to the blob trash. If necessary, it converts
+// the v0 piece to a v1 piece. It also marks the item as "trashed" in the
+// pieceExpirationDB.
+func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
-	if err != nil {
+	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
+	// this is an old piece version and attempt to migrate it.
+	_, err = store.blobs.StatWithStorageFormat(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.MaxFormatVersionSupported)
+	if err != nil && !errs.IsFunc(err, os.IsNotExist) {
 		return Error.Wrap(err)
 	}
 
-	for _, deletedID := range deletedIDs {
-		pieceID, pieceIDErr := storj.PieceIDFromBytes(deletedID)
-		if pieceIDErr != nil {
-			return Error.Wrap(pieceIDErr)
+	if errs.IsFunc(err, os.IsNotExist) {
+		// MaxFormatVersionSupported does not exist, migrate.
+		err = store.MigrateV0ToV1(ctx, satellite, pieceID)
+		if err != nil {
+			return Error.Wrap(err)
 		}
-		_, deleteErr := store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
-		err = errs.Combine(err, deleteErr)
 	}
+
+	err = store.expirationInfo.Trash(ctx, satellite, pieceID)
+	err = errs.Combine(err, store.blobs.Trash(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}))
+
 	return Error.Wrap(err)
 }
 
-// RestoreTrash restores all pieces in the trash.
+// RestoreTrash restores all pieces in the trash
 func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
+	err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
 	if err != nil {
 		return Error.Wrap(err)
 	}
