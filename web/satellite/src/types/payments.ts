@@ -68,7 +68,7 @@ export interface PaymentsApi {
      * @param amount
      * @throws Error
      */
-    makeTokenDeposit(amount: string): Promise<DepositInfo>;
+    makeTokenDeposit(amount: string): Promise<TokenDeposit>;
 }
 
 export class CreditCard {
@@ -137,7 +137,7 @@ export enum BillingHistoryItemType {
     Transaction = 1,
 }
 
-export class DepositInfo {
+export class TokenDeposit {
     constructor(public amount: string, public address: string) {}
 }
 

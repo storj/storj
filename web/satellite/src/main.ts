@@ -50,12 +50,12 @@ Vue.directive('number', {
     },
 });
 
-Vue.filter('twoDigits', function (value: number): string {
-    if (value.toString().length <= 1) {
-        return `0${value.toString()}`;
+Vue.filter('leadingZero', function (value: number): string {
+    if (value <= 9) {
+        return `0${value}`;
     }
 
-    return value.toString();
+    return `${value}`;
 });
 
 new Vue({

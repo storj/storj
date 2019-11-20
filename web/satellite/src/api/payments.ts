@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, DepositInfo, PaymentsApi } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -201,7 +201,7 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @param amount
      * @throws Error
      */
-    public async makeTokenDeposit(amount: string): Promise<DepositInfo> {
+    public async makeTokenDeposit(amount: string): Promise<TokenDeposit> {
         const path = `${this.ROOT_PATH}/tokens/deposit`;
         const response = await this.client.post(path, JSON.stringify({amount}));
 
@@ -215,6 +215,6 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const result = await response.json();
 
-        return new DepositInfo(result.amount, result.address);
+        return new TokenDeposit(result.amount, result.address);
     }
 }

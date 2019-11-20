@@ -3,7 +3,7 @@
 
 <template>
     <div class="container">
-        <BillingHistoryDate
+        <BillingHistoryItemDate
             class="container__item"
             :start="billingItem.start"
             :expiration="billingItem.end"
@@ -32,17 +32,17 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import BillingHistoryDate from '@/components/account/billing/billingHistory/BillingHistoryDate.vue';
+import BillingHistoryItemDate from '@/components/account/billing/billingHistory/BillingHistoryItemDate.vue';
 
 import { BillingHistoryItem } from '@/types/payments';
 
 @Component({
     components: {
-        BillingHistoryDate,
+        BillingHistoryItemDate,
     },
 })
 export default class BillingItem extends Vue {
-    @Prop({default: new BillingHistoryItem()})
+    @Prop({default: () => new BillingHistoryItem()})
     private readonly billingItem: BillingHistoryItem;
 }
 </script>

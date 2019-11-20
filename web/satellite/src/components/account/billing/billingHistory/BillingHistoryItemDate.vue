@@ -6,11 +6,11 @@
         <div v-if="isExpired">{{date}}</div>
         <div class="row" v-else>
             <p>Expires in </p>
-            <p class="digit margin">{{ hours | twoDigits }}</p>
+            <p class="digit margin">{{ hours | leadingZero }}</p>
             <p>:</p>
-            <p class="digit">{{ minutes | twoDigits }}</p>
+            <p class="digit">{{ minutes | leadingZero }}</p>
             <p>:</p>
-            <p class="digit">{{ seconds | twoDigits }}</p>
+            <p class="digit">{{ seconds | leadingZero }}</p>
         </div>
     </div>
 </template>
@@ -31,7 +31,7 @@ export default class BillingHistoryDate extends Vue {
 
     private readonly expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
-    private intervalID;
+    private intervalID: number;
 
     public isExpired: boolean;
 
@@ -65,7 +65,7 @@ export default class BillingHistoryDate extends Vue {
     }
 
     private ready(): void {
-        this.intervalID = setInterval(() => {
+        this.intervalID = window.setInterval(() => {
             if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0) {
                 this.isExpired = true;
                 clearInterval(this.intervalID);
