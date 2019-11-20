@@ -75,7 +75,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 
 		// cleanup map to free memory
-		obsvr.objects = make(bucketsObjects)
+		obsvr.clearBucketsObjects()
 	}
 
 	obsvr.lastProjectID = path.ProjectIDString
@@ -127,6 +127,16 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 	}
 
 	return nil
+}
+
+// clearBucketsObjects clears up the buckets objects map for reusing it.
+func (obsvr *observer) clearBucketsObjects() {
+	// This is an idiomatic way of not having to destroy and recreate a new map
+	// each time that a empty map is required.
+	// See https://github.com/golang/go/issues/20138
+	for b := range obsvr.objects {
+		delete(obsvr.objects, b)
+	}
 }
 
 func findOrCreate(bucketName string, path string, buckets bucketsObjects) *object {
