@@ -80,7 +80,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	observer := &Observer{
+	observer := &observer{
 		objects: make(bucketsObjects),
 		db:      db,
 		writer:  writer,

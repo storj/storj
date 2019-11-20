@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// Object represents object with segments.
-type Object struct {
+// object represents object with segments.
+type object struct {
 	// TODO verify if we have more than 64 segments for object in network
 	segments uint64
 
@@ -28,10 +28,10 @@ type Object struct {
 
 // bucketsObjects keeps a list of objects associated with their path per bucket
 // name.
-type bucketsObjects map[string]map[storj.Path]*Object
+type bucketsObjects map[string]map[storj.Path]*object
 
-// Observer metainfo.Loop observer for zombie reaper.
-type Observer struct {
+// observer metainfo.Loop observer for zombie reaper.
+type observer struct {
 	db      metainfo.PointerDB
 	objects bucketsObjects
 	writer  *csv.Writer
@@ -44,35 +44,35 @@ type Observer struct {
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	return observer.processSegment(ctx, path, pointer)
+func (obsvr *observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	return obsvr.processSegment(ctx, path, pointer)
 }
 
 // InlineSegment processes a segment to collect data needed to detect zombie segment.
-func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	return observer.processSegment(ctx, path, pointer)
+func (obsvr *observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	return obsvr.processSegment(ctx, path, pointer)
 }
 
 // Object not used in this implementation.
-func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-func (observer *Observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
-	if observer.lastProjectID != "" && observer.lastProjectID != path.ProjectIDString {
-		err := analyzeProject(ctx, observer.db, observer.lastProjectID, observer.objects, observer.writer)
+func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+	if obsvr.lastProjectID != "" && obsvr.lastProjectID != path.ProjectIDString {
+		err := analyzeProject(ctx, obsvr.db, obsvr.lastProjectID, obsvr.objects, obsvr.writer)
 		if err != nil {
 			return err
 		}
 
 		// cleanup map to free memory
-		observer.objects = make(bucketsObjects)
+		obsvr.objects = make(bucketsObjects)
 	}
 
-	observer.lastProjectID = path.ProjectIDString
+	obsvr.lastProjectID = path.ProjectIDString
 
 	isLastSegment := path.Segment == "l"
-	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, observer.objects)
+	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, obsvr.objects)
 	if isLastSegment {
 		object.hasLastSegment = true
 
@@ -109,29 +109,29 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 
 	// collect number of pointers for report
 	if pointer.Type == pb.Pointer_INLINE {
-		observer.inlineSegments++
+		obsvr.inlineSegments++
 		if isLastSegment {
-			observer.lastInlineSegments++
+			obsvr.lastInlineSegments++
 		}
 	} else {
-		observer.remoteSegments++
+		obsvr.remoteSegments++
 	}
 
 	return nil
 }
 
-func findOrCreate(bucketName string, path string, buckets bucketsObjects) *Object {
+func findOrCreate(bucketName string, path string, buckets bucketsObjects) *object {
 	objects, ok := buckets[bucketName]
 	if !ok {
-		objects = make(map[storj.Path]*Object)
+		objects = make(map[storj.Path]*object)
 		buckets[bucketName] = objects
 	}
 
-	object, ok := objects[path]
+	obj, ok := objects[path]
 	if !ok {
-		object = &Object{}
-		objects[path] = object
+		obj = &object{}
+		objects[path] = obj
 	}
 
-	return object
+	return obj
 }
