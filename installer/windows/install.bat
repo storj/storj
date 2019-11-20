@@ -18,7 +18,7 @@ for %%x in (%*) do (
 
 rem uninstall existing storagenode product
 echo uninstalling storagenode
-msiexec /uninstall %msipath%
+call %~dp0uninstall.bat %msipath%
 
 echo installing storagenode from %msipath%
 msiexec /i %msipath% /passive /qb /norestart /log %~dp1install.log %props%
