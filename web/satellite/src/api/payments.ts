@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, TokenDeposit } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, TokenDeposit, ProjectCharge } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -54,7 +54,10 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new Error('can not setup account');
     }
 
-    public async projectsCharges(): Promise<any> {
+    /**
+     * projectsCharges returns how much money current user will be charged for each project which he owns.
+     */
+    public async projectsCharges(): Promise<ProjectCharge[]> {
         const path = `${this.ROOT_PATH}/account/charges`;
         const response = await this.client.get(path);
 
@@ -66,8 +69,16 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not get projects charges');
         }
 
-        // TODO: fiish mapping
         const charges = await response.json();
+        if (charges) {
+            return charges.map(charge =>
+                new ProjectCharge(
+                    charge.projectId,
+                    charge.storage,
+                    charge.egress,
+                    charge.objectCount),
+            );
+        }
 
         return [];
     }
@@ -197,7 +208,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Process coin payments
+     * makeTokenDeposit process coin payments
      * @param amount
      * @throws Error
      */

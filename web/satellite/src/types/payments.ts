@@ -21,9 +21,9 @@ export interface PaymentsApi {
     getBalance(): Promise<number>;
 
     /**
-     *
+     * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    projectsCharges(): Promise<any>;
+    projectsCharges(): Promise<ProjectCharge[]>;
 
     /**
      * Add credit card
@@ -147,4 +147,25 @@ class Amount {
         public total: string = '0',
         public received: string = '',
     ) {}
+}
+
+/**
+ * ProjectCharge shows how much money current project will charge in the end of the month.
+  */
+export class ProjectCharge {
+    public constructor(
+        public projectId: string = '',
+        // storage shows how much cents we should pay for storing GB*Hrs.
+        public storage: number = 0,
+        // egress shows how many cents we should pay for Egress.
+        public egress: number = 0,
+        // objectCount shows how many cents we should pay for objects count.
+        public objectCount: number = 0) {}
+
+    /**
+     * summary returns total price for a project in cents.
+     */
+    public summary(): number {
+        return this.storage + this.egress + this.objectCount;
+    }
 }

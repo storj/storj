@@ -102,6 +102,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 // SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
 	ID           storj.NodeID `json:"id"`
+	URL          string       `json:"url"`
 	Disqualified *time.Time   `json:"disqualified"`
 }
 
@@ -144,10 +145,16 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	for _, rep := range stats {
+		url, err := s.trust.GetAddress(ctx, rep.SatelliteID)
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
 		data.Satellites = append(data.Satellites,
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
+				URL:          url,
 			},
 		)
 	}
