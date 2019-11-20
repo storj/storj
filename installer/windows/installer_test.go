@@ -5,6 +5,8 @@ package windows
 
 import (
 	"archive/zip"
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -99,8 +101,20 @@ func TestInstaller_Config(t *testing.T) {
 	configData, err := ioutil.ReadFile(configFile)
 	require.NoError(t, err)
 
+	configDataW := bytes.NewBuffer(configData)
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if !strings.HasPrefix(scanner.Text(), "#") {
+			_, err := configDataW.Write(scanner.Bytes())
+			require.NoError(t, err)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		require.NoError(t, err)
+	}
+
 	var config storagenode.Config
-	err = yaml.Unmarshal(configData, config)
+	err = yaml.Unmarshal(configDataW.Bytes(), config)
 	require.NoError(t, err)
 
 	t.Logf("configData: %s", string(configData))
