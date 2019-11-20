@@ -78,8 +78,55 @@ func (db *bandwidthDB) MonthSummary(ctx context.Context) (_ int64, err error) {
 	return usage.Total(), nil
 }
 
-// Summary returns summary of bandwidth usages
+// actionFilter sums bandwidth depending on piece action type.
+type actionFilter func(action pb.PieceAction, amount int64, usage *bandwidth.Usage)
+
+var (
+	// ingressFilter sums put and put repair.
+	ingressFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
+		switch action {
+		case pb.PieceAction_PUT, pb.PieceAction_PUT_REPAIR:
+			usage.Include(action, amount)
+		}
+	}
+
+	// egressFilter sums get, get audit and get repair.
+	egressFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
+		switch action {
+		case pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR:
+			usage.Include(action, amount)
+		}
+	}
+
+	// bandwidthFilter sums all bandwidth.
+	bandwidthFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
+		usage.Include(action, amount)
+	}
+)
+
+// Summary returns summary of bandwidth usages for all satellites.
 func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.getSummary(ctx, from, to, bandwidthFilter)
+}
+
+// EgressSummary returns summary of egress usages for all satellites.
+func (db *bandwidthDB) EgressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.getSummary(ctx, from, to, egressFilter)
+}
+
+// IngressSummary returns summary of ingress usages for all satellites.
+func (db *bandwidthDB) IngressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.getSummary(ctx, from, to, ingressFilter)
+}
+
+// getSummary returns bandwidth data for all satellites.
+func (db *bandwidthDB) getSummary(ctx context.Context, from, to time.Time, filter actionFilter) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	usage := &bandwidth.Usage{}
@@ -110,18 +157,41 @@ func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *band
 	for rows.Next() {
 		var action pb.PieceAction
 		var amount int64
+
 		err := rows.Scan(&action, &amount)
 		if err != nil {
 			return nil, ErrBandwidth.Wrap(err)
 		}
-		usage.Include(action, amount)
+
+		filter(action, amount, usage)
 	}
 
 	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
-// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
+// SatelliteSummary returns summary of bandwidth usages for a particular satellite.
 func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	return db.getSatelliteSummary(ctx, satelliteID, from, to, bandwidthFilter)
+}
+
+// SatelliteEgressSummary returns summary of egress usage for a particular satellite.
+func (db *bandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	return db.getSatelliteSummary(ctx, satelliteID, from, to, egressFilter)
+}
+
+// SatelliteIngressSummary returns summary of ingress usage for a particular satellite.
+func (db *bandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	return db.getSatelliteSummary(ctx, satelliteID, from, to, ingressFilter)
+}
+
+// getSummary returns bandwidth data for a particular satellite.
+func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time, filter actionFilter) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	from, to = from.UTC(), to.UTC()
@@ -159,7 +229,7 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 			return nil, err
 		}
 
-		usage.Include(action, amount)
+		filter(action, amount, usage)
 	}
 
 	return usage, nil
@@ -216,7 +286,7 @@ func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	return entries, ErrBandwidth.Wrap(rows.Err())
 }
 
-// Rollup bandwidth_usage data earlier than the current hour, then delete the rolled up records
+// Rollup bandwidth_usage data earlier than the current hour, then delete the rolled up records.
 func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
