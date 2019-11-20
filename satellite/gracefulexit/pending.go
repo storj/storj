@@ -11,6 +11,38 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// PendingFinishedPromise for waiting for information about finished state.
+type PendingFinishedPromise struct {
+	addedWorkChan      chan struct{}
+	finishedCalledChan chan struct{}
+}
+
+func newFinishedPromise() *PendingFinishedPromise {
+	return &PendingFinishedPromise{
+		addedWorkChan:      make(chan struct{}),
+		finishedCalledChan: make(chan struct{}),
+	}
+}
+
+func (promise *PendingFinishedPromise) Wait(ctx context.Context) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return true, ctx.Err()
+	case <-addedWorkChan:
+		return false, nil
+	case <-finishedCalledChan:
+		return true, nil
+	}
+}
+
+func (promise *PendingFinishedPromise) addedWork() {
+	close(promise.addedWorkChan)
+}
+
+func (promise *PendingFinishedPromise) finishedCalled() {
+	close(promise.finishedCalledChan)
+}
+
 type PendingTransfer struct {
 	Path             []byte
 	PieceSize        int64
@@ -21,8 +53,10 @@ type PendingTransfer struct {
 
 // PendingMap for managing concurrent access to the pending transfer map.
 type PendingMap struct {
-	mu   sync.RWMutex
-	data map[storj.PieceID]*PendingTransfer
+	mu              sync.RWMutex
+	data            map[storj.PieceID]*PendingTransfer
+	finished        bool
+	finishedPromise *PendingFinishedPromise
 }
 
 // NewPendingMap creates a new PendingMap and instantiates the map.
@@ -43,6 +77,11 @@ func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfe
 	}
 
 	pm.data[pieceID] = pendingTransfer
+
+	if pm.finishedPromise != nil {
+		pm.finishedPromise.addedWork()
+		pm.finishedPromise = nil
+	}
 	return nil
 }
 
@@ -75,21 +114,38 @@ func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 	return nil
 }
 
-// IsFinished determines whether the work is finished, and blocks if needed.
-func (pm *PendingMap) IsFinished(ctx context.Context) bool {
+// IsFinished returns a promise for the caller to wait on to determine the finished status of the pending map.
+func (pm *PendingMap) IsFinishedPromise() PendingFinishedPromise {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	if len(pm.data) > 0 {
-		return false
+	if pm.finishedPromise != nil {
+		return pm.finishedPromise
 	}
 
-	// concurrently wait for finish or more work
-	// if finish happens first, return true. Otherwise return false.
-	return false
+	newPromise := newFinishedPromise()
+
+	if len(pm.data) > 0 {
+		newPromise.addedWork()
+		return newPromise
+	}
+	if pm.finished {
+		newPromise.finishedCalled()
+		return newPromise
+	}
+
+	pm.IsFinishedPromise = newPromise
+	return newPromise
 }
 
 // Finish is called when no more work will be added to the map.
-func (pm *PendingMap) Finish() error {
-	return nil
+func (pm *PendingMap) Finish() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if pm.finishedPromise != nil {
+		pm.finishedPromise.finishedCalled()
+		pm.finishedPromise = nil
+	}
+	pm.finished = true
 }
