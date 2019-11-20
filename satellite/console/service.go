@@ -235,7 +235,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:            tx.ID.String(),
-				Description:   "STORJ Token deposit",
+				Description:   "STORJ Token Deposit",
 				TokenAmount:   tx.Amount.String(),
 				TokenReceived: tx.Received.String(),
 				Status:        tx.Status.String(),
