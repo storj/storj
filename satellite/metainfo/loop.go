@@ -334,6 +334,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 			var item storage.ListItem
 
 			// iterate over every segment in metainfo
+		nextSegment:
 			for it.Next(ctx, &item) {
 				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
@@ -348,7 +349,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				if len(pathElements) < 4 {
 					// We skip this path because it belongs to bucket metadata no an
 					// actual object
-					return nil
+					continue nextSegment
 				}
 
 				isLastSegment := pathElements[1] == "l"
