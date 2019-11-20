@@ -61,3 +61,5 @@ storj.io/storj/satellite/repair/checker."remote_segments_lost" IntVal
 storj.io/storj/satellite/repair/checker."remote_segments_needing_repair" IntVal
 storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
+storj.io/storj/storagenode/contact."satellite_contact_request" Meter
+storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter
