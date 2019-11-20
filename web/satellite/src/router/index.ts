@@ -8,6 +8,7 @@ import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/depositAndBilling/BillingHistory.vue';
 import ProfileArea from '@/components/account/ProfileArea.vue';
+import ReferralArea from '@/components/account/referral/ReferralArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -47,6 +48,7 @@ export abstract class RouteConfig {
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static Referral = new NavigationLink('referral', 'Referral');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -104,6 +106,11 @@ export const router = new Router({
                             path: RouteConfig.BillingHistory.path,
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
+                        },
+                        {
+                            path: RouteConfig.Referral.path,
+                            name: RouteConfig.Referral.name,
+                            component: ReferralArea,
                         },
                     ],
                 },
