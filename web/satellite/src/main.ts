@@ -46,9 +46,12 @@ Vue.directive('number', {
     bind (el: HTMLElement) {
         el.addEventListener('keydown', (e: KeyboardEvent) => {
             const keyCode = parseInt(e.key);
-            if (isNaN(keyCode)) {
-                e.preventDefault();
+
+            if (!isNaN(keyCode) || e.key === 'Delete' || e.key === 'Backspace') {
+                return;
             }
+
+            e.preventDefault();
         });
     },
 });
