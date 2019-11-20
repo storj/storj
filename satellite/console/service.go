@@ -276,13 +276,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
-	userID, err := uuid.New()
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// TODO: validate referral token
-
 	offerType := rewards.FreeCredit
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
@@ -342,6 +335,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		userID, err := uuid.New()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		newUser := &User{
 			ID:           *userID,
 			Email:        user.Email,
