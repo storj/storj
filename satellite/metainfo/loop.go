@@ -246,10 +246,10 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 
 				pathElements := storj.SplitPath(rawPath)
 
-				// we are not storing buckets in pointerDB anymore so
-				// it will be projectID/segmentIndex/bucket_name/encrypted_object_path
 				if len(pathElements) < 4 {
-					return LoopError.New("invalid path %q", rawPath)
+					// We skip this path because it belongs to bucket metadata no an
+					// actual object
+					return nil
 				}
 
 				isLastSegment := pathElements[1] == "l"
