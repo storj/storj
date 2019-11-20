@@ -81,7 +81,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	observer := &Observer{
-		objects: make(ObjectsMap),
+		objects: make(bucketsObjects),
 		db:      db,
 		writer:  writer,
 	}
@@ -96,7 +96,8 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func analyzeProject(ctx context.Context, db metainfo.PointerDB, objectsMap ObjectsMap, csvWriter *csv.Writer) error {
+func analyzeProject(ctx context.Context, db metainfo.PointerDB, projectID string, buckets bucketsObjects, csvWriter *csv.Writer) error {
 	// TODO this part will be implemented in next PR
+	// TODO(if): For what is this?
 	return nil
 }

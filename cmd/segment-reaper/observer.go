@@ -13,12 +13,6 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// Cluster key for objects map.
-type Cluster struct {
-	projectID string
-	bucket    string
-}
-
 // Object represents object with segments.
 type Object struct {
 	// TODO verify if we have more than 64 segments for object in network
@@ -32,13 +26,14 @@ type Object struct {
 	skip bool
 }
 
-// ObjectsMap map that keeps objects representation.
-type ObjectsMap map[Cluster]map[storj.Path]*Object
+// bucketsObjects keeps a list of objects associated with their path per bucket
+// name.
+type bucketsObjects map[string]map[storj.Path]*Object
 
 // Observer metainfo.Loop observer for zombie reaper.
 type Observer struct {
 	db      metainfo.PointerDB
-	objects ObjectsMap
+	objects bucketsObjects
 	writer  *csv.Writer
 
 	lastProjectID string
@@ -64,23 +59,20 @@ func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, 
 }
 
 func (observer *Observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
-	cluster := Cluster{
-		projectID: path.ProjectIDString,
-		bucket:    path.BucketName,
-	}
-
-	if observer.lastProjectID != "" && observer.lastProjectID != cluster.projectID {
-		err := analyzeProject(ctx, observer.db, observer.objects, observer.writer)
+	if observer.lastProjectID != "" && observer.lastProjectID != path.ProjectIDString {
+		err := analyzeProject(ctx, observer.db, observer.lastProjectID, observer.objects, observer.writer)
 		if err != nil {
 			return err
 		}
 
 		// cleanup map to free memory
-		observer.objects = make(ObjectsMap)
+		observer.objects = make(bucketsObjects)
 	}
 
+	observer.lastProjectID = path.ProjectIDString
+
 	isLastSegment := path.Segment == "l"
-	object := findOrCreate(cluster, path.EncryptedObjectPath, observer.objects)
+	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, observer.objects)
 	if isLastSegment {
 		object.hasLastSegment = true
 
@@ -124,21 +116,21 @@ func (observer *Observer) processSegment(ctx context.Context, path metainfo.Scop
 	} else {
 		observer.remoteSegments++
 	}
-	observer.lastProjectID = cluster.projectID
+
 	return nil
 }
 
-func findOrCreate(cluster Cluster, path string, objects ObjectsMap) *Object {
-	objectsMap, ok := objects[cluster]
+func findOrCreate(bucketName string, path string, buckets bucketsObjects) *Object {
+	objects, ok := buckets[bucketName]
 	if !ok {
-		objectsMap = make(map[storj.Path]*Object)
-		objects[cluster] = objectsMap
+		objects = make(map[storj.Path]*Object)
+		buckets[bucketName] = objects
 	}
 
-	object, ok := objectsMap[path]
+	object, ok := objects[path]
 	if !ok {
 		object = &Object{}
-		objectsMap[path] = object
+		objects[path] = object
 	}
 
 	return object
