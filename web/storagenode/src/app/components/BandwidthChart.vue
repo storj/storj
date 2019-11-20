@@ -76,9 +76,7 @@ export default class BandwidthChart extends Vue {
         const chartBorderWidth = 2;
 
         if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map((elem) => {
-                return elem.summary();
-            }));
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
@@ -147,13 +145,13 @@ export default class BandwidthChart extends Vue {
             const position = bandwidthChart.getBoundingClientRect();
             tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
             tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.left = position.left + tooltipModel.caretX - 125 + 'px';
-            tooltipEl.style.bottom = position.bottom + window.pageYOffset - tooltipModel.caretY - 83 + 'px';
+            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
+            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
 
             tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
             tooltipArrow.style.position = this.TOOLTIP_POSITION;
-            tooltipArrow.style.left = position.left + tooltipModel.caretX - 24 + 'px';
-            tooltipArrow.style.bottom = position.bottom + window.pageYOffset - tooltipModel.caretY - 103 + 'px';
+            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 103}px`;
         }
 
         return;

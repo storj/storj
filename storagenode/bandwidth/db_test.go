@@ -45,18 +45,11 @@ var (
 		pb.PieceAction_GET,
 		pb.PieceAction_GET_AUDIT,
 		pb.PieceAction_GET_REPAIR,
-
-		pb.PieceAction_GET,
-		pb.PieceAction_GET_AUDIT,
-		pb.PieceAction_GET_REPAIR,
 	}
 )
 
 var (
 	ingressActions = []pb.PieceAction{
-		pb.PieceAction_PUT,
-		pb.PieceAction_PUT_REPAIR,
-
 		pb.PieceAction_PUT,
 		pb.PieceAction_PUT_REPAIR,
 	}
