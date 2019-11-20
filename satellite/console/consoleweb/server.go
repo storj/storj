@@ -206,15 +206,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"frame-ancestors tardigrade.io",
 		"frame-src 'self' *.stripe.com",
 		"img-src 'self' data:",
+		"script-src 'self' *.stripe.com cdn.segment.com",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
-	header.Set("X-Frame-Options", "DENY")        // Prevent being included in a <frame> or <iframe>
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
