@@ -160,8 +160,7 @@ func TestProjectMembersRepository(t *testing.T) {
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {
 	usersList := []*console.User{{
-		ID: testrand.UUID(),
-
+		ID:           testrand.UUID(),
 		Email:        "2email2@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Liam",

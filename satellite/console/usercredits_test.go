@@ -292,8 +292,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 
 	// create an user
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
-		ID: testrand.UUID(),
-
+		ID:           testrand.UUID(),
 		FullName:     "John Doe",
 		Email:        "john@mail.test",
 		PasswordHash: userPassHash,

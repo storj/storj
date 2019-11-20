@@ -370,12 +370,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if currentReward != nil {
 			var refID *uuid.UUID
 			if refUserID != "" {
-				refID, err = uuid.Parse(refID)
+				refID, err = uuid.Parse(refUserID)
 				if err != nil {
 					return Error.Wrap(err)
 				}
 			}
-			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refToken)
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
 			if err != nil {
 				return err
 			}
