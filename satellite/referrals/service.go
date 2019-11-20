@@ -44,16 +44,16 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 }
 
 func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
+	if userID.IsZero() {
+		return nil, errs.New("invalid argument")
+	}
+
 	conn, err := service.referralManagerConn(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	defer conn.Close()
-
-	if userID.IsZero() {
-		return nil, errs.New("invalid argument")
-	}
 
 	client := conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
