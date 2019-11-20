@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, TokenDeposit, ProjectCharge } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
