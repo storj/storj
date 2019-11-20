@@ -335,7 +335,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		userID, err := uuid.New()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		newUser := &User{
+			ID:           *userID,
 			Email:        user.Email,
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,
