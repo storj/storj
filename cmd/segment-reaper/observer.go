@@ -30,14 +30,23 @@ type object struct {
 // name.
 type bucketsObjects map[string]map[storj.Path]*object
 
+func newObserver(db metainfo.PointerDB, w *csv.Writer) *observer {
+	return &observer{
+		db:     db,
+		writer: w,
+
+		objects: make(bucketsObjects),
+	}
+}
+
 // observer metainfo.Loop observer for zombie reaper.
 type observer struct {
-	db      metainfo.PointerDB
-	objects bucketsObjects
-	writer  *csv.Writer
+	db     metainfo.PointerDB
+	writer *csv.Writer
 
 	lastProjectID string
 
+	objects            bucketsObjects
 	inlineSegments     int
 	lastInlineSegments int
 	remoteSegments     int

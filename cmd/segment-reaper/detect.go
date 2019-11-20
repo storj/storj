@@ -80,11 +80,8 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	observer := &observer{
-		objects: make(bucketsObjects),
-		db:      db,
-		writer:  writer,
-	}
+	observer := newObserver(db, writer)
+
 	err = metainfo.IterateDatabase(ctx, db, observer)
 	if err != nil {
 		return err
