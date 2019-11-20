@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/date"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
@@ -102,6 +102,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 // SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
 	ID           storj.NodeID `json:"id"`
+	URL          string       `json:"url"`
 	Disqualified *time.Time   `json:"disqualified"`
 }
 
@@ -144,10 +145,16 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	for _, rep := range stats {
+		url, err := s.trust.GetAddress(ctx, rep.SatelliteID)
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
 		data.Satellites = append(data.Satellites,
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
+				URL:          url,
 			},
 		)
 	}

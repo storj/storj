@@ -9,11 +9,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/private/errs2"
 )
 
 // Endpoint implements pb.CertificatesServer.

@@ -21,21 +21,6 @@ const (
 	cmdGetTransactionInfoList = "get_tx_info_multi"
 )
 
-// Currency is a type wrapper for defined currencies.
-type Currency string
-
-const (
-	// CurrencyUSD defines USD.
-	CurrencyUSD Currency = "USD"
-	// CurrencyLTCT defines LTCT, coins used for testing purpose.
-	CurrencyLTCT Currency = "LTCT"
-)
-
-// String returns Currency string representation
-func (c Currency) String() string {
-	return string(c)
-}
-
 // Status is a type wrapper for transaction statuses.
 type Status int
 

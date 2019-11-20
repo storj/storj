@@ -6,9 +6,9 @@ package overlay_test
 import (
 	"testing"
 
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testrand"
+	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/overlay"
 )
 

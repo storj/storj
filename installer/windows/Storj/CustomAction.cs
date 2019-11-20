@@ -2,6 +2,7 @@ using Microsoft.Deployment.WindowsInstaller;
 using System;
 using System.Globalization;
 using System.IO;
+using System.IO.Abstractions;
 using System.Text.RegularExpressions;
 
 namespace Storj
@@ -16,7 +17,7 @@ namespace Storj
 
             try
             {
-                CustomActionRunner.ValidateIdentityDir(identityDir);
+                new CustomActionRunner().ValidateIdentityDir(identityDir);
             }
             catch (ArgumentException e)
             {
@@ -37,7 +38,7 @@ namespace Storj
 
             try
             {
-                CustomActionRunner.ValidateWallet(wallet);
+                new CustomActionRunner().ValidateWallet(wallet);
             } catch (ArgumentException e)
             {
                 // Wallet is invalid
@@ -57,7 +58,7 @@ namespace Storj
 
             try
             {
-                CustomActionRunner.ValidateStorageDir(storageDir);
+                new CustomActionRunner().ValidateStorageDir(storageDir);
             }
             catch (ArgumentException e)
             {
@@ -79,7 +80,7 @@ namespace Storj
 
             try
             {
-                CustomActionRunner.ValidateStorage(storageStr, storageDir);
+                new CustomActionRunner().ValidateStorage(storageStr, storageDir);
             }
             catch (ArgumentException e)
             {
@@ -100,7 +101,7 @@ namespace Storj
 
             try
             {
-                CustomActionRunner.ValidateBandwidth(bandwidthStr);
+                new CustomActionRunner().ValidateBandwidth(bandwidthStr);
             }
             catch (ArgumentException e)
             {
@@ -120,7 +121,7 @@ namespace Storj
             string line = session["STORJ_SERVICE_COMMAND"];
             session.Log($"ExtractInstallDir registry value: {line}");
 
-            string path = CustomActionRunner.ExtractInstallDir(line);
+            string path = new CustomActionRunner().ExtractInstallDir(line);
             session.Log($"ExtractInstallDir extracted path: {path}");
 
             session["STORJ_INSTALLDIR"] = path;
@@ -130,44 +131,55 @@ namespace Storj
 
     public class CustomActionRunner
     {
-        private const long GB = 1000 * 1000 * 1000;
-        private const long TB = (long)1000 * 1000 * 1000 * 1000;
-        private const long MinFreeSpace = 550 * GB; // (500 GB + 10% overhead)
+        public const long GB = 1000 * 1000 * 1000;
+        public const long TB = (long)1000 * 1000 * 1000 * 1000;
+        public const long MinFreeSpace = 550 * GB; // (500 GB + 10% overhead)
 
-        public static void ValidateIdentityDir(string identityDir)
+        private readonly IFileSystem fs;
+
+        public CustomActionRunner() : this(fs: new FileSystem())
+        { 
+        }
+
+        public CustomActionRunner(IFileSystem fs)
+        {
+            this.fs = fs;
+        }
+
+        public void ValidateIdentityDir(string identityDir)
         {
             if (string.IsNullOrEmpty(identityDir))
             {
                 throw new ArgumentException("You must select an identity folder.");
             }
 
-            if (!Directory.Exists(identityDir))
+            if (!fs.Directory.Exists(identityDir))
             {
                 throw new ArgumentException(string.Format("Folder '{0}' does not exist.", identityDir));
             }
 
-            if (!File.Exists(Path.Combine(identityDir, "ca.cert")))
+            if (!fs.File.Exists(Path.Combine(identityDir, "ca.cert")))
             {
                 throw new ArgumentException("File 'ca.cert' not found in the selected folder.");
             }
 
-            if (!File.Exists(Path.Combine(identityDir, "ca.key")))
+            if (!fs.File.Exists(Path.Combine(identityDir, "ca.key")))
             {
                 throw new ArgumentException("File 'ca.key' not found in the selected folder.");
             }
 
-            if (!File.Exists(Path.Combine(identityDir, "identity.cert")))
+            if (!fs.File.Exists(Path.Combine(identityDir, "identity.cert")))
             {
                 throw new ArgumentException("File 'identity.cert' not found in the selected folder.");
             }
 
-            if (!File.Exists(Path.Combine(identityDir, "identity.key")))
+            if (!fs.File.Exists(Path.Combine(identityDir, "identity.key")))
             {
                 throw new ArgumentException("File 'identity.key' not found in the selected folder.");
             }
         }
 
-        public static void ValidateWallet(string wallet)
+        public void ValidateWallet(string wallet)
         {
             if (string.IsNullOrEmpty(wallet))
             {
@@ -190,15 +202,15 @@ namespace Storj
             // TODO validate address checksum
         }
 
-        public static void ValidateStorageDir(string storageDir)
+        public void ValidateStorageDir(string storageDir)
         { 
             if (string.IsNullOrEmpty(storageDir))
             {
                 throw new ArgumentException("You must select a storage folder.");
             }
 
-            DirectoryInfo dir = new DirectoryInfo(storageDir);
-            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+            IDirectoryInfo dir = fs.DirectoryInfo.FromDirectoryName(storageDir);
+            IDriveInfo drive = fs.DriveInfo.FromDriveName(dir.Root.FullName);
 
             // TODO: Find a way to calculate the available free space + total size of existing pieces
             if (drive.TotalSize < MinFreeSpace)
@@ -208,7 +220,7 @@ namespace Storj
             }
         }
 
-        public static void ValidateStorage(string storageStr, string storageDir)
+        public void ValidateStorage(string storageStr, string storageDir)
         {
             if (string.IsNullOrEmpty(storageStr))
             {
@@ -240,8 +252,8 @@ namespace Storj
                 throw new ArgumentException(string.Format("{0} TB is too large value for allocated storage.", storage));
             }
 
-            DirectoryInfo dir = new DirectoryInfo(storageDir);
-            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+            IDirectoryInfo dir = fs.DirectoryInfo.FromDirectoryName(storageDir);
+            IDriveInfo drive = fs.DriveInfo.FromDriveName(dir.Root.FullName);
 
             // TODO: Find a way to calculate the available free space + total size of existing pieces
             if (drive.TotalSize < storagePlusOverhead)
@@ -251,7 +263,7 @@ namespace Storj
             }
         }
 
-        public static void ValidateBandwidth(string bandwidthStr)
+        public void ValidateBandwidth(string bandwidthStr)
         {
             if (string.IsNullOrEmpty(bandwidthStr))
             {
@@ -269,7 +281,7 @@ namespace Storj
             }
         }
 
-        public static string ExtractInstallDir(string serviceCmd)
+        public string ExtractInstallDir(string serviceCmd)
         {
             if (string.IsNullOrEmpty(serviceCmd))
             {

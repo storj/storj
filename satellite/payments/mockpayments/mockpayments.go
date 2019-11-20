@@ -75,6 +75,13 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	return 0, nil
 }
 
+// ProjectCharges returns how much money current user will be charged for each project.
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	return []payments.ProjectCharge{}, nil
+}
+
 // List returns a list of credit cards for a given payment account.
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
