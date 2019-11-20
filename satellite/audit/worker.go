@@ -130,6 +130,9 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	for _, pending := range report.PendingAudits {
 		skip[pending.NodeID] = true
 	}
+	for _, nodeID := range report.Unknown {
+		skip[nodeID] = true
+	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.
 	report, err = worker.verifier.Verify(ctx, path, skip)
