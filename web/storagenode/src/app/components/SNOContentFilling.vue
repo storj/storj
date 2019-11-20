@@ -24,14 +24,15 @@
                 <div class="chart-container__title-area">
                     <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
                     <div class="chart-container__title-area__chart-choice-item" :class="{'egress-chart-shown' : isEgressChartShown}" @click.stop="toggleEgressChartShowing">Egress</div>
-                    <div class="chart-container__title-area__chart-choice-item">Ingress</div>
+                    <div class="chart-container__title-area__chart-choice-item" :class="{'ingress-chart-shown' : isIngressChartShown}" @click.stop="toggleIngressChartShowing">Ingress</div>
                 </div>
-                <p class="chart-container__amount" v-if="!isEgressChartShown"><b>{{bandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{bandwidthSummary}}</b></p>
                 <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressSummary}}</b></p>
-                <p class="chart-container__amount" v-if="false"><b>{{ingressSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ingressSummary}}</b></p>
                 <div class="chart-container__chart">
-                    <BandwidthChart v-if="!isEgressChartShown"/>
+                    <BandwidthChart v-if="isBandwidthChartShown"/>
                     <EgressChart v-if="isEgressChartShown"/>
+                    <IngressChart v-if="isIngressChartShown"/>
                 </div>
             </div>
             <div class="chart-container">
@@ -94,6 +95,7 @@ import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
+import IngressChart from '@/app/components/IngressChart.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
@@ -119,6 +121,7 @@ class Checks {
 @Component ({
     components: {
         EgressChart,
+        IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
@@ -129,12 +132,36 @@ class Checks {
     },
 })
 export default class SNOContentFilling extends Vue {
+    public get isBandwidthChartShown(): boolean {
+        return this.$store.state.appStateModule.isBandwidthChartShown;
+    }
+
+    public get isIngressChartShown(): boolean {
+        return this.$store.state.appStateModule.isIngressChartShown;
+    }
+
     public get isEgressChartShown(): boolean {
         return this.$store.state.appStateModule.isEgressChartShown;
     }
 
     public toggleEgressChartShowing(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+        if (this.isBandwidthChartShown || this.isIngressChartShown) {
+            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+
+            return;
+        }
+
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+    }
+
+    public toggleIngressChartShowing(): void {
+        if (this.isBandwidthChartShown || this.isEgressChartShown) {
+            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
+
+            return;
+        }
+
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
     }
 
     public get wallet(): string {
@@ -291,5 +318,10 @@ export default class SNOContentFilling extends Vue {
     .egress-chart-shown {
         background-color: #d3f2cc;
         color: #2e5f46;
+    }
+
+    .ingress-chart-shown {
+        background-color: #ffeac2;
+        color: #c48c4b;
     }
 </style>
