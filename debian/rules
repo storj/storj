@@ -14,7 +14,7 @@ LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 
-CONFIG = /home/fadila/.local/share/storj/storagenode/config.yaml
+CONFIG = ${PWD}/examples/config.yaml
 PKGDIR = debian/storagenode
 %:
 	dh $@

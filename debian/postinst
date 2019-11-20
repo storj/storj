@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+
+DAEMON_USER=storj-storagenode
+# TODO: storage directory should be asked to the user
+STORAGEDIR=/var/storagenode
+
+adduser --system --group --no-create-home --quiet $DAEMON_USER
+chown -R $DAEMON_USER ${STORAGEDIR}
+

@@ -1,0 +1,23 @@
+# path to the certificate chain for this identity
+identity.cert-path: "/etc/storagenode/identity.cert"
+# path to the private key for this identity
+identity.key-path: "/etc/storagenode/identity.key"
+# the public address of the Kademlia node, useful for nodes behind NAT
+kademlia.external-address: ""
+# operator email address
+kademlia.operator.email: ""
+# operator wallet adress
+kademlia.operator.wallet: "0x0000000000000000000000000000000000000000"
+# the minimum log level to log
+log.level: info
+# public address to listen on
+server.address: ":28967"
+# private address to listen on
+server.private-address: "127.0.0.1:7778"
+# total allocated bandwidth in bytes
+storage.allocated-bandwidth: 500.0 GiB
+# total allocated disk space in bytes
+storage.allocated-disk-space: 2.0 MB
+storage2.monitor.minimum-disk-space: 1.0 MB
+storage.path: "/var/storagenode"
+
