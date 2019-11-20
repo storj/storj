@@ -28,7 +28,7 @@ var (
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
 	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"5m0s"`
 	DownloadTimeout               time.Duration `help:"time limit for downloading pieces from a node for repair" default:"5m0s"`
 	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`

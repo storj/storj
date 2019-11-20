@@ -124,7 +124,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -541,20 +540,6 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
-}
-
-// satelliteNameHandler retrieves satellite name.
-func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
-	var response struct {
-		SatelliteName string `json:"satelliteName"`
-	}
-
-	response.SatelliteName = server.config.SatelliteName
-
-	if err := json.NewEncoder(w).Encode(&response); err != nil {
-		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
-		return
-	}
 }
 
 // initializeTemplates is used to initialize all templates

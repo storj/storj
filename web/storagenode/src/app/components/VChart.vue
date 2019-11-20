@@ -70,8 +70,8 @@ export default class VChart extends Vue {
                 point: {
                     radius: 0,
                     hitRadius: 5,
-                    hoverRadius: 5,
-                    hoverBackgroundColor: '#4D72B7',
+                    hoverRadius: 3,
+                    hoverBorderWidth: 7,
                 }
             },
 
