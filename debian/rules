@@ -1,29 +1,41 @@
 #!/usr/bin/make -f
 GO_VERSION ?= 1.13.4
 TAG := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+
+ifeq (${BRANCH_NAME},master)
+TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+TRACKED_BRANCH := true
+LATEST_TAG := latest
+else
+TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+ifneq (,$(findstring release-,$(BRANCH_NAME)))
+LATEST_TAG := ${BRANCH_NAME}-latest
+endif
+endif
+
 CONFIG = /home/fadila/.local/share/storj/storagenode/config.yaml
-# For now we embed identity files
-IDENTITYDIR = /home/fadila/.local/share/storj/local-network/storagenode/4
 PKGDIR = debian/storagenode
 %:
 	dh $@
 
 override_dh_auto_clean:
 	rm -f ${PKGDIR}/usr/bin/storagenode
-	rm -f ${PKGDIR}/usr/bin/storagenode-updater 
+	rm -f ${PKGDIR}/usr/bin/storagenode-updater
 	rm -f ${PKGDIR}/etc/storagenode/config.yaml
 override_dh_auto_test:
 override_dh_auto_build:
-	#make build-dev-deps
-	#make storagenode_linux_amd64
-	#make storagenode-updater_linux_amd64
+	make build-dev-deps
+	make storagenode_linux_amd64
+	make storagenode-updater_linux_amd64
 override_dh_auto_install:
 	mkdir -p ${PKGDIR}/usr/bin
 	mkdir -p ${PKGDIR}/etc/storagenode
 	mkdir -p ${PKGDIR}/var/storagenode
-	cp release/bin/storagenode_linux_amd64 ${PKGDIR}/usr/bin/storagenode
-	cp release/bin/storagenode-updater_linux_amd64 ${PKGDIR}/usr/bin/storagenode-updater
+	cp release/${TAG}/storagenode_linux_amd64 ${PKGDIR}/usr/bin/storagenode
+	cp release/${TAG}/storagenode-updater_linux_amd64 ${PKGDIR}/usr/bin/storagenode-updater
 	cp ${CONFIG} ${PKGDIR}/etc/storagenode/
+	# TO BE REMOVED - the user should be asked to provide the identity directory
 	cp ${IDENTITYDIR}/identity.cert ${PKGDIR}/etc/storagenode
 	cp ${IDENTITYDIR}/identity.key ${PKGDIR}/etc/storagenode
 	dh_installsystemd debian/storagenode.service
