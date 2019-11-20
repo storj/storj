@@ -95,11 +95,11 @@ func (srv *Service) IsAllowed(ctx context.Context) (version.OldSemVer, bool) {
 	return srv.acceptedVersion, srv.allowed
 }
 
-// CheckVersion checks if the client is running latest/allowed code
+// checkVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
-	defer mon.Task()(&ctx)(nil)
-
 	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	var minimum version.OldSemVer
 
 	defer func() {
