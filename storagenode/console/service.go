@@ -215,19 +215,15 @@ type PriceModel struct {
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID                 storj.NodeID            `json:"id"`
-	StorageDaily       []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily     []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	StorageSummary     float64                 `json:"storageSummary"`
-	BandwidthSummary   int64                   `json:"bandwidthSummary"`
-	EgressSummary      int64                   `json:"egressSummary"`
-	IngressSummary     int64                   `json:"ingressSummary"`
-	CurrentStorageUsed int64                   `json:"currentStorageUsed"`
-	Audit              reputation.Metric       `json:"audit"`
-	Uptime             reputation.Metric       `json:"uptime"`
-	OnlineScore        float64                 `json:"onlineScore"`
-	PriceModel         PriceModel              `json:"priceModel"`
-	NodeJoinedAt       time.Time               `json:"nodeJoinedAt"`
+	ID               storj.NodeID            `json:"id"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	EgressSummary    int64                   `json:"egressSummary"`
+	IngressSummary   int64                   `json:"ingressSummary"`
+	Audit            reputation.Metric       `json:"audit"`
+	Uptime           reputation.Metric       `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -288,19 +284,15 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 	}
 
 	return &Satellite{
-		ID:                 satelliteID,
-		StorageDaily:       storageDaily,
-		BandwidthDaily:     bandwidthDaily,
-		StorageSummary:     storageSummary,
-		BandwidthSummary:   bandwidthSummary.Total(),
-		CurrentStorageUsed: currentStorageUsed,
-		EgressSummary:      egressSummary.Total(),
-		IngressSummary:     ingressSummary.Total(),
-		Audit:              rep.Audit,
-		Uptime:             rep.Uptime,
-		OnlineScore:        rep.OnlineScore,
-		PriceModel:         satellitePricing,
-		NodeJoinedAt:       rep.JoinedAt,
+		ID:               satelliteID,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
+		EgressSummary:    egressSummary.Total(),
+		IngressSummary:   ingressSummary.Total(),
+		Audit:            rep.Audit,
+		Uptime:           rep.Uptime,
 	}, nil
 }
 
@@ -312,16 +304,6 @@ type Satellites struct {
 	BandwidthSummary int64                   `json:"bandwidthSummary"`
 	EgressSummary    int64                   `json:"egressSummary"`
 	IngressSummary   int64                   `json:"ingressSummary"`
-	EarliestJoinedAt time.Time               `json:"earliestJoinedAt"`
-	Audits           []Audits                `json:"audits"`
-}
-
-// Audits represents audit, suspension and online scores of SNO across all satellites.
-type Audits struct {
-	AuditScore      float64 `json:"auditScore"`
-	SuspensionScore float64 `json:"suspensionScore"`
-	OnlineScore     float64 `json:"onlineScore"`
-	SatelliteName   string  `json:"satelliteName"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -396,8 +378,6 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		BandwidthSummary: bandwidthSummary.Total(),
 		EgressSummary:    egressSummary.Total(),
 		IngressSummary:   ingressSummary.Total(),
-		EarliestJoinedAt: joinedAt,
-		Audits:           audits,
 	}, nil
 }
 

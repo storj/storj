@@ -81,17 +81,46 @@ export default class BandwidthChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public bandwidthTooltip(tooltipModel: any): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
-            'bandwidth-tooltip-arrow', 'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            303, 125, 35, 24, 6, 4, `#1f49a3`);
+    public bandwidthTooltip(tooltipModel): void {
+        // Tooltip Element
+        let tooltipEl = document.getElementById('bandwidth-tooltip');
+        // Create element on first render
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'bandwidth-tooltip';
+            document.body.appendChild(tooltipEl);
+        }
+
+        // Tooltip Arrow
+        let tooltipArrow = document.getElementById('bandwidth-tooltip-arrow');
+        // Create element on first render
+        if (!tooltipArrow) {
+            tooltipArrow = document.createElement('div');
+            tooltipArrow.id = 'bandwidth-tooltip-arrow';
+            document.body.appendChild(tooltipArrow);
+        }
+
+        // Hide if no tooltip
+        if (!tooltipModel.opacity) {
+            document.body.removeChild(tooltipEl);
+            document.body.removeChild(tooltipArrow);
 
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
+        // `this` will be the overall tooltip
+        const bandwidthChart = document.getElementById('bandwidth-chart');
+        if (bandwidthChart) {
+            const position = bandwidthChart.getBoundingClientRect();
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
+            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
+            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
+
+            tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipArrow.style.position = this.TOOLTIP_POSITION;
+            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 103}px`;
         }
 
         const dataIndex = tooltipModel.dataPoints[0].index;
@@ -141,20 +170,20 @@ export default class BandwidthChart extends BaseChart {
     }
 
     #bandwidth-tooltip {
-        background-image: var(--tooltip-background-path);
+        background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
         min-width: 250px;
         min-height: 230px;
         font-size: 12px;
         border-radius: 14px;
-        color: var(--regular-text-color);
+        box-shadow: 0 2px 10px #d2d6de;
+        color: #535f77;
         pointer-events: none;
-        z-index: 9999;
     }
 
     #bandwidth-tooltip-arrow {
-        background-image: var(--tooltip-arrow-path);
+        background-image: url('../../../static/images/tooltipArrow.png');
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;
@@ -207,6 +236,6 @@ export default class BandwidthChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
-        color: var(--regular-text-color);
+        color: rgba(83, 95, 119, 0.44);
     }
 </style>

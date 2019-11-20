@@ -3,31 +3,29 @@
 
 <template>
     <div class="chart">
-        <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
+        <p class="egress-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
             id="egress-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="400"
+            :height="240"
             :tooltip-constructor="egressTooltip"
-            :key="chartKey"
         />
     </div>
 </template>
 
 <script lang="ts">
-import { Component } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
 import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
 import { EgressUsed } from '@/storagenode/satellite';
 
 /**
- * stores egress data for egress bandwidth chart's tooltip
+ * stores egress bandwidth data for egress bandwidth chart's tooltip
  */
 class EgressTooltip {
     public normalEgress: string;
@@ -43,11 +41,14 @@ class EgressTooltip {
     }
 }
 
-@Component
-export default class EgressChart extends BaseChart {
-    private get chartBackgroundColor(): string {
-        return this.isDarkMode ? '#4FC895' : '#edf9f4';
-    }
+@Component ({
+    components: {
+        VChart,
+    },
+})
+export default class EgressChart extends Vue {
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
 
     private get allBandwidth(): EgressUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
@@ -66,9 +67,9 @@ export default class EgressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.chartBackgroundColor;
+        const chartBackgroundColor = '#edf9f4';
         const chartBorderColor = '#48a77f';
-        const chartBorderWidth = 1;
+        const chartBorderWidth = 2;
 
         if (this.allBandwidth.length) {
             data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
@@ -78,69 +79,106 @@ export default class EgressChart extends BaseChart {
     }
 
     public egressTooltip(tooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
-            'egress-tooltip-arrow', 'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            255, 94, 35, 24, 6, 4, `#48a77f`);
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: any): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
+        // Tooltip Element
+        let tooltipEl = document.getElementById('egress-tooltip');
+        // Create element on first render
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'egress-tooltip';
+            document.body.appendChild(tooltipEl);
         }
 
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
+        // Tooltip Arrow
+        let tooltipArrow = document.getElementById('egress-tooltip-arrow');
+        // Create element on first render
+        if (!tooltipArrow) {
+            tooltipArrow = document.createElement('div');
+            tooltipArrow.id = 'egress-tooltip-arrow';
+            document.body.appendChild(tooltipArrow);
+        }
 
-        return `<div class='egress-tooltip-body'>
-                    <div class='egress-tooltip-body__info'>
-                        <p>USAGE</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>REPAIR</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>AUDIT</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
-                    </div>
-                </div>
-                <div class='egress-tooltip-footer'>
-                    <p>${dataPoint.date}</p>
-                </div>`;
+        // Hide if no tooltip
+        if (!tooltipModel.opacity) {
+            document.body.removeChild(tooltipEl);
+            document.body.removeChild(tooltipArrow);
+
+            return;
+        }
+
+        // Set Text
+        if (tooltipModel.body) {
+            const dataIndex = tooltipModel.dataPoints[0].index;
+            const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
+
+            tooltipEl.innerHTML = `<div class='egress-tooltip-body'>
+                                       <div class='egress-tooltip-body__info'>
+                                           <p>USAGE</p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
+                                       </div>
+                                       <div class='egress-tooltip-body__info'>
+                                           <p>REPAIR</p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
+                                       </div>
+                                       <div class='egress-tooltip-body__info'>
+                                           <p>AUDIT</p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
+                                       </div>
+                                   </div>
+                                   <div class='egress-tooltip-footer'>
+                                       <p>${dataPoint.date}</p>
+                                   </div>`;
+        }
+
+        // `this` will be the overall tooltip
+        const bandwidthChart = document.getElementById('egress-chart');
+        if (bandwidthChart) {
+            const position = bandwidthChart.getBoundingClientRect();
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
+            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
+            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
+
+            tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipArrow.style.position = this.TOOLTIP_POSITION;
+            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 103}px`;
+        }
+
+        return;
     }
 }
 </script>
 
 <style lang="scss">
+    p {
+        margin: 0;
+    }
+
     .egress-chart {
-        z-index: 102;
 
         &__data-dimension {
             font-size: 13px;
-            color: var(--regular-text-color);
-            margin: 0 0 5px 31px !important;
+            color: #586c86;
+            margin: 0 0 5px 31px;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #egress-tooltip {
-        background-image: var(--tooltip-background-path);
+        background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
         min-width: 190px;
         min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
+        box-shadow: 0 2px 10px #d2d6de;
         color: #535f77;
         pointer-events: none;
-        z-index: 9999;
     }
 
     #egress-tooltip-arrow {
-        background-image: var(--tooltip-arrow-path);
+        background-image: url('../../../static/images/tooltipArrow.png');
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;
@@ -153,18 +191,19 @@ export default class EgressChart extends BaseChart {
 
         &__info {
             display: flex;
-            background-color: var(--egress-tooltip-info-background-color);
+            background-color: rgba(211, 242, 204, 0.3);
             border-radius: 12px;
             padding: 14px;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 14px;
             position: relative;
-            color: var(--egress-font-color);
+            color: #2e5f46;
         }
     }
 
     .egress-tooltip-bold-text {
+        font-family: 'font_bold', sans-serif;
         font-size: 14px;
     }
 
@@ -176,6 +215,6 @@ export default class EgressChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
-        color: var(--regular-text-color);
+        color: rgba(83, 95, 119, 0.44);
     }
 </style>

@@ -6,19 +6,17 @@
  */
 export class Satellite {
     public constructor(
-        public id: string = '',
-        public storageDaily: Stamp[] = [],
-        public bandwidthDaily: BandwidthUsed[] = [],
-        public egressDaily: EgressUsed[] = [],
-        public ingressDaily: IngressUsed[] = [],
-        public storageSummary: number = 0,
-        public bandwidthSummary: number = 0,
-        public egressSummary: number = 0,
-        public ingressSummary: number = 0,
-        public audit: Metric = new Metric(),
-        public uptime: Metric = new Metric(),
-        public joinDate: Date = new Date(),
-    ) {}
+        public id: string,
+        public storageDaily: Stamp[],
+        public bandwidthDaily: BandwidthUsed[],
+        public egressDaily: EgressUsed[],
+        public ingressDaily: IngressUsed[],
+        public storageSummary: number,
+        public bandwidthSummary: number,
+        public egressSummary: number,
+        public ingressSummary: number,
+        public audit: Metric,
+        public uptime: Metric) {}
 }
 
 /**
@@ -123,8 +121,7 @@ export class BandwidthUsed {
 export class EgressUsed {
     public constructor(
         public egress: Egress,
-        public intervalStart: Date,
-    ) {}
+        public intervalStart: Date) {}
 
     /**
      * Used to summarize all egress usage data
@@ -141,8 +138,7 @@ export class EgressUsed {
      */
     public static emptyWithDate(date: number): EgressUsed {
         const now = new Date();
-        now.setUTCDate(date);
-        now.setUTCHours(0, 0, 0, 0);
+        now.setDate(date);
 
         return new EgressUsed(new Egress(0, 0, 0), now);
     }
@@ -154,8 +150,7 @@ export class EgressUsed {
 export class IngressUsed {
     public constructor(
         public ingress: Ingress,
-        public intervalStart: Date,
-    ) {}
+        public intervalStart: Date) {}
 
     /**
      * Used to summarize all ingress usage data
@@ -172,8 +167,7 @@ export class IngressUsed {
      */
     public static emptyWithDate(date: number): IngressUsed {
         const now = new Date();
-        now.setUTCDate(date);
-        now.setUTCHours(0, 0, 0, 0);
+        now.setDate(date);
 
         return new IngressUsed(new Ingress(0, 0), now);
     }
@@ -184,83 +178,12 @@ export class IngressUsed {
  */
 export class Satellites {
     public constructor(
-        public storageDaily: Stamp[] = [],
-        public bandwidthDaily: BandwidthUsed[] = [],
-        public egressDaily: EgressUsed[] = [],
-        public ingressDaily: IngressUsed[] = [],
-        public storageSummary: number = 0,
-        public bandwidthSummary: number = 0,
-        public egressSummary: number = 0,
-        public ingressSummary: number = 0,
-        public joinDate: Date = new Date(),
-        public satellitesScores: SatelliteScores[] = [],
-    ) {}
-}
-
-// TODO: move and create domain types.
-/**
- * Holds information about audit and suspension scores by satellite.
- */
-export class SatelliteScores {
-    public auditScore: Score;
-    public suspensionScore: Score;
-    public onlineScore: Score;
-    public iconClassName: string = '';
-
-    private readonly WARNING_CLASSNAME: string = 'warning';
-    private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
-
-    public constructor(
-        public satelliteName: string = 'satellite-name',
-        auditScore: number = 0,
-        unknownScore: number = 0,
-        onlineScore: number = 0,
-    ) {
-        this.auditScore = new Score(auditScore);
-        this.suspensionScore = new Score(unknownScore);
-        this.onlineScore = new Score(onlineScore);
-        const scores = [this.auditScore, this.onlineScore, this.suspensionScore];
-
-        if (scores.some(score => score.statusClassName === this.DISQUALIFICATION_CLASSNAME)) {
-            this.iconClassName = this.DISQUALIFICATION_CLASSNAME;
-
-            return;
-        }
-
-        if (scores.some(score => score.statusClassName === this.WARNING_CLASSNAME)) {
-            this.iconClassName = this.WARNING_CLASSNAME;
-        }
-    }
-}
-
-/**
- * Score in percents and className for view.
- */
-export class Score {
-    public label: string;
-    public statusClassName: string;
-
-    private readonly WARNING_MINIMUM_SCORE: number = 0.95;
-    private readonly WARNING_CLASSNAME: string = 'warning';
-    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
-    private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
-
-    public constructor(
-        score: number = 0,
-    ) {
-        this.label = `${parseFloat((score * 100).toFixed(2))} %`;
-
-        switch (true) {
-            case (score < this.DISQUALIFICATION_MINIMUM_SCORE):
-                this.statusClassName = this.DISQUALIFICATION_CLASSNAME;
-
-                break;
-            case (score < this.WARNING_MINIMUM_SCORE):
-                this.statusClassName = this.WARNING_CLASSNAME;
-
-                break;
-            default:
-                this.statusClassName = '';
-        }
-    }
+        public storageDaily: Stamp[],
+        public bandwidthDaily: BandwidthUsed[],
+        public egressDaily: EgressUsed[],
+        public ingressDaily: IngressUsed[],
+        public storageSummary: number,
+        public bandwidthSummary: number,
+        public egressSummary: number,
+        public ingressSummary: number) {}
 }

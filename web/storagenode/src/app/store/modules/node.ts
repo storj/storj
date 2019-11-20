@@ -5,15 +5,7 @@ import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/dur
 import { getMonthsBeforeNow } from '@/app/utils/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
-import {
-    BandwidthUsed,
-    EgressUsed,
-    IngressUsed,
-    Satellite,
-    Satellites,
-    SatelliteScores,
-    Stamp,
-} from '@/storagenode/satellite';
+import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Stamp } from '@/storagenode/satellite';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',
@@ -85,25 +77,68 @@ export function makeNodeModule(api: SNOApi) {
                 suspension: 0,
             },
         },
-        mutations: {
-            [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
-                state.info.id = nodeInfo.nodeID;
-                state.info.isLastVersion = nodeInfo.isUpToDate;
-                state.info.version = nodeInfo.version;
-                state.info.allowedVersion = nodeInfo.allowedVersion;
-                state.info.wallet = nodeInfo.wallet;
-                state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
-                state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
-                state.utilization.diskSpace.trash = nodeInfo.diskSpace.trash;
-                state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
+        satellites: new Array<SatelliteInfo>(),
+        disqualifiedSatellites: new Array<SatelliteInfo>(),
+        selectedSatellite: allSatellites,
+        bandwidthChartData: new Array<BandwidthUsed>(),
+        egressChartData: new Array<EgressUsed>(),
+        ingressChartData: new Array<IngressUsed>(),
+        storageChartData: new Array<Stamp>(),
+        storageSummary: 0,
+        bandwidthSummary: 0,
+        egressSummary: 0,
+        ingressSummary: 0,
+        checks: {
+            uptime: 0,
+            audit: 0,
+        },
+    },
+    mutations: {
+        [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
+            state.info.id = nodeInfo.nodeID;
+            state.info.isLastVersion = nodeInfo.isUpToDate;
+            state.info.version = nodeInfo.version;
+            state.info.wallet = nodeInfo.wallet;
+            state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
+            state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
+            state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
+            state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
+            state.utilization.bandwidth.remaining = nodeInfo.bandwidth.available - nodeInfo.bandwidth.used;
+            state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
 
-                state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
-                state.suspendedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.suspended);
+            state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => {
+                return satellite.disqualified;
+            });
 
-                state.satellites = nodeInfo.satellites || [];
+            state.satellites = nodeInfo.satellites ? nodeInfo.satellites : [];
 
-                state.info.startedAt = nodeInfo.startedAt;
-                state.info.lastPinged = nodeInfo.lastPinged;
+            state.info.status = StatusOffline;
+
+            state.info.startedAt = nodeInfo.startedAt;
+            state.info.lastPinged = nodeInfo.lastPinged;
+
+            if (datesDiffInMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
+                state.info.status = StatusOnline;
+            }
+        },
+        [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
+            if (satelliteInfo.id) {
+                state.satellites.forEach(satellite => {
+                    if (satelliteInfo.id === satellite.id) {
+                        const audit = calculateSuccessRatio(
+                            satelliteInfo.audit.successCount,
+                            satelliteInfo.audit.totalCount
+                        );
+
+                        const uptime = calculateSuccessRatio(
+                            satelliteInfo.uptime.successCount,
+                            satelliteInfo.uptime.totalCount
+                        );
+
+                        state.selectedSatellite = satellite;
+                        state.checks.audit = audit;
+                        state.checks.uptime = uptime;
+                    }
 
                 const minutesPassed = Duration.difference(new Date(), new Date(nodeInfo.lastPinged)) / millisecondsInSecond / secondsInMinute;
 
@@ -114,38 +149,20 @@ export function makeNodeModule(api: SNOApi) {
 
                 if (!selectedSatellite) {
                     return;
-                }
+                });
+            }
+            else {
+                state.selectedSatellite = allSatellites;
+            }
 
-                state.selectedSatellite = {
-                    id: satelliteInfo.id,
-                    disqualified: selectedSatellite.disqualified,
-                    joinDate: satelliteInfo.joinDate,
-                    url: selectedSatellite.url,
-                    suspended: selectedSatellite.suspended,
-                };
-
-                state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
-                state.checks.uptime = satelliteInfo.uptime.totalCount === 0 ? 100 : satelliteInfo.uptime.successCount / satelliteInfo.uptime.totalCount * 100;
-                state.checks.suspension = satelliteInfo.audit.unknownScore * 100;
-            },
-            [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
-                state.selectedSatellite = {
-                    id: '',
-                    disqualified: null,
-                    joinDate: satelliteInfo.joinDate,
-                };
-                state.satellitesScores = satelliteInfo.satellitesScores;
-            },
-            [SET_DAILY_DATA](state: any, satelliteInfo: Satellite): void {
-                state.bandwidthChartData = satelliteInfo.bandwidthDaily;
-                state.egressChartData = satelliteInfo.egressDaily;
-                state.ingressChartData = satelliteInfo.ingressDaily;
-                state.storageChartData = satelliteInfo.storageDaily;
-                state.bandwidthSummary = satelliteInfo.bandwidthSummary;
-                state.egressSummary = satelliteInfo.egressSummary;
-                state.ingressSummary = satelliteInfo.ingressSummary;
-                state.storageSummary = satelliteInfo.storageSummary;
-            },
+            state.bandwidthChartData = satelliteInfo.bandwidthDaily;
+            state.egressChartData = satelliteInfo.egressDaily;
+            state.ingressChartData = satelliteInfo.ingressDaily;
+            state.storageChartData = satelliteInfo.storageDaily;
+            state.bandwidthSummary = satelliteInfo.bandwidthSummary;
+            state.egressSummary = satelliteInfo.egressSummary;
+            state.ingressSummary = satelliteInfo.ingressSummary;
+            state.storageSummary = satelliteInfo.storageSummary;
         },
         actions: {
             [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<void> {

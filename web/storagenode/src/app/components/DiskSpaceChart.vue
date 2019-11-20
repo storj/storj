@@ -89,10 +89,15 @@ export default class DiskSpaceChart extends BaseChart {
         const dataIndex = tooltipModel.dataPoints[0].index;
         const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
-        return `<div class='tooltip-body'>
-                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
-                    <p class='tooltip-body__footer'>${dataPoint.date}</p>
-                </div>`;
+        if (diskSpaceChart) {
+            const position = diskSpaceChart.getBoundingClientRect();
+            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+            tooltipEl.style.position = this.TOOLTIP_POSITION;
+            tooltipEl.style.right = `${position.left + window.pageXOffset - tooltipModel.caretX - this.TOOLTIP_MARGIN}px`;
+            tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY}px`;
+        }
+
+        return;
     }
 }
 </script>

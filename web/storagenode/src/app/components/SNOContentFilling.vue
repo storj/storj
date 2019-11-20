@@ -38,71 +38,29 @@
                 </a> on Storj forum.
             </p>
         </div>
-        <div v-if="isSuspendedInfoShown" class="info-area__suspended-info">
-            <LargeSuspensionIcon
-                class="info-area__suspended-info__image"
-                alt="Suspended image"
-            />
-            <p class="info-area__suspended-info__info">
-                Your node has been suspended on <b>{{ getSuspensionDate }}</b>. If you have any questions regarding this please check our Node Operators
-                <a
-                    class="info-area__disqualified-info__info__link"
-                    href="https://forum.storj.io/c/sno-category"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
-            </p>
-        </div>
-        <div v-else-if="doSuspendedSatellitesExist" class="info-area__suspended-info">
-            <LargeSuspensionIcon
-                class="info-area__suspended-info__image"
-                alt="Suspended image"
-            />
-            <p class="info-area__suspended-info__info">
-                Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
-                <a
-                    class="info-area__disqualified-info__info__link"
-                    href="https://forum.storj.io/c/sno-category"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
-            </p>
-        </div>
-        <p class="info-area__title">Bandwidth Utilization </p>
-        <section>
-            <div class="chart-container bandwidth-chart">
+        <p class="info-area__title">Utilization & Remaining</p>
+        <div class="info-area__chart-area">
+            <div class="chart-container">
                 <div class="chart-container__title-area">
                     <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-                    <div class="chart-container__title-area__buttons-area">
-                        <button
-                            name="Show Egress Chart"
-                            class="chart-container__title-area__chart-choice-item"
-                            :class="{ 'egress-chart-shown': isEgressChartShown }"
-                            @click.stop="toggleEgressChartShowing"
-                        >
-                            Egress
-                        </button>
-                        <button
-                            name="Show Ingress Chart"
-                            class="chart-container__title-area__chart-choice-item"
-                            :class="{ 'ingress-chart-shown': isIngressChartShown }"
-                            @click.stop="toggleIngressChartShowing"
-                        >
-                            Ingress
-                        </button>
-                    </div>
+                    <div class="chart-container__title-area__chart-choice-item" :class="{'egress-chart-shown' : isEgressChartShown}" @click.stop="toggleEgressChartShowing">Egress</div>
+                    <div class="chart-container__title-area__chart-choice-item">Ingress</div>
                 </div>
-                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
-                <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                <p class="chart-container__amount" v-if="!isEgressChartShown"><b>{{bandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressSummary}}</b></p>
+                <p class="chart-container__amount" v-if="false"><b>{{ingressSummary}}</b></p>
+                <div class="chart-container__chart">
+                    <BandwidthChart v-if="!isEgressChartShown"/>
+                    <EgressChart v-if="isEgressChartShown"/>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                </div>
+                <p class="chart-container__amount"><b>{{storageSummary}}*h</b></p>
+                <div class="chart-container__chart">
+                    <DiskSpaceChart/>
                 </div>
             </div>
         </section>
@@ -160,10 +118,7 @@ import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
-import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
-import IngressChart from '@/app/components/IngressChart.vue';
-import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
@@ -172,7 +127,6 @@ import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 
-import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { SatelliteInfo } from '@/storagenode/dashboard';
@@ -192,12 +146,7 @@ class Checks {
 
 @Component ({
     components: {
-        AllSatellitesAuditsArea,
-        DiskStatChart,
-        TotalPayoutArea,
-        EstimationArea,
         EgressChart,
-        IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
@@ -210,102 +159,14 @@ class Checks {
     },
 })
 export default class SNOContentFilling extends Vue {
-    public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
-    public chartWidth: number = 0;
-    public chartHeight: number = 0;
-    public diskSpaceChartWidth: number = 0;
-    public diskSpaceChartHeight: number = 0;
-
-    public $refs: {
-        chart: HTMLElement;
-        diskSpaceChart: HTMLElement;
-    };
-
-    public get isDarkMode(): boolean {
-        return this.$store.state.appStateModule.isDarkMode;
-    }
-
-    /**
-     * Used container size recalculation for charts resizing.
-     */
-    public recalculateChartDimensions(): void {
-        this.chartWidth = this.$refs['chart'].clientWidth;
-        this.chartHeight = this.$refs['chart'].clientHeight;
-        this.diskSpaceChartWidth = this.$refs['diskSpaceChart'].clientWidth;
-        this.diskSpaceChartHeight = this.$refs['diskSpaceChart'].clientHeight;
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Adds event on window resizing to recalculate size of charts.
-     */
-    public mounted(): void {
-        window.addEventListener('resize', this.recalculateChartDimensions);
-        this.recalculateChartDimensions();
-    }
-
-    /**
-     * Lifecycle hook before component destruction.
-     * Removes event on window resizing.
-     */
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.recalculateChartDimensions);
-    }
-
-    /**
-     * isBandwidthChartShown showing status of bandwidth chart from store.
-     * @return boolean - bandwidth chart displaying status
-     */
-    public get isBandwidthChartShown(): boolean {
-        return this.$store.state.appStateModule.isBandwidthChartShown;
-    }
-
-    /**
-     * isIngressChartShown showing status of ingress chart from store.
-     * @return boolean - ingress chart displaying status
-     */
-    public get isIngressChartShown(): boolean {
-        return this.$store.state.appStateModule.isIngressChartShown;
-    }
-
-    /**
-     * isEgressChartShown showing status of egress chart from store.
-     * @return boolean - egress chart displaying status
-     */
     public get isEgressChartShown(): boolean {
         return this.$store.state.appStateModule.isEgressChartShown;
     }
 
-    /**
-     * toggleEgressChartShowing toggles displaying of egress chart.
-     */
     public toggleEgressChartShowing(): void {
-        if (this.isBandwidthChartShown || this.isIngressChartShown) {
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
-
-            return;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
     }
 
-    /**
-     * toggleIngressChartShowing toggles displaying of ingress chart.
-     */
-    public toggleIngressChartShowing(): void {
-        if (this.isBandwidthChartShown || this.isEgressChartShown) {
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
-
-            return;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
-    }
-
-    /**
-     * wallet - wallet address as string from store.
-     * @return string - wallet address
-     */
     public get wallet(): string {
         return this.$store.state.node.info.wallet;
     }
@@ -318,12 +179,16 @@ export default class SNOContentFilling extends Vue {
         return formatBytes(this.$store.state.node.bandwidthSummary);
     }
 
-    /**
-     * egressSummary - amount of monthly egress used from store.
-     * @return string - formatted amount of monthly egress used
-     */
     public get egressSummary(): string {
         return formatBytes(this.$store.state.node.egressSummary);
+    }
+
+    public get ingressSummary(): string {
+        return formatBytes(this.$store.state.node.ingressSummary);
+    }
+
+    public get storageSummary(): string {
+        return formatBytes(this.$store.state.node.storageSummary);
     }
 
     /**
@@ -579,28 +444,21 @@ export default class SNOContentFilling extends Vue {
             align-items: center;
             justify-content: space-between;
 
-            &__buttons-area {
-                display: flex;
-                flex-direction: row;
-                align-items: flex-end;
-            }
-
             &__title {
                 font-size: 14px;
-                color: var(--regular-text-color);
+                color: #586c86;
                 user-select: none;
             }
 
             &__chart-choice-item {
                 padding: 5px 12px;
-                background-color: var(--chart-selection-button-background-color);
+                background-color: #f1f6ff;
                 border-radius: 47px;
                 font-size: 12px;
                 color: #9daed2;
                 max-height: 25px;
                 cursor: pointer;
                 user-select: none;
-                margin-left: 9px;
             }
         }
 
@@ -680,5 +538,10 @@ export default class SNOContentFilling extends Vue {
             width: calc(100% - 36px);
             padding: 24px 18px;
         }
+    }
+
+    .egress-chart-shown {
+        background-color: #d3f2cc;
+        color: #2e5f46;
     }
 </style>
