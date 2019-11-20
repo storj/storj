@@ -101,11 +101,17 @@ func TestInstaller_Config(t *testing.T) {
 	configData, err := ioutil.ReadFile(configFile)
 	require.NoError(t, err)
 
-	configDataW := bytes.NewBuffer(configData)
+	CommentlessConfigData := bytes.Buffer{}
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		if !strings.HasPrefix(scanner.Text(), "#") {
-			_, err := configDataW.Write(scanner.Bytes())
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "#") {
+			_, err := CommentlessConfigData.Write(scanner.Bytes())
+			require.NoError(t, err)
+		}
+		line = strings.Trim(line, " \t\n")
+		if len(line) != 0 {
+			_, err := CommentlessConfigData.Write(scanner.Bytes())
 			require.NoError(t, err)
 		}
 	}
@@ -114,7 +120,7 @@ func TestInstaller_Config(t *testing.T) {
 	}
 
 	var config storagenode.Config
-	err = yaml.Unmarshal(configDataW.Bytes(), config)
+	err = yaml.Unmarshal(CommentlessConfigData.Bytes(), config)
 	require.NoError(t, err)
 
 	t.Logf("configData: %s", string(configData))
