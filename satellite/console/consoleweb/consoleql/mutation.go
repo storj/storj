@@ -57,8 +57,8 @@ const (
 	FieldNewPassword = "newPassword"
 	// Secret is a field name for registration token for user creation during Vanguard release
 	Secret = "secret"
-	// ReferralToken is a field name for passing referral token from referral links
-	ReferralToken = "referralToken"
+	// ReferrerUserID is a field name for passing referral token from referral links
+	ReferrerUserID = "referrerUserID"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -75,7 +75,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					ReferralToken: &graphql.ArgumentConfig{
+					ReferrerUserID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 				},
@@ -83,7 +83,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					referralToken, _ := p.Args[ReferralToken].(string)
+					referrerUserID, _ := p.Args[ReferrerUserID].(string)
 
 					createUser := fromMapCreateUser(input)
 
@@ -96,7 +96,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					user, err := service.CreateUser(p.Context, createUser, secret, referralToken)
+					user, err := service.CreateUser(p.Context, createUser, secret, referrerUserID)
 					if err != nil {
 						log.Error("register: failed to create account",
 							zap.Error(err))
