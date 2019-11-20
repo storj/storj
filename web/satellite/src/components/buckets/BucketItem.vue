@@ -3,10 +3,10 @@
 
 <template>
     <div class="container">
-        <div class="container__item">{{ name }}</div>
-        <div class="container__item">{{ storage }}</div>
-        <div class="container__item">{{ egress }}</div>
-        <div class="container__item">{{ objectCount }}</div>
+        <div class="container__item" :title="itemData.bucketName">{{ itemData.formattedBucketName() }}</div>
+        <div class="container__item">{{ itemData.storage.toFixed(4) }}</div>
+        <div class="container__item">{{ itemData.egress.toFixed(4) }}</div>
+        <div class="container__item">{{ itemData.objectCount.toString() }}</div>
     </div>
 </template>
 
@@ -15,27 +15,10 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { Bucket } from '@/types/buckets';
 
-// TODO: should it be functional?
 @Component
 export default class BucketItem extends Vue {
     @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
     private readonly itemData: Bucket;
-
-    public get name(): string {
-        return this.itemData.formattedBucketName();
-    }
-
-    public get storage(): string {
-        return this.itemData.storage.toFixed(4);
-    }
-
-    public get egress(): string {
-        return this.itemData.egress.toFixed(4);
-    }
-
-    public get objectCount(): string {
-        return this.itemData.objectCount.toString();
-    }
 }
 </script>
 

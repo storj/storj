@@ -13,6 +13,9 @@ rem copy the storagenode binaries to the installer project
 copy %1 installer\windows\storagenode.exe
 copy %2 installer\windows\storagenode-updater.exe
 
+rem install NuGet packages
+nuget install installer\windows\StorjTests\packages.config -o installer\windows\packages
+
 rem build the installer
 msbuild installer\windows\windows.sln /t:Build /p:Configuration=Release
 

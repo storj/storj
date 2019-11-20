@@ -5,14 +5,12 @@ package storage
 
 import (
 	"context"
-	"errors"
 )
 
 // ListOptions are items that are optional for the LIST method
 type ListOptions struct {
 	Prefix       Key
 	StartAfter   Key // StartAfter is relative to Prefix
-	EndBefore    Key // EndBefore is relative to Prefix
 	Recursive    bool
 	IncludeValue bool
 	Limit        int
@@ -24,12 +22,9 @@ type ListOptions struct {
 // more indicates if the result was truncated. If false
 // then the result []ListItem includes all requested keys.
 // If true then the caller must call List again to get more
-// results by setting `StartAfter` or `EndBefore` appropriately.
+// results by setting `StartAfter` appropriately.
 func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result Items, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if !opts.StartAfter.IsZero() && !opts.EndBefore.IsZero() {
-		return nil, false, errors.New("start-after and end-before cannot be combined")
-	}
 
 	limit := opts.Limit
 	if limit <= 0 || limit > LookupLimit {
@@ -37,15 +32,8 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 	}
 
 	more = true
-	reverse := !opts.EndBefore.IsZero()
 
-	var first Key
-	if !reverse {
-		first = opts.StartAfter
-	} else {
-		first = opts.EndBefore
-	}
-
+	first := opts.StartAfter
 	iterate := func(ctx context.Context, it Iterator) error {
 		var item ListItem
 		skipFirst := true
@@ -86,22 +74,14 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 	}
 
 	var firstFull Key
-	if !reverse && !opts.StartAfter.IsZero() {
+	if !opts.StartAfter.IsZero() {
 		firstFull = joinKey(opts.Prefix, opts.StartAfter)
-	}
-	if reverse && !opts.EndBefore.IsZero() {
-		firstFull = joinKey(opts.Prefix, opts.EndBefore)
 	}
 	err = store.Iterate(ctx, IterateOptions{
 		Prefix:  opts.Prefix,
 		First:   firstFull,
-		Reverse: reverse,
 		Recurse: opts.Recursive,
 	}, iterate)
-
-	if reverse {
-		result = ReverseItems(result)
-	}
 
 	return result, more, err
 }

@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -53,6 +53,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
+
 		chore.log.Debug("checking pending exits")
 
 		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
@@ -67,6 +68,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, satellite := range satellites {
+			mon.Meter("satellite_gracefulexit_request").Mark(1) //locked
 			if satellite.FinishedAt != nil {
 				continue
 			}

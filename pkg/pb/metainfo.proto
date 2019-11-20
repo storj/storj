@@ -215,7 +215,7 @@ message ListSegmentsRequestOld {
     bytes bucket = 1;
     bytes prefix = 2;
     bytes start_after = 3;
-    bytes end_before = 4;
+    bytes end_before = 4 [deprecated=true];
     bool recursive = 5;
     int32 limit = 6;
     fixed32 meta_flags = 7;

@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 )
 
 // Error is the default audit errs class.
@@ -129,6 +129,9 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 	for _, pending := range report.PendingAudits {
 		skip[pending.NodeID] = true
+	}
+	for _, nodeID := range report.Unknown {
+		skip[nodeID] = true
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.

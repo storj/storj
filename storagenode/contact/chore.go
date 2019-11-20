@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -77,6 +77,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			interval := initialBackOff
 			attempts := 0
 			for {
+
+				mon.Meter("satellite_contact_request").Mark(1) //locked
+
 				err := chore.pingSatellite(ctx, satellite)
 				attempts++
 				if err == nil {

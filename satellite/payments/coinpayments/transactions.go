@@ -6,7 +6,6 @@ package coinpayments
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"net/url"
 	"strconv"
@@ -21,21 +20,6 @@ const (
 	cmdGetTransactionInfo     = "get_tx_info"
 	cmdGetTransactionInfoList = "get_tx_info_multi"
 )
-
-// Currency is a type wrapper for defined currencies.
-type Currency string
-
-const (
-	// CurrencyUSD defines USD.
-	CurrencyUSD Currency = "USD"
-	// CurrencyLTCT defines LTCT, coins used for testing purpose.
-	CurrencyLTCT Currency = "LTCT"
-)
-
-// String returns Currency string representation
-func (c Currency) String() string {
-	return string(c)
-}
 
 // Status is a type wrapper for transaction statuses.
 type Status int
@@ -129,9 +113,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount := new(big.Float).SetPrec(big.MaxPrec)
-
-	_, err := fmt.Sscan(txRaw.Amount, amount)
+	amount, err := parseAmount(txRaw.Amount)
 	if err != nil {
 		return err
 	}
@@ -185,14 +167,11 @@ func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount := new(big.Float).SetPrec(big.MaxPrec)
-	received := new(big.Float).SetPrec(big.MaxPrec)
-
-	_, err := fmt.Sscan(txInfoRaw.AmountF, amount)
+	amount, err := parseAmount(txInfoRaw.AmountF)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Sscan(txInfoRaw.ReceivedF, received)
+	received, err := parseAmount(txInfoRaw.ReceivedF)
 	if err != nil {
 		return err
 	}
@@ -262,9 +241,9 @@ type Transactions struct {
 }
 
 // Create creates new transaction.
-func (t Transactions) Create(ctx context.Context, params CreateTX) (*Transaction, error) {
+func (t Transactions) Create(ctx context.Context, params *CreateTX) (*Transaction, error) {
 	values := make(url.Values)
-	values.Set("amount", params.Amount.Text('f', int(params.Amount.Prec())))
+	values.Set("amount", params.Amount.Text('f', -1))
 	values.Set("currency1", params.CurrencyIn.String())
 	values.Set("currency2", params.CurrencyOut.String())
 	values.Set("buyer_email", params.BuyerEmail)

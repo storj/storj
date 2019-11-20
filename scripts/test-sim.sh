@@ -27,6 +27,31 @@ else
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
+# explicitly set all the satellites and storagenodes to use mixed grpc and drpc
+(
+	eval "$( storj-sim --satellites 2 network env )"
+
+	N=0
+	DIR="SATELLITE_${N}_DIR"
+	while [ -n "${!DIR:-""}" ]; do
+		[ $((N%2)) -eq 0 ] && KIND=drpc || KIND=grpc
+		BIN="$(which satellite-${KIND})"
+		( set -x; cp "${BIN}" "${!DIR}/satellite" )
+		let N=N+1
+		DIR="SATELLITE_${N}_DIR"
+	done
+
+	N=0
+	DIR="STORAGENODE_${N}_DIR"
+	while [ -n "${!DIR:-""}" ]; do
+		[ $((N%2)) -eq 0 ] && KIND=drpc || KIND=grpc
+		BIN="$(which storagenode-${KIND})"
+		( set -x; cp "${BIN}" "${!DIR}/storagenode" )
+		let N=N+1
+		DIR="STORAGENODE_${N}_DIR"
+	done
+)
+
 # set the segment size lower to make test run faster
 echo client.segment-size: "6 MiB" >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
 

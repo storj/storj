@@ -15,13 +15,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/uplink"
 )
 
@@ -158,11 +158,11 @@ func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket)
 
 func convertError(err error, path fpath.FPath) error {
 	if storj.ErrBucketNotFound.Has(err) {
-		return fmt.Errorf("Bucket not found: %s", path.Bucket())
+		return fmt.Errorf("bucket not found: %s", path.Bucket())
 	}
 
 	if storj.ErrObjectNotFound.Has(err) {
-		return fmt.Errorf("Object not found: %s", path.String())
+		return fmt.Errorf("object not found: %s", path.String())
 	}
 
 	return err

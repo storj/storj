@@ -33,7 +33,7 @@ class StampTooltip {
 
     public constructor(stamp: Stamp) {
         this.atRestTotal = formatBytes(stamp.atRestTotal);
-        this.date = stamp.intervalStart.toUTCString();
+        this.date = stamp.intervalStart.toUTCString().slice(0, 16);
     }
 }
 
@@ -52,8 +52,8 @@ export default class DiskSpaceChart extends Vue {
     }
 
     public get chartDataDimension(): string {
-        if (!this.allStamps.length) {
-            return '';
+        if (!this.$store.state.node.storageChartData.length) {
+            return 'Bytes';
         }
 
         return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
@@ -128,7 +128,7 @@ export default class DiskSpaceChart extends Vue {
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 30px;
+            margin: 0 0 5px 31px;
             font-family: 'font_medium', sans-serif;
         }
     }

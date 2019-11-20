@@ -17,16 +17,16 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/uplink/piecestore"
@@ -229,7 +229,7 @@ func TestDownload(t *testing.T) {
 			action:  pb.PieceAction_GET,
 			errs:    []string{"file does not exist", "The system cannot find the path specified"},
 		},
-		{ // should successfully download data
+		{ // should err with invalid action
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_PUT,
 			errs:    []string{"expected get or get repair or audit action got PUT"},

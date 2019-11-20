@@ -12,7 +12,7 @@ import (
 )
 
 func TestHandleError(t *testing.T) {
-	err := console.ErrConsoleInternal.New("a")
+	err := console.Error.New("a")
 	handledError := HandleError(err)
 
 	assert.Equal(t, handledError.Error(), internalErrDetailedMsg)

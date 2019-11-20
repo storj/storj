@@ -1,8 +1,10 @@
 /.vs/
 /bin/
+*/bin/
 /obj/
-/Storj/bin/
-/Storj/obj/
+*/obj/
+/packages/
+
 *.exe
 *.msi
 *.wixobj
