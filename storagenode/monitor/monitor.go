@@ -197,11 +197,9 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 		return 0, Error.Wrap(err)
 	}
 	allocatedBandwidth := service.allocatedBandwidth
-	availableBandwidth := allocatedBandwidth - usage
 
 	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
-	mon.IntVal("usage_bandwidth").Observe(usage)                  //locked
-	mon.IntVal("available_bandwidth").Observe(availableBandwidth) //locked
+	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
 
-	return availableBandwidth, nil
+	return allocatedBandwidth - usage, nil
 }
