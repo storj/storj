@@ -169,13 +169,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return nil
 	}
 
-	// these are used to synchronize the "incomplete transfer loop" with the main thread (storagenode receive loop)
-	morePiecesFlag := true
-	loopRunningFlag := true
+	// TODO how to get rid of errChan/handleError?
 	errChan := make(chan error, 1)
-	processMu := &sync.Mutex{}
-	processCond := sync.NewCond(processMu)
-
 	handleError := func(err error) error {
 		errChan <- err
 		close(errChan)
@@ -183,15 +178,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	}
 
 	// maps pieceIDs to pendingTransfers to keep track of ongoing piece transfer requests
+	// and handles concurrency between sending logic and receiving logic
 	pending := NewPendingMap()
+
 	var group errgroup.Group
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			processMu.Lock()
-			loopRunningFlag = false
-			processCond.Broadcast()
-			processMu.Unlock()
+			pending.Finish()
 		}()
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -211,9 +205,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
-					processMu.Lock()
-					morePiecesFlag = false
-					processMu.Unlock()
 					cancel()
 					return nil
 				}
@@ -223,9 +214,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					if err != nil {
 						return handleError(err)
 					}
-				}
-				if pending.Length() > 0 {
-					processCond.Broadcast()
 				}
 			}
 			return nil
@@ -239,13 +227,15 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		default:
 		}
 
-		pendingCount := pending.Length()
+		finishedPromise := pending.IsFinishedPromise()
+		finished, err := finishedPromise.Wait(ctx)
+		if err != nil {
+			// this is probably a context canceled error, should we be returning an internal error?
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 
-		processMu.Lock()
-		// if there are no more transfers and the pending queue is empty, send complete
-		if !morePiecesFlag && pendingCount == 0 {
-			processMu.Unlock()
-
+		// if there is no more work to receive send complete
+		if finished {
 			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -265,23 +255,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			break
-		} else if pendingCount == 0 {
-			// otherwise, wait for incomplete loop
-			processCond.Wait()
-			select {
-			case <-ctx.Done():
-				processMu.Unlock()
-				return ctx.Err()
-			default:
-			}
-
-			// if pending count is still 0 and the loop has exited, return
-			if pending.Length() == 0 && !loopRunningFlag {
-				processMu.Unlock()
-				continue
-			}
 		}
-		processMu.Unlock()
 
 		done := make(chan struct{})
 		var request *pb.StorageNodeMessage
@@ -476,7 +450,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	// update pending queue with the transfer item
-	pending.Put(pieceID, &PendingTransfer{
+	err = pending.Put(pieceID, &PendingTransfer{
 		Path:             incomplete.Path,
 		PieceSize:        pieceSize,
 		SatelliteMessage: transferMsg,
@@ -484,7 +458,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		PieceNum:         incomplete.PieceNum,
 	})
 
-	return nil
+	return err
 }
 
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStream, pending *PendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
@@ -522,9 +496,9 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, string(transfer.Path), transfer.PieceNum, transferQueueItem.RootPieceID)
 	if err != nil {
 		// remove the piece from the pending queue so it gets retried
-		pending.Delete(originalPieceID)
+		deleteErr := pending.Delete(originalPieceID)
 
-		return Error.Wrap(err)
+		return Error.Wrap(errs.Combine(err, deleteErr))
 	}
 
 	var failed int64
@@ -542,7 +516,10 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 		return Error.Wrap(err)
 	}
 
-	pending.Delete(originalPieceID)
+	err = pending.Delete(originalPieceID)
+	if err != nil {
+		return err
+	}
 
 	deleteMsg := &pb.SatelliteMessage{
 		Message: &pb.SatelliteMessage_DeletePiece{
@@ -600,8 +577,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			pending.Delete(pieceID)
-			return nil
+			err = pending.Delete(pieceID)
+			return err
 		}
 		pieces := remote.GetRemotePieces()
 
@@ -616,8 +593,8 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			pending.Delete(pieceID)
-			return nil
+			err = pending.Delete(pieceID)
+			return err
 		}
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
@@ -638,9 +615,9 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		pending.Delete(pieceID)
+		err = pending.Delete(pieceID)
 
-		return nil
+		return err
 	}
 
 	transferQueueItem.LastFailedAt = &now
@@ -659,9 +636,9 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		}
 	}
 
-	pending.Delete(pieceID)
+	err = pending.Delete(pieceID)
 
-	return nil
+	return err
 }
 
 func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID) (isDisqualified bool, err error) {
