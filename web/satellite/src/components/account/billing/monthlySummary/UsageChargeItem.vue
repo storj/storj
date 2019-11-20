@@ -11,34 +11,61 @@
                 <svg class="usage-charge-item-container__summary__name-container__expand-image" v-if="isDetailedInfoShown" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                 </svg>
-                <span>Project 2</span>
+                <span>{{ projectName }}</span>
             </div>
-            <span class="small-font-size">$12.88</span>
+            <span class="small-font-size">{{ item.summary() | centsToDollars }}</span>
         </div>
         <div class="usage-charge-item-container__detailed-info-container" v-if="isDetailedInfoShown">
             <div class="usage-charge-item-container__detailed-info-container__item">
                 <span>Storage</span>
-                <span>$18.00</span>
+                <span>{{ item.storage | centsToDollars }}</span>
             </div>
             <div class="usage-charge-item-container__detailed-info-container__item">
                 <span>Egress</span>
-                <span>$2.00</span>
+                <span>{{ item.egress | centsToDollars }}</span>
             </div>
             <div class="usage-charge-item-container__detailed-info-container__item">
                 <span>Objects</span>
-                <span>$1.22</span>
+                <span>{{ item.objectCount | centsToDollars }}</span>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { ProjectCharge } from '@/types/payments';
+import { Project } from '@/types/projects';
 
 @Component
 export default class UsageChargeItem extends Vue {
+    /**
+     * item is an instance of ProjectCharge
+     */
+    @Prop({default: () => new ProjectCharge()})
+    private readonly item: ProjectCharge;
+
+    /**
+     * projectName returns project name
+     */
+    public get projectName(): string {
+        const projects: Project[] = this.$store.state.projectsModule.projects;
+        const project: Project | undefined = projects.find(project => project.id === this.item.projectId);
+
+        if (!project) return '';
+
+        return project.name;
+    }
+
+    /**
+     * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
+     */
     public isDetailedInfoShown: boolean = false;
 
+    /**
+     * toggleDetailedInfo expands an area with detailed information about project charges.
+     */
     public toggleDetailedInfo(): void {
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
     }
