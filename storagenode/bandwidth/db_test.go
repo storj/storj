@@ -40,6 +40,21 @@ var (
 	}
 )
 
+var (
+	egressActions = []pb.PieceAction{
+		pb.PieceAction_GET,
+		pb.PieceAction_GET_AUDIT,
+		pb.PieceAction_GET_REPAIR,
+	}
+)
+
+var (
+	ingressActions = []pb.PieceAction{
+		pb.PieceAction_PUT,
+		pb.PieceAction_PUT_REPAIR,
+	}
+)
+
 func TestBandwidthDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
@@ -113,6 +128,148 @@ func TestBandwidthDB(t *testing.T) {
 			cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
+		})
+	})
+}
+
+func TestEgressSummary(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		bandwidthdb := db.Bandwidth()
+
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+
+		now := time.Now()
+
+		expectedEgressUsage := &bandwidth.Usage{}
+		expectedEgressUsageTotal := &bandwidth.Usage{}
+
+		// add egress usages.
+		for _, action := range egressActions {
+			expectedEgressUsage.Include(action, int64(action))
+			expectedEgressUsageTotal.Include(action, int64(2*action))
+
+			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), now)
+			require.NoError(t, err)
+
+			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), now.Add(2*time.Hour))
+			require.NoError(t, err)
+		}
+
+		expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+			satellite0: expectedEgressUsage,
+			satellite1: expectedEgressUsage,
+		}
+
+		// test egress summarizing.
+		t.Run("test egress summary", func(t *testing.T) {
+			usage, err := bandwidthdb.EgressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsageTotal, usage)
+
+			// only range capturing second satellite.
+			usage, err = bandwidthdb.EgressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsage, usage)
+		})
+
+		t.Run("test egress summary by satellite", func(t *testing.T) {
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
+
+			// only range capturing second satellite.
+			expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+				satellite1: expectedEgressUsage,
+			}
+
+			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
+		})
+
+		t.Run("test satellite egress summary", func(t *testing.T) {
+			usage, err := bandwidthdb.SatelliteEgressSummary(ctx, satellite0, time.Time{}, now)
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsageBySatellite[satellite0], usage)
+
+			usage, err = bandwidthdb.SatelliteEgressSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedEgressUsageBySatellite[satellite1], usage)
+		})
+	})
+}
+
+func TestIngressSummary(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		bandwidthdb := db.Bandwidth()
+
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+
+		now := time.Now()
+
+		expectedIngressUsage := &bandwidth.Usage{}
+		expectedIngressUsageTotal := &bandwidth.Usage{}
+
+		// add ingress usages.
+		for _, action := range ingressActions {
+			expectedIngressUsage.Include(action, int64(action))
+			expectedIngressUsageTotal.Include(action, int64(2*action))
+
+			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), now)
+			require.NoError(t, err)
+
+			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), now.Add(2*time.Hour))
+			require.NoError(t, err)
+		}
+
+		expectedIngressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+			satellite0: expectedIngressUsage,
+			satellite1: expectedIngressUsage,
+		}
+
+		// test ingress summarizing.
+		t.Run("test ingress summary", func(t *testing.T) {
+			usage, err := bandwidthdb.IngressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedIngressUsageTotal, usage)
+
+			// only range capturing second satellite.
+			usage, err = bandwidthdb.IngressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedIngressUsage, usage)
+		})
+
+		t.Run("test ingress summary by satellite", func(t *testing.T) {
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedIngressUsageBySatellite, usageBySatellite)
+
+			// only range capturing second satellite.
+			expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+				satellite1: expectedIngressUsage,
+			}
+
+			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
+		})
+
+		t.Run("test satellite ingress summary", func(t *testing.T) {
+			usage, err := bandwidthdb.SatelliteIngressSummary(ctx, satellite0, time.Time{}, now)
+			require.NoError(t, err)
+			require.Equal(t, expectedIngressUsageBySatellite[satellite0], usage)
+
+			usage, err = bandwidthdb.SatelliteIngressSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedIngressUsageBySatellite[satellite1], usage)
 		})
 	})
 }
