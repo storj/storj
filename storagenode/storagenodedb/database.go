@@ -874,6 +874,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DROP TABLE _satellites_old`,
 				},
 			},
+			{
+				DB:          db.pieceExpirationDB,
+				Description: "Add Trash column to pieceExpirationDB",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_expirations ADD COLUMN trash INTEGER NOT NULL DEFAULT 0`,
+					`CREATE INDEX idx_piece_expirations_trashed
+						ON piece_expirations(satellite_id, trash)
+						WHERE trash = 1`,
+				},
+			},
 		},
 	}
 }
