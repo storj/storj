@@ -61,14 +61,16 @@ type Transaction struct {
 // TransactionInfo holds transaction data with additional information
 // such as links and expiration time.
 type TransactionInfo struct {
-	ID        TransactionID
-	Amount    TokenAmount
-	Received  TokenAmount
-	Address   string
-	Status    TransactionStatus
-	Link      string
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	ID            TransactionID
+	Amount        TokenAmount
+	Received      TokenAmount
+	AmountCents   int64
+	ReceivedCents int64
+	Address       string
+	Status        TransactionStatus
+	Link          string
+	ExpiresAt     time.Time
+	CreatedAt     time.Time
 }
 
 // TokenAmount is a wrapper type for STORJ token amount.

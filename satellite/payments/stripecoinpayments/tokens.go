@@ -116,16 +116,23 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 			status = payments.TransactionStatus(tx.Status.String())
 		}
 
+		rate, err := tokens.service.db.Transactions().GetLockedRate(ctx, tx.ID)
+		if err != nil {
+			return nil, err
+		}
+
 		infos = append(infos,
 			payments.TransactionInfo{
-				ID:        []byte(tx.ID),
-				Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
-				Received:  *payments.TokenAmountFromBigFloat(&tx.Received),
-				Address:   tx.Address,
-				Status:    status,
-				Link:      link,
-				ExpiresAt: tx.CreatedAt.Add(tx.Timeout),
-				CreatedAt: tx.CreatedAt,
+				ID:            []byte(tx.ID),
+				Amount:        *payments.TokenAmountFromBigFloat(&tx.Amount),
+				Received:      *payments.TokenAmountFromBigFloat(&tx.Received),
+				AmountCents:   convertToCents(rate, &tx.Amount),
+				ReceivedCents: convertToCents(rate, &tx.Received),
+				Address:       tx.Address,
+				Status:        status,
+				Link:          link,
+				ExpiresAt:     tx.CreatedAt.Add(tx.Timeout),
+				CreatedAt:     tx.CreatedAt,
 			},
 		)
 	}
