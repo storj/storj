@@ -4,6 +4,7 @@
 package gracefulexit_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -22,12 +23,12 @@ func TestPendingBasic(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	newWork := gracefulexit.PendingTransfer{
-		path:             []byte("testbucket/testfile"),
-		pieceSize:        10,
-		satelliteMessage: &pb.SatelliteMessage{},
-		originalPointer:  &pb.Pointer{},
-		pieceNum:         1,
+	newWork := &gracefulexit.PendingTransfer{
+		Path:             []byte("testbucket/testfile"),
+		PieceSize:        10,
+		SatelliteMessage: &pb.SatelliteMessage{},
+		OriginalPointer:  &pb.Pointer{},
+		PieceNum:         1,
 	}
 
 	pieceID := testrand.PieceID()
@@ -39,13 +40,13 @@ func TestPendingBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// put should return an error if the item already exists
-	err := pending.Put(pieceID, newWork)
+	err = pending.Put(pieceID, newWork)
 	require.Error(t, err)
 
 	// get should work
 	w, ok := pending.Get(pieceID)
 	require.True(t, ok)
-	require.Equal(newWork.path, w.path)
+	require.True(t, bytes.Equal(newWork.Path, w.Path))
 
 	invalidPieceID := testrand.PieceID()
 	_, ok = pending.Get(invalidPieceID)
@@ -91,12 +92,12 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	newWork := gracefulexit.PendingTransfer{
-		path:             []byte("testbucket/testfile"),
-		pieceSize:        10,
-		satelliteMessage: &pb.SatelliteMessage{},
-		originalPointer:  &pb.Pointer{},
-		pieceNum:         1,
+	newWork := &gracefulexit.PendingTransfer{
+		Path:             []byte("testbucket/testfile"),
+		PieceSize:        10,
+		SatelliteMessage: &pb.SatelliteMessage{},
+		OriginalPointer:  &pb.Pointer{},
+		PieceNum:         1,
 	}
 	pieceID := testrand.PieceID()
 	pending := gracefulexit.NewPendingMap()
@@ -135,6 +136,8 @@ func TestPendingIsFinishedFinishedCalled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	pending := gracefulexit.NewPendingMap()
+
 	fence := sync2.Fence{}
 	var group errgroup.Group
 	group.Go(func() error {
@@ -160,6 +163,8 @@ func TestPendingIsFinishedFinishedCalled(t *testing.T) {
 func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	pending := gracefulexit.NewPendingMap()
 
 	ctx2, cancel := context.WithCancel(ctx)
 	fence := sync2.Fence{}

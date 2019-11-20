@@ -12,11 +12,11 @@ import (
 )
 
 type PendingTransfer struct {
-	path             []byte
-	pieceSize        int64
-	satelliteMessage *pb.SatelliteMessage
-	originalPointer  *pb.Pointer
-	pieceNum         int32
+	Path             []byte
+	PieceSize        int64
+	SatelliteMessage *pb.SatelliteMessage
+	OriginalPointer  *pb.Pointer
+	PieceNum         int32
 }
 
 // PendingMap for managing concurrent access to the pending transfer map.
@@ -34,11 +34,16 @@ func NewPendingMap() *PendingMap {
 }
 
 // put adds to the map.
-func (pm *PendingMap) Put(pieceID storj.PieceID, PendingTransfer *PendingTransfer) {
+func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfer) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	pm.data[pieceID] = PendingTransfer
+	if _, ok := pm.data[pieceID]; ok {
+		return Error.New("piece ID already exists in pending map")
+	}
+
+	pm.data[pieceID] = pendingTransfer
+	return nil
 }
 
 // get returns the pending transfer item from the map, if it exists.
@@ -71,17 +76,17 @@ func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 }
 
 // IsFinished determines whether the work is finished, and blocks if needed.
-func (pm *PendingMap) IsFinished(ctx context.Context) (bool, error) {
+func (pm *PendingMap) IsFinished(ctx context.Context) bool {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	if len(pm.data) > 0 {
-		return false, nil
+		return false
 	}
 
 	// concurrently wait for finish or more work
 	// if finish happens first, return true. Otherwise return false.
-	return false, err
+	return false
 }
 
 // Finish is called when no more work will be added to the map.
