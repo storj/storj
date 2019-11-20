@@ -235,7 +235,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:            tx.ID.String(),
-				Description:   "STORJ Token deposit",
+				Description:   "STORJ Token Deposit",
 				TokenAmount:   tx.Amount.String(),
 				TokenReceived: tx.Received.String(),
 				Status:        tx.Status.String(),
@@ -534,7 +534,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
-		return "", errs.New(credentialsErrMsg)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))

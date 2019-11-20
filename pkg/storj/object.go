@@ -55,6 +55,8 @@ type ObjectInfo struct {
 
 // Stream is information about an object stream
 type Stream struct {
+	ID StreamID
+
 	// Size is the total size of the stream in bytes
 	Size int64
 	// Checksum is the checksum of the segment checksums

@@ -450,12 +450,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
 			peer.Console.Listener,
+			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
 	}
 

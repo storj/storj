@@ -41,12 +41,14 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
     GET_BILLING_HISTORY,
+    GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -74,7 +76,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(GET_BALANCE);
             await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
-            new PaymentsHttpApi().projectsCharges();
+            await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
                 AuthToken.remove();
