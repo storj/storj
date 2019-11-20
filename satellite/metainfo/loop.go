@@ -246,20 +246,28 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 
 				pathElements := storj.SplitPath(rawPath)
 
-				// we are not storing buckets in pointerDB anymore so
+				// TODO: we should not storing buckets in pointerDB anymore so
 				// it will be projectID/segmentIndex/bucket_name/encrypted_object_path
-				if len(pathElements) < 4 {
+				// however we did this and the production DB contained buckets making
+				// to crash the entire DB interation.
+				/*
+					if len(pathElements) < 4 {
+						return LoopError.New("invalid path %q", rawPath)
+					}
+				*/
+				if len(pathElements) < 3 {
 					return LoopError.New("invalid path %q", rawPath)
 				}
 
 				isLastSegment := pathElements[1] == "l"
 
 				path := ScopedPath{
-					Raw:                 rawPath,
-					ProjectIDString:     pathElements[0],
-					Segment:             pathElements[1],
-					BucketName:          pathElements[2],
-					EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
+					Raw:             rawPath,
+					ProjectIDString: pathElements[0],
+					BucketName:      pathElements[2],
+					// TODO: Related with the above TODO comment
+					// Segment:             pathElements[1],
+					// EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
 				}
 
 				projectID, err := uuid.Parse(path.ProjectIDString)
