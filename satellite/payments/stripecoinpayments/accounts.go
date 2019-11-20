@@ -95,10 +95,10 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 
 		charges = append(charges, payments.ProjectCharge{
 			ProjectID: project.ID,
-			Egress:    usage.Egress / int64(memory.TB) * accounts.service.EgressPrice,
 			// TODO: check precision
+			Egress:    usage.Egress * accounts.service.EgressPrice / int64(memory.TB),
 			ObjectCount:  int64(usage.ObjectCount) * accounts.service.PerObjectPrice,
-			StorageGbHrs: int64(usage.Storage) / int64(memory.TB) * accounts.service.TBhPrice,
+			StorageGbHrs: int64(usage.Storage) * accounts.service.TBhPrice / int64(memory.TB),
 		})
 	}
 
