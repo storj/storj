@@ -74,9 +74,8 @@ const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
-    GET_PAYMENTS_HISTORY,
-    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
-    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
+    GET_BILLING_HISTORY,
+    GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -135,7 +134,7 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
-            new PaymentsHttpApi().projectsCharges();
+            await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
             await this.$notify.error(`Unable to get credit cards. ${error.message}`);
         }

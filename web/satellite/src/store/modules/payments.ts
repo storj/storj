@@ -2,17 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import {
-    AccountBalance,
-    CreditCard,
-    DateRange,
-    PaymentsApi,
-    PaymentsHistoryItem,
-    PaymentsHistoryItemStatus,
-    PaymentsHistoryItemType,
-    ProjectUsageAndCharges,
-    TokenDeposit,
-} from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge } from '@/types/payments';
 
 export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -21,13 +11,8 @@ export const PAYMENTS_MUTATIONS = {
     CLEAR: 'CLEAR_PAYMENT_INFO',
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
     UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
-    SET_PAYMENTS_HISTORY: 'SET_PAYMENTS_HISTORY',
-    SET_PROJECT_USAGE_AND_CHARGES: 'SET_PROJECT_USAGE_AND_CHARGES',
-    SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
-    SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
-    SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
-    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
-    SET_PAYWALL_ENABLED_STATUS: 'SET_PAYWALL_ENABLED_STATUS',
+    SET_BILLING_HISTORY: 'SET_BILLING_HISTORY',
+    SET_PROJECT_CHARGES: 'SET_PROJECT_CHARGES',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -40,12 +25,8 @@ export const PAYMENTS_ACTIONS = {
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
-    GET_PAYMENTS_HISTORY: 'getPaymentsHistory',
-    MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
-    GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
-    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
-    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
-    GET_PAYWALL_ENABLED_STATUS: 'getPaywallEnabledStatus',
+    GET_BILLING_HISTORY: 'getBillingHistory',
+    GET_PROJECT_CHARGES: 'getProjectCharges',
 };
 
 const {
@@ -55,11 +36,8 @@ const {
     CLEAR,
     UPDATE_CARDS_SELECTION,
     UPDATE_CARDS_DEFAULT,
-    SET_PAYMENTS_HISTORY,
-    SET_PROJECT_USAGE_AND_CHARGES,
-    SET_PRICE_SUMMARY,
-    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
-    SET_PAYWALL_ENABLED_STATUS,
+    SET_BILLING_HISTORY,
+    SET_PROJECT_CHARGES,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -72,11 +50,8 @@ const {
     CLEAR_PAYMENT_INFO,
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
-    GET_PAYMENTS_HISTORY,
-    MAKE_TOKEN_DEPOSIT,
-    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
-    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
-    GET_PAYWALL_ENABLED_STATUS,
+    GET_BILLING_HISTORY,
+    GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -85,13 +60,8 @@ export class PaymentsState {
      */
     public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
-    public paymentsHistory: PaymentsHistoryItem[] = [];
-    public usageAndCharges: ProjectUsageAndCharges[] = [];
-    public priceSummary: number = 0;
-    public priceSummaryForSelectedProject: number = 0;
-    public startDate: Date = new Date();
-    public endDate: Date = new Date();
-    public isPaywallEnabled: boolean = true;
+    public billingHistory: BillingHistoryItem[] = [];
+    public charges: ProjectCharge[] = [];
 }
 
 /**
@@ -172,6 +142,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, isPaywallEnabled: boolean): void {
                 state.isPaywallEnabled = isPaywallEnabled;
+            },
+            [SET_PROJECT_CHARGES](state: PaymentsState, charges: ProjectCharge[]): void {
+                state.charges = charges;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
@@ -275,6 +248,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             isBalancePositive: (state: PaymentsState): boolean => {
                 return state.balance.sum > 0;
+            },
+            [GET_PROJECT_CHARGES]: async function({commit}: any): Promise<void> {
+                const charges: ProjectCharge[] = await api.projectsCharges();
+
+                commit(SET_PROJECT_CHARGES, charges);
             },
         },
     };

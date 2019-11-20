@@ -48,34 +48,6 @@ Vue.directive('click-outside', {
 });
 
 /**
- * number directive allow user to type only numbers in input.
- */
-Vue.directive('number', {
-    bind (el: HTMLElement) {
-        el.addEventListener('keydown', (e: KeyboardEvent) => {
-            const keyCode = parseInt(e.key);
-
-            if (!isNaN(keyCode) || e.key === 'Delete' || e.key === 'Backspace') {
-                return;
-            }
-
-            e.preventDefault();
-        });
-    },
-});
-
-/**
- * leadingZero adds zero to the start of single digit number.
- */
-Vue.filter('leadingZero', function (value: number): string {
-    if (value <= 9) {
-        return `0${value}`;
-    }
-
-    return `${value}`;
-});
-
-/**
  * centsToDollars is a Vue filter that converts amount of cents in dollars string.
  */
 Vue.filter('centsToDollars', (cents: number): string => {

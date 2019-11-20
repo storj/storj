@@ -88,6 +88,8 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	w.Header().Set("Content-Type", "application/json")
+
 	charges, err := p.service.Payments().ProjectsCharges(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
