@@ -385,7 +385,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 
 			// if retain status is enabled, delete pieceid
 			if s.config.Status == Enabled {
-				if err = s.store.Delete(ctx, satelliteID, pieceID); err != nil {
+				if err = s.store.Trash(ctx, satelliteID, pieceID); err != nil {
 					s.log.Warn("failed to delete piece",
 						zap.Stringer("Satellite ID", satelliteID),
 						zap.Stringer("Piece ID", pieceID),

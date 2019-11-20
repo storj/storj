@@ -9,8 +9,12 @@ export class Satellite {
         public id: string,
         public storageDaily: Stamp[],
         public bandwidthDaily: BandwidthUsed[],
+        public egressDaily: EgressUsed[],
+        public ingressDaily: IngressUsed[],
         public storageSummary: number,
         public bandwidthSummary: number,
+        public egressSummary: number,
+        public ingressSummary: number,
         public audit: Metric,
         public uptime: Metric) {}
 }
@@ -103,12 +107,74 @@ export class BandwidthUsed {
 }
 
 /**
+ * EgressUsed stores egress bandwidth usage information over the period of time
+ */
+export class EgressUsed {
+    public constructor(
+        public egress: Egress,
+        public intervalStart: Date) {}
+
+    /**
+     * Used to summarize all egress usage data
+     * @returns summary - sum of all egress usage data
+     */
+    public summary(): number {
+        return this.egress.audit + this.egress.repair + this.egress.usage;
+    }
+
+    /**
+     * Creates new empty instance of used egress with defined date
+     * @param date - holds specific date of the month
+     * @returns EgressUsed - new empty instance of used egress with defined date
+     */
+    public static emptyWithDate(date: number): EgressUsed {
+        const now = new Date();
+        now.setDate(date);
+
+        return new EgressUsed(new Egress(0, 0, 0), now);
+    }
+}
+
+/**
+ * IngressUsed stores ingress usage information over the period of time
+ */
+export class IngressUsed {
+    public constructor(
+        public ingress: Ingress,
+        public intervalStart: Date) {}
+
+    /**
+     * Used to summarize all ingress usage data
+     * @returns summary - sum of all ingress usage data
+     */
+    public summary(): number {
+        return this.ingress.repair + this.ingress.usage;
+    }
+
+    /**
+     * Creates new empty instance of used ingress with defined date
+     * @param date - holds specific date of the month
+     * @returns IngressUsed - new empty instance of used ingress with defined date
+     */
+    public static emptyWithDate(date: number): IngressUsed {
+        const now = new Date();
+        now.setDate(date);
+
+        return new IngressUsed(new Ingress(0, 0), now);
+    }
+}
+
+/**
  * Satellites encapsulate related data of all satellites
  */
 export class Satellites {
     public constructor(
         public storageDaily: Stamp[],
         public bandwidthDaily: BandwidthUsed[],
+        public egressDaily: EgressUsed[],
+        public ingressDaily: IngressUsed[],
         public storageSummary: number,
-        public bandwidthSummary: number) {}
+        public bandwidthSummary: number,
+        public egressSummary: number,
+        public ingressSummary: number) {}
 }
