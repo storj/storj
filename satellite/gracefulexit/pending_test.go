@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/sync2"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
@@ -53,8 +53,10 @@ func TestPendingBasic(t *testing.T) {
 	require.False(t, ok)
 
 	// IsFinished: there is remaining work to be done -> return false immediately
-	finished := pending.IsFinished(ctx)
+	finishedPromise := pending.IsFinishedPromise()
+	finished, err := finishedPromise.Wait(ctx)
 	require.False(t, finished)
+	require.NoError(t, err)
 
 	// finished should work
 	err = pending.Finish()
@@ -62,15 +64,17 @@ func TestPendingBasic(t *testing.T) {
 
 	// finished should error if already called
 	err = pending.Finish()
-	require.NoError(t, err)
+	require.Error(t, err)
 
 	// should not be allowed to Put new work after finished called
 	err = pending.Put(testrand.PieceID(), newWork)
 	require.Error(t, err)
 
 	// IsFinished: Finish has been called and there is remaining work -> return false
-	finished = pending.IsFinished(ctx)
+	finishedPromise = pending.IsFinishedPromise()
+	finished, err = finishedPromise.Wait(ctx)
 	require.False(t, finished)
+	require.NoError(t, err)
 
 	// delete should work
 	err = pending.Delete(pieceID)
@@ -83,8 +87,10 @@ func TestPendingBasic(t *testing.T) {
 	require.Error(t, err)
 
 	// IsFinished: Finish has been called and there is no remaining work -> return true
-	finished = pending.IsFinished(ctx)
+	finishedPromise = pending.IsFinishedPromise()
+	finished, err = finishedPromise.Wait(ctx)
 	require.True(t, finished)
+	require.NoError(t, err)
 }
 
 // TestPendingIsFinishedWorkAdded ensures that pending.IsFinished blocks if there is no work, then returns false when new work is added
@@ -109,19 +115,23 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 		size := pending.Length()
 		require.EqualValues(t, size, 0)
 
-		fence.Release()
-		finished := pending.IsFinished(ctx)
-		require.False(t, finished)
+		finishedPromise := pending.IsFinishedPromise()
 
-		// expect new work to be added
+		// wait for work to be added
+		fence.Release()
+
+		finished, err := finishedPromise.Wait(ctx)
+		require.False(t, finished)
+		require.NoError(t, err)
+
+		// expect new work was added
 		size = pending.Length()
 		require.EqualValues(t, size, 1)
 		return nil
 	})
 	group.Go(func() error {
-		// wait for IsFinished call to begin before adding work
+		// wait for IsFinishedPromise call before adding work
 		require.True(t, fence.Wait(ctx))
-		time.Sleep(50 * time.Millisecond)
 
 		err := pending.Put(pieceID, newWork)
 		require.NoError(t, err)
@@ -141,15 +151,18 @@ func TestPendingIsFinishedFinishedCalled(t *testing.T) {
 	fence := sync2.Fence{}
 	var group errgroup.Group
 	group.Go(func() error {
+		finishedPromise := pending.IsFinishedPromise()
+
 		fence.Release()
-		finished := pending.IsFinished(ctx)
+
+		finished, err := finishedPromise.Wait(ctx)
 		require.True(t, finished)
+		require.NoError(t, err)
 		return nil
 	})
 	group.Go(func() error {
-		// wait for IsFinished call to begin before finishing
+		// wait for IsFinishedPromise call before finishing
 		require.True(t, fence.Wait(ctx))
-		time.Sleep(50 * time.Millisecond)
 
 		err := pending.Finish()
 		require.NoError(t, err)
@@ -170,15 +183,19 @@ func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	fence := sync2.Fence{}
 	var group errgroup.Group
 	group.Go(func() error {
+		finishedPromise := pending.IsFinishedPromise()
+
 		fence.Release()
-		finished := pending.IsFinished(ctx2)
+
+		finished, err := finishedPromise.Wait(ctx2)
 		require.True(t, finished)
+		require.Error(t, err)
+		require.True(t, errs2.IsCanceled(err))
 		return nil
 	})
 	group.Go(func() error {
-		// wait for IsFinished call to begin before canceling
+		// wait for IsFinishedPromise call before canceling
 		require.True(t, fence.Wait(ctx))
-		time.Sleep(50 * time.Millisecond)
 
 		cancel()
 		return nil

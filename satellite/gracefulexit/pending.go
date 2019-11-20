@@ -24,13 +24,14 @@ func newFinishedPromise() *PendingFinishedPromise {
 	}
 }
 
+// Wait should be called (once) after acquiring the finished promise and will return whether the pending map is finished.
 func (promise *PendingFinishedPromise) Wait(ctx context.Context) (bool, error) {
 	select {
 	case <-ctx.Done():
 		return true, ctx.Err()
-	case <-addedWorkChan:
+	case <-promise.addedWorkChan:
 		return false, nil
-	case <-finishedCalledChan:
+	case <-promise.finishedCalledChan:
 		return true, nil
 	}
 }
@@ -71,6 +72,10 @@ func NewPendingMap() *PendingMap {
 func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfer) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	if pm.finished {
+		return Error.New("cannot add work: pending map already finished")
+	}
 
 	if _, ok := pm.data[pieceID]; ok {
 		return Error.New("piece ID already exists in pending map")
@@ -115,7 +120,7 @@ func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 }
 
 // IsFinished returns a promise for the caller to wait on to determine the finished status of the pending map.
-func (pm *PendingMap) IsFinishedPromise() PendingFinishedPromise {
+func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -134,18 +139,23 @@ func (pm *PendingMap) IsFinishedPromise() PendingFinishedPromise {
 		return newPromise
 	}
 
-	pm.IsFinishedPromise = newPromise
+	pm.finishedPromise = newPromise
 	return newPromise
 }
 
 // Finish is called when no more work will be added to the map.
-func (pm *PendingMap) Finish() {
+func (pm *PendingMap) Finish() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	if pm.finished {
+		return Error.New("Finish() already called on pending map")
+	}
 
 	if pm.finishedPromise != nil {
 		pm.finishedPromise.finishedCalled()
 		pm.finishedPromise = nil
 	}
 	pm.finished = true
+	return nil
 }
