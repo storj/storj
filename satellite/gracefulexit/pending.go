@@ -13,15 +13,15 @@ import (
 
 // PendingFinishedPromise for waiting for information about finished state.
 type PendingFinishedPromise struct {
-	addedWorkChan      chan struct{}
-	finishedCalledChan chan struct{}
-	returnErr          error
+	addedWorkChan    chan struct{}
+	finishCalledChan chan struct{}
+	returnErr        error
 }
 
 func newFinishedPromise() *PendingFinishedPromise {
 	return &PendingFinishedPromise{
-		addedWorkChan:      make(chan struct{}),
-		finishedCalledChan: make(chan struct{}),
+		addedWorkChan:    make(chan struct{}),
+		finishCalledChan: make(chan struct{}),
 	}
 }
 
@@ -32,7 +32,7 @@ func (promise *PendingFinishedPromise) Wait(ctx context.Context) (bool, error) {
 		return true, ctx.Err()
 	case <-promise.addedWorkChan:
 		return false, nil
-	case <-promise.finishedCalledChan:
+	case <-promise.finishCalledChan:
 		return true, promise.returnErr
 	}
 }
@@ -41,9 +41,9 @@ func (promise *PendingFinishedPromise) addedWork() {
 	close(promise.addedWorkChan)
 }
 
-func (promise *PendingFinishedPromise) finishedCalled(err error) {
+func (promise *PendingFinishedPromise) finishCalled(err error) {
 	promise.returnErr = err
-	close(promise.finishedCalledChan)
+	close(promise.finishCalledChan)
 }
 
 // PendingTransfer is the representation of work on the pending map.
@@ -142,7 +142,7 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 		return newPromise
 	}
 	if pm.finished {
-		newPromise.finishedCalled(nil)
+		newPromise.finishCalled(nil)
 		return newPromise
 	}
 
@@ -162,7 +162,7 @@ func (pm *PendingMap) Finish(err error) error {
 	}
 
 	if pm.finishedPromise != nil {
-		pm.finishedPromise.finishedCalled(err)
+		pm.finishedPromise.finishCalled(err)
 		pm.finishedPromise = nil
 	}
 	pm.finished = true
