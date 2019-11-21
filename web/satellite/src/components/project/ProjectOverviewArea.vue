@@ -34,7 +34,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     },
 })
 export default class ProjectOverviewArea extends Vue {
-    // TODO: make type for pro
+    // TODO: make type for project routes
     public navigation: NavigationLink[] = [
         new NavigationLink('/project-overview/details', 'Details'),
         new NavigationLink('/project-overview/usage-report', 'Report'),
