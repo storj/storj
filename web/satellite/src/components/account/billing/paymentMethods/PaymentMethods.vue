@@ -43,7 +43,7 @@
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
             <StripeCardInput
                 class="payment-methods-area__adding-container__stripe"
-                ref="stripeInput"
+                ref="stripeCardInput"
                 :on-stripe-response-callback="addCard"
             />
             <VButton
@@ -73,7 +73,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
