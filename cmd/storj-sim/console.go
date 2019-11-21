@@ -149,7 +149,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		request, err := http.NewRequest(
 			http.MethodPost,
 			address+"/auth/register",
-			bytes.NewReader([]byte(res)))
+			bytes.NewReader(res))
 		if err != nil {
 			return err
 		}
@@ -159,6 +159,8 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		if err != nil {
 			return err
 		}
+
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
 
 		if response.StatusCode != http.StatusOK {
 			return err
@@ -212,7 +214,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		request, err = http.NewRequest(
 			http.MethodPost,
 			address+"/auth/token",
-			bytes.NewReader([]byte(res)))
+			bytes.NewReader(res))
 
 		if err != nil {
 			return err
@@ -224,6 +226,8 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		if err != nil {
 			return err
 		}
+
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
 
 		if response.StatusCode != http.StatusOK {
 			return err
