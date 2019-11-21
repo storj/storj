@@ -24,12 +24,13 @@ type Reporter struct {
 	maxReverifyCount int32
 }
 
-// Report contains audit result lists for nodes that succeeded, failed, were offline, or have pending audits
+// Report contains audit result lists for nodes that succeeded, failed, were offline, have pending audits, or failed for unknown reasons
 type Report struct {
 	Successes     storj.NodeIDList
 	Fails         storj.NodeIDList
 	Offlines      storj.NodeIDList
 	PendingAudits []*PendingAudit
+	Unknown       storj.NodeIDList
 }
 
 // NewReporter instantiates a reporter

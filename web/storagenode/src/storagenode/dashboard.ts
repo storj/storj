@@ -18,11 +18,12 @@ export class Dashboard {
 }
 
 /**
- * SatelliteInfo encapsulates satellite ID and disqualification
+ * SatelliteInfo encapsulates satellite ID, URL and disqualification
  */
 export class SatelliteInfo {
     public constructor(
         public id: string,
+        public url: string,
         public disqualified: Date | null,
     ) {}
 }
