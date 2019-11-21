@@ -66,24 +66,15 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
-	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
-	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 
-	RateLimit web.IPRateLimiterConfig
-
-	console.Config
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 }
 
 // Server represents console web server
@@ -254,11 +245,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com",
 		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com *.googletagmanager.com",
-		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
-		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+		"frame-src 'self' *.stripe.com",
+		"img-src 'self' data:",
+		"script-src 'self' *.stripe.com cdn.segment.com",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")

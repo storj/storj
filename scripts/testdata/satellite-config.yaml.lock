@@ -85,12 +85,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
-# url link to general request page
-# console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
-
-# id for google tag manager
-# console.google-tag-manager-id: ""
-
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
