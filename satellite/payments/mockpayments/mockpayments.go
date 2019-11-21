@@ -118,7 +118,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (_ []payme
 }
 
 // Deposit creates new deposit transaction.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	return nil, Error.Wrap(errs.New("can not make deposit"))
