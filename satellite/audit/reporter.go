@@ -13,6 +13,9 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+// We do not report offline nodes to the overlay at this time; see V3-3025.
+const reportOfflineDuringAudit = false
+
 // Reporter records audit reports in overlay and implements the reporter interface
 //
 // architecture: Service
@@ -85,13 +88,19 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 				errlist.Add(err)
 			}
 		}
+		// We do not report offline nodes to the overlay at this time; see V3-3025.
+		if len(offlines) > 0 && reportOfflineDuringAudit {
+			offlines, err = reporter.recordOfflineStatus(ctx, offlines)
+			if err != nil {
+				errlist.Add(err)
+			}
+		}
 		if len(pendingAudits) > 0 {
 			pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
-		// We do not report offline nodes to the overlay at this time; see V3-3025.
 
 		tries++
 	}
