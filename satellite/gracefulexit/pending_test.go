@@ -142,8 +142,8 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedFinishedCalled ensures that pending.IsFinished blocks if there is no work, then returns true when Finished is called
-func TestPendingIsFinishedFinishedCalled(t *testing.T) {
+// TestPendingIsFinishedDoneSendingCalled ensures that pending.IsFinished blocks if there is no work, then returns true when DoneSending is called
+func TestPendingIsFinishedDoneSendingCalled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -205,8 +205,8 @@ func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedFinishedCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when Finished is called with an error
-func TestPendingIsFinishedFinishedCalledError(t *testing.T) {
+// TestPendingIsFinishedDoneSendingCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when DoneSending is called with an error
+func TestPendingIsFinishedDoneSendingCalledError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -236,4 +236,21 @@ func TestPendingIsFinishedFinishedCalledError(t *testing.T) {
 	})
 
 	require.NoError(t, group.Wait())
+}
+
+// TestPendingIsFinishedDoneSendingCalledError2 ensures that pending.IsFinished returns an error if DoneSending was already called with an error.
+func TestPendingIsFinishedDoneSendingCalledError2(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	pending := gracefulexit.NewPendingMap()
+
+	finishErr := errs.New("test error")
+	pending.DoneSending(finishErr)
+
+	finishedPromise := pending.IsFinishedPromise()
+	finished, err := finishedPromise.Wait(ctx)
+	require.True(t, finished)
+	require.Error(t, err)
+	require.Equal(t, finishErr, err)
 }

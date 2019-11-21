@@ -15,7 +15,7 @@ import (
 type PendingFinishedPromise struct {
 	addedWorkChan    chan struct{}
 	finishCalledChan chan struct{}
-	returnErr        error
+	finishErr        error
 }
 
 func newFinishedPromise() *PendingFinishedPromise {
@@ -33,7 +33,7 @@ func (promise *PendingFinishedPromise) Wait(ctx context.Context) (bool, error) {
 	case <-promise.addedWorkChan:
 		return false, nil
 	case <-promise.finishCalledChan:
-		return true, promise.returnErr
+		return true, promise.finishErr
 	}
 }
 
@@ -42,7 +42,7 @@ func (promise *PendingFinishedPromise) addedWork() {
 }
 
 func (promise *PendingFinishedPromise) finishCalled(err error) {
-	promise.returnErr = err
+	promise.finishErr = err
 	close(promise.finishCalledChan)
 }
 
@@ -60,7 +60,8 @@ type PendingTransfer struct {
 type PendingMap struct {
 	mu              sync.RWMutex
 	data            map[storj.PieceID]*PendingTransfer
-	finished        bool
+	doneSending     bool
+	doneSendingErr  error
 	finishedPromise *PendingFinishedPromise
 }
 
@@ -78,7 +79,7 @@ func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfe
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	if pm.finished {
+	if pm.doneSending {
 		return Error.New("cannot add work: pending map already finished")
 	}
 
@@ -141,8 +142,8 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 		newPromise.addedWork()
 		return newPromise
 	}
-	if pm.finished {
-		newPromise.finishCalled(nil)
+	if pm.doneSending {
+		newPromise.finishCalled(pm.doneSendingErr)
 		return newPromise
 	}
 
@@ -157,7 +158,7 @@ func (pm *PendingMap) DoneSending(err error) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	if pm.finished {
+	if pm.doneSending {
 		return Error.New("DoneSending() already called on pending map")
 	}
 
@@ -165,6 +166,7 @@ func (pm *PendingMap) DoneSending(err error) error {
 		pm.finishedPromise.finishCalled(err)
 		pm.finishedPromise = nil
 	}
-	pm.finished = true
+	pm.doneSending = true
+	pm.doneSendingErr = err
 	return nil
 }
