@@ -5561,7 +5561,7 @@
             "name": "PieceDeleteResponse"
           },
           {
-            "name": "DeletePieceRequest",
+            "name": "PieceDeletePieceRequest",
             "fields": [
               {
                 "id": 1,
@@ -5581,7 +5581,7 @@
             ]
           },
           {
-            "name": "DeletePieceResponse"
+            "name": "PieceDeletePieceResponse"
           },
           {
             "name": "RetainRequest",
@@ -5694,8 +5694,8 @@
               },
               {
                 "name": "DeletePiece",
-                "in_type": "DeletePieceRequest",
-                "out_type": "DeletePieceResponse"
+                "in_type": "PieceDeletePieceRequest",
+                "out_type": "PieceDeletePieceResponse"
               },
               {
                 "name": "Retain",

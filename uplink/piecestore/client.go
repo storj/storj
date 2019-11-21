@@ -73,7 +73,7 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateK
 // DeletePiece deletes a piece.
 func (client *Client) DeletePiece(ctx context.Context, id storj.PieceID) (err error) {
 	defer mon.Task()(&ctx, id.String())(&err)
-	_, err = client.client.DeletePiece(ctx, &pb.DeletePieceRequest{
+	_, err = client.client.DeletePiece(ctx, &pb.PieceDeletePieceRequest{
 		PieceId: id,
 	})
 	return Error.Wrap(err)

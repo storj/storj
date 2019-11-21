@@ -173,8 +173,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 //
 // It doesn't return an error if the piece isn't found by any reason.
 func (endpoint *Endpoint) DeletePiece(
-	ctx context.Context, req *pb.DeletePieceRequest,
-) (_ *pb.DeletePieceResponse, err error) {
+	ctx context.Context, req *pb.PieceDeletePieceRequest,
+) (_ *pb.PieceDeletePieceResponse, err error) {
 	defer mon.Task()(&ctx, req.PieceId.String())(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -208,7 +208,7 @@ func (endpoint *Endpoint) DeletePiece(
 		)
 	}
 
-	return &pb.DeletePieceResponse{}, nil
+	return &pb.PieceDeletePieceResponse{}, nil
 }
 
 // Upload handles uploading a piece on piece store.
