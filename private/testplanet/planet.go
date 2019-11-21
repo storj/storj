@@ -217,9 +217,11 @@ func (planet *Planet) Start(ctx context.Context) {
 		return planet.VersionControl.Run(ctx)
 	})
 
-	planet.run.Go(func() error {
-		return planet.ReferralManager.Run(ctx)
-	})
+	if planet.ReferralManager != nil {
+		planet.run.Go(func() error {
+			return planet.ReferralManager.Run(ctx)
+		})
+	}
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
