@@ -230,7 +230,7 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, uint8(p.uplinkCfg.Volatile.PBKDFConcurrency))
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", uint8(p.uplinkCfg.Volatile.PBKDFConcurrency))
 	if err != nil {
 		return nil, err
 	}

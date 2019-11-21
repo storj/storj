@@ -24,13 +24,13 @@ func sha256hmac(key, data []byte) ([]byte, error) {
 
 // DeriveRootKey derives a root key for some path using the salt for the bucket and
 // a password from the user. See the password key derivation design doc.
-func DeriveRootKey(password, salt []byte, argon2Threads uint8) (*storj.Key, error) {
+func DeriveRootKey(password, salt []byte, path storj.Path, argon2Threads uint8) (*storj.Key, error) {
 	mixedSalt, err := sha256hmac(password, salt)
 	if err != nil {
 		return nil, err
 	}
 
-	pathSalt, err := sha256hmac(mixedSalt, []byte(""))
+	pathSalt, err := sha256hmac(mixedSalt, []byte(path))
 	if err != nil {
 		return nil, err
 	}
