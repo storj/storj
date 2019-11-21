@@ -246,7 +246,8 @@ func TestPendingIsFinishedDoneSendingCalledError2(t *testing.T) {
 	pending := gracefulexit.NewPendingMap()
 
 	finishErr := errs.New("test error")
-	pending.DoneSending(finishErr)
+	err := pending.DoneSending(finishErr)
+	require.NoError(t, err)
 
 	finishedPromise := pending.IsFinishedPromise()
 	finished, err := finishedPromise.Wait(ctx)
