@@ -68,7 +68,7 @@ export interface PaymentsApi {
      * @param amount
      * @throws Error
      */
-    makeTokenDeposit(amount: string): Promise<TokenDeposit>;
+    makeTokenDeposit(amount: number): Promise<TokenDeposit>;
 }
 
 export class CreditCard {
@@ -86,7 +86,7 @@ export class CreditCard {
 
 export class PaymentAmountOption {
     public constructor(
-        public value: string,
+        public value: number,
         public label: string = '',
     ) {}
 }

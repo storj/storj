@@ -212,9 +212,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @param amount
      * @throws Error
      */
-    public async makeTokenDeposit(amount: string): Promise<TokenDeposit> {
+    public async makeTokenDeposit(amount: number): Promise<TokenDeposit> {
         const path = `${this.ROOT_PATH}/tokens/deposit`;
-        const response = await this.client.post(path, JSON.stringify({amount}));
+        const response = await this.client.post(path, JSON.stringify({ amount }));
 
         if (!response.ok) {
             if (response.status === 401) {

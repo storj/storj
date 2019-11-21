@@ -98,8 +98,8 @@ interface StripeForm {
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
     private isLoading: boolean = false;
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = '20';
-    private tokenDepositValue: string = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
+    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public mounted() {
         try {
@@ -127,7 +127,7 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
-    public onChangeTokenValue(value: string) {
+    public onChangeTokenValue(value: number) {
         this.tokenDepositValue = value;
     }
 
@@ -150,8 +150,8 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddSTORJ(): Promise<void> {
         try {
-            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue);
-            await this.$notify.success(`Successfully created new deposit transaction!\nAddress:${tokenResponse.address}\nAmount:${tokenResponse.amount}`);
+            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
+            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
         } catch (error) {
             await this.$notify.error(error.message);
         }

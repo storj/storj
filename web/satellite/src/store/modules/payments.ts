@@ -159,7 +159,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 commit(SET_BILLING_HISTORY, billingHistory);
             },
-            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: string): Promise<TokenDeposit> {
+            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);
             },
             [GET_PROJECT_CHARGES]: async function({commit}: any): Promise<void> {
