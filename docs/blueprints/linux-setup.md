@@ -30,6 +30,7 @@ All these distributions are shipped with systemD as a service manager.
 
 
 ## Design
+The installer will be a debian package. We choose to auto-update the binary, even if this will make the package not following debian guidelines
 - When installing the package, it should prompt for user input for:
   - Wallet address
   - Email
@@ -41,12 +42,13 @@ All these distributions are shipped with systemD as a service manager.
   - Storage directory
 - Generate `config.yaml` file with the user configuration.
 
-The installer will be a debian package. We choose to auto-update the binary, even if this will make the package not following debian guidelines. The debian :
-- simple binary debian package
-- well-formed debian package (binary package generated from source package)
-- convert to RPM (may need some adaptations: for instance there are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs)
+We choose to reuse the storagenode-updater and the updater-updater used in windows. They will be daemonized using systemD. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
+We will use debconf to retrieve user data. 
 
-We choose to reuse the storagenode-updater and the updater-updater used in windows. They will be daemonized using systemD.
+Once we get a fully working debian package, we can convert it to the RPM format using the fpm tool. There are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs.
+
+The debian package will be available by direct download and on a APT repository that users can add to their package manager source list. The repository will be managed using reprepro.
+
 ## Rationale
 
 ### storagenode service
@@ -135,15 +137,22 @@ We are thinking of using native packaging for the following reasons:
 
 ## Implementation
 ### Debian package
-- Use nfpm to generate a "draft" package. This will be a binary package (not following debian guidelines). Nevertheless, it will allow us to implement and test in parallel the different parts of the packaging solution.
-- Implement a systemD service running storagenode binary.
+- Implement the debian package skeleton using dh-make-golang. It will create a debian directory that contains all the necessary files to generate the package using dpkg-buildpackage
+- - adapt the Makefile to ease packaging:
+    - add a `make install` target should be added. It would copy the binaries to the right directories (typically /usr/local/bin). It should be configurable with a destination directory DESTDIR so that `make install DESTDIR=dir` installs the binary into `dir/usr/local/bin` and a configuration template `config.yaml` in `/etc/storagenode`.
+    - add a `clean` target that removes the binaries (the target name does not have to be `clean`)
+    - add a `storagenode-test` target that will test the installation
+- write a Linux installation and auto-update contributor guide
+- modify the `debian/rules` file to embed the binaries and temporarly embed a `config.yaml` file in.
+- create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the storage directory.
+- Implement a systemD service running storagenode binary. It will be installed by calling `dh_installsystemd` in `debian/rules`
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
 - Create the debconf script that will gather user inputs and saves the config.yaml file in the configuration folder.
     - http://www.fifi.org/doc/debconf-doc/tutorial.html
 - Adapt the storage node updater
 - Implement a service running the storage node updater
-- Adapt the recovery mechanism
+- Adapt the recovery mechanism. SystemD has a `OnFailure` directive.
 - create the man page
 - add a menu entry
     - https://www.debian.org/doc/packaging-manuals/menu.html/ch3.html
@@ -164,7 +173,7 @@ We are thinking of using native packaging for the following reasons:
     - [debconf(7) man page](https://manpages.debian.org/testing/debconf-doc/debconf.7.en.html)
 
 ### Continuous Integration
-
+- build a Dockerfile that builds and tests the package. 
 
 ## Wrapup
 
