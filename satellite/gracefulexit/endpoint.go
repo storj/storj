@@ -13,13 +13,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
-	"storj.io/common/identity"
-	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
-	"storj.io/common/storj"
-	"storj.io/common/sync2"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/pkg/signing"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
@@ -53,7 +53,7 @@ type Endpoint struct {
 	recvTimeout    time.Duration
 }
 
-// connectionsTracker for tracking ongoing connections on this api server.
+// connectionsTracker for tracking ongoing connections on this api server
 type connectionsTracker struct {
 	mu   sync.RWMutex
 	data map[storj.NodeID]struct{}
@@ -171,6 +171,8 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
+		// we cancel this context in all situations where we want to exit the loop
+		ctx, cancel := context.WithCancel(ctx)
 		loopErr := incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
@@ -209,7 +211,6 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	for {
 		finishedPromise := pending.IsFinishedPromise()
 		finished, err := finishedPromise.Wait(ctx)
-		err = errs2.IgnoreCanceled(err)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -311,10 +312,16 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 		}
 	}
 
+	if err := group.Wait(); err != nil {
+		if !errs.Is(err, context.Canceled) {
+			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		}
+	}
+
 	return nil
 }
 
-func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, pending *PendingMap, incomplete *TransferQueueItem) error {
+func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *PendingMap, incomplete *TransferQueueItem) error {
 	nodeID := incomplete.NodeID
 
 	if incomplete.OrderLimitSendCount >= endpoint.config.MaxOrderLimitSendCount {
@@ -427,7 +434,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	// update pending queue with the transfer item
 	err = pending.Put(pieceID, &PendingTransfer{
-		Key:              incomplete.Key,
+		Path:             incomplete.Path,
 		PieceSize:        pieceSize,
 		SatelliteMessage: transferMsg,
 		OriginalPointer:  pointer,
@@ -437,7 +444,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 	return err
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, pending *PendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStream, pending *PendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	originalPieceID := message.Succeeded.OriginalPieceId
@@ -464,12 +471,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.PieceNum)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Path, transfer.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, transfer.Key, transfer.PieceNum, transferQueueItem.RootPieceID)
+	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, string(transfer.Path), transfer.PieceNum, transferQueueItem.RootPieceID)
 	if err != nil {
 		// remove the piece from the pending queue so it gets retried
 		deleteErr := pending.Delete(originalPieceID)
@@ -487,7 +494,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.PieceNum)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Path, transfer.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -532,8 +539,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		// this should be rare and it is not likely this is someone trying to do something malicious since it is a "failure"
 		return nil
 	}
-
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Path, transfer.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -549,14 +555,14 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	// Remove the queue item and remove the node from the pointer.
 	// If the pointer is not piece hash verified, do not count this as a failure.
 	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
-		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("key", transfer.Key), zap.Int32("piece num", transfer.PieceNum))
-		pointer, err := endpoint.metainfo.Get(ctx, transfer.Key)
+		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("path", transfer.Path), zap.Int32("piece num", transfer.PieceNum))
+		pointer, err := endpoint.metainfo.Get(ctx, string(transfer.Path))
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		remote := pointer.GetRemote()
 		if remote == nil {
-			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Path, transfer.PieceNum)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -571,14 +577,14 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			}
 		}
 		if nodePiece == nil {
-			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Path, transfer.PieceNum)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			return pending.Delete(pieceID)
 		}
 
-		_, err = endpoint.metainfo.UpdatePieces(ctx, transfer.Key, pointer, nil, []*pb.RemotePiece{nodePiece})
+		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -592,7 +598,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			}
 		}
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Path, transfer.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
