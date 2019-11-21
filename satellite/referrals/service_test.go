@@ -19,6 +19,7 @@ import (
 )
 
 func TestServiceSuccess(t *testing.T) {
+	t.Skip("will be unskipped when referral manager is added into testplanet")
 	endpoint := &endpointHappyPath{
 		TokenCount: 2,
 	}
@@ -52,6 +53,7 @@ func TestServiceSuccess(t *testing.T) {
 }
 
 func TestServiceRedeemFailure(t *testing.T) {
+	t.Skip("will be unskipped when referral manager is added into testplanet")
 	endpoint := &endpointFailedPath{
 		TokenCount: 2,
 	}
