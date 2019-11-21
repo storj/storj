@@ -75,7 +75,7 @@ export default class TokenDepositSelection extends Vue {
     }
 
     public onCustomAmountChange(): void {
-        this.$emit('onChangeTokenValue', parseInt(this.customAmount));
+        this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
     public toggleCustomAmount(): void {

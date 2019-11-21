@@ -149,6 +149,14 @@ export default class PaymentMethods extends Vue {
     }
 
     public async onConfirmAddSTORJ(): Promise<void> {
+        if (this.tokenDepositValue >= 1000000 || this.tokenDepositValue === 0) {
+            await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
+            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+            this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+            return;
+        }
+
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
