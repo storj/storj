@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
 )
@@ -248,7 +248,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 	}
 
-	if requestData.Amount == 0 {
+	if requestData.Amount < 0 {
 		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount can not be negative"))
 	}
 	if requestData.Amount == 0 {

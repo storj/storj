@@ -13,7 +13,7 @@ import (
 
 // StorjTokens defines all payments STORJ token related functionality.
 type StorjTokens interface {
-	// Deposit creates deposit transaction for specified amount.
+	// Deposit creates deposit transaction for specified amount in cents.
 	Deposit(ctx context.Context, userID uuid.UUID, amount int64) (*Transaction, error)
 	// ListTransactionInfos returns all transaction associated with user.
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
