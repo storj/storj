@@ -48,13 +48,13 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		SELECT COUNT(*)
 		FROM api_keys ak
 		WHERE ak.project_id = ?
-		AND ak.name LIKE ?
+		AND lower(ak.name) LIKE ?
 	`)
 
 	countRow := keys.db.QueryRowContext(ctx,
 		countQuery,
 		projectID[:],
-		search)
+		strings.ToLower(search))
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
@@ -71,7 +71,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at 
 		FROM api_keys ak
 		WHERE ak.project_id = ?
-		AND ak.name LIKE ?
+		AND lower(ak.name) LIKE ?
 		ORDER BY ` + sanitizedAPIKeyOrderColumnName(cursor.Order) + `
 		` + sanitizeOrderDirectionName(page.OrderDirection) + `
 		LIMIT ? OFFSET ?`)
@@ -79,7 +79,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	rows, err := keys.db.QueryContext(ctx,
 		repoundQuery,
 		projectID[:],
-		search,
+		strings.ToLower(search),
 		page.Limit,
 		page.Offset)
 
