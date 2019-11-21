@@ -13,8 +13,8 @@ import (
 
 // StorjTokens defines all payments STORJ token related functionality.
 type StorjTokens interface {
-	// Deposit creates deposit transaction for specified amount.
-	Deposit(ctx context.Context, userID uuid.UUID, amount *TokenAmount) (*Transaction, error)
+	// Deposit creates deposit transaction for specified amount in cents.
+	Deposit(ctx context.Context, userID uuid.UUID, amount int64) (*Transaction, error)
 	// ListTransactionInfos returns all transaction associated with user.
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 }
@@ -49,9 +49,8 @@ func (id TransactionID) String() string {
 // accepts user funds on a specific wallet address.
 type Transaction struct {
 	ID        TransactionID
-	AccountID uuid.UUID
 	Amount    TokenAmount
-	Received  TokenAmount
+	Rate      big.Float
 	Address   string
 	Status    TransactionStatus
 	Timeout   time.Duration
@@ -81,12 +80,12 @@ type TokenAmount struct {
 	inner big.Float
 }
 
-// precision defines STORJ token precision.
-const precision = 32
+// STORJTokenPrecision defines STORJ token precision.
+const STORJTokenPrecision = 32
 
 // NewTokenAmount creates new zeroed TokenAmount with fixed precision.
 func NewTokenAmount() *TokenAmount {
-	return &TokenAmount{inner: *new(big.Float).SetPrec(precision)}
+	return &TokenAmount{inner: *new(big.Float).SetPrec(STORJTokenPrecision)}
 }
 
 // BigFloat returns inner representation of TokenAmount.
@@ -103,7 +102,7 @@ func (amount *TokenAmount) String() string {
 // ParseTokenAmount parses string representing floating point and returns
 // TokenAmount.
 func ParseTokenAmount(s string) (*TokenAmount, error) {
-	inner, _, err := big.ParseFloat(s, 10, precision, big.ToNearestEven)
+	inner, _, err := big.ParseFloat(s, 10, STORJTokenPrecision, big.ToNearestEven)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +111,6 @@ func ParseTokenAmount(s string) (*TokenAmount, error) {
 
 // TokenAmountFromBigFloat converts big.Float to TokenAmount.
 func TokenAmountFromBigFloat(f *big.Float) *TokenAmount {
-	inner := (*f).SetMode(big.ToNearestEven).SetPrec(precision)
+	inner := (*f).SetMode(big.ToNearestEven).SetPrec(STORJTokenPrecision)
 	return &TokenAmount{inner: *inner}
 }
