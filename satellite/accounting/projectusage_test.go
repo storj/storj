@@ -260,15 +260,16 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satDB := planet.Satellites[0].DB
 		acctDB := satDB.ProjectAccounting()
-
 		projectsDB := satDB.Console().Projects()
+
 		projects, err := projectsDB.GetAll(ctx)
 		require.NoError(t, err)
 
 		project := projects[0]
 		// set custom usage limit for project
-		project.UsageLimit = memory.GiB.Int64() * 10
-		err = projectsDB.Update(ctx, &project)
+		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
+
+		err = acctDB.UpdateProjectStorageLimit(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
@@ -281,7 +282,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		actualExceeded, limit, err := projectUsage.ExceedsStorageUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.True(t, actualExceeded)
-		require.Equal(t, project.UsageLimit, limit.Int64())
+		require.Equal(t, expectedLimit.Int64(), limit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)

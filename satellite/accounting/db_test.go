@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/private/memory"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,6 +136,46 @@ func TestStorageNodeUsage(t *testing.T) {
 					}
 				}
 			}
+		})
+	})
+}
+
+func TestProjectLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		projectID := testrand.UUID()
+
+		err := db.ProjectAccounting().UpdateProjectStorageLimit(ctx, projectID, 1)
+		require.NoError(t, err)
+
+		err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectID, 2)
+		require.NoError(t, err)
+
+		t.Run("get", func(t *testing.T) {
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(1), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(2), bandwidthLimit)
+		})
+
+		t.Run("update", func(t *testing.T) {
+			err := db.ProjectAccounting().UpdateProjectStorageLimit(ctx, projectID, 3)
+			require.NoError(t, err)
+			err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectID, 4)
+			require.NoError(t, err)
+
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(3), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(4), bandwidthLimit)
 		})
 	})
 }
