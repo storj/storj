@@ -80,7 +80,7 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 	return token.String(), nil
 }
 
-func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activationAddress, address string) error {
+func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
 	client := http.Client{}
 
 	var createTokenResponse struct {
@@ -90,7 +90,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 	{
 		request, err := http.NewRequest(
 			http.MethodGet,
-			createRegistrationTokenAddress,
+			endpoints["regtoken"],
 			nil)
 		if err != nil {
 			return err
@@ -148,7 +148,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address+"/auth/register",
+			endpoints["register"],
 			bytes.NewReader(res))
 		if err != nil {
 			return err
@@ -185,7 +185,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodGet,
-			activationAddress+activationToken,
+			endpoints["activation"]+activationToken,
 			nil)
 		if err != nil {
 			return err
@@ -213,7 +213,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err = http.NewRequest(
 			http.MethodPost,
-			address+"/auth/token",
+			endpoints["token"],
 			bytes.NewReader(res))
 
 		if err != nil {
@@ -247,7 +247,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address+"/graphql",
+			endpoints["graphql"],
 			bytes.NewReader([]byte(createProjectQuery)))
 
 		if err != nil {
@@ -276,7 +276,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address+"/graphql",
+			endpoints["graphql"],
 			bytes.NewReader([]byte(createAPIKeyQuery)))
 
 		if err != nil {
