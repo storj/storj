@@ -7,72 +7,75 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
+	"storj.io/storj/satellite/referrals"
 )
 
 func TestServiceSuccess(t *testing.T) {
-	t.Skip("will be unskipped when referral manager is added into testplanet")
-	//	endpoint := &endpointHappyPath{
-	//		TokenCount: 2,
-	//	}
-	//	testplanet.Run(t, testplanet.Config{
-	//		SatelliteCount: 1,
-	//		Reconfigure: testplanet.Reconfigure{
-	//			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
-	//
-	//				return endpoint
-	//			},
-	//		},
-	//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-	//
-	//		satellite := planet.Satellites[0]
-	//
-	//		userID := testrand.UUID()
-	//		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
-	//		require.NoError(t, err)
-	//		require.Len(t, tokens, endpoint.TokenCount)
-	//
-	//		user := referrals.CreateUser{
-	//			FullName:      "test",
-	//			ShortName:     "test",
-	//			Email:         "test@mail.test",
-	//			Password:      "123a123",
-	//			ReferralToken: testrand.UUID().String(),
-	//		}
-	//		_, err = satellite.API.Referrals.Service.CreateUser(ctx, user)
-	//		require.NoError(t, err)
-	//	})
+	endpoint := &endpointHappyPath{
+		TokenCount: 2,
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+
+				return endpoint
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		satellite := planet.Satellites[0]
+
+		userID := testrand.UUID()
+		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
+		require.NoError(t, err)
+		require.Len(t, tokens, endpoint.TokenCount)
+
+		user := referrals.CreateUser{
+			FullName:      "test",
+			ShortName:     "test",
+			Email:         "test@mail.test",
+			Password:      "123a123",
+			ReferralToken: testrand.UUID().String(),
+		}
+		_, err = satellite.API.Referrals.Service.CreateUser(ctx, user)
+		require.NoError(t, err)
+	})
 }
 
 func TestServiceRedeemFailure(t *testing.T) {
-	t.Skip("will be unskipped when referral manager is added into testplanet")
-	//	endpoint := &endpointFailedPath{
-	//		TokenCount: 2,
-	//	}
-	//	testplanet.Run(t, testplanet.Config{
-	//		SatelliteCount: 1,
-	//		Reconfigure: testplanet.Reconfigure{
-	//			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
-	//
-	//				return endpoint
-	//			},
-	//		},
-	//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-	//
-	//		satellite := planet.Satellites[0]
-	//
-	//		user := referrals.CreateUser{
-	//			FullName:      "test",
-	//			ShortName:     "test",
-	//			Email:         "test@mail.test",
-	//			Password:      "123a123",
-	//			ReferralToken: testrand.UUID().String(),
-	//		}
-	//		_, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
-	//		require.Error(t, err)
-	//	})
+	endpoint := &endpointFailedPath{
+		TokenCount: 2,
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+
+				return endpoint
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		satellite := planet.Satellites[0]
+
+		user := referrals.CreateUser{
+			FullName:      "test",
+			ShortName:     "test",
+			Email:         "test@mail.test",
+			Password:      "123a123",
+			ReferralToken: testrand.UUID().String(),
+		}
+		_, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
+		require.Error(t, err)
+	})
 }
 
 type endpointHappyPath struct {
@@ -86,7 +89,7 @@ func (endpoint *endpointHappyPath) GetTokens(ctx context.Context, req *pb.GetTok
 		tokens[i] = token[:]
 	}
 	return &pb.GetTokensResponse{
-		Token: tokens,
+		TokenSecrets: tokens,
 	}, nil
 }
 
@@ -105,7 +108,7 @@ func (endpoint *endpointFailedPath) GetTokens(ctx context.Context, req *pb.GetTo
 		tokens[i] = token[:]
 	}
 	return &pb.GetTokensResponse{
-		Token: tokens,
+		TokenSecrets: tokens,
 	}, nil
 }
 

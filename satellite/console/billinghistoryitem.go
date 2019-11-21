@@ -9,16 +9,15 @@ import (
 
 // BillingHistoryItem holds all public information about billing history line.
 type BillingHistoryItem struct {
-	ID            string                 `json:"id"`
-	Description   string                 `json:"description"`
-	Amount        int64                  `json:"amount"`
-	TokenAmount   string                 `json:"tokenAmount"`
-	TokenReceived string                 `json:"tokenReceived"`
-	Status        string                 `json:"status"`
-	Link          string                 `json:"link"`
-	Start         time.Time              `json:"start"`
-	End           time.Time              `json:"end"`
-	Type          BillingHistoryItemType `json:"type"`
+	ID          string                 `json:"id"`
+	Description string                 `json:"description"`
+	Amount      int64                  `json:"amount"`
+	Received    int64                  `json:"received"`
+	Status      string                 `json:"status"`
+	Link        string                 `json:"link"`
+	Start       time.Time              `json:"start"`
+	End         time.Time              `json:"end"`
+	Type        BillingHistoryItemType `json:"type"`
 }
 
 // BillingHistoryItemType indicates type of billing history item.

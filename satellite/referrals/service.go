@@ -28,7 +28,7 @@ var (
 	ErrUsedEmail = errs.Class("email used error")
 )
 
-// Config is for referrals service
+// Config is for referrals service.
 type Config struct {
 	ReferralManagerURL storj.NodeURL
 }
@@ -73,13 +73,13 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 
 	client := conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
-		UserId: userID[:],
+		OwnerUserId: userID[:],
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	tokensInBytes := response.GetToken()
+	tokensInBytes := response.GetTokenSecrets()
 	if len(tokensInBytes) == 0 {
 		return nil, errs.New("no available tokens")
 	}
