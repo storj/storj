@@ -4,23 +4,16 @@
 package testplanet
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
-	"storj.io/common/pb"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/testrand"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 )
 
-// DefaultReferralManagerServer implements the default behavior of a mock referral manager.
-type DefaultReferralManagerServer struct {
-	tokenCount int
-}
-
-// newReferralManager initializes a referral manager server.
+// newReferralManager initializes a referral manager server
 func (planet *Planet) newReferralManager() (*server.Server, error) {
 	prefix := "referralmanager"
 	log := planet.log.Named(prefix)
@@ -50,7 +43,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 		},
 	}
 
-	var endpoints pb.DRPCReferralManagerServer
+	var endpoints pb.ReferralManagerServer
 	// only create a referral manager server if testplanet was reconfigured with a custom referral manager endpoint
 	if planet.config.Reconfigure.ReferralManagerServer != nil {
 		endpoints = planet.config.Reconfigure.ReferralManagerServer(log)
@@ -62,36 +55,12 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 		return nil, err
 	}
 
-	referralmanager, err := server.New(log, tlsOptions, config.Address, config.PrivateAddress)
+	referralmanager, err := server.New(log, tlsOptions, config.Address, config.PrivateAddress, nil)
 	if err != nil {
 		return nil, err
 	}
-	if err := pb.DRPCRegisterReferralManager(referralmanager.DRPC(), endpoints); err != nil {
-		return nil, err
-	}
+	pb.DRPCRegisterReferralManager(referralmanager.DRPC(), endpoints)
 
 	log.Debug("id=" + identity.ID.String() + " addr=" + referralmanager.Addr().String())
 	return referralmanager, nil
-}
-
-// GetTokens implements a mock GetTokens endpoint that returns a number of referral tokens. By default, it returns 0 tokens.
-func (server *DefaultReferralManagerServer) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
-	tokens := make([][]byte, server.tokenCount)
-	for i := 0; i < server.tokenCount; i++ {
-		uuid := testrand.UUID()
-		tokens[i] = uuid[:]
-	}
-	return &pb.GetTokensResponse{
-		TokenSecrets: tokens,
-	}, nil
-}
-
-// RedeemToken implements a mock RedeemToken endpoint.
-func (server *DefaultReferralManagerServer) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
-	return &pb.RedeemTokenResponse{}, nil
-}
-
-// SetTokenCount sets the number of tokens GetTokens endpoint should return.
-func (server *DefaultReferralManagerServer) SetTokenCount(tokenCount int) {
-	server.tokenCount = tokenCount
 }

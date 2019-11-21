@@ -19,11 +19,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -161,7 +159,7 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(config.SatelliteCount, satelliteDatabases)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}

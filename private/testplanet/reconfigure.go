@@ -8,10 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storagenode"
@@ -20,9 +17,10 @@ import (
 
 // Reconfigure allows to change node configurations.
 type Reconfigure struct {
-	SatelliteDB        func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
-	SatellitePointerDB func(log *zap.Logger, index int, db metainfo.PointerDB) (metainfo.PointerDB, error)
-	Satellite          func(log *zap.Logger, index int, config *satellite.Config)
+	NewSatelliteDB        func(log *zap.Logger, index int) (satellite.DB, error)
+	NewSatellitePointerDB func(log *zap.Logger, index int) (metainfo.PointerDB, error)
+	Satellite             func(log *zap.Logger, index int, config *satellite.Config)
+	ReferralManagerServer func(log *zap.Logger) pb.ReferralManagerServer
 
 	ReferralManagerServer func(log *zap.Logger) pb.DRPCReferralManagerServer
 
