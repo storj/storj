@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/pb"
@@ -59,11 +60,11 @@ func TestPendingBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// finished should work
-	err = pending.Finish()
+	err = pending.Finish(nil)
 	require.NoError(t, err)
 
 	// finished should error if already called
-	err = pending.Finish()
+	err = pending.Finish(nil)
 	require.Error(t, err)
 
 	// should not be allowed to Put new work after finished called
@@ -164,7 +165,7 @@ func TestPendingIsFinishedFinishedCalled(t *testing.T) {
 		// wait for IsFinishedPromise call before finishing
 		require.True(t, fence.Wait(ctx))
 
-		err := pending.Finish()
+		err := pending.Finish(nil)
 		require.NoError(t, err)
 		return nil
 	})
@@ -198,6 +199,39 @@ func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 		require.True(t, fence.Wait(ctx))
 
 		cancel()
+		return nil
+	})
+
+	require.NoError(t, group.Wait())
+}
+
+// TestPendingIsFinishedFinishedCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when Finished is called with an error
+func TestPendingIsFinishedFinishedCalledError(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	pending := gracefulexit.NewPendingMap()
+
+	finishErr := errs.New("test error")
+	fence := sync2.Fence{}
+	var group errgroup.Group
+	group.Go(func() error {
+		finishedPromise := pending.IsFinishedPromise()
+
+		fence.Release()
+
+		finished, err := finishedPromise.Wait(ctx)
+		require.True(t, finished)
+		require.Error(t, err)
+		require.Equal(t, finishErr, err)
+		return nil
+	})
+	group.Go(func() error {
+		// wait for IsFinishedPromise call before finishing
+		require.True(t, fence.Wait(ctx))
+
+		err := pending.Finish(finishErr)
+		require.NoError(t, err)
 		return nil
 	})
 

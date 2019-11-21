@@ -185,7 +185,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 		defer func() {
-			pending.Finish()
+			pending.Finish(nil)
 		}()
 
 		ctx, cancel := context.WithCancel(ctx)

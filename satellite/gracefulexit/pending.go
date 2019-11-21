@@ -15,6 +15,7 @@ import (
 type PendingFinishedPromise struct {
 	addedWorkChan      chan struct{}
 	finishedCalledChan chan struct{}
+	returnErr          error
 }
 
 func newFinishedPromise() *PendingFinishedPromise {
@@ -32,7 +33,7 @@ func (promise *PendingFinishedPromise) Wait(ctx context.Context) (bool, error) {
 	case <-promise.addedWorkChan:
 		return false, nil
 	case <-promise.finishedCalledChan:
-		return true, nil
+		return true, promise.returnErr
 	}
 }
 
@@ -40,7 +41,8 @@ func (promise *PendingFinishedPromise) addedWork() {
 	close(promise.addedWorkChan)
 }
 
-func (promise *PendingFinishedPromise) finishedCalled() {
+func (promise *PendingFinishedPromise) finishedCalled(err error) {
+	promise.returnErr = err
 	close(promise.finishedCalledChan)
 }
 
@@ -140,7 +142,7 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 		return newPromise
 	}
 	if pm.finished {
-		newPromise.finishedCalled()
+		newPromise.finishedCalled(nil)
 		return newPromise
 	}
 
@@ -148,10 +150,10 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 	return newPromise
 }
 
-// Finish is called when no more work will be added to the map.
+// Finish is called (with an optional error) when no more work will be added to the map.
 // If Finish has already been called, an error is returned.
 // If a PendingFinishedPromise is waiting on a response, it is updated to return true.
-func (pm *PendingMap) Finish() error {
+func (pm *PendingMap) Finish(err error) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -160,7 +162,7 @@ func (pm *PendingMap) Finish() error {
 	}
 
 	if pm.finishedPromise != nil {
-		pm.finishedPromise.finishedCalled()
+		pm.finishedPromise.finishedCalled(err)
 		pm.finishedPromise = nil
 	}
 	pm.finished = true
