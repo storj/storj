@@ -96,12 +96,12 @@ func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfe
 }
 
 // Get returns the pending transfer item from the map, if it exists.
-func (pm *PendingMap) Get(pieceID storj.PieceID) (PendingTransfer *PendingTransfer, ok bool) {
+func (pm *PendingMap) Get(pieceID storj.PieceID) (*PendingTransfer, bool) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	PendingTransfer, ok = pm.data[pieceID]
-	return PendingTransfer, ok
+	pendingTransfer, ok := pm.data[pieceID]
+	return pendingTransfer, ok
 }
 
 // Length returns the number of elements in the map.
