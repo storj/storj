@@ -83,6 +83,10 @@ export default class MonthlyBillingSummary extends Vue {
      * chargesSummary returns summary of all projects.
      */
     public get chargesSummary(): number {
+        if (!this.usageCharges.length) {
+            return 0;
+        }
+
         const usageItemSummaries = this.usageCharges.map(item => item.summary());
 
         return usageItemSummaries.reduce((accumulator, current) => accumulator + current);
