@@ -382,6 +382,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				ChoreInterval: defaultInterval,
 			},
 		}
+
+		if planet.ReferralManager != nil {
+			config.Referrals.ReferralManagerURL = storj.NodeURL{
+				ID:      planet.ReferralManager.Identity().ID,
+				Address: planet.ReferralManager.Addr().String(),
+			}
+		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
