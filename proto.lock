@@ -5589,6 +5589,12 @@
             "name": "RetainResponse"
           },
           {
+            "name": "RestoreTrashRequest"
+          },
+          {
+            "name": "RestoreTrashResponse"
+          },
+          {
             "name": "PieceHeader",
             "fields": [
               {
@@ -5661,6 +5667,11 @@
                 "name": "Retain",
                 "in_type": "RetainRequest",
                 "out_type": "RetainResponse"
+              },
+              {
+                "name": "RestoreTrash",
+                "in_type": "RestoreTrashRequest",
+                "out_type": "RestoreTrashResponse"
               }
             ]
           }

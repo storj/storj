@@ -11,9 +11,9 @@ import (
 type ProjectCharge struct {
 	ProjectID uuid.UUID `json:"projectId"`
 	// StorageGbHrs shows how much cents we should pay for storing GB*Hrs.
-	StorageGbHrs int64
+	StorageGbHrs int64 `json:"storage"`
 	// Egress shows how many cents we should pay for Egress.
-	Egress int64
+	Egress int64 `json:"egress"`
 	// ObjectCount shows how many cents we should pay for objects count.
-	ObjectCount int64
+	ObjectCount int64 `json:"objectCount"`
 }
