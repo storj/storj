@@ -17,7 +17,7 @@ import (
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount in cents.
 	Deposit(ctx context.Context, userID uuid.UUID, amount int64) (*Transaction, error)
-	// ListTransactionInfos returns all transactions associated with user.
+	// ListTransactionInfos returns all transaction associated with user.
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 	// ListDepositBonuses returns all deposit bonuses associated with user.
 	ListDepositBonuses(ctx context.Context, userID uuid.UUID) ([]DepositBonus, error)

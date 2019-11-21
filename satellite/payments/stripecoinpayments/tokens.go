@@ -61,9 +61,11 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
+	tokenAmount := convertFromCents(rate, amount).SetPrec(payments.STORJTokenPrecision)
+
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
-			Amount:      *amount.BigFloat(),
+			Amount:      *tokenAmount,
 			CurrencyIn:  coinpayments.CurrencySTORJ,
 			CurrencyOut: coinpayments.CurrencySTORJ,
 			BuyerEmail:  c.Email,
