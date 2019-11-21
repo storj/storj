@@ -169,14 +169,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return nil
 	}
 
-	// TODO how to get rid of errChan/handleError?
-	errChan := make(chan error, 1)
-	handleError := func(err error) error {
-		errChan <- err
-		close(errChan)
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
-	}
-
 	// maps pieceIDs to pendingTransfers to keep track of ongoing piece transfer requests
 	// and handles concurrency between sending logic and receiving logic
 	pending := NewPendingMap()
@@ -184,35 +176,32 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
-		defer func() {
-			pending.Finish(nil)
-		}()
 
 		ctx, cancel := context.WithCancel(ctx)
 		return incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
-					return handleError(err)
+					return pending.Finish(err)
 				}
 
 				if len(incomplete) == 0 {
 					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
-						return handleError(err)
+						return pending.Finish(err)
 					}
 				}
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
 					cancel()
-					return nil
+					return pending.Finish(nil)
 				}
 
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
-						return handleError(err)
+						return pending.Finish(err)
 					}
 				}
 			}
@@ -221,16 +210,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
-		select {
-		case <-errChan:
-			return group.Wait()
-		default:
-		}
-
 		finishedPromise := pending.IsFinishedPromise()
 		finished, err := finishedPromise.Wait(ctx)
 		if err != nil {
-			// this is probably a context canceled error, should we be returning an internal error?
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
@@ -328,7 +310,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	if err := group.Wait(); err != nil {
 		if !errs.Is(err, context.Canceled) {
 			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
-
 		}
 	}
 
