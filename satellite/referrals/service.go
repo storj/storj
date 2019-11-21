@@ -64,6 +64,10 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 	}
 
 	tokensInBytes := response.GetToken()
+	if len(tokensInBytes) == 0 {
+		return nil, errs.New("no available tokens")
+	}
+
 	var tokens = make([]uuid.UUID, len(tokensInBytes))
 	for i := range tokensInBytes {
 		token, err := bytesToUUID(tokensInBytes[i])

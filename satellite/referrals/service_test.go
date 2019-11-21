@@ -5,92 +5,103 @@ package referrals_test
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
-	"storj.io/storj/satellite"
 )
 
-func TestService(t *testing.T) {
-	endpoint := &Endpoint{}
-	version := storj.LatestIDVersion()
-	identity, err := testidentity.NewPregeneratedSignedIdentities(version).NewIdentity()
-	require.NoError(t, err)
+func TestServiceSuccess(t *testing.T) {
+	endpoint := &endpointHappyPath{
+		TokenCount: 2,
+	}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				addr := identity.ID.String() + "@127.0.0.1:7777"
-				config.Referrals.ReferralManagerURL, _ = storj.ParseNodeURL(addr)
+			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+
+				return endpoint
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		satellite := planet.Satellites[0]
 
-		// set up mock referral manager server
-		wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
-		require.NoError(t, err)
-		tlscfg := tlsopts.Config{
-			RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
-			UsePeerCAWhitelist:  true,
-			PeerCAWhitelistPath: wl,
-			PeerIDVersions:      "*",
-			Extensions: extensions.Config{
-				Revocation:          false,
-				WhitelistSignedLeaf: false,
-			},
-		}
-
-		revocationDB, err := revocation.NewDBFromCfg(tlscfg)
-		require.NoError(t, err)
-
-		tlsOptions, err := tlsopts.NewOptions(identity, tlscfg, revocationDB)
-		require.NoError(t, err)
-
-		server, err := server.New(satellite.Log.Named("mock-server"), tlsOptions, "127.0.0.1:7777", "127.0.0.1:7778", nil)
-		require.NoError(t, err)
-		pb.DRPCRegisterReferralManager(server.DRPC(), endpoint)
-		go func() {
-			// TODO: get goroutine under control
-			err := server.Run(ctx)
-			require.NoError(t, err)
-
-			err = revocationDB.Close()
-			require.NoError(t, err)
-		}()
-		defer func() {
-			err = server.Close()
-			require.NoError(t, err)
-		}()
-
 		userID := testrand.UUID()
-		_, err = satellite.API.Referrals.Service.GetTokens(ctx, &userID)
+		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
+		require.NoError(t, err)
+		require.Len(t, tokens, endpoint.TokenCount)
+
+		err = satellite.API.Referrals.Service.RedeemToken(ctx, &userID, tokens[0].String())
 		require.NoError(t, err)
 	})
 }
 
-type Endpoint struct{}
+func TestServiceRedeemFailure(t *testing.T) {
+	endpoint := &endpointFailedPath{
+		TokenCount: 2,
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
 
-func (endpoint *Endpoint) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
-	fmt.Println("getTokenEndpint")
-	return &pb.GetTokensResponse{}, nil
+				return endpoint
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		satellite := planet.Satellites[0]
+
+		userID := testrand.UUID()
+		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
+		require.NoError(t, err)
+		require.Len(t, tokens, endpoint.TokenCount)
+
+		err = satellite.API.Referrals.Service.RedeemToken(ctx, &userID, tokens[0].String())
+		require.Error(t, err)
+	})
 }
 
-func (endpoint *Endpoint) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
-	fmt.Println("redeemh")
-	return nil, nil
+type endpointHappyPath struct {
+	TokenCount int
+}
+
+func (endpoint *endpointHappyPath) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
+	tokens := make([][]byte, endpoint.TokenCount)
+	for i := 0; i < len(tokens); i++ {
+		token := testrand.UUID()
+		tokens[i] = token[:]
+	}
+	return &pb.GetTokensResponse{
+		Token: tokens,
+	}, nil
+}
+
+func (endpoint *endpointHappyPath) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
+	return &pb.RedeemTokenResponse{}, nil
+}
+
+type endpointFailedPath struct {
+	TokenCount int
+}
+
+func (endpoint *endpointFailedPath) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
+	tokens := make([][]byte, endpoint.TokenCount)
+	for i := 0; i < len(tokens); i++ {
+		token := testrand.UUID()
+		tokens[i] = token[:]
+	}
+	return &pb.GetTokensResponse{
+		Token: tokens,
+	}, nil
+}
+
+func (endpoint *endpointFailedPath) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
+	return nil, rpcstatus.Error(rpcstatus.NotFound, "")
 }
