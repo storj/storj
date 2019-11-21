@@ -3,13 +3,13 @@
 
 <template>
     <div class="chart">
-        <p class="bandwidth-chart__data-dimension">{{chartDataDimension}}</p>
+        <p class="egress-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
-            id="bandwidth-chart"
+            id="egress-chart"
             :chart-data="chartData"
             :width="400"
             :height="240"
-            :tooltip-constructor="bandwidthTooltip"
+            :tooltip-constructor="egressTooltip"
         />
     </div>
 </template>
@@ -22,23 +22,19 @@ import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { BandwidthUsed } from '@/storagenode/satellite';
+import { EgressUsed } from '@/storagenode/satellite';
 
 /**
- * stores bandwidth data for bandwidth chart's tooltip
+ * stores egress bandwidth data for egress bandwidth chart's tooltip
  */
-class BandwidthTooltip {
+class EgressTooltip {
     public normalEgress: string;
-    public normalIngress: string;
-    public repairIngress: string;
     public repairEgress: string;
     public auditEgress: string;
     public date: string;
 
-    public constructor(bandwidth: BandwidthUsed) {
+    public constructor(bandwidth: EgressUsed) {
         this.normalEgress = formatBytes(bandwidth.egress.usage);
-        this.normalIngress = formatBytes(bandwidth.ingress.usage);
-        this.repairIngress = formatBytes(bandwidth.ingress.repair);
         this.repairEgress = formatBytes(bandwidth.egress.repair);
         this.auditEgress = formatBytes(bandwidth.egress.audit);
         this.date = bandwidth.intervalStart.toUTCString().slice(0, 16);
@@ -50,16 +46,16 @@ class BandwidthTooltip {
         VChart,
     },
 })
-export default class BandwidthChart extends Vue {
+export default class EgressChart extends Vue {
     private readonly TOOLTIP_OPACITY: string = '1';
     private readonly TOOLTIP_POSITION: string = 'absolute';
 
-    private get allBandwidth(): BandwidthUsed[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
+    private get allBandwidth(): EgressUsed[] {
+        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
     }
 
     public get chartDataDimension(): string {
-        if (!this.$store.state.node.bandwidthChartData.length) {
+        if (!this.$store.state.node.egressChartData.length) {
             return 'Bytes';
         }
 
@@ -71,8 +67,8 @@ export default class BandwidthChart extends Vue {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#F2F6FC';
-        const chartBorderColor = '#1F49A3';
+        const chartBackgroundColor = '#edf9f4';
+        const chartBorderColor = '#48a77f';
         const chartBorderWidth = 2;
 
         if (this.allBandwidth.length) {
@@ -82,22 +78,22 @@ export default class BandwidthChart extends Vue {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public bandwidthTooltip(tooltipModel): void {
+    public egressTooltip(tooltipModel): void {
         // Tooltip Element
-        let tooltipEl = document.getElementById('bandwidth-tooltip');
+        let tooltipEl = document.getElementById('egress-tooltip');
         // Create element on first render
         if (!tooltipEl) {
             tooltipEl = document.createElement('div');
-            tooltipEl.id = 'bandwidth-tooltip';
+            tooltipEl.id = 'egress-tooltip';
             document.body.appendChild(tooltipEl);
         }
 
         // Tooltip Arrow
-        let tooltipArrow = document.getElementById('bandwidth-tooltip-arrow');
+        let tooltipArrow = document.getElementById('egress-tooltip-arrow');
         // Create element on first render
         if (!tooltipArrow) {
             tooltipArrow = document.createElement('div');
-            tooltipArrow.id = 'bandwidth-tooltip-arrow';
+            tooltipArrow.id = 'egress-tooltip-arrow';
             document.body.appendChild(tooltipArrow);
         }
 
@@ -112,40 +108,34 @@ export default class BandwidthChart extends Vue {
         // Set Text
         if (tooltipModel.body) {
             const dataIndex = tooltipModel.dataPoints[0].index;
-            const dataPoint = new BandwidthTooltip(this.allBandwidth[dataIndex]);
+            const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
 
-            tooltipEl.innerHTML = `<div class='tooltip-header'>
-                                       <p>EGRESS</p>
-                                       <p class='tooltip-header__ingress'>INGRESS</p>
-                                   </div>
-                                   <div class='tooltip-body'>
-                                       <div class='tooltip-body__info'>
+            tooltipEl.innerHTML = `<div class='egress-tooltip-body'>
+                                       <div class='egress-tooltip-body__info'>
                                            <p>USAGE</p>
-                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
                                        </div>
-                                       <div class='tooltip-body__info'>
+                                       <div class='egress-tooltip-body__info'>
                                            <p>REPAIR</p>
-                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.repairEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.repairIngress}</b></p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
                                        </div>
-                                       <div class='tooltip-body__info'>
+                                       <div class='egress-tooltip-body__info'>
                                            <p>AUDIT</p>
-                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.auditEgress}</b></p>
+                                           <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
                                        </div>
                                    </div>
-                                   <div class='tooltip-footer'>
+                                   <div class='egress-tooltip-footer'>
                                        <p>${dataPoint.date}</p>
                                    </div>`;
         }
 
         // `this` will be the overall tooltip
-        const bandwidthChart = document.getElementById('bandwidth-chart');
+        const bandwidthChart = document.getElementById('egress-chart');
         if (bandwidthChart) {
             const position = bandwidthChart.getBoundingClientRect();
             tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
             tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
+            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
             tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
 
             tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
@@ -164,7 +154,7 @@ export default class BandwidthChart extends Vue {
         margin: 0;
     }
 
-    .bandwidth-chart {
+    .egress-chart {
 
         &__data-dimension {
             font-size: 13px;
@@ -174,12 +164,12 @@ export default class BandwidthChart extends Vue {
         }
     }
 
-    #bandwidth-tooltip {
+    #egress-tooltip {
         background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
-        min-width: 250px;
-        min-height: 230px;
+        min-width: 190px;
+        min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
         box-shadow: 0 2px 10px #d2d6de;
@@ -187,7 +177,7 @@ export default class BandwidthChart extends Vue {
         pointer-events: none;
     }
 
-    #bandwidth-tooltip-arrow {
+    #egress-tooltip-arrow {
         background-image: url('../../../static/images/tooltipArrow.png');
         background-repeat: no-repeat;
         background-size: 50px 30px;
@@ -196,45 +186,29 @@ export default class BandwidthChart extends Vue {
         pointer-events: none;
     }
 
-    .tooltip-header {
-        display: flex;
-        padding: 10px 0 0 92px;
-        line-height: 40px;
-
-        &__ingress {
-            margin-left: 29px;
-        }
-    }
-
-    .tooltip-body {
+    .egress-tooltip-body {
         margin: 8px;
 
         &__info {
             display: flex;
-            background-color: #ebecf0;
+            background-color: rgba(211, 242, 204, 0.3);
             border-radius: 12px;
-            padding: 14px 17px 14px 14px;
+            padding: 14px;
             align-items: center;
+            justify-content: space-between;
             margin-bottom: 14px;
             position: relative;
-
-            .tooltip-bold-text {
-                font-size: 14px;
-            }
-
-            &__egress-value {
-                position: absolute;
-                left: 83px;
-            }
-
-            &__ingress-value {
-                position: absolute;
-                left: 158px;
-            }
+            color: #2e5f46;
         }
     }
 
-    .tooltip-footer {
+    .egress-tooltip-bold-text {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+    }
+
+    .egress-tooltip-footer {
+        position: relative;
         font-size: 12px;
         width: auto;
         display: flex;
