@@ -25,6 +25,7 @@ import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -40,12 +41,14 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
     GET_BILLING_HISTORY,
+    GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -73,6 +76,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(GET_BALANCE);
             await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
+            await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
                 AuthToken.remove();

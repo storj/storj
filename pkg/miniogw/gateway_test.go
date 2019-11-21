@@ -104,7 +104,7 @@ func TestDeleteBucket(t *testing.T) {
 		bucket, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
-		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
+		_, err = createFile(ctx, m, strms, bucket, TestFile, nil, nil)
 		assert.NoError(t, err)
 
 		// Check the error when deleting non-empty bucket
@@ -186,7 +186,7 @@ func TestPutObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when putting an object with empty name
@@ -207,7 +207,7 @@ func TestPutObject(t *testing.T) {
 		}
 
 		// Check that the object is uploaded using the Metainfo API
-		obj, err := m.GetObject(ctx, TestBucket, TestFile)
+		obj, err := m.GetObject(ctx, testBucketInfo, TestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, obj.Path)
 			assert.Equal(t, TestBucket, obj.Bucket.Name)
@@ -232,7 +232,7 @@ func TestGetObjectInfo(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -248,7 +248,7 @@ func TestGetObjectInfo(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		obj, err := createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("test"))
+		obj, err := createFile(ctx, m, strms, testBucketInfo, TestFile, &createInfo, []byte("test"))
 		assert.NoError(t, err)
 
 		// Get the object info using the Minio API
@@ -277,7 +277,7 @@ func TestGetObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -293,7 +293,7 @@ func TestGetObject(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		_, err = createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("abcdef"))
+		_, err = createFile(ctx, m, strms, testBucketInfo, TestFile, &createInfo, []byte("abcdef"))
 		assert.NoError(t, err)
 
 		for i, tt := range []struct {
@@ -340,7 +340,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the source bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when copying an object with empty name
@@ -352,7 +352,7 @@ func TestCopyObject(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		obj, err := createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("test"))
+		obj, err := createFile(ctx, m, strms, testBucketInfo, TestFile, &createInfo, []byte("test"))
 		assert.NoError(t, err)
 
 		// Get the source object info using the Minio API
@@ -368,7 +368,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: DestBucket}, err)
 
 		// Create the destination bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, DestBucket, nil)
+		destBucketInfo, err := m.CreateBucket(ctx, DestBucket, nil)
 		assert.NoError(t, err)
 
 		// Copy the object using the Minio API
@@ -385,7 +385,7 @@ func TestCopyObject(t *testing.T) {
 		}
 
 		// Check that the destination object is uploaded using the Metainfo API
-		obj, err = m.GetObject(ctx, DestBucket, DestFile)
+		obj, err = m.GetObject(ctx, destBucketInfo, DestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, DestFile, obj.Path)
 			assert.Equal(t, DestBucket, obj.Bucket.Name)
@@ -410,7 +410,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when deleting an object with empty name
@@ -422,7 +422,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.Equal(t, minio.ObjectNotFound{Bucket: TestBucket, Object: TestFile}, err)
 
 		// Create the object using the Metainfo API
-		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
+		_, err = createFile(ctx, m, strms, testBucketInfo, TestFile, nil, nil)
 		assert.NoError(t, err)
 
 		// Delete the object info using the Minio API
@@ -430,7 +430,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that the object is deleted using the Metainfo API
-		_, err = m.GetObject(ctx, TestBucket, TestFile)
+		_, err = m.GetObject(ctx, testBucketInfo, TestFile)
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 	})
 }
@@ -470,7 +470,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket and files using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		assert.NoError(t, err)
 
 		filePaths := []string{
@@ -486,7 +486,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		}
 
 		for _, filePath := range filePaths {
-			file, err := createFile(ctx, m, strms, TestBucket, filePath, &createInfo, []byte("test"))
+			file, err := createFile(ctx, m, strms, testBucketInfo, filePath, &createInfo, []byte("test"))
 			files[filePath] = file
 			assert.NoError(t, err)
 		}
@@ -766,7 +766,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 	return layer, kvm, strms, err
 }
 
-func createFile(ctx context.Context, m storj.Metainfo, strms streams.Store, bucket string, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
+func createFile(ctx context.Context, m storj.Metainfo, strms streams.Store, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
 	mutableObject, err := m.CreateObject(ctx, bucket, path, createInfo)
 	if err != nil {
 		return storj.Object{}, err

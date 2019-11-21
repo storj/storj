@@ -154,11 +154,13 @@ func BenchmarkOverlay(b *testing.B) {
 						Timestamp:  now,
 						Release:    false,
 					},
-				}, overlay.NodeSelectionConfig{
-					UptimeReputationLambda: 0.99,
-					UptimeReputationWeight: 1.0,
-					UptimeReputationDQ:     0,
-				})
+				},
+					now,
+					overlay.NodeSelectionConfig{
+						UptimeReputationLambda: 0.99,
+						UptimeReputationWeight: 1.0,
+						UptimeReputationDQ:     0,
+					})
 				require.NoError(b, err)
 			}
 		})

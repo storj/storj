@@ -23,7 +23,7 @@ var (
 	mon            = monkit.Package()
 )
 
-// Payments is an api controller that exposes all payment related functionality
+// Payments is an api controller that exposes all payment related functionality.
 type Payments struct {
 	log     *zap.Logger
 	service *console.Service
@@ -61,6 +61,8 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	w.Header().Set("Content-Type", "application/json")
+
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -72,10 +74,34 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&balance)
 	if err != nil {
 		p.log.Error("failed to write json balance response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// ProjectsCharges returns how much money current user will be charged for each project which he owns.
+func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	charges, err := p.service.Payments().ProjectsCharges(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(charges)
+	if err != nil {
+		p.log.Error("failed to write json response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 
@@ -111,6 +137,8 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	w.Header().Set("Content-Type", "application/json")
+
 	cards, err := p.service.Payments().ListCreditCards(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -122,7 +150,6 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(cards)
 	if err != nil {
 		p.log.Error("failed to write json list cards response", zap.Error(ErrPaymentsAPI.Wrap(err)))
@@ -185,6 +212,8 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	w.Header().Set("Content-Type", "application/json")
+
 	billingHistory, err := p.service.Payments().BillingHistory(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
@@ -196,7 +225,6 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(billingHistory)
 	if err != nil {
 		p.log.Error("failed to write json billing history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
@@ -209,6 +237,8 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
 
 	var requestData struct {
 		Amount string `json:"amount"`
