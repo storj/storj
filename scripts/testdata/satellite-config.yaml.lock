@@ -49,6 +49,9 @@
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# allow domains to embed the satellite in a frame, space separated
+# console.frame-ancestors: tardigrade.io
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
@@ -383,7 +386,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 10m0s
+# repairer.timeout: 5m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false

@@ -18,7 +18,7 @@ import (
 // Store interface methods for streams to satisfy to be a store
 type Store interface {
 	Meta(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) (Meta, error)
-	Get(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) (ranger.Ranger, Meta, error)
+	Get(ctx context.Context, path storj.Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) error
 	List(ctx context.Context, prefix, startAfter storj.Path, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -45,10 +45,10 @@ func (s *shimStore) Meta(ctx context.Context, path storj.Path, pathCipher storj.
 }
 
 // Get parses the passed in path and dispatches to the typed store.
-func (s *shimStore) Get(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) (_ ranger.Ranger, _ Meta, err error) {
+func (s *shimStore) Get(ctx context.Context, path storj.Path, object storj.Object, pathCipher storj.CipherSuite) (_ ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return s.store.Get(ctx, ParsePath(path), pathCipher)
+	return s.store.Get(ctx, ParsePath(path), object, pathCipher)
 }
 
 // Put parses the passed in path and dispatches to the typed store.

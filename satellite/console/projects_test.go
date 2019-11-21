@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -44,6 +45,7 @@ func TestProjectsRepository(t *testing.T) {
 		t.Run("Insert project successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,

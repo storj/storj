@@ -235,6 +235,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 			var item storage.ListItem
 
 			// iterate over every segment in metainfo
+		nextSegment:
 			for it.Next(ctx, &item) {
 				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
@@ -246,10 +247,10 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 
 				pathElements := storj.SplitPath(rawPath)
 
-				// we are not storing buckets in pointerDB anymore so
-				// it will be projectID/segmentIndex/bucket_name/encrypted_object_path
 				if len(pathElements) < 4 {
-					return LoopError.New("invalid path %q", rawPath)
+					// We skip this path because it belongs to bucket metadata no an
+					// actual object
+					continue nextSegment
 				}
 
 				isLastSegment := pathElements[1] == "l"
