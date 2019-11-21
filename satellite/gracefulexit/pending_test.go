@@ -60,11 +60,11 @@ func TestPendingBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// finished should work
-	err = pending.Finish(nil)
+	err = pending.DoneSending(nil)
 	require.NoError(t, err)
 
 	// finished should error if already called
-	err = pending.Finish(nil)
+	err = pending.DoneSending(nil)
 	require.Error(t, err)
 
 	// should not be allowed to Put new work after finished called
@@ -165,7 +165,7 @@ func TestPendingIsFinishedFinishedCalled(t *testing.T) {
 		// wait for IsFinishedPromise call before finishing
 		require.True(t, fence.Wait(ctx))
 
-		err := pending.Finish(nil)
+		err := pending.DoneSending(nil)
 		require.NoError(t, err)
 		return nil
 	})
@@ -230,7 +230,7 @@ func TestPendingIsFinishedFinishedCalledError(t *testing.T) {
 		// wait for IsFinishedPromise call before finishing
 		require.True(t, fence.Wait(ctx))
 
-		err := pending.Finish(finishErr)
+		err := pending.DoneSending(finishErr)
 		require.NoError(t, err)
 		return nil
 	})

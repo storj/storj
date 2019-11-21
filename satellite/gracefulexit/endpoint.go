@@ -185,28 +185,28 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
 					cancel()
-					return pending.Finish(err)
+					return pending.DoneSending(err)
 				}
 
 				if len(incomplete) == 0 {
 					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						cancel()
-						return pending.Finish(err)
+						return pending.DoneSending(err)
 					}
 				}
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
 					cancel()
-					return pending.Finish(nil)
+					return pending.DoneSending(nil)
 				}
 
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
 						cancel()
-						return pending.Finish(err)
+						return pending.DoneSending(err)
 					}
 				}
 			}

@@ -126,7 +126,7 @@ func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 
 // IsFinishedPromise returns a promise for the caller to wait on to determine the finished status of the pending map.
 // If we have enough information to determine the finished status, we update the promise to have an answer immediately.
-// Otherwise, we attach the promise to the pending map to be updated and cleared by either Put or Finish (whichever happens first).
+// Otherwise, we attach the promise to the pending map to be updated and cleared by either Put or DoneSending (whichever happens first).
 func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -150,15 +150,15 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 	return newPromise
 }
 
-// Finish is called (with an optional error) when no more work will be added to the map.
-// If Finish has already been called, an error is returned.
+// DoneSending is called (with an optional error) when no more work will be added to the map.
+// If DoneSending has already been called, an error is returned.
 // If a PendingFinishedPromise is waiting on a response, it is updated to return true.
-func (pm *PendingMap) Finish(err error) error {
+func (pm *PendingMap) DoneSending(err error) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	if pm.finished {
-		return Error.New("Finish() already called on pending map")
+		return Error.New("DoneSending() already called on pending map")
 	}
 
 	if pm.finishedPromise != nil {
