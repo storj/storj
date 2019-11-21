@@ -20,6 +20,7 @@ module.exports = {
             }),
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
+                emitWarning: true,
             })
         ],
     },
