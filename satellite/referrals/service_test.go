@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/private/testcontext"

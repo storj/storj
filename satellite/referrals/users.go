@@ -7,6 +7,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/satellite/console"
 )
 
