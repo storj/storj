@@ -341,65 +341,18 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		})
 	}
 
-	coupons, err := paymentService.service.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, coupon := range coupons {
-		alreadyUsed, err := paymentService.service.accounts.Coupons().TotalUsage(ctx, coupon.ID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		remaining := coupon.Amount - alreadyUsed
-		if coupon.Status == payments.CouponExpired {
-			remaining = 0
-		}
-
-		var couponStatus string
-
-		switch coupon.Status {
-		case 0:
-			couponStatus = "Active"
-		case 1:
-			couponStatus = "Used"
-		default:
-			couponStatus = "Expired"
-		}
-
+	for _, info := range txsInfos {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID:          coupon.ID.String(),
-				Description: coupon.Description,
-				Amount:      coupon.Amount,
-				Remaining:   remaining,
-				Status:      couponStatus,
-				Link:        "",
-				Start:       coupon.Created,
-				End:         coupon.ExpirationDate(),
-				Type:        Coupon,
-			},
-		)
-	}
-
-	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, bonus := range bonuses {
-		billingHistory = append(billingHistory,
-			&BillingHistoryItem{
-				ID:            tx.ID.String(),
-				Description:   "STORJ Token Deposit",
-				TokenAmount:   tx.Amount.String(),
-				TokenReceived: tx.Received.String(),
-				Status:        tx.Status.String(),
-				Link:          tx.Link,
-				Start:         tx.CreatedAt,
-				End:           tx.ExpiresAt,
-				Type:          Transaction,
+				ID:          info.ID.String(),
+				Description: "STORJ Token Deposit",
+				Amount:      info.AmountCents,
+				Received:    info.ReceivedCents,
+				Status:      info.Status.String(),
+				Link:        info.Link,
+				Start:       info.CreatedAt,
+				End:         info.ExpiresAt,
+				Type:        Transaction,
 			},
 		)
 	}

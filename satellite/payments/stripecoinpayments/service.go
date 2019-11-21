@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -295,10 +294,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	amount := new(big.Float).Mul(rate, &tx.Amount)
-
-	f, _ := amount.Float64()
-	cents := int64(math.Floor(f * 100))
+	cents := convertToCents(rate, &tx.Received)
 
 	params := &stripe.CustomerBalanceTransactionParams{
 		Amount:      stripe.Int64(-cents),

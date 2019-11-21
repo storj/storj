@@ -12,7 +12,6 @@ type BillingHistoryItem struct {
 	ID          string                 `json:"id"`
 	Description string                 `json:"description"`
 	Amount      int64                  `json:"amount"`
-	Remaining   int64                  `json:"remaining"`
 	Received    int64                  `json:"received"`
 	Status      string                 `json:"status"`
 	Link        string                 `json:"link"`
