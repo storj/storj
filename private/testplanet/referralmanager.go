@@ -44,6 +44,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 	}
 
 	var endpoints pb.ReferralManagerServer
+	// only create a referral manager server if testplanet was reconfigured with a custom referral manager endpoint
 	if planet.config.Reconfigure.ReferralManagerServer != nil {
 		endpoints = planet.config.Reconfigure.ReferralManagerServer(log)
 	} else {
