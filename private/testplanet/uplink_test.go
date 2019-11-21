@@ -182,6 +182,9 @@ func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.DeletePi
 func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest) (_ *pb.RetainResponse, err error) {
 	return nil, nil
 }
+func (mock *piecestoreMock) RestoreTrash(context.Context, *pb.RestoreTrashRequest) (*pb.RestoreTrashResponse, error) {
+	return nil, nil
+}
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{

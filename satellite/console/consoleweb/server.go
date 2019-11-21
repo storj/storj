@@ -62,12 +62,13 @@ type Config struct {
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
 // Server represents console web server
@@ -206,14 +207,16 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
 		"img-src 'self' data:",
+		"script-src 'self' *.stripe.com cdn.segment.com",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
 		SatelliteName   string

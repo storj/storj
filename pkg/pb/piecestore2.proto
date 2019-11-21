@@ -19,6 +19,7 @@ service Piecestore {
     // DeletePiece deletes a piece from a satellite request
     rpc DeletePiece(DeletePieceRequest) returns (DeletePieceResponse);
     rpc Retain(RetainRequest) returns (RetainResponse);
+    rpc RestoreTrash(RestoreTrashRequest) returns (RestoreTrashResponse) {}
 }
 
 // Expected order of messages from uplink:
@@ -103,6 +104,9 @@ message RetainRequest {
 
 message RetainResponse {
 }
+
+message RestoreTrashRequest {}
+message RestoreTrashResponse {}
 
 // PieceHeader is used in piece storage to keep track of piece attributes.
 message PieceHeader {
