@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
 )
@@ -278,7 +278,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	responseData.Address = tx.Address
 	responseData.Amount = float64(requestData.Amount) / 100
 	responseData.TokenAmount = tx.Amount.String()
-	responseData.Rate = tx.Rate.Text('f', -1)
+	responseData.Rate = tx.Rate.Text('f', 8)
 	responseData.Status = tx.Status.String()
 	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
 
