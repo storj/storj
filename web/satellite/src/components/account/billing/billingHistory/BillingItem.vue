@@ -14,14 +14,14 @@
         <p class="container__item amount">
             <b>
                 {{billingItem.quantity.currency}}
-                <span v-if="billingItem.quantity.received">
+                <span v-if="billingItem.type === 1">
                     {{billingItem.quantity.received}}
                 </span>
                 <span v-else>
                     {{billingItem.quantity.total}}
                 </span>
             </b>
-            <span v-if="billingItem.quantity.received">
+            <span v-if="billingItem.type === 1">
                  of {{billingItem.quantity.total}}
             </span>
         </p>
