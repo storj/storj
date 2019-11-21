@@ -39,5 +39,5 @@ func (mask *bitmask) Has(index int) (bool, error) {
 
 	bit := uint64(1) << index
 	bit = uint64(*mask) & bit
-	return bit > 0, nil
+	return bit != 0, nil
 }
