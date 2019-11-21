@@ -212,13 +212,10 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-	if diskStatus.DiskFree < freeSpaceForStorj {
-		freeSpaceForStorj = diskStatus.DiskFree
-	}
+	allocatedBandwidth := service.allocatedBandwidth
 
-	mon.IntVal("allocated_space").Observe(service.allocatedDiskSpace)
-	mon.IntVal("used_space").Observe(usedSpace)
-	mon.IntVal("available_space").Observe(freeSpaceForStorj)
+	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
+	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
 
-	return freeSpaceForStorj, nil
+	return allocatedBandwidth - usage, nil
 }
