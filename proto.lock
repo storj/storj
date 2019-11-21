@@ -5984,7 +5984,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "user_id",
+                "name": "owner_user_id",
                 "type": "bytes"
               },
               {
