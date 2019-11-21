@@ -23,8 +23,8 @@ var ErrReferralsAPI = errs.Class("console referrals api error")
 // Referrals is an api controller that exposes all referrals functionality.
 type Referrals struct {
 	log                   *zap.Logger
-	service               *console.Service
-	referralsService      *referrals.Service
+	service               *referrals.Service
+	consoleService        *console.Service
 	mailService           *mailservice.Service
 	ExternalAddress       string
 	LetUsKnowURL          string
@@ -33,11 +33,11 @@ type Referrals struct {
 }
 
 // NewReferrals is a constructor for api referrals controller.
-func NewReferrals(log *zap.Logger, service *console.Service, referralsService *referrals.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Referrals {
+func NewReferrals(log *zap.Logger, service *referrals.Service, consoleService *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Referrals {
 	return &Referrals{
 		log:                   log,
 		service:               service,
-		referralsService:      referralsService,
+		consoleService:        consoleService,
 		mailService:           mailService,
 		ExternalAddress:       externalAddress,
 		LetUsKnowURL:          letUsKnowURL,
@@ -58,7 +58,7 @@ func (controller *Referrals) GetTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := controller.referralsService.GetTokens(ctx, &auth.User.ID)
+	tokens, err := controller.service.GetTokens(ctx, &auth.User.ID)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return
@@ -82,7 +82,6 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		FullName      string `json:"fullName"`
 		ShortName     string `json:"shortName"`
 		Email         string `json:"email"`
-		PartnerID     string `json:"partnerId"`
 		Password      string `json:"password"`
 		ReferralToken string `json:"referralToken"`
 	}
@@ -93,25 +92,8 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// need to generate a registration token for the referred user?
-	// TODO: add user ID onto CreateUser
-	user, err := controller.service.CreateUser(ctx,
-		console.CreateUser{
-			FullName:  registerData.FullName,
-			ShortName: registerData.ShortName,
-			Email:     registerData.Email,
-			PartnerID: registerData.PartnerID,
-			Password:  registerData.Password,
-		},
-		console.RegistrationSecret{},
-		"",
-	)
-	if err != nil {
-		controller.serveJSONError(w, err)
-		return
-	}
-
-	token, err := controller.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	user, err := controller.service.CreateUser(ctx, registerData)
+	token, err := controller.consoleService.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		controller.serveJSONError(w, err)
 		return

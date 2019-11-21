@@ -447,6 +447,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Referrals,
 			peer.Dialer,
+			peer.DB.Console().Users(),
+			consoleConfig.PasswordCost,
 		)
 
 		peer.Console.Service, err = console.NewService(
@@ -456,7 +458,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.DB.ProjectAccounting(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
-			peer.Referrals.Service,
 			peer.Payments.Accounts,
 			consoleConfig.PasswordCost,
 		)

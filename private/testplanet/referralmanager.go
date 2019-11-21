@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-// newStorageNodes initializes storage nodes
+// newReferralManager initializes a referral manager server
 func (planet *Planet) newReferralManager() (*server.Server, error) {
 	prefix := "referralmanager"
 	log := planet.log.Named(prefix)

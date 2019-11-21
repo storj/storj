@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
+	"storj.io/storj/satellite/referrals"
 )
 
 func TestServiceSuccess(t *testing.T) {
@@ -37,7 +38,14 @@ func TestServiceSuccess(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, tokens, endpoint.TokenCount)
 
-		err = satellite.API.Referrals.Service.RedeemToken(ctx, &userID, tokens[0].String())
+		user := referrals.CreateUser{
+			FullName:      "test",
+			ShortName:     "test",
+			Email:         "test@mail.test",
+			Password:      "123a123",
+			ReferralToken: testrand.UUID().String(),
+		}
+		_, err = satellite.API.Referrals.Service.CreateUser(ctx, user)
 		require.NoError(t, err)
 	})
 }
@@ -58,12 +66,14 @@ func TestServiceRedeemFailure(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 
-		userID := testrand.UUID()
-		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
-		require.NoError(t, err)
-		require.Len(t, tokens, endpoint.TokenCount)
-
-		err = satellite.API.Referrals.Service.RedeemToken(ctx, &userID, tokens[0].String())
+		user := referrals.CreateUser{
+			FullName:      "test",
+			ShortName:     "test",
+			Email:         "test@mail.test",
+			Password:      "123a123",
+			ReferralToken: testrand.UUID().String(),
+		}
+		_, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
 		require.Error(t, err)
 	})
 }

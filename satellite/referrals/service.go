@@ -9,15 +9,24 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 )
 
-// ErrReferralsConfigMissing is a error class for reporting missing referrals service configuration.
-var ErrReferralsConfigMissing = errs.Class("misssing referrals service configuration")
+var mon = monkit.Package()
+
+var (
+	// ErrReferralsConfigMissing is an error class for reporting missing referrals service configuration.
+	ErrReferralsConfigMissing = errs.Class("misssing referrals service configuration")
+	// ErrUsedEmail is an error class for reporting already used emails.
+	ErrUsedEmail = errs.Class("email used error")
+)
 
 type Config struct {
 	ReferralManagerURL storj.NodeURL
@@ -27,22 +36,27 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	signer signing.Signer
-	config Config
-	dialer rpc.Dialer
+	log          *zap.Logger
+	signer       signing.Signer
+	config       Config
+	dialer       rpc.Dialer
+	db           console.Users
+	passwordCost int
 }
 
 // NewService returns a service for handling referrals information.
-func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rpc.Dialer) *Service {
+func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rpc.Dialer, db console.Users, passwordCost int) *Service {
 	return &Service{
-		log:    log,
-		signer: signer,
-		config: config,
-		dialer: dialer,
+		log:          log,
+		signer:       signer,
+		config:       config,
+		dialer:       dialer,
+		db:           db,
+		passwordCost: passwordCost,
 	}
 }
 
+// GetTokens returns tokens based on user ID.
 func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
 	if userID.IsZero() {
 		return nil, errs.New("invalid argument")
@@ -80,7 +94,55 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 	return tokens, nil
 }
 
-func (service *Service) RedeemToken(ctx context.Context, userID *uuid.UUID, token string) error {
+// CreateUser validates user's registration information and creates a new user.
+func (service *Service) CreateUser(ctx context.Context, user CreateUser) (*console.User, error) {
+	if err := user.IsValid(); err != nil {
+		return nil, ErrValidation.Wrap(err)
+	}
+
+	if len(user.ReferralToken) == 0 {
+		return nil, errs.New("invalid argument")
+	}
+
+	_, err := service.db.GetByEmail(ctx, user.Email)
+	if err == nil {
+		return nil, ErrUsedEmail.New("")
+	}
+
+	userID, err := uuid.New()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	err = service.redeemToken(ctx, userID, user.ReferralToken)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), service.passwordCost)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	newUser := &console.User{
+		ID:           *userID,
+		Email:        user.Email,
+		FullName:     user.FullName,
+		ShortName:    user.ShortName,
+		PasswordHash: hash,
+	}
+
+	u, err := service.db.Insert(ctx,
+		newUser,
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return u, nil
+}
+
+func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, token string) error {
 	conn, err := service.referralManagerConn(ctx)
 	if err != nil {
 		return errs.Wrap(err)
