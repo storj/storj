@@ -577,8 +577,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			err = pending.Delete(pieceID)
-			return err
+			return pending.Delete(pieceID)
 		}
 		pieces := remote.GetRemotePieces()
 
@@ -593,8 +592,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			err = pending.Delete(pieceID)
-			return err
+			return pending.Delete(pieceID)
 		}
 
 		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
@@ -615,9 +613,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		err = pending.Delete(pieceID)
-
-		return err
+		return pending.Delete(pieceID)
 	}
 
 	transferQueueItem.LastFailedAt = &now
@@ -636,9 +632,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		}
 	}
 
-	err = pending.Delete(pieceID)
-
-	return err
+	return pending.Delete(pieceID)
 }
 
 func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID) (isDisqualified bool, err error) {
