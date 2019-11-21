@@ -28,6 +28,7 @@ var (
 	ErrUsedEmail = errs.Class("email used error")
 )
 
+// Config is for referrals service
 type Config struct {
 	ReferralManagerURL storj.NodeURL
 }
@@ -57,7 +58,8 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 }
 
 // GetTokens returns tokens based on user ID.
-func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uuid.UUID, error) {
+func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (tokens []uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if userID.IsZero() {
 		return nil, errs.New("invalid argument")
 	}
@@ -82,7 +84,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 		return nil, errs.New("no available tokens")
 	}
 
-	var tokens = make([]uuid.UUID, len(tokensInBytes))
+	tokens = make([]uuid.UUID, len(tokensInBytes))
 	for i := range tokensInBytes {
 		token, err := bytesToUUID(tokensInBytes[i])
 		if err != nil {
@@ -95,7 +97,8 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) ([]uui
 }
 
 // CreateUser validates user's registration information and creates a new user.
-func (service *Service) CreateUser(ctx context.Context, user CreateUser) (*console.User, error) {
+func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, ErrValidation.Wrap(err)
 	}
