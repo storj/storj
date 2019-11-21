@@ -5,6 +5,7 @@ package referrals
 
 import "storj.io/storj/pkg/storj"
 
+// Config for referrals service.
 type Config struct {
 	ReferralManagerURL storj.NodeURL
 }
