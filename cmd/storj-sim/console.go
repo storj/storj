@@ -130,25 +130,37 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		}
 	}
 	{
-		createUserQuery := fmt.Sprintf(
-			"mutation {createUser(input:{email:\"%s\",password:\"%s\",fullName:\"%s\", shortName:\"\", partnerId: \"\"}, secret:\"%s\" ){id,email,createdAt}}",
-			"alice@mail.test",
-			"123a123",
-			"Alice",
-			createTokenResponse.Secret)
+		var registerData struct {
+			FullName    string `json:"fullName"`
+			ShortName   string `json:"shortName"`
+			Email       string `json:"email"`
+			Password    string `json:"password"`
+			SecretInput string `json:"secret"`
+		}
+
+		registerData.FullName = "Alice"
+		registerData.Email = "alice@mail.test"
+		registerData.Password = "123a123"
+		registerData.ShortName = "al"
+		registerData.SecretInput = createTokenResponse.Secret
+
+		res, _ := json.Marshal(registerData)
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
-			bytes.NewReader([]byte(createUserQuery)))
+			address+"/auth/register",
+			bytes.NewReader([]byte(res)))
+		if err != nil {
+			return err
+		}
+		request.Header.Add("Content-Type", "application/json")
+
+		response, err := client.Do(request)
 		if err != nil {
 			return err
 		}
 
-		request.Header.Add("Content-Type", "application/graphql")
-
-		err = graphqlDo(&client, request, &user)
-		if err != nil {
+		if response.StatusCode != http.StatusOK {
 			return err
 		}
 	}
@@ -187,24 +199,33 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 			return err
 		}
 
-		tokenQuery := fmt.Sprintf(
-			"query {token(email:\"%s\",password:\"%s\"){token}}",
-			"alice@mail.test",
-			"123a123")
+		var token struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+
+		token.Email = "alice@mail.test"
+		token.Password = "123a123"
+
+		res, _ := json.Marshal(token)
 
 		request, err = http.NewRequest(
 			http.MethodPost,
-			address,
-			bytes.NewReader([]byte(tokenQuery)))
+			address+"/auth/token",
+			bytes.NewReader([]byte(res)))
 
 		if err != nil {
 			return err
 		}
 
-		request.Header.Add("Content-Type", "application/graphql")
+		request.Header.Add("Content-Type", "application/json")
 
-		err = graphqlDo(&client, request, &token)
+		response, err := client.Do(request)
 		if err != nil {
+			return err
+		}
+
+		if response.StatusCode != http.StatusOK {
 			return err
 		}
 	}
@@ -222,7 +243,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
+			address+"/graphql",
 			bytes.NewReader([]byte(createProjectQuery)))
 
 		if err != nil {
@@ -251,7 +272,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
+			address+"/graphql",
 			bytes.NewReader([]byte(createAPIKeyQuery)))
 
 		if err != nil {
