@@ -107,7 +107,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 		return nil, errs.New("invalid argument")
 	}
 
-	_, err := service.db.GetByEmail(ctx, user.Email)
+	_, err = service.db.GetByEmail(ctx, user.Email)
 	if err == nil {
 		return nil, ErrUsedEmail.New("")
 	}
