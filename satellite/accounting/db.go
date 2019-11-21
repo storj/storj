@@ -172,5 +172,6 @@ type Cache interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
 	ResetTotals(ctx context.Context) error
+	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
 	Close() error
 }

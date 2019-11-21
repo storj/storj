@@ -205,3 +205,52 @@ func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uu
 
 	return projectIDs, sum, errg.Wait()
 }
+
+func TestGetAllProjectTotals(t *testing.T) {
+	tests := []struct {
+		backend string
+	}{
+		{
+			backend: "memory",
+		},
+		{
+			backend: "redis",
+		},
+	}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	address, cleanup, err := redisserver.Start()
+	require.NoError(t, err)
+	defer cleanup()
+
+	for _, tt := range tests {
+		var config live.Config
+		if tt.backend == "redis" {
+			config = live.Config{
+				StorageBackend: "redis://" + address + "?db=0",
+			}
+		}
+
+		cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
+		require.NoError(t, err)
+
+		projectIDs := make([]uuid.UUID, 1000)
+		for i := range projectIDs {
+			projectIDs[i] = testrand.UUID()
+			err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i), 0)
+			require.NoError(t, err)
+		}
+
+		projectTotals, err := cache.GetAllProjectTotals(ctx)
+		require.NoError(t, err)
+		require.Len(t, projectTotals, len(projectIDs))
+
+		// make sure each project ID and total was received
+		for _, projID := range projectIDs {
+			total, err := cache.GetProjectStorageUsage(ctx, projID)
+			require.NoError(t, err)
+			assert.Equal(t, total, projectTotals[projID])
+		}
+	}
+}

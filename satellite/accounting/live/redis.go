@@ -66,6 +66,30 @@ func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) (err error) {
 	return cache.client.FlushDB()
 }
 
+func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ map[uuid.UUID]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	projects := make(map[uuid.UUID]int64, 0)
+
+	err = cache.client.Iterate(ctx, storage.IterateOptions{Recurse: true}, func(ctx context.Context, it storage.Iterator) error {
+		var item storage.ListItem
+		for it.Next(ctx, &item) {
+			if item.Key == nil {
+				panic("nil key")
+			}
+			id := new(uuid.UUID)
+			copy(id[:], item.Key[:])
+			intval, err := strconv.Atoi(string(item.Value))
+			if err != nil {
+				panic("could not get project total")
+			}
+			projects[*id] = int64(intval)
+		}
+		return err
+	})
+	return projects, err
+}
+
 // Close the DB connection.
 func (cache *redisLiveAccounting) Close() error {
 	return cache.client.Close()

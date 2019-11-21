@@ -73,5 +73,10 @@ func (mac *memoryLiveAccounting) ResetTotals(ctx context.Context) (err error) {
 	return nil
 }
 
+// GetAllProjectTotals iterates through the live accounting DB and returns a map of project IDs and totals
+func (mac *memoryLiveAccounting) GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error) {
+	return mac.spaceDeltas, nil
+}
+
 // Close matches the accounting.LiveAccounting interface.
 func (mac *memoryLiveAccounting) Close() error { return nil }
