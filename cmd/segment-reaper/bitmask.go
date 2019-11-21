@@ -3,7 +3,11 @@
 
 package main
 
-import "github.com/zeebo/errs"
+import (
+	"math/bits"
+
+	"github.com/zeebo/errs"
+)
 
 // errorBitmaskInvalidIdx is the error class to return invalid indexes for the
 // the bitmask type.
@@ -40,4 +44,18 @@ func (mask *bitmask) Has(index int) (bool, error) {
 	bit := uint64(1) << index
 	bit = uint64(*mask) & bit
 	return bit != 0, nil
+}
+
+// Count returns the number of tracked indexes.
+func (mask *bitmask) Count() int {
+	return bits.OnesCount64(uint64(*mask))
+}
+
+// IsSequence returns true if mask has only tracked a correlative sequence of
+// indexes starting from index 0.
+func (mask *bitmask) IsSequence() bool {
+	ones := mask.Count()
+	zeros := bits.LeadingZeros64(uint64(*mask))
+
+	return (zeros + ones) == 64
 }

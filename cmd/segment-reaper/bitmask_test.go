@@ -6,6 +6,7 @@ package main
 import (
 	"math"
 	"math/rand"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -153,8 +154,111 @@ func TestBitmask(t *testing.T) {
 		})
 	})
 
-		has, err = mask.Has(expectedIdx)
-		require.NoError(t, err, "Has")
-		assert.True(t, has, "expected tracked index")
+	t.Run("Count", func(t *testing.T) {
+		t.Run("when initialized", func(t *testing.T) {
+			var mask bitmask
+
+			numIndexes := mask.Count()
+			assert.Zero(t, numIndexes)
+		})
+
+		t.Run("when several indexes set", func(t *testing.T) {
+			var (
+				numSetCalls        = rand.Intn(61) + 2
+				expectedNumIndexes = numSetCalls
+				mask               bitmask
+			)
+
+			for i := 0; i < numSetCalls; i++ {
+				idx := rand.Intn(63)
+
+				ok, err := mask.Has(idx)
+				require.NoError(t, err, "Has")
+				if ok {
+					// idx was already set in previous iteration
+					expectedNumIndexes--
+					continue
+				}
+
+				err = mask.Set(idx)
+				require.NoError(t, err, "Set")
+			}
+
+			numIndexes := mask.Count()
+			assert.Equal(t, expectedNumIndexes, numIndexes)
+		})
+	})
+
+	t.Run("IsSequence", func(t *testing.T) {
+		t.Run("empty", func(t *testing.T) {
+			var mask bitmask
+
+			ok := mask.IsSequence()
+			assert.True(t, ok)
+		})
+
+		t.Run("sequence started index 0", func(t *testing.T) {
+			var (
+				numIndexes = rand.Intn(61) + 2
+				mask       bitmask
+			)
+
+			for i := 0; i < numIndexes; i++ {
+				err := mask.Set(i)
+				require.NoError(t, err, "Set")
+			}
+
+			ok := mask.IsSequence()
+			assert.True(t, ok)
+		})
+
+		t.Run("sequence started other index than 0", func(t *testing.T) {
+			var (
+				startIndex = rand.Intn(62) + 1
+				mask       bitmask
+			)
+
+			for i := startIndex; i < 64; i++ {
+				err := mask.Set(i)
+				require.NoError(t, err, "Set")
+			}
+
+			ok := mask.IsSequence()
+			assert.False(t, ok)
+		})
+
+		t.Run("no sequence", func(t *testing.T) {
+			var mask bitmask
+
+			for { // loop until getting a list of non-sequenced indexes
+				var (
+					numIndexes = rand.Intn(60) + 2
+					indexes    = make([]int, numIndexes)
+				)
+
+				for i := 0; i < numIndexes; i++ {
+					idx := rand.Intn(63)
+					indexes[i] = idx
+				}
+
+				sort.Ints(indexes)
+
+				areSequenced := true
+				for i, idx := range indexes {
+					if i > 0 && (indexes[i-1]-1) < idx {
+						areSequenced = false
+					}
+					err := mask.Set(idx)
+					require.NoError(t, err, "Set")
+				}
+
+				if !areSequenced {
+					break
+				}
+			}
+
+			ok := mask.IsSequence()
+			assert.False(t, ok)
+		})
 	})
 }
