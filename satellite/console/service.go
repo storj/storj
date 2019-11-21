@@ -231,18 +231,18 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, err
 	}
 
-	for _, tx := range txsInfos {
+	for _, info := range txsInfos {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID:            tx.ID.String(),
-				Description:   "STORJ Token Deposit",
-				TokenAmount:   tx.Amount.String(),
-				TokenReceived: tx.Received.String(),
-				Status:        tx.Status.String(),
-				Link:          tx.Link,
-				Start:         tx.CreatedAt,
-				End:           tx.ExpiresAt,
-				Type:          Transaction,
+				ID:          info.ID.String(),
+				Description: "STORJ Token Deposit",
+				Amount:      info.AmountCents,
+				Received:    info.ReceivedCents,
+				Status:      info.Status.String(),
+				Link:        info.Link,
+				Start:       info.CreatedAt,
+				End:         info.ExpiresAt,
+				Type:        Transaction,
 			},
 		)
 	}
@@ -335,7 +335,13 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		userID, err := uuid.New()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		newUser := &User{
+			ID:           *userID,
 			Email:        user.Email,
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,
