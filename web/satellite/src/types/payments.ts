@@ -97,8 +97,7 @@ export class BillingHistoryItem {
         public readonly id: string = '',
         public readonly description: string = '',
         public readonly amount: number = 0,
-        public readonly tokenAmount: string = '0',
-        public readonly tokenReceived: string = '0',
+        public readonly received: number = 0,
         public readonly status: string = '',
         public readonly link: string = '',
         public readonly start: Date = new Date(),
@@ -111,15 +110,15 @@ export class BillingHistoryItem {
             return new Amount('$', this.amountDollars());
         }
 
-        return new Amount('$', this.tokenAmount, this.tokenReceived);
+        return new Amount('$', this.amount, this.received);
     }
 
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
-    private amountDollars(): string {
-        return `${this.amount / 100}`;
+    private amountDollars(): number {
+        return this.amount / 100;
     }
 
     public downloadLinkHtml(): string {
@@ -138,14 +137,14 @@ export enum BillingHistoryItemType {
 }
 
 export class TokenDeposit {
-    constructor(public amount: string, public address: string) {}
+    constructor(public amount: number, public address: string) {}
 }
 
 class Amount {
     public constructor(
         public currency: string = '',
-        public total: string = '0',
-        public received: string = '',
+        public total: number = 0,
+        public received: number = 0,
     ) {}
 }
 
