@@ -19,7 +19,7 @@ message GetTokensRequest{
 }
 
 message GetTokensResponse {
- repeated bytes tokens = 1;
+ repeated bytes token_secrets = 1;
 }
 
 message RedeemTokenRequest {
