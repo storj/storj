@@ -49,7 +49,7 @@
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
-# allow domains to embed the satellite in a frame
+# allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
 # url link to let us know page

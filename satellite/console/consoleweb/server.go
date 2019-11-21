@@ -63,7 +63,7 @@ type Config struct {
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 
 	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors        string `help:"allow domains to embed the satellite in a frame" default:"tardigrade.io"`
+	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
 	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
