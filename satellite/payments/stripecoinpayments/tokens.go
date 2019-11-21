@@ -24,7 +24,7 @@ type storjTokens struct {
 // ETH wallet address where funds should be sent. There is one
 // hour limit to complete the transaction. Transaction is saved to DB with
 // reference to the user who made the deposit.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	customerID, err := tokens.service.db.Customers().GetCustomerID(ctx, userID)
@@ -42,9 +42,11 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
+	tokenAmount := convertFromCents(rate, amount).SetPrec(payments.STORJTokenPrecision)
+
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
-			Amount:      *amount.BigFloat(),
+			Amount:      *tokenAmount,
 			CurrencyIn:  coinpayments.CurrencySTORJ,
 			CurrencyOut: coinpayments.CurrencySTORJ,
 			BuyerEmail:  c.Email,
@@ -80,9 +82,8 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 
 	return &payments.Transaction{
 		ID:        payments.TransactionID(tx.ID),
-		AccountID: userID,
 		Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
-		Received:  *payments.NewTokenAmount(),
+		Rate:      *rate,
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
 		Timeout:   tx.Timeout,

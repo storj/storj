@@ -257,7 +257,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
