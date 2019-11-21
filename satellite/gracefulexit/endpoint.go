@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -177,17 +178,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
+		// we cancel this context in all situations where we want to exit the loop
 		ctx, cancel := context.WithCancel(ctx)
-		return incompleteLoop.Run(ctx, func(ctx context.Context) error {
+		loopErr := incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
+					cancel()
 					return pending.Finish(err)
 				}
 
 				if len(incomplete) == 0 {
 					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
+						cancel()
 						return pending.Finish(err)
 					}
 				}
@@ -201,12 +205,14 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				for _, inc := range incomplete {
 					err = endpoint.processIncomplete(ctx, stream, pending, inc)
 					if err != nil {
+						cancel()
 						return pending.Finish(err)
 					}
 				}
 			}
 			return nil
 		})
+		return errs2.IgnoreCanceled(loopErr)
 	})
 
 	for {
