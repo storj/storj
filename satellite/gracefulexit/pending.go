@@ -44,6 +44,8 @@ func (promise *PendingFinishedPromise) finishedCalled() {
 	close(promise.finishedCalledChan)
 }
 
+// PendingTransfer is the representation of work on the pending map.
+// It contains information about a transfer request that has been sent to a storagenode by the satellite.
 type PendingTransfer struct {
 	Path             []byte
 	PieceSize        int64
@@ -60,7 +62,7 @@ type PendingMap struct {
 	finishedPromise *PendingFinishedPromise
 }
 
-// NewPendingMap creates a new PendingMap and instantiates the map.
+// NewPendingMap creates a new PendingMap.
 func NewPendingMap() *PendingMap {
 	newData := make(map[storj.PieceID]*PendingTransfer)
 	return &PendingMap{
@@ -68,7 +70,8 @@ func NewPendingMap() *PendingMap {
 	}
 }
 
-// put adds to the map.
+// Put adds work to the map. If there is already work associated with this piece ID it returns an error.
+// If there is a PendingFinishedPromise waiting, that promise is updated to return false.
 func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfer) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -90,7 +93,7 @@ func (pm *PendingMap) Put(pieceID storj.PieceID, pendingTransfer *PendingTransfe
 	return nil
 }
 
-// get returns the pending transfer item from the map, if it exists.
+// Get returns the pending transfer item from the map, if it exists.
 func (pm *PendingMap) Get(pieceID storj.PieceID) (PendingTransfer *PendingTransfer, ok bool) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -99,7 +102,7 @@ func (pm *PendingMap) Get(pieceID storj.PieceID) (PendingTransfer *PendingTransf
 	return PendingTransfer, ok
 }
 
-// length returns the number of elements in the map.
+// Length returns the number of elements in the map.
 func (pm *PendingMap) Length() int {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -107,7 +110,7 @@ func (pm *PendingMap) Length() int {
 	return len(pm.data)
 }
 
-// delete removes the pending transfer item from the map.
+// Delete removes the pending transfer item from the map and returns an error if the data does not exist.
 func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -119,7 +122,9 @@ func (pm *PendingMap) Delete(pieceID storj.PieceID) error {
 	return nil
 }
 
-// IsFinished returns a promise for the caller to wait on to determine the finished status of the pending map.
+// IsFinishedPromise returns a promise for the caller to wait on to determine the finished status of the pending map.
+// If we have enough information to determine the finished status, we update the promise to have an answer immediately.
+// Otherwise, we attach the promise to the pending map to be updated and cleared by either Put or Finish (whichever happens first).
 func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -144,6 +149,8 @@ func (pm *PendingMap) IsFinishedPromise() *PendingFinishedPromise {
 }
 
 // Finish is called when no more work will be added to the map.
+// If Finish has already been called, an error is returned.
+// If a PendingFinishedPromise is waiting on a response, it is updated to return true.
 func (pm *PendingMap) Finish() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
