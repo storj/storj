@@ -14,11 +14,12 @@ service ReferralManager {
 }
 
 message GetTokensRequest{
-    bytes user_id = 1;
+    bytes owner_user_id = 1;
+    bytes owner_satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetTokensResponse {
- repeated bytes token = 1;
+ repeated bytes token_secrets = 1;
 }
 
 message RedeemTokenRequest {

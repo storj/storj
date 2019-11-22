@@ -6,7 +6,6 @@ package stripecoinpayments
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -63,7 +62,17 @@ type Service struct {
 
 // NewService creates a Service instance.
 func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
-	stripeClient := client.New(config.StripeSecretKey, nil)
+	backendConfig := &stripe.BackendConfig{
+		LeveledLogger: log.Sugar(),
+	}
+
+	stripeClient := client.New(config.StripeSecretKey,
+		&stripe.Backends{
+			API:     stripe.GetBackendWithConfig(stripe.APIBackend, backendConfig),
+			Connect: stripe.GetBackendWithConfig(stripe.ConnectBackend, backendConfig),
+			Uploads: stripe.GetBackendWithConfig(stripe.UploadsBackend, backendConfig),
+		},
+	)
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -227,13 +236,10 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	amount := new(big.Float).Mul(rate, &tx.Amount)
-
-	f, _ := amount.Float64()
-	cents := int64(math.Floor(f * 100))
+	cents := convertToCents(rate, &tx.Received)
 
 	params := &stripe.CustomerBalanceTransactionParams{
-		Amount:      stripe.Int64(cents),
+		Amount:      stripe.Int64(-cents),
 		Customer:    stripe.String(cusID),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Description: stripe.String("storj token deposit"),

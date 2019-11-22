@@ -89,8 +89,29 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
+	dbVersion, err := m.CurrentVersion(nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, -1)
+
 	err = m.Run(zap.NewNop())
 	assert.NoError(t, err)
+
+	dbVersion, err = m.CurrentVersion(nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
+
+	m2 := migrate.Migration{
+		Table: dbName,
+		Steps: []*migrate.Step{
+			{
+				DB:      testDB,
+				Version: 3,
+			},
+		},
+	}
+	dbVersion, err = m2.CurrentVersion(nil, testDB)
+	assert.NoError(t, err)
+	assert.Equal(t, dbVersion, 2)
 
 	var version int
 	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)

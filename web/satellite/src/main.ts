@@ -42,6 +42,13 @@ Vue.directive('click-outside', {
     },
 });
 
+/**
+ * centsToDollars is a Vue filter that converts amount of cents in dollars string.
+ */
+Vue.filter('centsToDollars', (cents: number): string => {
+    return `$${(cents / 100).toFixed(2)}`;
+});
+
 new Vue({
     router,
     store,
