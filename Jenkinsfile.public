@@ -120,7 +120,7 @@ pipeline {
                 stage('CockroachDB migration compatibility') {
                     environment {
                         STORJ_COCKROACH_TEST = 'postgres://root@localhost:26257/teststorj?sslmode=disable'
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
                     }
 
                     steps {

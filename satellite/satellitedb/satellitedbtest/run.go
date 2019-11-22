@@ -82,6 +82,11 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				t.Fatalf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
+			// TODO: remove this skip once all the sql is cockroachdb compatible
+			if dbInfo.MasterDB.Name == "Cockroach" {
+				t.Skip("CockroachDB not supported yet")
+			}
+
 			schemaSuffix := SchemaSuffix()
 			t.Log("schema-suffix ", schemaSuffix)
 
