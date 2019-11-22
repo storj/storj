@@ -458,11 +458,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				host := "http://" + consoleAddress
 
 				endpoints := map[string]string{
-					"regtoken": host + "/registrationToken/",
-					"register": host + "/api/v0/auth/register",
-					"token":    host + "/api/v0/auth/register",
-					"graphql":  host + "/api/v0/graphql",
-					"host":     host + "/activation/?token=",
+					"regtoken":   host + "/registrationToken/?projectsLimit=1",
+					"register":   host + "/api/v0/auth/register",
+					"activation": host + "/activation/?token=",
+					"token":      host + "/api/v0/auth/token",
+					"graphql":    host + "/api/v0/graphql",
 				}
 
 				// wait for console server to start
