@@ -249,6 +249,7 @@ func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
 		createProjectQuery := fmt.Sprintf(
 			"mutation {createProject(input:{name:\"%s\",description:\"\"}){id}}",
 			"TestProject")
+
 		request, err := http.NewRequest(
 			http.MethodPost,
 			endpoints["graphql"],
