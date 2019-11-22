@@ -63,3 +63,5 @@ storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
 storj.io/storj/storagenode/contact."satellite_contact_request" Meter
 storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter
+storj.io/storj/storagenode/monitor."allocated_bandwidth" IntVal
+storj.io/storj/storagenode/monitor."used_bandwidth" IntVal
