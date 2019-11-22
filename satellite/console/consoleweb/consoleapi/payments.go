@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -14,7 +15,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -241,19 +241,21 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var requestData struct {
-		Amount string `json:"amount"`
+		Amount int64 `json:"amount"`
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 	}
 
-	amount, err := payments.ParseTokenAmount(requestData.Amount)
-	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+	if requestData.Amount < 0 {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount can not be negative"))
+	}
+	if requestData.Amount == 0 {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount should be greater than zero"))
 	}
 
-	tx, err := p.service.Payments().TokenDeposit(ctx, amount)
+	tx, err := p.service.Payments().TokenDeposit(ctx, requestData.Amount)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -265,12 +267,20 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var responseData struct {
-		Address string `json:"address"`
-		Amount  string `json:"amount"`
+		Address     string    `json:"address"`
+		Amount      float64   `json:"amount"`
+		TokenAmount string    `json:"tokenAmount"`
+		Rate        string    `json:"rate"`
+		Status      string    `json:"status"`
+		ExpiresAt   time.Time `json:"expires"`
 	}
 
-	responseData.Amount = tx.Amount.String()
 	responseData.Address = tx.Address
+	responseData.Amount = float64(requestData.Amount) / 100
+	responseData.TokenAmount = tx.Amount.String()
+	responseData.Rate = tx.Rate.Text('f', 8)
+	responseData.Status = tx.Status.String()
+	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
 
 	err = json.NewEncoder(w).Encode(responseData)
 	if err != nil {
