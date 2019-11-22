@@ -247,7 +247,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 			},
 		},
 	}
-	worker.log.Info("piece transfered to new storagenode",
+	worker.log.Info("piece transferred to new storagenode",
 		zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
 		zap.Stringer("Satellite ID", worker.satelliteID),
 		zap.Stringer("Piece ID", pieceID))
