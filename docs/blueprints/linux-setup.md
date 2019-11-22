@@ -141,6 +141,7 @@ We are thinking of using native packaging for the following reasons:
 - - adapt the Makefile to ease packaging:
     - add a `make install` target should be added. It would copy the binaries to the right directories (typically /usr/local/bin). It should be configurable with a destination directory DESTDIR so that `make install DESTDIR=dir` installs the binary into `dir/usr/local/bin` and a configuration template `config.yaml` in `/etc/storagenode`.
     - add a `clean` target that removes the binaries (the target name does not have to be `clean`)
+    - `deb` target that builds the package with the right version (should be equal to the version of the binary).
     - add a `storagenode-test` target that will test the installation
 - write a Linux installation and auto-update contributor guide
 - modify the `debian/rules` file to embed the binaries and temporarly embed a `config.yaml` file in.
@@ -156,11 +157,12 @@ We are thinking of using native packaging for the following reasons:
 - create the man page
 - add a menu entry
     - https://www.debian.org/doc/packaging-manuals/menu.html/ch3.html
-
+- changelog
 ### Repository
 - serve the package using reprepro
     - https://wiki.debian.org/DebianRepository/SetupWithReprepro
     - or use an already existing docker image (like https://github.com/bbinet/docker-reprepro)
+- Upload the package: using ssh?
 
 ### RPM
 - Generate a script to gather user input: https://superuser.com/questions/408852/is-it-possible-to-get-users-input-during-installation-of-rpm
@@ -173,13 +175,10 @@ We are thinking of using native packaging for the following reasons:
     - [debconf(7) man page](https://manpages.debian.org/testing/debconf-doc/debconf.7.en.html)
 
 ### Continuous Integration
-- build a Dockerfile that builds and tests the package. 
+- Write a Dockerfile that builds the package. In a well-formed package, the tests will be performed when building the debian package.
 
 ## Wrapup
 
 [Who will archive the blueprint when completed? What documentation needs to be updated to preserve the relevant information from the blueprint?]
 
 ## Open issues
-
-[A discussion of issues relating to this proposal for which the author does not
-know the solution. This section may be omitted if there are none.]
