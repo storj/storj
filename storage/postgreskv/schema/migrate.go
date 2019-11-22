@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 //go:generate go-bindata -o data.go -pkg schema -ignore ".*go" .
-//go:generate sed -i '1i //lint:file-ignore * generated file\n' data.go
+//go:generate bash -c "sed -i'' '1i //lint:file-ignore * generated file\n' data.go"
 
 package schema
 

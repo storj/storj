@@ -324,10 +324,10 @@ export default class HeaderArea extends Vue {
         background-image: url('../../../static/images/account/billing/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;
-        min-width: 220px;
-        width: 220px;
+        min-width: 200px;
+        width: 200px;
         top: 110%;
-        left: -224%;
+        left: -205%;
         padding: 0 20px 12px 20px;
         word-break: break-word;
 

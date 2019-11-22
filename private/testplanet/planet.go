@@ -21,6 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/testidentity"
@@ -74,6 +75,8 @@ type Planet struct {
 	Satellites     []*SatelliteSystem
 	StorageNodes   []*storagenode.Peer
 	Uplinks        []*Uplink
+
+	ReferralManager *server.Server
 
 	identities    *testidentity.Identities
 	whitelistPath string // TODO: in-memory
@@ -177,6 +180,11 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
+	planet.ReferralManager, err = planet.newReferralManager()
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
+
 	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -208,6 +216,12 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.run.Go(func() error {
 		return planet.VersionControl.Run(ctx)
 	})
+
+	if planet.ReferralManager != nil {
+		planet.run.Go(func() error {
+			return planet.ReferralManager.Run(ctx)
+		})
+	}
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
@@ -285,6 +299,11 @@ func (planet *Planet) Shutdown() error {
 	for _, db := range planet.databases {
 		errlist.Add(db.Close())
 	}
+
+	if planet.ReferralManager != nil {
+		errlist.Add(planet.ReferralManager.Close())
+	}
+
 	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
