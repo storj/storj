@@ -80,7 +80,7 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 	return token.String(), nil
 }
 
-func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activationAddress, address string) error {
+func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
 	client := http.Client{}
 
 	var createTokenResponse struct {
@@ -90,7 +90,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 	{
 		request, err := http.NewRequest(
 			http.MethodGet,
-			createRegistrationTokenAddress,
+			endpoints["regtoken"],
 			nil)
 		if err != nil {
 			return err
@@ -130,34 +130,52 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 		}
 	}
 	{
-		createUserQuery := fmt.Sprintf(
-			"mutation {createUser(input:{email:\"%s\",password:\"%s\",fullName:\"%s\", shortName:\"\", partnerId: \"\"}, secret:\"%s\" ){id,email,createdAt}}",
-			"alice@mail.test",
-			"123a123",
-			"Alice",
-			createTokenResponse.Secret)
+		var registerData struct {
+			FullName    string `json:"fullName"`
+			ShortName   string `json:"shortName"`
+			Email       string `json:"email"`
+			Password    string `json:"password"`
+			SecretInput string `json:"secret"`
+		}
+
+		registerData.FullName = "Alice"
+		registerData.Email = "alice@mail.test"
+		registerData.Password = "123a123"
+		registerData.ShortName = "al"
+		registerData.SecretInput = createTokenResponse.Secret
+
+		res, _ := json.Marshal(registerData)
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
-			bytes.NewReader([]byte(createUserQuery)))
+			endpoints["register"],
+			bytes.NewReader(res))
+		if err != nil {
+			return err
+		}
+		request.Header.Add("Content-Type", "application/json")
+
+		response, err := client.Do(request)
 		if err != nil {
 			return err
 		}
 
-		request.Header.Add("Content-Type", "application/graphql")
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
 
-		err = graphqlDo(&client, request, &user)
+		if response.StatusCode != http.StatusOK {
+			return err
+		}
+
+		err = json.NewDecoder(response.Body).Decode(&user.CreateUser.ID)
 		if err != nil {
 			return err
 		}
+
+		user.CreateUser.Email = registerData.Email
+		user.CreateUser.CreatedAt = time.Now()
 	}
 
-	var token struct {
-		Token struct {
-			Token string
-		}
-	}
+	var token string
 	{
 		userID, err := uuid.Parse(user.CreateUser.ID)
 		if err != nil {
@@ -171,7 +189,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodGet,
-			activationAddress+activationToken,
+			endpoints["activation"]+activationToken,
 			nil)
 		if err != nil {
 			return err
@@ -182,28 +200,40 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 			return err
 		}
 
-		err = resp.Body.Close()
-		if err != nil {
-			return err
+		defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+		var authToken struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
 		}
 
-		tokenQuery := fmt.Sprintf(
-			"query {token(email:\"%s\",password:\"%s\"){token}}",
-			"alice@mail.test",
-			"123a123")
+		authToken.Email = "alice@mail.test"
+		authToken.Password = "123a123"
+
+		res, _ := json.Marshal(authToken)
 
 		request, err = http.NewRequest(
 			http.MethodPost,
-			address,
-			bytes.NewReader([]byte(tokenQuery)))
-
+			endpoints["token"],
+			bytes.NewReader(res))
 		if err != nil {
 			return err
 		}
 
-		request.Header.Add("Content-Type", "application/graphql")
+		request.Header.Add("Content-Type", "application/json")
 
-		err = graphqlDo(&client, request, &token)
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
+
+		if response.StatusCode != http.StatusOK {
+			return err
+		}
+
+		err = json.NewDecoder(response.Body).Decode(&token)
 		if err != nil {
 			return err
 		}
@@ -222,15 +252,14 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
+			endpoints["graphql"],
 			bytes.NewReader([]byte(createProjectQuery)))
-
 		if err != nil {
 			return err
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 		if err := graphqlDo(&client, request, &createProject); err != nil {
 			return err
@@ -251,15 +280,14 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 
 		request, err := http.NewRequest(
 			http.MethodPost,
-			address,
+			endpoints["graphql"],
 			bytes.NewReader([]byte(createAPIKeyQuery)))
-
 		if err != nil {
 			return err
 		}
 
 		request.Header.Add("Content-Type", "application/graphql")
-		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token.Token.Token))
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 		if err := graphqlDo(&client, request, &createAPIKey); err != nil {
 			return err
