@@ -1,0 +1,21 @@
+server {
+  listen 80;
+  server_name localhost;
+
+  access_log /var/log/nginx/packages-access.log;
+  error_log /var/log/nginx/packages-error.log;
+
+  location / {
+    root /var/packages;
+    index index.html;
+    autoindex on;
+  }
+
+  location ~ /(.*)/conf {
+    deny all;
+  }
+
+  location ~ /(.*)/db {
+    deny all;
+  }
+}
