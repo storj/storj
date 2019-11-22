@@ -123,22 +123,22 @@ export default class IngressChart extends Vue {
                                    </div>`;
         }
 
-        // `this` will be the overall tooltip
         const ingressChart = document.getElementById('ingress-chart');
-        if (ingressChart) {
-            const position = ingressChart.getBoundingClientRect();
-            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
-            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 150}px`;
-
-            tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipArrow.style.position = this.TOOLTIP_POSITION;
-            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
-            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 125}px`;
+        if (!ingressChart) {
+            return;
         }
 
-        return;
+        // `this` will be the overall tooltip.
+        const position = ingressChart.getBoundingClientRect();
+        tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipEl.style.position = this.TOOLTIP_POSITION;
+        tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
+        tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 150}px`;
+
+        tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipArrow.style.position = this.TOOLTIP_POSITION;
+        tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+        tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 125}px`;
     }
 }
 </script>

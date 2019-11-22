@@ -132,18 +132,21 @@ class Checks {
     },
 })
 export default class SNOContentFilling extends Vue {
+    // isBandwidthChartShown returns showing status of bandwidth chart from store.
     public get isBandwidthChartShown(): boolean {
         return this.$store.state.appStateModule.isBandwidthChartShown;
     }
-
+    // isIngressChartShown returns showing status of ingress chart from store.
     public get isIngressChartShown(): boolean {
         return this.$store.state.appStateModule.isIngressChartShown;
     }
 
+    // isEgressChartShown returns showing status of egress chart from store.
     public get isEgressChartShown(): boolean {
         return this.$store.state.appStateModule.isEgressChartShown;
     }
 
+    // toggleEgressChartShowing toggles displaying of egress chart.
     public toggleEgressChartShowing(): void {
         if (this.isBandwidthChartShown || this.isIngressChartShown) {
             this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
@@ -154,6 +157,7 @@ export default class SNOContentFilling extends Vue {
         this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
     }
 
+    // toggleIngressChartShowing toggles displaying of ingress chart.
     public toggleIngressChartShowing(): void {
         if (this.isBandwidthChartShown || this.isEgressChartShown) {
             this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
@@ -164,50 +168,62 @@ export default class SNOContentFilling extends Vue {
         this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
     }
 
+    // wallet returns wallet address as string from store.
     public get wallet(): string {
         return this.$store.state.node.info.wallet;
     }
 
+    // bandwidthSummary returns formatted amount of monthly bandwidth used from store.
     public get bandwidthSummary(): string {
         return formatBytes(this.$store.state.node.bandwidthSummary);
     }
 
+    // egressSummary returns formatted amount of monthly egress used from store.
     public get egressSummary(): string {
         return formatBytes(this.$store.state.node.egressSummary);
     }
 
+    // ingressSummary returns formatted amount of monthly ingress used from store.
     public get ingressSummary(): string {
         return formatBytes(this.$store.state.node.ingressSummary);
     }
 
+    // storageSummary returns formatted amount of monthly disk space used from store.
     public get storageSummary(): string {
         return formatBytes(this.$store.state.node.storageSummary);
     }
 
+    // bandwidth returns remaining amount of bandwidth from store.
     public get bandwidth(): BandwidthInfo {
         return this.$store.state.node.utilization.bandwidth;
     }
 
+    // diskSpace returns remaining amount of disk space from store.
     public get diskSpace(): DiskSpaceInfo {
         return this.$store.state.node.utilization.diskSpace;
     }
 
+    // checks returns uptime and audit checks statuses from store.
     public get checks(): Checks {
         return this.$store.state.node.checks;
     }
 
+    // selectedSatellite returns current selected satellite from store.
     public get selectedSatellite(): SatelliteInfo {
         return this.$store.state.node.selectedSatellite;
     }
 
+    // disqualifiedSatellites returns array of disqualified satellites from store.
     public get disqualifiedSatellites(): SatelliteInfo[] {
         return this.$store.state.node.disqualifiedSatellites;
     }
 
+    // isDisqualifiedInfoShown checks if disqualification status is shown.
     public get isDisqualifiedInfoShown(): boolean {
         return !!(this.selectedSatellite.id && this.selectedSatellite.disqualified);
     }
 
+    // getDisqualificationDate returns a date of disqualification as string.
     public get getDisqualificationDate(): string {
         if (this.selectedSatellite.disqualified) {
             return this.selectedSatellite.disqualified.toUTCString();
@@ -216,6 +232,7 @@ export default class SNOContentFilling extends Vue {
         return '';
     }
 
+    // doDisqualifiedSatellitesExist checks if disqualified satellites exist.
     public get doDisqualifiedSatellitesExist(): boolean {
         return this.disqualifiedSatellites.length > 0;
     }
