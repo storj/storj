@@ -1,8 +1,0 @@
-Architectures: i386 amd64 source
-Codename: stable
-Components: main
-Description: Repo description
-Label: Ubuntu
-Origin: MyOrigin
-Version: 12.10
-SignWith:repokey
