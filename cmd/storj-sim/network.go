@@ -456,15 +456,20 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				}
 
 				host := "http://" + consoleAddress
-				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
-				consoleActivationAddress := host + "/activation/?token="
-				consoleAPIAddress := host + "/api/v0/graphql"
+
+				endpoints := map[string]string{
+					"regtoken":   host + "/registrationToken/?projectsLimit=1",
+					"register":   host + "/api/v0/auth/register",
+					"activation": host + "/activation/?token=",
+					"token":      host + "/api/v0/auth/token",
+					"graphql":    host + "/api/v0/graphql",
+				}
 
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
 				var apiKey string
-				if err := addExampleProjectWithKey(&apiKey, createRegistrationTokenAddress, consoleActivationAddress, consoleAPIAddress); err != nil {
+				if err := addExampleProjectWithKey(&apiKey, endpoints); err != nil {
 					return err
 				}
 
