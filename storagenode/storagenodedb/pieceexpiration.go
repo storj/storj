@@ -32,6 +32,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.
 			FROM piece_expirations
 			WHERE piece_expiration < ?
 				AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
+				AND trash = 0
 			LIMIT ?
 	`, expiresBefore.UTC(), expiresBefore.UTC(), limit)
 	if err != nil {
@@ -95,5 +96,31 @@ func (db *pieceExpirationDB) DeleteFailed(ctx context.Context, satelliteID storj
 			WHERE satellite_id = ?
 				AND piece_id = ?
 	`, when.UTC(), satelliteID, pieceID)
+	return ErrPieceExpiration.Wrap(err)
+}
+
+// Trash marks a piece expiration as "trashed"
+func (db *pieceExpirationDB) Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, `
+		UPDATE piece_expirations
+			SET trash = 1
+			WHERE satellite_id = ?
+				AND piece_id = ?
+	`, satelliteID, pieceID)
+	return ErrPieceExpiration.Wrap(err)
+}
+
+// Restore restores all trashed pieces
+func (db *pieceExpirationDB) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, `
+		UPDATE piece_expirations
+			SET trash = 0
+			WHERE satellite_id = ?
+				AND trash = 1
+	`, satelliteID)
 	return ErrPieceExpiration.Wrap(err)
 }

@@ -17,9 +17,12 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testidentity"
 	"storj.io/storj/private/testrand"
+	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/retain"
@@ -33,8 +36,8 @@ func TestRetainPieces(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB(), db.PieceSpaceUsedDB())
 		testStore := pieces.StoreForTest{Store: store}
 
-		const numPieces = 1000
-		const numPiecesToKeep = 990
+		const numPieces = 100
+		const numPiecesToKeep = 95
 		// pieces from numPiecesToKeep + numOldPieces to numPieces will
 		// have a recent timestamp and thus should not be deleted
 		const numOldPieces = 5
@@ -49,65 +52,58 @@ func TestRetainPieces(t *testing.T) {
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 
-		recentTime := time.Now()
-		oldTime := recentTime.Add(-time.Duration(48) * time.Hour)
-
 		// keep pieceIDs[0 : numPiecesToKeep] (old + in filter)
 		// delete pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] (old + not in filter)
 		// keep pieceIDs[numPiecesToKeep+numOldPieces : numPieces] (recent + not in filter)
-		var pieceCreation time.Time
 		// add all pieces to the node pieces info DB - but only count piece ids in filter
 		for index, id := range pieceIDs {
+			var formatVer storage.FormatVersion
+			if index%2 == 0 {
+				formatVer = filestore.FormatV0
+			} else {
+				formatVer = filestore.FormatV1
+			}
+
 			if index < numPiecesToKeep {
 				filter.Add(id)
 			}
 
-			if index < numPiecesToKeep+numOldPieces {
-				pieceCreation = oldTime
-			} else {
-				pieceCreation = recentTime
+			const size = 100 * memory.B
+
+			// Write file for all satellites
+			for _, satelliteID := range []storj.NodeID{satellite0.ID, satellite1.ID} {
+				now := time.Now()
+				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer)
+				require.NoError(t, err)
+
+				_, err = w.Write(testrand.Bytes(size))
+				require.NoError(t, err)
+
+				require.NoError(t, w.Commit(ctx, &pb.PieceHeader{
+					CreationTime: now,
+				}))
+
+				piecehash, err := signing.SignPieceHash(ctx,
+					signing.SignerFromFullIdentity(uplink),
+					&pb.PieceHash{
+						PieceId: id,
+						Hash:    []byte{0, 2, 3, 4, 5},
+					})
+				require.NoError(t, err)
+
+				if formatVer == filestore.FormatV0 {
+					v0db := testStore.GetV0PieceInfoDBForTest()
+					err = v0db.Add(ctx, &pieces.Info{
+						SatelliteID:     satelliteID,
+						PieceSize:       4,
+						PieceID:         id,
+						PieceCreation:   now,
+						UplinkPieceHash: piecehash,
+						OrderLimit:      &pb.OrderLimit{},
+					})
+					require.NoError(t, err)
+				}
 			}
-
-			piecehash0, err := signing.SignPieceHash(ctx,
-				signing.SignerFromFullIdentity(uplink),
-				&pb.PieceHash{
-					PieceId: id,
-					Hash:    []byte{0, 2, 3, 4, 5},
-				})
-			require.NoError(t, err)
-
-			piecehash1, err := signing.SignPieceHash(ctx,
-				signing.SignerFromFullIdentity(uplink),
-				&pb.PieceHash{
-					PieceId: id,
-					Hash:    []byte{0, 2, 3, 4, 5},
-				})
-			require.NoError(t, err)
-
-			pieceinfo0 := pieces.Info{
-				SatelliteID:     satellite0.ID,
-				PieceSize:       4,
-				PieceID:         id,
-				PieceCreation:   pieceCreation,
-				UplinkPieceHash: piecehash0,
-				OrderLimit:      &pb.OrderLimit{},
-			}
-			pieceinfo1 := pieces.Info{
-				SatelliteID:     satellite1.ID,
-				PieceSize:       4,
-				PieceID:         id,
-				PieceCreation:   pieceCreation,
-				UplinkPieceHash: piecehash1,
-				OrderLimit:      &pb.OrderLimit{},
-			}
-
-			v0db := testStore.GetV0PieceInfoDBForTest()
-			err = v0db.Add(ctx, &pieceinfo0)
-			require.NoError(t, err)
-
-			err = v0db.Add(ctx, &pieceinfo1)
-			require.NoError(t, err)
-
 		}
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
@@ -146,7 +142,7 @@ func TestRetainPieces(t *testing.T) {
 		// expect that disabled and debug endpoints do not delete any pieces
 		req := retain.Request{
 			SatelliteID:   satellite0.ID,
-			CreatedBefore: recentTime,
+			CreatedBefore: time.Now(),
 			Filter:        filter,
 		}
 		queued := retainDisabled.Queue(req)
@@ -157,11 +153,11 @@ func TestRetainPieces(t *testing.T) {
 		require.True(t, queued)
 		retainDebug.TestWaitUntilEmpty()
 
-		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
+		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID)
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
-		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(5*time.Second))
+		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID)
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
@@ -171,13 +167,13 @@ func TestRetainPieces(t *testing.T) {
 		retainEnabled.TestWaitUntilEmpty()
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
+		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID)
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces or retained pieces for satellite0
 		// also check that we deleted the correct pieces for satellite0
-		satellite0Pieces, err = getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(5*time.Second))
+		satellite0Pieces, err = getAllPieceIDs(ctx, store, satellite0.ID)
 		require.NoError(t, err)
 		require.Equal(t, numPieces-numOldPieces, len(satellite0Pieces))
 
@@ -200,15 +196,8 @@ func TestRetainPieces(t *testing.T) {
 	})
 }
 
-func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID) (pieceIDs []storj.PieceID, err error) {
 	err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
-		mTime, err := pieceAccess.CreationTime(ctx)
-		if err != nil {
-			return err
-		}
-		if !mTime.Before(createdBefore) {
-			return nil
-		}
 		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
 		return nil
 	})

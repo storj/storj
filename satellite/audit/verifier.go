@@ -120,6 +120,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
+	var unknownNodes storj.NodeIDList
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
@@ -180,8 +181,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				continue
 			}
 			// unknown transport error
-			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Debug("Verify: unknown transport error (contained)",
+			unknownNodes = append(unknownNodes, share.NodeID)
+			verifier.log.Debug("Verify: unknown transport error (skipped)",
 				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Binary("Segment", []byte(path)),
 				zap.Stringer("Node ID", share.NodeID),
@@ -212,8 +213,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}
 
 		// unknown error
-		containedNodes[pieceNum] = share.NodeID
-		verifier.log.Debug("Verify: unknown error (contained)",
+		unknownNodes = append(unknownNodes, share.NodeID)
+		verifier.log.Debug("Verify: unknown error (skipped)",
 			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 			zap.Binary("Segment", []byte(path)),
 			zap.Stringer("Node ID", share.NodeID),
@@ -227,6 +228,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
+			Unknown:  unknownNodes,
 		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
 
@@ -235,6 +237,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
+			Unknown:  unknownNodes,
 		}, err
 	}
 
@@ -247,44 +250,50 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Binary("Segment", []byte(path)), zap.Error(err))
 	}
 
-	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
+	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
 
 	totalInPointer := len(pointer.GetRemote().GetRemotePieces())
 	numOffline := len(offlineNodes)
 	numSuccessful := len(successNodes)
 	numFailed := len(failedNodes)
 	numContained := len(containedNodes)
+	numUnknown := len(unknownNodes)
 	totalAudited := numSuccessful + numFailed + numOffline + numContained
 	auditedPercentage := float64(totalAudited) / float64(totalInPointer)
 	offlinePercentage := float64(0)
 	successfulPercentage := float64(0)
 	failedPercentage := float64(0)
 	containedPercentage := float64(0)
+	unknownPercentage := float64(0)
 	if totalAudited > 0 {
 		offlinePercentage = float64(numOffline) / float64(totalAudited)
 		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
 		failedPercentage = float64(numFailed) / float64(totalAudited)
 		containedPercentage = float64(numContained) / float64(totalAudited)
+		unknownPercentage = float64(numUnknown) / float64(totalAudited)
 	}
 
-	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
-	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
-	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
-	mon.Meter("audit_contained_nodes_global").Mark(numContained)
-	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
-	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
+	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)        //locked
+	mon.Meter("audit_fail_nodes_global").Mark(numFailed)               //locked
+	mon.Meter("audit_offline_nodes_global").Mark(numOffline)           //locked
+	mon.Meter("audit_contained_nodes_global").Mark(numContained)       //locked
+	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)           //locked
+	mon.Meter("audit_total_nodes_global").Mark(totalAudited)           //locked
+	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer) //locked
 
-	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))
-	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))
-	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))
-	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))
-	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))
-	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))
-	mon.FloatVal("audited_percentage").Observe(auditedPercentage)
-	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)
-	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage)
-	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
-	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)
+	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //locked
+	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //locked
+	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //locked
+	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //locked
+	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //locked
+	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //locked
+	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))    //locked
+	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //locked
+	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //locked
+	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //locked
+	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //locked
+	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //locked
+	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //locked
 
 	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, pointer, randomIndex, path)
 	if err != nil {
@@ -292,6 +301,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			Successes: successNodes,
 			Fails:     failedNodes,
 			Offlines:  offlineNodes,
+			Unknown:   unknownNodes,
 		}, err
 	}
 
@@ -300,6 +310,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		Fails:         failedNodes,
 		Offlines:      offlineNodes,
 		PendingAudits: pendingAudits,
+		Unknown:       unknownNodes,
 	}, nil
 }
 
@@ -351,6 +362,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		offline
 		failed
 		contained
+		unknown
 		erred
 	)
 
@@ -534,8 +546,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 						return
 					}
 					// unknown transport error
-					ch <- result{nodeID: pending.NodeID, status: contained, pendingAudit: pending}
-					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+					ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending}
+					verifier.log.Debug("Reverify: unknown transport error (skipped)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
 				if errs2.IsRPC(err, rpcstatus.NotFound) {
@@ -563,8 +575,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 					return
 				}
 				// unknown error
-				ch <- result{nodeID: pending.NodeID, status: contained, pendingAudit: pending}
-				verifier.log.Debug("Reverify: unknown error (contained)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+				ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending}
+				verifier.log.Debug("Reverify: unknown error (skipped)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
@@ -601,23 +613,27 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			report.Fails = append(report.Fails, result.nodeID)
 		case contained:
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
+		case unknown:
+			report.Unknown = append(report.Unknown, result.nodeID)
 		case erred:
 			err = errs.Combine(err, result.err)
 		}
 	}
 
-	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
-	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))
-	mon.Meter("reverify_fails_global").Mark(len(report.Fails))
-	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits))
+	mon.Meter("reverify_successes_global").Mark(len(report.Successes))     //locked
+	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))       //locked
+	mon.Meter("reverify_fails_global").Mark(len(report.Fails))             //locked
+	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits)) //locked
+	mon.Meter("reverify_unknown_global").Mark(len(report.Unknown))         //locked
 
-	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))
-	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))
-	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))
-	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits)))
+	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))     //locked
+	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))       //locked
+	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))             //locked
+	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits))) //locked
+	mon.IntVal("reverify_unknown").Observe(int64(len(report.Unknown)))         //locked
 
-	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment)
-	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))
+	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment) //locked
+	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))     //locked
 
 	return report, err
 }
@@ -784,7 +800,7 @@ func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
@@ -792,6 +808,9 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, off
 	}
 	for _, offline := range offlineNodes {
 		fails[offline] = true
+	}
+	for _, unknown := range unknownNodes {
+		fails[unknown] = true
 	}
 	for _, contained := range containedNodes {
 		fails[contained] = true
