@@ -99,6 +99,7 @@ export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
     private isLoading: boolean = false;
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
+    private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public mounted() {
@@ -127,7 +128,7 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
-    public onChangeTokenValue(value: number) {
+    public onChangeTokenValue(value: number): void {
         this.tokenDepositValue = value;
     }
 
@@ -148,8 +149,12 @@ export default class PaymentMethods extends Vue {
         return;
     }
 
+    /**
+     * onConfirmAddSTORJ checks if amount is valid and if so process token
+     * payment and return state to default
+     */
     public async onConfirmAddSTORJ(): Promise<void> {
-        if (this.tokenDepositValue >= 1000000 || this.tokenDepositValue === 0) {
+        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
             await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;

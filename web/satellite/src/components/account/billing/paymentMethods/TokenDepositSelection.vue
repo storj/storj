@@ -54,6 +54,9 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component
 export default class TokenDepositSelection extends Vue {
+    /**
+     * Set of default payment options
+     */
     public paymentOptions: PaymentAmountOption[] = [
         new PaymentAmountOption(20, `USD $20`),
         new PaymentAmountOption(5, `USD $5`),
@@ -66,22 +69,45 @@ export default class TokenDepositSelection extends Vue {
     public customAmount: string = '';
     public isCustomAmount = false;
 
+    /**
+     * isSelectionShown flag that indicate is token amount selection shown
+     */
     public get isSelectionShown(): boolean {
         return this.$store.state.appStateModule.appState.isPaymentSelectionShown;
     }
 
+    /**
+     * toggleSelection toggles token amount selection
+     */
     public toggleSelection(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION);
     }
 
+    /**
+     * onCustomAmountChange input event handle that emits value to parent component
+     */
     public onCustomAmountChange(): void {
         this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
+    /**
+     * toggleCustomAmount toggles custom amount input and changes token value in parent
+     */
     public toggleCustomAmount(): void {
         this.isCustomAmount = !this.isCustomAmount;
+
+        if (this.isCustomAmount) {
+            this.$emit('onChangeTokenValue', 0);
+
+            return;
+        }
+
+        this.$emit('onChangeTokenValue', this.paymentOptions[0].value);
     }
 
+    /**
+     * select standard value from list and emits it value to parent component
+     */
     public select(option: PaymentAmountOption): void {
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
