@@ -5,6 +5,7 @@ package testblobs
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -103,6 +104,14 @@ func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
 		return bad.err
 	}
 	return bad.blobs.RestoreTrash(ctx, namespace)
+}
+
+// EmptyTrash empties the trash
+func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error) {
+	if bad.err != nil {
+		return nil, bad.err
+	}
+	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
 
 // Delete deletes the blob with the namespace and key.

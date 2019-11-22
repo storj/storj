@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -36,12 +37,14 @@ type Dir struct {
 
 	mu          sync.Mutex
 	deleteQueue []string
+	trashnow    func() time.Time // the function used by trash to determine "now"
 }
 
 // NewDir returns folder for storing blobs
 func NewDir(path string) (*Dir, error) {
 	dir := &Dir{
-		path: path,
+		path:     path,
+		trashnow: time.Now,
 	}
 
 	return dir, errs.Combine(
@@ -300,6 +303,23 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref storage.BlobRef,
 		return err
 	}
 
+	// Change mtime to now. This allows us to check the mtime to know how long
+	// the file has been in the trash. If the file is restored this may make it
+	// take longer to be trashed again, but the simplicity is worth the
+	// trade-off.
+	//
+	// We change the mtime prior to moving the file so that if this call fails
+	// the file will not be in the trash with an unmodified mtime, which could
+	// result in its permanent deletion too soon.
+	now := dir.trashnow()
+	err = os.Chtimes(blobsVerPath, now, now)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
 	// move to trash
 	err = rename(blobsVerPath, trashVerPath)
 	if os.IsNotExist(err) {
@@ -309,6 +329,12 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref storage.BlobRef,
 		return nil
 	}
 	return err
+}
+
+// ReplaceTrashnow is a helper for tests to replace the trashnow function used
+// when moving files to the trash
+func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
+	dir.trashnow = trashnow
 }
 
 // RestoreTrash moves every piece in the trash folder back into blobsdir
@@ -346,6 +372,33 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) 
 	})
 }
 
+// EmptyTrash walks the trash files for the given namespace and deletes any
+// file whose mtime is older than trashedBefore. The mtime is modified when
+// Trash is called.
+func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (deletedKeys [][]byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(blobInfo storage.BlobInfo) error {
+		fileInfo, err := blobInfo.Stat(ctx)
+		if err != nil {
+			return err
+		}
+
+		mtime := fileInfo.ModTime()
+		if mtime.Before(trashedBefore) {
+			err = dir.deleteWithStorageFormatInPath(ctx, dir.trashdir(), blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
+			if err != nil {
+				return err
+			}
+			deletedKeys = append(deletedKeys, blobInfo.BlobRef().Key)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return deletedKeys, nil
+}
+
 // iterateStorageFormatVersions executes f for all storage format versions,
 // starting with the oldest format version. It is more likely, in the general
 // case, that we will find the piece with the newest format version instead,
@@ -376,6 +429,11 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 // DeleteWithStorageFormat deletes the blob with the specified ref for one specific format version
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)
+}
+
+func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// Ensure garbage dir exists so that we know any os.IsNotExist errors below
 	// are not from a missing garbage dir
@@ -384,7 +442,7 @@ func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef
 		return err
 	}
 
-	pathBase, err := dir.blobToBasePath(ref)
+	pathBase, err := dir.refToDirPath(ref, path)
 	if err != nil {
 		return err
 	}
