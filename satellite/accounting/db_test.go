@@ -9,13 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/private/memory"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
