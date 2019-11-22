@@ -5984,8 +5984,23 @@
             "fields": [
               {
                 "id": 1,
-                "name": "user_id",
+                "name": "owner_user_id",
                 "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "owner_satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -5994,7 +6009,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "token",
+                "name": "token_secrets",
                 "type": "bytes",
                 "is_repeated": true
               }
