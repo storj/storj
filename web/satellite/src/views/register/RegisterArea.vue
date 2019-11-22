@@ -100,11 +100,9 @@ export default class RegisterArea extends Vue {
         this.isLoading = false;
     }
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
     public onLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
     public setEmail(value: string): void {

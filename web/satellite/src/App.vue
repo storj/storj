@@ -48,6 +48,7 @@ export default class App extends Vue {
 
         if (segmentMeta) {
             segmentioId = segmentMeta.getAttribute('content');
+            console.log("idddddd", segmentioId);
             this.$segment.init(segmentioId);
         }
 

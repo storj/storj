@@ -4,7 +4,6 @@
 import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
-import { AnalyticsPlugin } from '@/utils/plugins/analytics';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { SegmentioPlugin } from '@/utils/plugins/segment';
 
@@ -17,17 +16,10 @@ Vue.config.performance = true;
 Vue.config.productionTip = false;
 
 const notificator = new NotificatorPlugin();
-const analytics = new AnalyticsPlugin();
 const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
 Vue.use(segment);
-
-// TODO: needs to have access to sgement ID served from the backend
-Vue.use(analytics, {
-    id: process.env.VUE_APP_SEGMENTID,
-    router,
-});
 
 let clickOutsideEvent: EventListener;
 

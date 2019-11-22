@@ -70,8 +70,6 @@ export default class Login extends Vue {
 
         const self = this;
 
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
-
         if (!self.validateFields()) {
             this.isLoading = false;
 
