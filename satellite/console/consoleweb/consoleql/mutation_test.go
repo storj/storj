@@ -123,7 +123,7 @@ func TestGraphqlMutation(t *testing.T) {
 
 		authCtx := console.WithAuth(ctx, sauth)
 
-		testQuery := func(t *testing.T, query string) (interface{}, error) {
+		testQuery := func(t *testing.T, query string) interface{} {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
 				Context:       authCtx,
@@ -349,18 +349,6 @@ func TestGraphqlMutation(t *testing.T) {
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, testName, proj[consoleql.FieldName])
 			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
-		})
-
-		t.Run("Delete project mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {deleteProject(id:\"%s\"){id,name}}",
-				projectID,
-			)
-
-			result, err := testQuery(t, query)
-			require.Error(t, err)
-			require.Nil(t, result)
-			require.Equal(t, console.ErrUnauthorized.New("not implemented").Error(), err.Error())
 		})
 	})
 }

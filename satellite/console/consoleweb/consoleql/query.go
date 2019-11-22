@@ -6,7 +6,6 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -15,7 +14,7 @@ import (
 const (
 	// Query is immutable graphql request.
 	Query = "query"
-	// ProjectQuery is a query name for project.
+	// ProjectQuery is a query name for project
 	ProjectQuery = "project"
 	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"

@@ -147,92 +147,22 @@ func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-func (ce *consoleEndpoints) tryLogin() (string, error) {
-	var authToken struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
-	authToken.Email = "alice@mail.test"
-	authToken.Password = "123a123"
-
-	res, err := json.Marshal(authToken)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	request, err := http.NewRequest(
-		http.MethodPost,
-		ce.Token(),
-		bytes.NewReader(res))
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	request.Header.Add("Content-Type", "application/json")
-
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
-
-	var token string
-	err = json.NewDecoder(resp.Body).Decode(&token)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	return token, nil
-}
-
-func (ce *consoleEndpoints) tryCreateAndActivateUser() error {
-	regToken, err := ce.createRegistrationToken()
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	userID, err := ce.createUser(regToken)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	return errs.Wrap(ce.activateUser(userID))
-}
-
-func (ce *consoleEndpoints) createRegistrationToken() (string, error) {
-	request, err := http.NewRequest(
-		http.MethodGet,
-		ce.RegToken(),
-		nil)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
+func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
+	client := http.Client{}
 
 	var createTokenResponse struct {
 		Secret string
 		Error  string
 	}
-	if err = json.NewDecoder(resp.Body).Decode(&createTokenResponse); err != nil {
-		return "", errs.Wrap(err)
-	}
-	if createTokenResponse.Error != "" {
-		return "", errs.New("unable to create registration token: %s", createTokenResponse.Error)
-	}
+	{
+		request, err := http.NewRequest(
+			http.MethodGet,
+			endpoints["regtoken"],
+			nil)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", "secure_token")
 
 	return createTokenResponse.Secret, nil
 }
@@ -270,39 +200,71 @@ func (ce *consoleEndpoints) createUser(regToken string) (string, error) {
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+	{
+		var registerData struct {
+			FullName    string `json:"fullName"`
+			ShortName   string `json:"shortName"`
+			Email       string `json:"email"`
+			Password    string `json:"password"`
+			SecretInput string `json:"secret"`
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
+		registerData.FullName = "Alice"
+		registerData.Email = "alice@mail.test"
+		registerData.Password = "123a123"
+		registerData.ShortName = "al"
+		registerData.SecretInput = createTokenResponse.Secret
+
+		res, _ := json.Marshal(registerData)
+
+		request, err := http.NewRequest(
+			http.MethodPost,
+			endpoints["register"],
+			bytes.NewReader(res))
+		if err != nil {
+			return err
+		}
+		request.Header.Add("Content-Type", "application/json")
+
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
+
+		if response.StatusCode != http.StatusOK {
+			return err
+		}
+
+		err = json.NewDecoder(response.Body).Decode(&user.CreateUser.ID)
+		if err != nil {
+			return err
+		}
+
+		user.CreateUser.Email = registerData.Email
+		user.CreateUser.CreatedAt = time.Now()
 	}
 
-	var userID string
-	if err = json.NewDecoder(resp.Body).Decode(&userID); err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	return userID, nil
-}
-
-func (ce *consoleEndpoints) activateUser(userID string) error {
-	userUUID, err := uuid.FromString(userID)
-	if err != nil {
-		return errs.Wrap(err)
-	}
+	var token string
+	{
+		userID, err := uuid.Parse(user.CreateUser.ID)
+		if err != nil {
+			return err
+		}
 
 	activationToken, err := generateActivationKey(userUUID, "alice@mail.test", time.Now())
 	if err != nil {
 		return err
 	}
 
-	request, err := http.NewRequest(
-		http.MethodGet,
-		ce.Activation(activationToken),
-		nil)
-	if err != nil {
-		return err
-	}
+		request, err := http.NewRequest(
+			http.MethodGet,
+			endpoints["activation"]+activationToken,
+			nil)
+		if err != nil {
+			return err
+		}
 
 	resp, err := ce.client.Do(request)
 	if err != nil {
@@ -310,169 +272,42 @@ func (ce *consoleEndpoints) activateUser(userID string) error {
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	if resp.StatusCode != http.StatusOK {
-		return errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
+		defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	return nil
-}
+		var authToken struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
 
-func (ce *consoleEndpoints) setupAccount(token string) error {
-	request, err := http.NewRequest(
-		http.MethodPost,
-		ce.SetupAccount(),
-		nil)
-	if err != nil {
-		return err
-	}
+		authToken.Email = "alice@mail.test"
+		authToken.Password = "123a123"
 
-	request.AddCookie(&http.Cookie{
-		Name:  ce.cookieName,
-		Value: token,
-	})
+		res, _ := json.Marshal(authToken)
 
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+		request, err = http.NewRequest(
+			http.MethodPost,
+			endpoints["token"],
+			bytes.NewReader(res))
+		if err != nil {
+			return err
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
+		request.Header.Add("Content-Type", "application/json")
 
-	return nil
-}
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
 
-func (ce *consoleEndpoints) addCreditCard(token, cctoken string) error {
-	request, err := http.NewRequest(
-		http.MethodPost,
-		ce.CreditCards(),
-		strings.NewReader(cctoken))
-	if err != nil {
-		return err
-	}
+		defer func() { err = errs.Combine(err, response.Body.Close()) }()
 
-	request.AddCookie(&http.Cookie{
-		Name:  ce.cookieName,
-		Value: token,
-	})
+		if response.StatusCode != http.StatusOK {
+			return err
+		}
 
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	if resp.StatusCode != http.StatusOK {
-		return errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
-
-	return nil
-}
-
-func (ce *consoleEndpoints) listCreditCards(token string) ([]payments.CreditCard, error) {
-	request, err := http.NewRequest(
-		http.MethodGet,
-		ce.CreditCards(),
-		nil)
-	if err != nil {
-		return nil, err
-	}
-
-	request.AddCookie(&http.Cookie{
-		Name:  ce.cookieName,
-		Value: token,
-	})
-
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
-
-	var list []payments.CreditCard
-
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&list)
-	if err != nil {
-		return nil, err
-	}
-
-	return list, nil
-}
-
-func (ce *consoleEndpoints) makeCreditCardDefault(token, ccID string) error {
-	request, err := http.NewRequest(
-		http.MethodPatch,
-		ce.CreditCards(),
-		strings.NewReader(ccID))
-	if err != nil {
-		return err
-	}
-
-	request.AddCookie(&http.Cookie{
-		Name:  ce.cookieName,
-		Value: token,
-	})
-
-	resp, err := ce.client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	if resp.StatusCode != http.StatusOK {
-		return errs.New("unexpected status code: %d (%q)",
-			resp.StatusCode, tryReadLine(resp.Body))
-	}
-
-	return nil
-}
-
-func (ce *consoleEndpoints) getOrCreateProject(token string) (string, error) {
-	projectID, err := ce.getProject(token)
-	if err == nil {
-		return projectID, nil
-	}
-	projectID, err = ce.createProject(token)
-	if err == nil {
-		return projectID, nil
-	}
-	return ce.getProject(token)
-}
-
-func (ce *consoleEndpoints) getProject(token string) (string, error) {
-	request, err := http.NewRequest(
-		http.MethodGet,
-		ce.GraphQL(),
-		nil)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	q := request.URL.Query()
-	q.Add("query", `query {myProjects{id}}`)
-	request.URL.RawQuery = q.Encode()
-
-	request.AddCookie(&http.Cookie{
-		Name:  ce.cookieName,
-		Value: token,
-	})
-
-	request.Header.Add("Content-Type", "application/graphql")
-
-	var getProjects struct {
-		MyProjects []struct {
-			ID string
+		err = json.NewDecoder(response.Body).Decode(&token)
+		if err != nil {
+			return err
 		}
 	}
 	if err := ce.graphqlDo(request, &getProjects); err != nil {
@@ -511,18 +346,21 @@ func (ce *consoleEndpoints) createProject(token string) (string, error) {
 			ID string
 		}
 	}
-	if err := ce.graphqlDo(request, &createProject); err != nil {
-		return "", errs.Wrap(err)
-	}
+	{
+		createProjectQuery := fmt.Sprintf(
+			"mutation {createProject(input:{name:\"%s\",description:\"\"}){id}}",
+			"TestProject")
 
-	return createProject.CreateProject.ID, nil
-}
+		request, err := http.NewRequest(
+			http.MethodPost,
+			endpoints["graphql"],
+			bytes.NewReader([]byte(createProjectQuery)))
+		if err != nil {
+			return err
+		}
 
-func (ce *consoleEndpoints) createAPIKey(token, projectID string) (string, error) {
-	rng := rand.NewSource(time.Now().UnixNano())
-	createAPIKeyQuery := fmt.Sprintf(
-		`mutation {createAPIKey(projectID:%q,name:"TestKey-%d"){key}}`,
-		projectID, rng.Int63())
+		request.Header.Add("Content-Type", "application/graphql")
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	request, err := http.NewRequest(
 		http.MethodPost,
@@ -548,18 +386,16 @@ func (ce *consoleEndpoints) createAPIKey(token, projectID string) (string, error
 		return "", errs.Wrap(err)
 	}
 
-	return createAPIKey.CreateAPIKey.Key, nil
-}
+		request, err := http.NewRequest(
+			http.MethodPost,
+			endpoints["graphql"],
+			bytes.NewReader([]byte(createAPIKeyQuery)))
+		if err != nil {
+			return err
+		}
 
-func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) (string, error) {
-	claims := consoleauth.Claims{
-		ID:         userID,
-		Email:      email,
-		Expiration: createdAt.Add(24 * time.Hour),
-	}
-
-	// TODO: change it in future, when satellite/console secret will be changed
-	signer := &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}
+		request.Header.Add("Content-Type", "application/graphql")
+		request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	resJSON, err := claims.JSON()
 	if err != nil {

@@ -17,7 +17,7 @@ const (
 	// Mutation is graphql request that modifies data.
 	Mutation = "mutation"
 
-	// CreateProjectMutation is a mutation name for project creation.
+	// CreateProjectMutation is a mutation name for project creation
 	CreateProjectMutation = "createProject"
 	// DeleteProjectMutation is a mutation name for project deletion.
 	DeleteProjectMutation = "deleteProject"
