@@ -384,7 +384,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 // * directly deletes the blob.
 // * push the blobs to queue for retrying later.
 //
-// It doesn't return an error if the piece isn't found by any reason.
+// It doesn't return an error if the piece isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
