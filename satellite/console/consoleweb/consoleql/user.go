@@ -5,8 +5,6 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-
-	"storj.io/storj/satellite/console"
 )
 
 const (
@@ -85,39 +83,4 @@ func graphqlUserInput() *graphql.InputObject {
 			},
 		},
 	})
-}
-
-func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
-	user.Email, _ = args[FieldEmail].(string)
-	user.FullName, _ = args[FieldFullName].(string)
-	user.ShortName, _ = args[FieldShortName].(string)
-	user.Password, _ = args[FieldPassword].(string)
-	user.PartnerID, _ = args[FieldPartnerID].(string)
-	return
-}
-
-// fillUserInfo fills satellite.UserInfo from satellite.User and input args
-func fillUserInfo(user *console.User, args map[string]interface{}) console.UserInfo {
-	info := console.UserInfo{
-		FullName:  user.FullName,
-		ShortName: user.ShortName,
-	}
-
-	for fieldName, fieldValue := range args {
-		value, ok := fieldValue.(string)
-		if !ok {
-			continue
-		}
-
-		switch fieldName {
-		case FieldFullName:
-			info.FullName = value
-			user.FullName = value
-		case FieldShortName:
-			info.ShortName = value
-			user.ShortName = value
-		}
-	}
-
-	return info
 }
