@@ -4,7 +4,6 @@
 package testplanet
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/zeebo/errs"
@@ -41,9 +40,8 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				var schema string
 				db, err := satellitedb.New(log, satelliteDB.MasterDB.URL)
-				fmt.Println("***0", satelliteDB.MasterDB.Name)
+
 				if satelliteDB.MasterDB.Name == "Postgres" {
-					fmt.Println("***1")
 					schema = satellitedbtest.SchemaName(t.Name(), "S", index, schemaSuffix)
 					db, err = satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
 					if err != nil {

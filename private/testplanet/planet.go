@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/testidentity"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
@@ -140,9 +141,9 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// Clear error in the beginning to avoid issues down the line.
-	// if err := satellitedbtest.PostgresDefined(); err != nil {
-	// 	return nil, err
-	// }
+	if err := satellitedbtest.PostgresDefined(); err != nil {
+		return nil, err
+	}
 
 	if config.IdentityVersion == nil {
 		version := storj.LatestIDVersion()
