@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/storj/pkg/pb"
@@ -9,16 +10,20 @@ import (
 )
 
 type Logger struct {
-	sap.Logger
+	zap.Logger
 	*Service
 }
 
+func NewLogger(log *zap.Logger) Logger {
+	return Logger{*log, nil}
+}
+
 func (log *Logger) Remote(target storj.NodeID) sap.Logger {
-	return &RemoteLogger{log.Logger, log.Service, target}
+	return &RemoteLogger{log.log, log.Service, target}
 }
 
 func (log *Logger) Debug(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message)}
+	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_DEBUG}
 	err := log.Service.ProcessNotification(msg)
 	if err != nil {
 		log.Remote(msg.NodeId)
@@ -26,7 +31,7 @@ func (log *Logger) Debug(message string, fields ...zapcore.Field) {
 }
 
 func (log *Logger) Info(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message)}
+	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_INFO}
 	err := log.Service.ProcessNotification(msg)
 	if err != nil {
 		log.Remote(msg.NodeId)
@@ -34,7 +39,7 @@ func (log *Logger) Info(message string, fields ...zapcore.Field) {
 }
 
 func (log *Logger) Warn(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message)}
+	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_WARN}
 	err := log.Service.ProcessNotification(msg)
 	if err != nil {
 		log.Remote(msg.NodeId)
@@ -42,7 +47,7 @@ func (log *Logger) Warn(message string, fields ...zapcore.Field) {
 }
 
 func (log *Logger) Error(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message)}
+	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_ERROR}
 	err := log.Service.ProcessNotification(msg)
 	if err != nil {
 		log.Remote(msg.NodeId)

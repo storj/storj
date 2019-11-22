@@ -498,7 +498,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	{ // setup notification
 		log.Debug("Satellite API Process setting up notification endpoint")
 		peer.Notification.Service = notification.NewService(
-			peer.Log.Named("notification:service"),
+			notification.NewLogger(peer.Log.Named("notification:service")),
 			config.Notification,
 			peer.Dialer,
 			peer.Overlay.Service,
