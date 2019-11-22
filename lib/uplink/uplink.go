@@ -116,10 +116,9 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		// some other argon2 wrapper libraries have chosen 8 as the default, so
 		// we do here.
 		cfg.Volatile.PBKDFConcurrency = 8
-	} else {
-		if cfg.Volatile.PBKDFConcurrency < 0 || cfg.Volatile.PBKDFConcurrency >= 256 {
-			return errs.New("Invalid value for PBKDFConcurrency (must fit in a uint8)")
-		}
+	}
+	if cfg.Volatile.PBKDFConcurrency < 0 || cfg.Volatile.PBKDFConcurrency >= 256 {
+		return errs.New("Invalid value for PBKDFConcurrency (must fit in a uint8)")
 	}
 	return nil
 }
