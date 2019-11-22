@@ -4,8 +4,6 @@
 package satellitedb
 
 import (
-	"fmt"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/pgutil"
@@ -21,7 +19,6 @@ var (
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
-	fmt.Println("** schema 2")
 	switch db.driver {
 	case "postgres":
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -30,7 +27,6 @@ func (db *DB) CreateTables() error {
 		}
 
 		if schema != "" {
-			fmt.Println("** schema 3")
 			err = db.CreateSchema(schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
@@ -69,7 +65,6 @@ func (db *DB) CheckVersion() error {
 
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
-	fmt.Println("*** running pg migraiton")
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
