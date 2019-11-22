@@ -1,6 +1,8 @@
 Source: storagenode
 Maintainer: Storj<storjstorj.io>
 
+Section: main
+Priority: medium
 Package: storagenode
 Architecture: any
 Description: Storj Storage Node
