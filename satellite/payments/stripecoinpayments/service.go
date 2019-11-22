@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
@@ -98,6 +99,41 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 // Accounts exposes all needed functionality to manage payment accounts.
 func (service *Service) Accounts() payments.Accounts {
 	return &accounts{service: service}
+}
+
+// AddCoupon attaches a coupon for payment account.
+func (service *Service) AddCoupon(ctx context.Context, userID uuid.UUID, amount int64, start, end time.Time, description string) (err error) {
+	defer mon.Task()(&ctx, userID, amount, start, end)(&err)
+
+	customerID, err := service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerBalanceTransactionParams{
+		Params: stripe.Params{},
+		// negative amount to credit balance in stripe.
+		Amount:   stripe.Int64(-amount),
+		Customer: stripe.String(customerID),
+		Currency: stripe.String(string(stripe.CurrencyUSD)),
+		Description: stripe.String(description),
+	}
+
+	if _, err = service.stripeClient.CustomerBalanceTransactions.New(params); err != nil {
+		return Error.Wrap(err)
+	}
+
+	coupon := payments.Coupon{
+		UserID:          userID,
+		Amount:          amount,
+		RemainingAmount: amount,
+		Description:     description,
+		Start:           start,
+		End:             end,
+	}
+
+	// TODO: delete CustomerBalanceTransactions from stripe, if db insertion fails
+	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
 }
 
 // updateTransactionsLoop updates all pending transactions in a loop.
