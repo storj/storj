@@ -128,15 +128,16 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
-	if err != nil {
-		return 0, err
-	}
+	// lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
+	// if err != nil {
+	// 	return 0, err
+	// }
 	cachedTotal, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
 	if err != nil {
 		return 0, err
 	}
-	return lastCountInline + lastCountRemote + cachedTotal, nil
+	// return lastCountInline + lastCountRemote + cachedTotal, nil
+	return cachedTotal, nil
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

@@ -5,6 +5,7 @@ package live
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -50,6 +51,7 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 // project has just added spaceUsed
 func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
+	fmt.Println("cam adding", spaceUsed)
 	return cache.client.IncrBy(ctx, projectID[:], spaceUsed)
 }
 

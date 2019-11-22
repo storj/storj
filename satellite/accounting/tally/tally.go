@@ -5,6 +5,7 @@ package tally
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -79,18 +80,6 @@ func (service *Service) Close() error {
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// The live accounting store will only keep a delta to space used relative
-	// to the latest tally. Since a new tally is beginning, we will zero it out
-	// now. There is a window between this call and the point where the tally DB
-	// transaction starts, during which some changes in space usage may be
-	// double-counted (counted in the tally and also counted as a delta to
-	// the tally). If that happens, it will be fixed at the time of the next
-	// tally run.
-	err = service.liveAccounting.ResetTotals(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -98,6 +87,11 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 	if lastTime.IsZero() {
 		lastTime = time.Now()
+	}
+
+	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// add up all nodes and buckets
@@ -124,6 +118,31 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	if len(observer.Bucket) > 0 {
+		latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+		fmt.Println("cam live totals in tally", latestLiveTotals)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, v := range observer.Bucket {
+			total, err := service.liveAccounting.GetProjectStorageUsage(ctx, v.ProjectID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			fmt.Println("cam getProjectUsage", total)
+			delta := latestLiveTotals[v.ProjectID] - initialLiveTotals[v.ProjectID]
+			tallyTotal := v.InlineBytes + v.RemoteBytes
+			incrBy := -latestLiveTotals[v.ProjectID] + tallyTotal + (delta / 2)
+			fmt.Println("cam incrby", incrBy)
+			err = service.liveAccounting.AddProjectStorageUsage(ctx, v.ProjectID, incrBy)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			// total, err := service.liveAccounting.GetProjectStorageUsage(ctx, v.ProjectID)
+			// if err != nil {
+			// 	return Error.Wrap(err)
+			// }
+			// fmt.Println("cam got after add", total)
+		}
 		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
 		if err != nil {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)

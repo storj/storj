@@ -5,6 +5,7 @@ package live
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -39,6 +40,8 @@ func (mac *memoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, pro
 	mac.spaceMapLock.Lock()
 	defer mac.spaceMapLock.Unlock()
 	curVal, ok := mac.spaceDeltas[projectID]
+	fmt.Println("cam entire cache", mac.spaceDeltas)
+	fmt.Println("cam getting project total for", projectID, curVal)
 	if !ok {
 		return 0, nil
 	}
@@ -54,6 +57,7 @@ func (mac *memoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, pro
 	curVal := mac.spaceDeltas[projectID]
 	newTotal := curVal + spaceUsed
 	mac.spaceDeltas[projectID] = newTotal
+	fmt.Println("cam added project total for", projectID, newTotal)
 	return nil
 }
 
@@ -62,6 +66,7 @@ func (mac *memoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, pro
 // accountingDB.
 func (mac *memoryLiveAccounting) ResetTotals(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	fmt.Println("cam resetting totals")
 	mac.log.Debug("Resetting real-time accounting data")
 	mac.spaceMapLock.Lock()
 	mac.spaceDeltas = make(map[uuid.UUID]int64)

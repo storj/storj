@@ -53,7 +53,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
-
+		fmt.Println(projectID)
 		var uploaded uint32
 
 		checkctx, checkcancel := context.WithCancel(ctx)
@@ -67,7 +67,7 @@ func TestProjectUsageStorage(t *testing.T) {
 					return nil
 				}
 			}
-
+			fmt.Println("cam should be after 'uploaded'", uploaded)
 			for {
 				if !sync2.Sleep(checkctx, time.Microsecond) {
 					return nil
@@ -77,6 +77,7 @@ func TestProjectUsageStorage(t *testing.T) {
 				if err != nil {
 					return errs.Wrap(err)
 				}
+				fmt.Println("cam egon's test got", total)
 				if total == 0 {
 					return errs.New("got 0 from GetProjectStorageTotals")
 				}
@@ -92,13 +93,21 @@ func TestProjectUsageStorage(t *testing.T) {
 				// Setup: upload data to test exceeding storage project limit
 				if testCase.expectedResource == "storage" {
 					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", expectedData)
+					fmt.Println("cam uploaded")
 					atomic.StoreUint32(&uploaded, 1)
 					require.NoError(t, err)
+					total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+					require.NoError(t, err)
+					fmt.Println("cam after upload", total)
 				}
 
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
+				fmt.Println("cam uploaded")
 				atomic.StoreUint32(&uploaded, 1)
+				total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+				require.NoError(t, err)
+				fmt.Println("cam after upload", total)
 				if testCase.expectedResource == "storage" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
