@@ -30,11 +30,8 @@ pipeline {
                 sh 'make -j4 build-packages'
                 sh 'make install-sim'
 
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                sh 'cockroach start --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --join=localhost:26257 --background'
+                sh 'cockroach init --insecure --host=localhost:26257'
             }
         }
 
@@ -158,15 +155,22 @@ pipeline {
                     }
                 }
 
-
-                stage('Cockroach Backwards Compatibility') {
+                stage('CockroachDB migration compatibility') {
                     environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.5'
-                        STORJ_NETWORK_HOST6 = '127.0.0.5'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                        STORJ_COCKROACH_TEST = 'postgres://root@localhost:26257/teststorj?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
                     }
 
+                    steps {
+                        // Until we can run all the unit tests with cockroach (i.e. all the sql is fixed to be cockroachdb compatible),
+                        // lets just run a bare bones test here that sets up testplanet and runs the database migtation
+                        sh 'psql -U postgres -c \'create database teststorj4;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj;\''
+                        sh 'cd private/testplanet && go test ./... -run=TestRun'
+                    }
+                }
+
+               stage('Build [gomobile]') {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
                         sh 'make test-sim-backwards-compatible'

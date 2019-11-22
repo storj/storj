@@ -54,9 +54,9 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
-		// since we merged migration steps 0-64, the current db version should never be
-		// less than 65 unless the migration hasn't run yet
-		const minDBVersion = 65
+		// since we merged migration steps 0-69, the current db version should never be
+		// less than 69 unless the migration hasn't run yet
+		const minDBVersion = 69
 		dbVersion, err := migration.CurrentVersion(db.log, db.db)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
@@ -174,7 +174,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			{
 				DB:          db.db,
 				Description: "Initial setup",
-				Version:     65,
+				Version:     69,
 				Action: migrate.SQL{
 					`CREATE TABLE accounting_rollups (
 						id bigserial NOT NULL,
@@ -518,6 +518,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						last_failed_code integer,
 						failed_count integer,
 						finished_at timestamp,
+						root_piece_id bytea,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id, path, piece_num )
 					);`,
 
@@ -526,25 +528,6 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						customer_id text NOT NULL UNIQUE,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( user_id )
-					);`,
-
-					`CREATE TABLE coinpayments_transactions (
-						id text NOT NULL,
-						user_id bytea NOT NULL,
-						address text NOT NULL,
-						amount bytea NOT NULL,
-						received bytea NOT NULL,
-						status integer NOT NULL,
-						key text NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-
-					`CREATE TABLE stripecoinpayments_apply_balance_intents (
-						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
-						state integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( tx_id )
 					);`,
 
 					`CREATE TABLE stripecoinpayments_invoice_project_records (
@@ -560,48 +543,13 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( project_id, period_start, period_end )
 					);`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "reset everyone with default rate limits to NULL",
-				Version:     129,
-				SeparateTx:  true,
-				Action: migrate.SQL{
-					`UPDATE projects SET max_buckets = NULL WHERE max_buckets <= 100;`,
-					`UPDATE projects SET usage_limit = NULL WHERE usage_limit <= 50000000000;`,
-					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit <= 50000000000;`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "add index for the gracefule exit transfer queue",
-				Version:     130,
-				SeparateTx:  true,
-				Action: migrate.SQL{
-					`CREATE INDEX IF NOT EXISTS graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Add stripecoinpayments_tx_conversion_rates",
-				Version:     68,
-				Action: migrate.SQL{
 					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 						tx_id text NOT NULL,
 						rate bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tx_id )
 					);`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Add timeout field to coinpayments_transaction",
-				Version:     69,
-				Action: migrate.SQL{
-					`DROP TABLE coinpayments_transactions CASCADE;`,
-					`DELETE FROM stripecoinpayments_apply_balance_intents`,
+
 					`CREATE TABLE coinpayments_transactions (
 						id text NOT NULL,
 						user_id bytea NOT NULL,
@@ -614,9 +562,13 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-					`ALTER TABLE stripecoinpayments_apply_balance_intents
-						ADD CONSTRAINT fk_transactions FOREIGN KEY(tx_id) REFERENCES coinpayments_transactions(id) 
-						ON DELETE CASCADE;`,
+
+					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
 				},
 			},
 		},

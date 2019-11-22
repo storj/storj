@@ -60,6 +60,10 @@ func Databases() []SatelliteDatabases {
 			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
+		{
+			MasterDB:  Database{"Cockroach", *pgtest.CrdbConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr + " or use STORJ_COCKROACH_TEST environment variable."},
+			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
+		},
 	}
 }
 
@@ -182,17 +186,39 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
+			// TODO: remove this skip once all the sql is cockroachdb compatible
+			if dbInfo.MasterDB.Name == "Cockroach" {
+				t.Skip("CockroachDB not supported yet")
+			}
 
 			if dbInfo.MasterDB.URL == "" {
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			db, err := CreateMasterDB(ctx, zaptest.NewLogger(t), t.Name(), "T", 0, dbInfo.MasterDB)
+			schemaSuffix := SchemaSuffix()
+			t.Log("schema-suffix ", schemaSuffix)
+
+			log := zaptest.NewLogger(t)
+			schema := SchemaName(t.Name(), "T", 0, schemaSuffix)
+
+			db, err := satellitedb.New(log, dbInfo.MasterDB.URL)
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			if dbInfo.MasterDB.Name == "Postgres" {
+				pgdb, err := satellitedb.New(log, pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				db = &SchemaDB{
+					DB:       pgdb,
+					Schema:   schema,
+					AutoDrop: true,
+				}
+			}
+
 			defer func() {
 				err := db.Close()
 				if err != nil {
@@ -227,10 +253,24 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
 
-			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB)
+			db, err := satellitedb.New(log, dbInfo.MasterDB.URL)
 			if err != nil {
 				b.Fatal(err)
 			}
+
+			if dbInfo.MasterDB.Name == "Postgres" {
+				pgdb, err := satellitedb.New(log, pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema))
+				if err != nil {
+					b.Fatal(err)
+				}
+
+				db = &SchemaDB{
+					DB:       pgdb,
+					Schema:   schema,
+					AutoDrop: true,
+				}
+			}
+
 			defer func() {
 				err := db.Close()
 				if err != nil {

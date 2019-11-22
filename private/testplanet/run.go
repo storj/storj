@@ -48,8 +48,24 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			}
 
 			planetConfig := config
-			if planetConfig.Name == "" {
-				planetConfig.Name = t.Name()
+			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
+				var schema string
+				db, err := satellitedb.New(log, satelliteDB.MasterDB.URL)
+
+				if satelliteDB.MasterDB.Name == "Postgres" {
+					schema = satellitedbtest.SchemaName(t.Name(), "S", index, schemaSuffix)
+					db, err = satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
+					if err != nil {
+						t.Fatal(err)
+					}
+					return &satellitedbtest.SchemaDB{
+						DB:       db,
+						Schema:   schema,
+						AutoDrop: true,
+					}, nil
+				}
+
+				return db, err
 			}
 
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig, satelliteDB)
