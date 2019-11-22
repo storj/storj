@@ -399,8 +399,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						updated_at timestamp NOT NULL,
 						pieces_transferred bigint NOT NULL DEFAULT 0,
 						pieces_failed bigint NOT NULL DEFAULT 0,
-						root_piece_id bytea,
-						order_limit_send_count integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id )
 					);`,
 
@@ -415,6 +413,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						last_failed_code integer,
 						failed_count integer,
 						finished_at timestamp,
+						root_piece_id bytea,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id, path, piece_num )
 					);`,
 
