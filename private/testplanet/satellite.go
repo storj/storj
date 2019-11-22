@@ -5,6 +5,7 @@ package testplanet
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
@@ -49,7 +51,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 )
 
@@ -223,10 +225,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		var db satellite.DB
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
+			fmt.Println("here")
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
-			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			fmt.Println("2 here")
+			db, err = satellitedb.New(log, *pgtest.CrdbConnStr)
+			// schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
+
+			// db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
 		}
 		if err != nil {
 			return nil, err

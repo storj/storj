@@ -4,6 +4,8 @@
 package satellitedb
 
 import (
+	"fmt"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/pgutil"
@@ -19,22 +21,25 @@ var (
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
+	fmt.Println("** schema 2")
 	switch db.driver {
 	case "postgres":
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
 			return errs.New("error parsing schema: %+v", err)
 		}
+
 		if schema != "" {
+			fmt.Println("** schema 3")
 			err = db.CreateSchema(schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
 		}
 		migration := db.PostgresMigration()
-		// since we merged migration steps 0-64, the current db version should never be
-		// less than 65 unless the migration hasn't run yet
-		const minDBVersion = 65
+		// since we merged migration steps 0-69, the current db version should never be
+		// less than 69 unless the migration hasn't run yet
+		const minDBVersion = 69
 		dbVersion, err := migration.CurrentVersion(db.log, db.db)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
@@ -64,6 +69,7 @@ func (db *DB) CheckVersion() error {
 
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
+	fmt.Println("*** running pg migraiton")
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -71,7 +77,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			{
 				DB:          db.db,
 				Description: "Initial setup",
-				Version:     65,
+				Version:     69,
 				Action: migrate.SQL{
 					`CREATE TABLE accounting_rollups (
 						id bigserial NOT NULL,
@@ -398,6 +404,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						updated_at timestamp NOT NULL,
 						pieces_transferred bigint NOT NULL DEFAULT 0,
 						pieces_failed bigint NOT NULL DEFAULT 0,
+						root_piece_id bytea,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id )
 					);`,
 
@@ -422,25 +430,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( user_id )
 					);`,
 
-					`CREATE TABLE coinpayments_transactions (
-						id text NOT NULL,
-						user_id bytea NOT NULL,
-						address text NOT NULL,
-						amount bytea NOT NULL,
-						received bytea NOT NULL,
-						status integer NOT NULL,
-						key text NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-
-					`CREATE TABLE stripecoinpayments_apply_balance_intents (
-						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
-						state integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( tx_id )
-					);`,
-
 					`CREATE TABLE stripecoinpayments_invoice_project_records (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL,
@@ -454,44 +443,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( project_id, period_start, period_end )
 					);`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Alter graceful_exit_transfer_queue to add root_piece_id.",
-				Version:     66,
-				Action: migrate.SQL{
-					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN root_piece_id bytea;`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Alter graceful_exit_transfer_queue to add order_limit_send_count.",
-				Version:     67,
-				Action: migrate.SQL{
-					`ALTER TABLE graceful_exit_transfer_queue ADD COLUMN order_limit_send_count integer NOT NULL DEFAULT 0;`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Add stripecoinpayments_tx_conversion_rates",
-				Version:     68,
-				Action: migrate.SQL{
 					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 						tx_id text NOT NULL,
 						rate bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tx_id )
 					);`,
-				},
-			},
-			{
-				DB:          db.db,
-				Description: "Add timeout field to coinpayments_transaction",
-				Version:     69,
-				Action: migrate.SQL{
-					`DROP TABLE coinpayments_transactions CASCADE;`,
-					`DELETE FROM stripecoinpayments_apply_balance_intents`,
+
 					`CREATE TABLE coinpayments_transactions (
 						id text NOT NULL,
 						user_id bytea NOT NULL,
@@ -504,9 +462,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-					`ALTER TABLE stripecoinpayments_apply_balance_intents
-						ADD CONSTRAINT fk_transactions FOREIGN KEY(tx_id) REFERENCES coinpayments_transactions(id) 
-						ON DELETE CASCADE;`,
+
+					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+						tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+						state integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
 				},
 			},
 		},
