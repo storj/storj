@@ -15,9 +15,11 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
+
+	"storj.io/storj/pkg/process"
+)
 
 	"storj.io/private/process"
 )
@@ -50,12 +52,11 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.StartPending}
 
-	go func() {
-		err := rootCmd.Execute()
-		if err != nil {
-			os.Exit(1)
-		}
-	}()
+	var group errgroup.Group
+	group.Go(func() error {
+		process.Exec(rootCmd)
+		return nil
+	})
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
