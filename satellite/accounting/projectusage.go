@@ -144,5 +144,5 @@ func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uui
 // and remoteSpaceUsed bytes of remote space usage.
 func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
+	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed+remoteSpaceUsed)
 }

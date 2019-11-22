@@ -46,17 +46,13 @@ func (mac *memoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, pro
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added inlineSpaceUsed bytes of inline space usage
-// and remoteSpaceUsed bytes of remote space usage.
-func (mac *memoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
-	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
-		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
-	}
+// project has just added spaceUsed
+func (mac *memoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
+	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
 	mac.spaceMapLock.Lock()
 	defer mac.spaceMapLock.Unlock()
 	curVal := mac.spaceDeltas[projectID]
-	newTotal := curVal + inlineSpaceUsed + remoteSpaceUsed
+	newTotal := curVal + spaceUsed
 	mac.spaceDeltas[projectID] = newTotal
 	return nil
 }

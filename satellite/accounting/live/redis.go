@@ -47,14 +47,10 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added inlineSpaceUsed bytes of inline space usage
-// and remoteSpaceUsed bytes of remote space usage.
-func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)(&err)
-	if inlineSpaceUsed < 0 || remoteSpaceUsed < 0 {
-		return Error.New("Used space amounts must be greater than 0. Inline: %d, Remote: %d", inlineSpaceUsed, remoteSpaceUsed)
-	}
-	return cache.client.IncrBy(ctx, projectID[:], inlineSpaceUsed+remoteSpaceUsed)
+// project has just added spaceUsed
+func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
+	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
+	return cache.client.IncrBy(ctx, projectID[:], spaceUsed)
 }
 
 // ResetTotals reset all space-used totals for all projects back to zero. This

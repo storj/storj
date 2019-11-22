@@ -5,7 +5,6 @@ package live_test
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -98,7 +97,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	var group errgroup.Group
 	for i := 0; i < numConcurrent; i++ {
 		group.Go(func() error {
-			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
+			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount+remoteAmount)
 		})
 	}
 	require.NoError(t, group.Wait())
@@ -131,7 +130,7 @@ func TestPlainMemoryCacheConcurrency(t *testing.T) {
 	var group errgroup.Group
 	for i := 0; i < numConcurrent; i++ {
 		group.Go(func() error {
-			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
+			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount+remoteAmount)
 		})
 	}
 	require.NoError(t, group.Wait())
@@ -140,26 +139,6 @@ func TestPlainMemoryCacheConcurrency(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, expectedSum, spaceUsed)
-}
-
-func TestNegativeSpaceUsed(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	config := live.Config{
-		StorageBackend: "memory:",
-	}
-	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
-	require.NoError(t, err)
-
-	projectID := testrand.UUID()
-	inline := int64(-10)
-	remote := int64(-20)
-
-	expectedError := fmt.Sprintf("live-accounting: Used space amounts must be greater than 0. Inline: %d, Remote: %d", inline, remote)
-
-	err = cache.AddProjectStorageUsage(ctx, projectID, inline, remote)
-	require.EqualError(t, err, expectedError)
 }
 
 func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uuid.UUID, sum int64, _ error) {
@@ -195,7 +174,7 @@ func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uu
 			})
 
 			for _, val := range myValues {
-				if err := cache.AddProjectStorageUsage(ctx, projID, val, val); err != nil {
+				if err := cache.AddProjectStorageUsage(ctx, projID, val+val); err != nil {
 					return err
 				}
 			}
@@ -238,7 +217,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 		projectIDs := make([]uuid.UUID, 1000)
 		for i := range projectIDs {
 			projectIDs[i] = testrand.UUID()
-			err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i), 0)
+			err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 			require.NoError(t, err)
 		}
 
