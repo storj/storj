@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jbenet/go-base58"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
@@ -40,6 +40,8 @@ type GatewayFlags struct {
 	uplink.Config
 
 	Version checker.Config
+
+	PBKDFConcurrency int `help:"please see <url>. default value recommended" default:"0"`
 }
 
 var (
@@ -251,6 +253,7 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
+	libuplinkCfg.Volatile.PBKDFConcurrency = flags.PBKDFConcurrency
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }
