@@ -19,9 +19,13 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
+const maxNumOfSegments = 64
+
 // object represents object with segments.
 type object struct {
-	// TODO verify if we have more than 64 segments for object in network
+	// TODO verify if we have more than 65 segments for object in network.
+	// 65 because the observer tracks in the bitmask all the segments execept the
+	//  last one (the 'l' segment)
 	segments bitmask
 
 	expectedNumberOfSegments byte
@@ -115,7 +119,9 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 
 		if streamMeta.NumberOfSegments > 0 {
-			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
+			// We can support the size of the bitmask + 1 because the last segment
+			// ins't tracked in it.
+			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
 				object.skip = true
 				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
 			}
@@ -129,20 +135,20 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		if segmentIndex >= int(maxNumOfSegments) {
 			object.skip = true
 			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
-		}
+		} else {
+			ok, err := object.segments.Has(segmentIndex)
+			if err != nil {
+				return err
+			}
+			if ok {
+				// TODO make path displayable
+				return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+			}
 
-		ok, err := object.segments.Has(segmentIndex)
-		if err != nil {
-			return err
-		}
-		if ok {
-			// TODO make path displayable
-			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
-		}
-
-		err = object.segments.Set(segmentIndex)
-		if err != nil {
-			return err
+			err = object.segments.Set(segmentIndex)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
