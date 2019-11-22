@@ -94,10 +94,10 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		case *pb.SatelliteMessage_TransferPiece:
 			transferPieceMsg := msg.TransferPiece
 			worker.limiter.Go(ctx, func() {
-				resp := worker.transferService.TransferPiece(ctx, worker.satelliteURL.ID, transferPieceMsg)
-				if err := c.Send(resp); err != nil {
-					worker.log.Error("failed to send notification about piece transfer.",
-						zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+				err = worker.transferPiece(ctx, transferPieceMsg, c)
+				if err != nil {
+					worker.log.Error("failed to transfer piece.",
+						zap.Stringer("Satellite ID", worker.satelliteID),
 						zap.Error(errs.Wrap(err)))
 				}
 			})
@@ -140,6 +140,127 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			// TODO handle err
 			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
 		}
+		return err
+	}
+
+	if !bytes.Equal(originalHash.Hash, pieceHash.Hash) {
+		worker.log.Error("piece hash from new storagenode does not match",
+			zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
+			zap.Stringer("Satellite ID", worker.satelliteID),
+			zap.Stringer("Piece ID", pieceID))
+		worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+		return Error.New("piece hash from new storagenode does not match")
+	}
+	if pieceHash.PieceId != addrLimit.Limit.PieceId {
+		worker.log.Error("piece id from new storagenode does not match order limit",
+			zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
+			zap.Stringer("Satellite ID", worker.satelliteID),
+			zap.Stringer("Piece ID", pieceID))
+		worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+		return Error.New("piece id from new storagenode does not match order limit")
+	}
+
+	signee := signing.SigneeFromPeerIdentity(peerID)
+	err = signing.VerifyPieceHashSignature(ctx, signee, pieceHash)
+	if err != nil {
+		worker.log.Error("invalid piece hash signature from new storagenode",
+			zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
+			zap.Stringer("Satellite ID", worker.satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Error(errs.Wrap(err)))
+		worker.handleFailure(ctx, pb.TransferFailed_HASH_VERIFICATION, pieceID, c.Send)
+		return err
+	}
+
+	success := &pb.StorageNodeMessage{
+		Message: &pb.StorageNodeMessage_Succeeded{
+			Succeeded: &pb.TransferSucceeded{
+				OriginalPieceId:      transferPiece.OriginalPieceId,
+				OriginalPieceHash:    &originalHash,
+				OriginalOrderLimit:   &originalOrderLimit,
+				ReplacementPieceHash: pieceHash,
+			},
+		},
+	}
+	worker.log.Info("piece transferred to new storagenode",
+		zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
+		zap.Stringer("Satellite ID", worker.satelliteID),
+		zap.Stringer("Piece ID", pieceID))
+	return c.Send(success)
+}
+
+// deleteOnePieceOrAll deletes pieces stored for a satellite. When no piece ID are specified, all pieces stored by a satellite will be deleted.
+func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.PieceID) error {
+	// get piece size
+	pieceMap := make(map[pb.PieceID]int64)
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	err := worker.store.WalkSatellitePieces(ctxWithCancel, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
+		size, err := piece.ContentSize(ctxWithCancel)
+		if err != nil {
+			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
+		}
+		if pieceID == nil {
+			pieceMap[piece.PieceID()] = size
+			return nil
+		}
+		if piece.PieceID() == *pieceID {
+			pieceMap[*pieceID] = size
+			cancel()
+		}
+		return nil
+	})
+
+	if err != nil && !errs.Is(err, context.Canceled) {
+		worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
+	}
+
+	var totalDeleted int64
+	for id, size := range pieceMap {
+		if size == 0 {
+			continue
+		}
+		err := worker.store.Delete(ctx, worker.satelliteID, id)
+		if err != nil {
+			worker.log.Debug("failed to delete a piece",
+				zap.Stringer("Satellite ID", worker.satelliteID),
+				zap.Stringer("Piece ID", id),
+				zap.Error(err))
+			err = worker.store.DeleteFailed(ctx, pieces.ExpiredInfo{
+				SatelliteID: worker.satelliteID,
+				PieceID:     id,
+				InPieceInfo: true,
+			}, time.Now().UTC())
+			if err != nil {
+				worker.log.Debug("failed to mark a deletion failure for a piece",
+					zap.Stringer("Satellite ID", worker.satelliteID),
+					zap.Stringer("Piece ID", id),
+					zap.Error(err))
+			}
+			continue
+		}
+		worker.log.Debug("delete piece",
+			zap.Stringer("Satellite ID", worker.satelliteID),
+			zap.Stringer("Piece ID", id))
+		totalDeleted += size
+	}
+
+	// update transfer progress
+	return worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteID, totalDeleted)
+}
+
+func (worker *Worker) handleFailure(ctx context.Context, transferError pb.TransferFailed_Error, pieceID pb.PieceID, send func(*pb.StorageNodeMessage) error) {
+	failure := &pb.StorageNodeMessage{
+		Message: &pb.StorageNodeMessage_Failed{
+			Failed: &pb.TransferFailed{
+				OriginalPieceId: pieceID,
+				Error:           transferError,
+			},
+		},
+	}
+
+	sendErr := send(failure)
+	if sendErr != nil {
+		worker.log.Error("unable to send failure.", zap.Stringer("Satellite ID", worker.satelliteID))
 	}
 }
 
