@@ -37,23 +37,15 @@ export default class App extends Vue {
             ];
 
     public mounted(): void {
-        const meta = document.querySelector("meta[name='satellite-name']");
-        const segmentMeta = document.querySelector("meta[name='segment-io']");
-        let satelliteName;
-        let segmentioId;
-
-        if (meta) {
-            satelliteName = meta.getAttribute('content');
-        }
-
-        if (segmentMeta) {
-            segmentioId = segmentMeta.getAttribute('content');
-            console.log("idddddd", segmentioId);
-            this.$segment.init(segmentioId);
-        }
+        const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const segmentioId = MetaUtils.getMetaContent('segment-io');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+        }
+
+        if (segmentioId) {
+            this.$segment.init(segmentioId);
         }
     }
 

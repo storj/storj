@@ -18,7 +18,6 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
