@@ -211,11 +211,11 @@ func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
 		authToken.Password = "123a123"
 
 		res, _ := json.Marshal(authToken)
+
 		request, err = http.NewRequest(
 			http.MethodPost,
 			endpoints["token"],
 			bytes.NewReader(res))
-
 		if err != nil {
 			return err
 		}
@@ -282,7 +282,6 @@ func addExampleProjectWithKey(key *string, endpoints map[string]string) error {
 			http.MethodPost,
 			endpoints["graphql"],
 			bytes.NewReader([]byte(createAPIKeyQuery)))
-
 		if err != nil {
 			return err
 		}
