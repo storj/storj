@@ -369,7 +369,7 @@ func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref storage.Bl
 
 // Delete deletes blobs with the specified ref (in all supported storage formats).
 //
-// It doesn't return an error if the blob is not found by any reason or it
+// It doesn't return an error if the blob is not found for any reason or it
 // cannot be deleted at this moment and it's delayed.
 func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
