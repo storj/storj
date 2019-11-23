@@ -18,14 +18,13 @@ import (
 )
 
 func TestServiceSuccess(t *testing.T) {
-	endpoint := &endpointHappyPath{
-		TokenCount: 2,
-	}
+	endpoint := &endpointHappyPath{}
+	tokenCount := 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
-
+				endpoint.SetTokenCount(tokenCount)
 				return endpoint
 			},
 		},
@@ -36,7 +35,7 @@ func TestServiceSuccess(t *testing.T) {
 		userID := testrand.UUID()
 		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
 		require.NoError(t, err)
-		require.Len(t, tokens, endpoint.TokenCount)
+		require.Len(t, tokens, tokenCount)
 
 		user := referrals.CreateUser{
 			FullName:      "test",
@@ -51,14 +50,12 @@ func TestServiceSuccess(t *testing.T) {
 }
 
 func TestServiceRedeemFailure(t *testing.T) {
-	endpoint := &endpointFailedPath{
-		TokenCount: 2,
-	}
+	endpoint := &endpointFailedPath{}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
-
+				endpoint.SetTokenCount(2)
 				return endpoint
 			},
 		},
@@ -79,37 +76,11 @@ func TestServiceRedeemFailure(t *testing.T) {
 }
 
 type endpointHappyPath struct {
-	TokenCount int
-}
-
-func (endpoint *endpointHappyPath) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
-	tokens := make([][]byte, endpoint.TokenCount)
-	for i := 0; i < len(tokens); i++ {
-		token := testrand.UUID()
-		tokens[i] = token[:]
-	}
-	return &pb.GetTokensResponse{
-		TokenSecrets: tokens,
-	}, nil
-}
-
-func (endpoint *endpointHappyPath) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
-	return &pb.RedeemTokenResponse{}, nil
+	testplanet.DefaultReferralManagerServer
 }
 
 type endpointFailedPath struct {
-	TokenCount int
-}
-
-func (endpoint *endpointFailedPath) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
-	tokens := make([][]byte, endpoint.TokenCount)
-	for i := 0; i < len(tokens); i++ {
-		token := testrand.UUID()
-		tokens[i] = token[:]
-	}
-	return &pb.GetTokensResponse{
-		TokenSecrets: tokens,
-	}, nil
+	testplanet.DefaultReferralManagerServer
 }
 
 func (endpoint *endpointFailedPath) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {

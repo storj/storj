@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -11,7 +12,13 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/testrand"
 )
+
+// DefaultReferralManagerServer implements the default behavior of a mock referral manager
+type DefaultReferralManagerServer struct {
+	tokenCount int
+}
 
 // newReferralManager initializes a referral manager server
 func (planet *Planet) newReferralManager() (*server.Server, error) {
@@ -63,4 +70,23 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 
 	log.Debug("id=" + identity.ID.String() + " addr=" + referralmanager.Addr().String())
 	return referralmanager, nil
+}
+
+func (server *DefaultReferralManagerServer) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
+	tokens := make([][]byte, server.tokenCount)
+	for i := 0; i < server.tokenCount; i++ {
+		uuid := testrand.UUID()
+		tokens[i] = uuid[:]
+	}
+	return &pb.GetTokensResponse{
+		TokenSecrets: tokens,
+	}, nil
+}
+
+func (server *DefaultReferralManagerServer) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
+	return &pb.RedeemTokenResponse{}, nil
+}
+
+func (server *DefaultReferralManagerServer) SetTokenCount(tokenCount int) {
+	server.tokenCount = tokenCount
 }
