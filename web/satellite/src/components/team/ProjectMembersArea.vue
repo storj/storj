@@ -84,10 +84,6 @@ export default class ProjectMembersArea extends Vue {
         await this.$store.dispatch(FETCH, 1);
     }
 
-    public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(CLEAR);
-    }
-
     public onMemberClick(member: ProjectMember): void {
         if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
             this.$store.dispatch(TOGGLE_SELECTION, member);

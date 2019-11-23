@@ -110,7 +110,7 @@ export default class BucketArea extends Vue {
     }
 
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(CLEAR);
+        await this.$store.dispatch(SET_SEARCH, '');
     }
 
     public doNothing(): void {
@@ -184,6 +184,7 @@ export default class BucketArea extends Vue {
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
+            user-select: none;
         }
     }
 

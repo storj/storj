@@ -16,9 +16,9 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
@@ -47,8 +47,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		AND free_disk >= ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
-		AND (last_contact_success > ?
-		     OR last_contact_success > last_contact_failure)`
+		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
@@ -103,8 +102,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND (last_contact_success > ?
-		     OR last_contact_success > last_contact_failure)`
+		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
@@ -144,6 +142,32 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	}
 
 	return nodes, nil
+}
+
+// GetNodeIPs returns a list of node IP addresses. Warning: these node IP addresses might be returned out of order.
+func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows *sql.Rows
+	rows, err = cache.db.Query(cache.db.Rebind(`
+		SELECT last_net FROM nodes
+			WHERE id = any($1::bytea[])
+		`), postgresNodeIDList(nodeIDs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			return nil, err
+		}
+		nodeIPs = append(nodeIPs, ip)
+	}
+	return nodeIPs, nil
 }
 
 func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
@@ -301,7 +325,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND (
-				last_contact_success < last_contact_failure AND last_contact_success < $2
+				last_contact_success < $2
 			)
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
@@ -335,7 +359,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
+			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
@@ -366,7 +390,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
-		  AND (last_contact_success > ? OR last_contact_success > last_contact_failure)`),
+		  AND last_contact_success > ?`),
 		time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
 		return nil, err
@@ -529,6 +553,11 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 	if len(updateRequests) == 0 {
 		return failed, nil
 	}
+
+	// ensure updates happen in-order
+	sort.Slice(updateRequests, func(i, k int) bool {
+		return updateRequests[i].NodeID.Less(updateRequests[k].NodeID)
+	})
 
 	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
 		appendAll := func() {
@@ -828,7 +857,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	return Error.Wrap(err)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
+// GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.
 func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -836,6 +865,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
+		AND disqualified is NULL
 		`),
 	)
 	if err != nil {
@@ -1335,7 +1365,7 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 }
 
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
-func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address.GetAddress() == "" {
@@ -1370,11 +1400,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$1, $2, $3, $4, $5,
 				$6, $7, $8, $9,
 				$10::bool::int, 1,
-				CASE WHEN $10 IS TRUE THEN current_timestamp
-					ELSE '0001-01-01 00:00:00+00'
+				CASE WHEN $10 IS TRUE THEN $24::timestamptz
+					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $10 IS FALSE THEN current_timestamp
-					ELSE '0001-01-01 00:00:00+00'
+				CASE WHEN $10 IS FALSE THEN $24::timestamptz
+					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$11, $12, $13, $14,
 				$18, $19, $20, $21, $22, $23
@@ -1395,17 +1425,17 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
 				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
 				last_contact_success = CASE WHEN $10 IS TRUE
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_success
 				END,
 				last_contact_failure = CASE WHEN $10 IS FALSE
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
 				-- this disqualified case statement resolves to: 
 				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
 				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
-					THEN current_timestamp
+					THEN $24::timestamptz
 					ELSE nodes.disqualified
 				END;
 			`
@@ -1422,6 +1452,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
 		// args $18 - $23
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		// args $24
+		timestamp,
 	)
 	if err != nil {
 		return Error.Wrap(err)

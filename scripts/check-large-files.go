@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 )
 
 var ignoreFolder = map[string]bool{

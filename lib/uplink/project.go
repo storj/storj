@@ -9,10 +9,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
@@ -23,11 +23,10 @@ import (
 
 // Project represents a specific project access session.
 type Project struct {
-	uplinkCfg     *Config
-	dialer        rpc.Dialer
-	metainfo      *metainfo.Client
-	project       *kvmetainfo.Project
-	maxInlineSize memory.Size
+	uplinkCfg *Config
+	dialer    rpc.Dialer
+	metainfo  *metainfo.Client
+	project   *kvmetainfo.Project
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -79,7 +78,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 130
+		cfg.Volatile.RedundancyScheme.TotalShares = 95
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
@@ -199,7 +198,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs)
 
-	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
+	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.uplinkCfg.Volatile.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", uint8(p.uplinkCfg.Volatile.PBKDFConcurrency))
 	if err != nil {
 		return nil, err
 	}

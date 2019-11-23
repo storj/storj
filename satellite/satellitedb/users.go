@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that users implements console.Users.
+var _ console.Users = (*users)(nil)
+
 // implementation of Users interface repository using spacemonkeygo/dbx orm
 type users struct {
 	db dbx.Methods
@@ -45,9 +48,9 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 // Insert is a method for inserting user into the database
 func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	userID, err := uuid.New()
-	if err != nil {
-		return nil, err
+
+	if user.ID.IsZero() {
+		return nil, errs.New("user id is not set")
 	}
 
 	optional := dbx.User_Create_Fields{
@@ -58,7 +61,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	}
 
 	createdUser, err := users.db.Create_User(ctx,
-		dbx.User_Id(userID[:]),
+		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
 		dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		dbx.User_FullName(user.FullName),

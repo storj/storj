@@ -182,7 +182,8 @@ export default class ApiKeysArea extends Vue {
     }
 
     public async beforeDestroy(): Promise<void> {
-        await this.$store.dispatch(CLEAR);
+        this.onClearSelection();
+        await this.$store.dispatch(SET_SEARCH_QUERY, '');
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
@@ -353,6 +354,7 @@ export default class ApiKeysArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             margin: 0;
+            user-select: none;
         }
 
         .api-keys-header {

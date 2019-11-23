@@ -8,13 +8,9 @@
             <div class="save-api-popup__copy-area__key-area">
                 <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
             </div>
-            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick" v-if="!isCopiedButtonShown">
+            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick">
                 <CopyButtonLabelIcon/>
                 <p class="copy-button__label">Copy</p>
-            </div>
-            <div class="copied-button" v-if="isCopiedButtonShown">
-                <CopyButtonLabelIcon/>
-                <p class="copied-button__label">Copied</p>
             </div>
         </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
@@ -32,8 +28,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import CopyButtonLabelIcon from '@/../static/images/apiKeys/copyButtonLabel.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-
 @Component({
     components: {
         HeaderlessInput,
@@ -47,16 +41,12 @@ export default class ApiKeysCopyPopup extends Vue {
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
-    public isCopiedButtonShown: boolean = false;
-
     public onCloseClick(): void {
-        this.isCopiedButtonShown = false;
         this.$emit('closePopup');
     }
 
     public async onCopyClick(): Promise<void> {
         await this.$notify.success('Key saved to clipboard');
-        this.isCopiedButtonShown = true;
     }
 }
 </script>
@@ -77,6 +67,7 @@ export default class ApiKeysCopyPopup extends Vue {
             font-size: 24px;
             line-height: 29px;
             margin-bottom: 26px;
+            user-select: none;
         }
 
         &__copy-area {
@@ -127,14 +118,7 @@ export default class ApiKeysCopyPopup extends Vue {
         }
     }
 
-    .copied-button {
-        padding: 13px 28.5px;
-        background-color: #196cda;
-        cursor: default;
-    }
-
-    .copy-button,
-    .copied-button {
+    .copy-button {
         display: flex;
         background-color: #2683ff;
         padding: 13px 36px;
@@ -150,7 +134,8 @@ export default class ApiKeysCopyPopup extends Vue {
         margin-left: 10px;
 
         &__label {
-            margin: 0;
+            margin: 0 0 0 5px;
+            user-select: none;
         }
 
         &:hover {

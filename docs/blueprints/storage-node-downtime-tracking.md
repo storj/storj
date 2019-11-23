@@ -213,7 +213,7 @@ Data Science could use this approach to more nicely calculate statistics however
     1. Implement [_estimating offline time_ part](#estimating-offline-time)<sup>1</sup>.
 
     <sup>1</sup> These subtasks can be done in parallel.
-1. Wire the new chore to the `satellite.Peer`.
+1. Wire the new chore to the `satellite.Core`.
 1. Remove the implementation of the current uptime disqualification.
   - `satellite/satellitedb.Overlaycache.UpdateUptime`: Remove update disqualified field due to lower uptime reputation.
    - `satellite/satellitedb.Overlaycache.populateUpdateNodeStats`: Remove update disqualified field due to lower uptime reputation.

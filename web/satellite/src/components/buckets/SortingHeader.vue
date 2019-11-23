@@ -32,6 +32,7 @@ export default class SortBucketsHeader extends Vue {}
         opacity: 0.5;
         max-height: 40px;
         align-items: center;
+        user-select: none;
 
         &__item {
             width: 25%;

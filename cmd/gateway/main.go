@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jbenet/go-base58"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
@@ -19,14 +19,14 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/cmd/internal/wizard"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/uplink"
 )
 
@@ -40,6 +40,8 @@ type GatewayFlags struct {
 	uplink.Config
 
 	Version checker.Config
+
+	PBKDFConcurrency int `help:"please see <url>. default value recommended" default:"0"`
 }
 
 var (
@@ -251,6 +253,7 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
+	libuplinkCfg.Volatile.PBKDFConcurrency = flags.PBKDFConcurrency
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

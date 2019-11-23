@@ -42,17 +42,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"no limits reverse",
-			storage.IterateOptions{
-				Reverse: true,
-			}, storage.Items{
-				newItem("h", "h", false),
-				newItem("g", "g", false),
-				newItem("c/", "", true),
-				newItem("c", "c", false),
-				newItem("b/", "", true),
-				newItem("a", "a", false),
-			}},
 
 		{"at a",
 			storage.IterateOptions{
@@ -64,14 +53,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("c/", "", true),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-
-		{"reverse at a",
-			storage.IterateOptions{
-				First:   storage.Key("a"),
-				Reverse: true,
-			}, storage.Items{
-				newItem("a", "a", false),
 			}},
 
 		{"after a",
@@ -125,16 +106,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 			}, storage.Items{
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-		{"reverse after e",
-			storage.IterateOptions{
-				First:   storage.NextKey(storage.Key("e")),
-				Reverse: true,
-			}, storage.Items{
-				newItem("c/", "", true),
-				newItem("c", "c", false),
-				newItem("b/", "", true),
-				newItem("a", "a", false),
 			}},
 		{"prefix b slash",
 			storage.IterateOptions{

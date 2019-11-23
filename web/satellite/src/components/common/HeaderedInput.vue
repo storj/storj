@@ -90,6 +90,7 @@ export default class HeaderedInput extends HeaderlessInput {
             font-size: 16px;
             line-height: 21px;
             color: #354049;
+            user-select: none;
         }
 
         &__error {

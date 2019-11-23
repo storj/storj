@@ -155,12 +155,12 @@ describe('VDatePicker.vue', () => {
         changedDates.at(changedDates.length - 1).trigger('click');
 
         expect(wrapper.vm.selectedDateState.year).toBe(nowYear - 1);
-        // expect(wrapper.vm.selectedDateState.month).toBe(1);
+        expect(wrapper.vm.selectedDateState.month).toBe(1);
 
         wrapper.find('.cov-date-next').trigger('click');
 
         expect(wrapper.vm.selectedDateState.year).toBe(nowYear - 1);
-        // expect(wrapper.vm.selectedDateState.month).toBe(2);
+        expect(wrapper.vm.selectedDateState.month).toBe(2);
     });
 
     it('triggers correct functionality on month decrementation', function () {

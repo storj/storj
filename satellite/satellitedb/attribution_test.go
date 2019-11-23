@@ -10,9 +10,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -30,6 +30,7 @@ func TestUsers(t *testing.T) {
 
 		// create an user with partnerID
 		_, err := consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
 			FullName:     "John Doe",
 			Email:        "john@mail.test",
 			PasswordHash: userPassHash,
@@ -40,6 +41,7 @@ func TestUsers(t *testing.T) {
 
 		// create an user with no partnerID
 		_, err = consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
 			FullName:     "John Doe",
 			Email:        "john@mail.test",
 			PasswordHash: userPassHash,

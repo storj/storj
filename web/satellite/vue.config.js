@@ -15,7 +15,7 @@ module.exports = {
             new CompressionWebpackPlugin({
                 algorithm: 'gzip',
                 test: new RegExp('\\.(' + productionGzipExtensions.join('|') + ')$'),
-                threshold: 10240,
+                threshold: 1024,
                 minRatio: 0.8
             }),
             new StyleLintPlugin({
@@ -24,7 +24,7 @@ module.exports = {
         ],
     },
     chainWebpack: config => {
-        config.output.chunkFilename(`js/vendors.js`);
+        config.output.chunkFilename(`js/vendors_[name].js`);
         config.output.filename(`js/app.js`);
 
         config.resolve.alias
@@ -42,6 +42,9 @@ module.exports = {
         svgRule.uses.clear();
 
         svgRule
+            .use('babel-loader')
+            .loader('babel-loader')
+            .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');
     }

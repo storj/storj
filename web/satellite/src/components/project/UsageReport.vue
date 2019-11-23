@@ -22,7 +22,7 @@
                 />
                 <DatePickerIcon
                     class="usage-report-container__options-area__option__image"
-                    @click.prevent.self="onCustomDateClick"
+                    @click.prevent="onCustomDateClick"
                 />
             </div>
         </div>
@@ -42,7 +42,7 @@
                 </div>
             </div>
             <div class="usage-report-container__main-area__footer">
-                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(startDate)}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{toLocaleDateString(endDate)}}</b></p>
+                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{startDate}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{endDate}}</b></p>
                 <div class="usage-report-container__main-area__footer__report-area">
                     <p class="usage-report-container__main-area__footer__report-area__download-text">Download Advanced Report</p>
                     <DownloadReportIcon
@@ -66,6 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
 @Component({
@@ -95,18 +96,20 @@ export default class UsageReport extends Vue {
         };
     }
 
-    public get startDate(): Date {
-        return this.$store.state.usageModule.startDate;
+    public get startDate(): string {
+        return DateFormat.getUSDate(this.$store.state.usageModule.startDate, '/');
     }
 
-    public get endDate(): Date {
-        return this.$store.state.usageModule.endDate;
+    public get endDate(): string {
+        return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
+    // TODO: update bytes to GB
     public get storage(): string {
         return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
     }
 
+    // TODO: update bytes to GB
     public get egress(): string {
         return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
     }
@@ -259,6 +262,7 @@ export default class UsageReport extends Vue {
                 color: #354049;
                 margin-block-start: 0.5em;
                 margin-block-end: 0.5em;
+                user-select: none;
             }
         }
 
@@ -288,6 +292,7 @@ export default class UsageReport extends Vue {
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
+                    user-select: none;
                 }
 
                 &__image {
@@ -347,6 +352,7 @@ export default class UsageReport extends Vue {
                         color: #354049;
                         margin-block-start: 0;
                         margin-block-end: 0;
+                        user-select: none;
                     }
 
                     &__amount {
@@ -397,6 +403,7 @@ export default class UsageReport extends Vue {
                         line-height: 21px;
                         color: #354049;
                         margin-right: 30px;
+                        user-select: none;
                     }
 
                     &__image {

@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 type gracefulExitClient struct {
@@ -136,7 +136,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		}
 		resp, err := client.initGracefulExit(ctx, req)
 		if err != nil {
-			zap.S().Debug("initializing graceful exit failed", zap.String("Satellite ID", id.String()), zap.Error(err))
+			zap.S().Debug("initializing graceful exit failed", zap.Stringer("Satellite ID", id), zap.Error(err))
 			errgroup.Add(err)
 			continue
 		}

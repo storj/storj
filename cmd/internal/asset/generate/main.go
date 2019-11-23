@@ -33,7 +33,7 @@ func main() {
 	fmt.Fprintf(&code, "package %s\n\n", *packageName)
 
 	fmt.Fprintf(&code, "import (\n")
-	fmt.Fprintf(&code, "\t\t\"storj.io/cmd/internal/asset\"\n")
+	fmt.Fprintf(&code, "\t\t\"storj.io/cmd/private/asset\"\n")
 	fmt.Fprintf(&code, ")\n\n")
 
 	fmt.Fprintf(&code, "func init() {\n")
