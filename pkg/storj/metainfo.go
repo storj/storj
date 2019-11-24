@@ -26,7 +26,7 @@ type Metainfo interface {
 	// GetObject returns information about an object
 	GetObject(ctx context.Context, bucket Bucket, path Path) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket Bucket, path Path) (ReadOnlyStream, error)
+	GetObjectStream(ctx context.Context, bucket Bucket, object Object) (ReadOnlyStream, error)
 
 	// CreateObject creates a mutable object for uploading stream info
 	CreateObject(ctx context.Context, bucket Bucket, path Path, info *CreateObject) (MutableObject, error)
