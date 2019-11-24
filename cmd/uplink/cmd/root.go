@@ -31,6 +31,8 @@ type UplinkFlags struct {
 	uplink.Config
 
 	Version checker.Config
+
+	PBKDFConcurrency int `help:"please see <url>. default value recommended" default:"0"`
 }
 
 var (
@@ -80,6 +82,7 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !cliCfg.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = cliCfg.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
+	libuplinkCfg.Volatile.PBKDFConcurrency = cliCfg.PBKDFConcurrency
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }
