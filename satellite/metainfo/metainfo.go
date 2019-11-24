@@ -751,40 +751,25 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	metadataSize := memory.Size(len(req.EncryptedMetadata))
-	if metadataSize > endpoint.config.MaxMetadataSize {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("Metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize))
-	}
 	streamMeta := pb.StreamMeta{}
-	err = pb.Unmarshal(req.EncryptedMetadata, &streamMeta)
+	err = proto.Unmarshal(req.EncryptedMetadata, &streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
 	}
 
-	lastSegmentPointer := pointer
-	if pointer == nil {
-		lastSegmentIndex := streamMeta.NumberOfSegments - 1
-		lastSegmentLocation, err := CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %s", err.Error())
-		}
+	lastSegmentIndex := streamMeta.NumberOfSegments - 1
+	lastSegmentPath, err := CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %s", err.Error())
+	}
 
-		var lastSegmentPointerBytes []byte
-		lastSegmentKey := lastSegmentLocation.Encode()
-		lastSegmentPointerBytes, lastSegmentPointer, err = endpoint.metainfo.GetWithBytes(ctx, lastSegmentKey)
-		if err != nil {
-			endpoint.log.Error("unable to get pointer", zap.ByteString("segmentPath", lastSegmentKey), zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
-		}
-		if lastSegmentPointer == nil {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
-		}
-
-		err = endpoint.metainfo.Delete(ctx, lastSegmentKey, lastSegmentPointerBytes)
-		if err != nil {
-			endpoint.log.Error("unable to delete pointer", zap.ByteString("segmentPath", lastSegmentKey), zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
-		}
+	lastSegmentPointerBytes, lastSegmentPointer, err := endpoint.metainfo.GetWithBytes(ctx, lastSegmentPath)
+	if err != nil {
+		endpoint.log.Error("unable to get pointer", zap.String("segmentPath", lastSegmentPath), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
+	}
+	if lastSegmentPointer == nil {
+		return nil, rpcstatus.Errorf(rpcstatus.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
 	}
 
 	if lastSegmentPointer.Remote == nil {
@@ -796,11 +781,18 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 
 	lastSegmentLocation, err := CreatePath(ctx, keyInfo.ProjectID, int64(metabase.LastSegmentIndex), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
+		endpoint.log.Error("unable to delete pointer", zap.String("segmentPath", lastSegmentPath), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
+	}
+
+	lastSegmentIndex = -1
+	lastSegmentPath, err = CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
 		endpoint.log.Error("unable to create path", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 
-	err = endpoint.metainfo.UnsynchronizedPut(ctx, lastSegmentLocation.Encode(), lastSegmentPointer)
+	err = endpoint.metainfo.Put(ctx, lastSegmentPath, lastSegmentPointer)
 	if err != nil {
 		endpoint.log.Error("unable to put pointer", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")

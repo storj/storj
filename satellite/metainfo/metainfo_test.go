@@ -682,12 +682,12 @@ func TestBeginCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		metadata, err := pb.Marshal(&pb.StreamMeta{
+		metadata, err := proto.Marshal(&pb.StreamMeta{
 			NumberOfSegments: 1,
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
+			StreamID:          streamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -778,12 +778,12 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metadata, err := pb.Marshal(&pb.StreamMeta{
+		metadata, err := proto.Marshal(&pb.StreamMeta{
 			NumberOfSegments: int64(len(segments)),
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          beginObjectResp.StreamID,
+			StreamID:          streamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -1064,7 +1064,7 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := pb.Marshal(&pb.StreamMeta{
+			metadata, err := proto.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)
@@ -1131,12 +1131,12 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := pb.Marshal(&pb.StreamMeta{
+			metadata, err := proto.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID:          beginObjectResp.StreamID,
+				StreamID:          streamID,
 				EncryptedMetadata: metadata,
 			})
 
