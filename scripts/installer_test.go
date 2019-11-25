@@ -75,7 +75,7 @@ func TestInstaller_Config(t *testing.T) {
 	defer ctx.Cleanup()
 
 	requireInstaller(ctx, t)
-	uninstall(t, ctx)
+	//uninstall(t, ctx)
 
 	installDir := ctx.Dir("install")
 	configFile := ctx.File("install", "config.yaml")
