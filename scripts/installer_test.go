@@ -6,41 +6,25 @@
 package main
 
 import (
-	"archive/zip"
 	"bufio"
 	"bytes"
-	"context"
+	"flag"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"log"
-	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
-	"time"
+	//"golang.org/x/sys/windows/svc"
+	//"golang.org/x/sys/windows/svc/mgr"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/mgr"
-
-	"storj.io/storj/private/sync2"
 	"storj.io/storj/private/testcontext"
 )
 
 var (
-	installerDir   string
-	storagenodeBin string
-	updaterBin     string
-	builtMSIPath   string
-	releaseMSIPath string
-
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
 	downloadVersion    = "v0.26.2"
@@ -49,51 +33,19 @@ var (
 		"/passive", "/qb",
 		"/norestart",
 	}
+
+	msiPath = flag.String("msi", "", "path to the msi to use")
 )
 
-func TestMain(m *testing.M) {
-	var err error
-	installerDir, err = filepath.Abs(filepath.Join("..", "installer", "windows"))
-	if err != nil {
-		panic(err)
-	}
-
-	storagenodeBin = filepath.Join(installerDir, "storagenode.exe")
-	updaterBin = filepath.Join(installerDir, "storagenode-updater.exe")
-
-	tmp, err := ioutil.TempDir("", "installer")
-	if err != nil {
-		panic(err)
-	}
-	releaseMSIPath = filepath.Join(tmp, "installer.msi")
-
-	msiDir := filepath.Join(installerDir, "bin", "Release")
-	builtMSIPath = filepath.Join(msiDir, "storagenode.msi")
-
-	status := m.Run()
-
-	err = os.Remove(storagenodeBin)
-	if err != nil && !os.IsNotExist(err) {
-		log.Printf("unable to cleanup temp storagenode binary at \"%s\": %s", storagenodeBin, err)
-	}
-	err = os.Remove(updaterBin)
-	if err != nil && !os.IsNotExist(err) {
-		log.Printf("unable to cleanup temp updater binary at \"%s\": %s", updaterBin, err)
-	}
-	err = os.Remove(releaseMSIPath)
-	if err != nil && !os.IsNotExist(err) {
-		log.Printf("unable to cleanup temp relase installer at \"%s\": %s", releaseMSIPath, err)
-	}
-
-	os.Exit(status)
-}
-
 func TestInstaller_Config(t *testing.T) {
+	if *msiPath == "" {
+		t.Fatal("no msi passed, use `go test ... -args -msi <msi path>`")
+	}
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	downloadInstaller(t, ctx)
-	tryUninstall(t, ctx, releaseMSIPath)
+	tryUninstall(t, ctx)
 
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
@@ -109,11 +61,8 @@ func TestInstaller_Config(t *testing.T) {
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
 	}
-	install(t, ctx, releaseMSIPath, args...)
-	defer requireUninstall(t, ctx, releaseMSIPath)
-	defer ctx.Check(func() error {
-		return stopServices("storagenode", "storagenode-updater")
-	})
+	install(t, ctx, args...)
+	defer requireUninstall(t, ctx)
 
 	configFile, err := os.Open(configPath)
 	require.NoError(t, err)
@@ -153,14 +102,14 @@ func TestInstaller_Config(t *testing.T) {
 	//require.Contains(t, configStr, expectedKeyPath)
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
-	require.Contains(t, configStr,expectedAddr)
+	require.Contains(t, configStr, expectedAddr)
 }
 
 // TODO: use consistent parameter order for `t` and `ctx`
-func install(t *testing.T, ctx *testcontext.Context, msi string, args ...string) {
+func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 	logPath := ctx.File("install.log")
 	args = append(append([]string{
-		"/i", msi,
+		"/i", *msiPath,
 		"/log", logPath,
 	}, msiBaseArgs...), args...)
 
@@ -175,16 +124,16 @@ func install(t *testing.T, ctx *testcontext.Context, msi string, args ...string)
 	}
 }
 
-func tryUninstall(t *testing.T, ctx *testcontext.Context, msi string) {
-	_, err := uninstall(t, ctx, msi).CombinedOutput()
+func tryUninstall(t *testing.T, ctx *testcontext.Context) {
+	_, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
-		t.Logf("WARN: tried but failed to uninstall from: %s", msi)
+		t.Logf("WARN: tried but failed to uninstall from: %s", *msiPath)
 	}
 }
 
-func requireUninstall(t *testing.T, ctx *testcontext.Context, msi string) {
+func requireUninstall(t *testing.T, ctx *testcontext.Context) {
 	logPath := ctx.File("uninstall.log")
-	uninstallOut, err := uninstall(t, ctx, msi).CombinedOutput()
+	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
 		if assert.NoError(t, err) {
@@ -194,161 +143,54 @@ func requireUninstall(t *testing.T, ctx *testcontext.Context, msi string) {
 	}
 }
 
-func uninstall(t *testing.T, ctx *testcontext.Context, msi string) *exec.Cmd {
-	args := append([]string{"/uninstall", msi}, msiBaseArgs...)
+func uninstall(t *testing.T, ctx *testcontext.Context) *exec.Cmd {
+	stopServices(t, ctx, "storagenode", "storagenode-updater")
+
+	args := append([]string{"/uninstall", *msiPath}, msiBaseArgs...)
 	return exec.Command("msiexec", args...)
 }
 
-//func buildInstaller(ctx *testcontext.Context, t *testing.T, msi string) {
-//	t.Helper()
-//
-//	require.NotEmpty(t, msi)
-//
-//	buildInstallerOnce.Do(func() {
-//		for name, path := range map[string]string{
-//			"storagenode":         storagenodeBin,
-//			"storagenode-updater": updaterBin,
-//		} {
-//			require.NotEmpty(t, path)
-//
-//			downloadBin(ctx, t, name, path)
-//
-//			_, err := os.Stat(path)
-//			require.NoError(t, err)
-//		}
-//
-//		args := []string{
-//			filepath.Join(installerDir, "windows.sln"),
-//			"/t:Build",
-//			"/p:Configuration=Release",
-//		}
-//		msbuildOut, err := exec.Command("msbuild", args...).CombinedOutput()
-//		if !assert.NoError(t, err) {
-//			t.Log(string(msbuildOut))
-//			t.Fatal(err)
-//		}
-//	})
-//
-//	_, err := os.Stat(msi)
-//	require.NoError(t, err)
-//}
-
-//func downloadBin(ctx *testcontext.Context, t *testing.T, name, dst string) {
-//	t.Helper()
-//
-//	zipPath := ctx.File("archive", name+".exe.zip")
-//	url := releaseUrl(name, ".exe")
-//
-//	downloadArchive(ctx, t, url, zipPath)
-//	unpackBinary(ctx, t, zipPath, dst)
-//}
-
-func releaseUrl(name, ext string) string {
-	urlTemplate := "https://github.com/storj/storj/releases/download/{version}/{service}_{os}_{arch}{ext}.zip"
-
-	url := strings.Replace(urlTemplate, "{version}", downloadVersion, 1)
-	url = strings.Replace(url, "{service}", name, 1)
-	url = strings.Replace(url, "{os}", runtime.GOOS, 1)
-	url = strings.Replace(url, "{arch}", runtime.GOARCH, 1)
-	url = strings.Replace(url, "{ext}", ext, 1)
-	return url
-}
-
-func downloadInstaller(t *testing.T, ctx *testcontext.Context) {
+func stopServices(t *testing.T, ctx *testcontext.Context, names ...string) {
 	t.Helper()
 
-	zipPath := ctx.File("archive", "installer.msi.zip")
-	url := releaseUrl("storagenode", ".msi")
-
-	downloadArchive(ctx, t, url, zipPath)
-	unpackBinary(ctx, t, zipPath, releaseMSIPath)
+	//serviceMgr, err := mgr.Connect()
+	//require.NoError(t, err)
+	//
+	//group := new(errgroup.Group)
+	//for _, name := range names {
+	//	service, err := serviceMgr.OpenService(name)
+	//	require.NoError(t, err)
+	//	defer ctx.Check(service.Close)
+	//
+	//	_, err = service.Control(svc.Stop)
+	//	require.NoError(t, err)
+	//
+	//	group.Go(waitForStop(service))
+	//}
+	//
+	//err = group.Wait()
+	//require.NoError(t, err)
 }
 
-func downloadArchive(ctx *testcontext.Context, t *testing.T, url, dst string) {
-	t.Helper()
-
-	resp, err := http.Get(url)
-	require.NoError(t, err)
-	defer ctx.Check(resp.Body.Close)
-
-	require.Truef(t, resp.StatusCode == http.StatusOK, resp.Status)
-
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
-	require.NoError(t, err)
-	defer ctx.Check(dstFile.Close)
-
-	_, err = sync2.Copy(ctx, dstFile, resp.Body)
-	require.NoError(t, err)
-}
-
-func unpackBinary(ctx *testcontext.Context, t *testing.T, archive, dst string) {
-	zipReader, err := zip.OpenReader(archive)
-	require.NoError(t, err)
-	defer ctx.Check(zipReader.Close)
-
-	require.Len(t, zipReader.File, 1)
-
-	zipedExec, err := zipReader.File[0].Open()
-	require.NoError(t, err)
-	defer ctx.Check(zipedExec.Close)
-
-	newExec, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
-	require.NoError(t, err)
-	defer ctx.Check(newExec.Close)
-
-	_, err = sync2.Copy(ctx, newExec, zipedExec)
-	require.NoError(t, err)
-}
-
-func stopServices(names ...string) (err error) {
-	serviceMgr, err := mgr.Connect()
-	if err != nil {
-		return err
-	}
-
-	group := new(errgroup.Group)
-	for _, name := range names {
-		service, err := serviceMgr.OpenService(name)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			err = errs.Combine(err, service.Close())
-		}()
-
-		_, err = service.Control(svc.Stop)
-		if err != nil {
-			return err
-		}
-
-		group.Go(waitForStop(service))
-	}
-
-	if err = group.Wait(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func waitForStop(service *mgr.Service) (func() error) {
-	return func() error {
-		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-		for {
-			status, err := service.Query()
-			if err != nil {
-				return err
-			}
-
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-
-			switch status.State {
-			case svc.Stopped:
-				return nil
-			default:
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
-	}
-}
+//func waitForStop(service *mgr.Service) (func() error) {
+//	return func() error {
+//		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+//		for {
+//			status, err := service.Query()
+//			if err != nil {
+//				return err
+//			}
+//
+//			if err := ctx.Err(); err != nil {
+//				return err
+//			}
+//
+//			switch status.State {
+//			case svc.Stopped:
+//				return nil
+//			default:
+//				time.Sleep(500 * time.Millisecond)
+//			}
+//		}
+//	}
+//}
