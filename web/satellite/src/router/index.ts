@@ -6,9 +6,8 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
-import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
-import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
-import SettingsArea from '@/components/account/SettingsArea.vue';
+import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
+import ProfileArea from '@/components/account/ProfileArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';

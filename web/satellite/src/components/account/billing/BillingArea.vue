@@ -58,10 +58,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
-import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
-import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
-import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
+import AccountBalance from '@/components/account/billing/balance/AccountBalance.vue';
+import DepositAndBilling from '@/components/account/billing/billingHistory/DepositAndBilling.vue';
+import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';

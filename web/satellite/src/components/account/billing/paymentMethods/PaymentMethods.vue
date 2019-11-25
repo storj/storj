@@ -21,23 +21,28 @@
                         <p class="payment-methods-area__functional-area__button-area__cancel__text">Cancel</p>
                     </div>
                 </div>
+                <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
+                    <p class="payment-methods-area__button-area__cancel__text">Cancel</p>
+                </div>
+            </div>
+        </div>
+        <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
+            <div class="storj-container">
+                <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
+                <TokenDepositSelection class="form" @onChangeTokenValue="onChangeTokenValue"/>
             </div>
             <PaymentsBonus
                 v-if="isDefaultBonusBannerShown && !isAddCardClicked"
                 :any-credit-cards="false"
                 class="payment-methods-area__functional-area__bonus"
             />
-            <PaymentsBonus
-                v-else-if="!isDefaultBonusBannerShown && !isAddCardClicked"
-                :any-credit-cards="true"
-                class="payment-methods-area__functional-area__bonus"
-            />
-            <AddStorjForm
-                ref="addStorj"
-                v-if="isAddingStorjState"
-                :is-loading="isLoading"
-                @toggleIsLoading="toggleIsLoading"
-                @cancel="onCancel"
+        </div>
+        <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
+            <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
+            <StripeCardInput
+                class="payment-methods-area__adding-container__stripe"
+                ref="stripeCardInput"
+                :on-stripe-response-callback="addCard"
             />
             <AddCardForm
                 ref="addCard"
@@ -88,7 +93,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
-import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
@@ -101,7 +107,8 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
     GET_CREDIT_CARDS,
-    GET_BALANCE,
+    MAKE_TOKEN_DEPOSIT,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 interface AddCardConfirm {
@@ -114,13 +121,16 @@ interface AddCardConfirm {
         AddCardForm,
         VButton,
         CardComponent,
-        PaymentsBonus,
-        LockImage,
-        SuccessImage,
+        TokenDepositSelection,
+        StripeCardInput,
     },
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
+    private isLoading: boolean = false;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
+    private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
+    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public isLoading: boolean = false;
     public isLoaded: boolean = false;
@@ -142,7 +152,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public $refs!: {
-        addCard: AddCardForm & AddCardConfirm;
+        stripeCardInput: StripeCardInput & StripeForm;
     };
 
     /**
@@ -201,36 +211,58 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
-    /**
-     * Indicates if free credits or percentage bonus banner is shown.
-     */
-    public get isDefaultBonusBannerShown(): boolean {
-        return this.isDefaultState && !this.$store.getters.canUserCreateFirstProject;
+    public onChangeTokenValue(value: number): void {
+        this.tokenDepositValue = value;
     }
 
-    /**
-     * Indicates if any of credit cards is attached to account.
-     */
-    public get noCreditCards(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
-    }
-
-    /**
-     * Changes area state to adding tokens state.
-     */
     public onAddSTORJ(): void {
-        this.isAddStorjClicked = true;
-        setTimeout(() => {
-            this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
-        }, 500);
+        this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
+
+        return;
+    }
+
+        return;
+    }
+    public onCancel(): void {
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+
+        return;
     }
 
     /**
-     * Changes area state to adding card state and proceeds adding card process.
+     * onConfirmAddSTORJ checks if amount is valid and if so process token
+     * payment and return state to default
      */
-    public async onAddCard(): Promise<void> {
-        if (this.isAddCardClicked) {
-            await this.onConfirmAddCard();
+    public async onConfirmAddSTORJ(): Promise<void> {
+        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
+            await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
+            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+            this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+            return;
+        }
+
+        try {
+            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
+            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+        try {
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+    }
+
+    public async onConfirmAddStripe(): Promise<void> {
+        await this.$refs.stripeCardInput.onSubmit();
+    }
 
             return;
         }

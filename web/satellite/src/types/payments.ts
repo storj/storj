@@ -65,7 +65,7 @@ export interface PaymentsApi {
      * @returns list of payments history items
      * @throws Error
      */
-    paymentsHistory(): Promise<PaymentsHistoryItem[]>;
+    billingHistory(): Promise<BillingHistoryItem[]>;
 
     /**
      * Creates token transaction in CoinPayments
@@ -74,25 +74,6 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
-
-    /**
-     * Indicates if paywall is enabled.
-     *
-     * @param userId
-     * @throws Error
-    */
-    getPaywallStatus(userId: string): Promise<boolean>;
-}
-
-export class AccountBalance {
-    constructor(
-        public freeCredits: number = 0,
-        public coins: number = 0,
-    ) {}
-
-    public get sum(): number {
-        return this.freeCredits + this.coins;
-    }
 }
 
 export class CreditCard {
@@ -128,31 +109,19 @@ export class PaymentsHistoryItem {
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
-        public readonly type: PaymentsHistoryItemType = PaymentsHistoryItemType.Invoice,
-        public readonly remaining: number = 0,
+        public readonly type: BillingHistoryItemType = BillingHistoryItemType.Invoice,
     ) {}
 
     public get quantity(): Amount {
-        if (this.type === PaymentsHistoryItemType.Transaction) {
-            return new Amount('USD $', this.amountDollars(this.amount), this.amountDollars(this.received));
+        if (this.type === BillingHistoryItemType.Invoice) {
+            return new Amount('$', this.amountDollars(this.amount));
         }
 
-        return new Amount('USD $', this.amountDollars(this.amount));
+        return new Amount('$', this.amountDollars(this.amount), this.amountDollars(this.received));
     }
 
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
-    }
-
-    /**
-     * RemainingAmountPercentage will return remaining amount of item in percentage.
-     */
-    public remainingAmountPercentage(): number {
-        if (this.amount === 0) {
-            return 0;
-        }
-
-        return this.remaining / this.amount * 100;
     }
 
     private amountDollars(amount): number {
@@ -164,16 +133,9 @@ export class PaymentsHistoryItem {
             return '';
         }
 
-        const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
+        const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'PDF';
 
         return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
-    }
-
-    /**
-     * isTransactionOrDeposit indicates if payments history item type is transaction or deposit bonus.
-     */
-    public isTransactionOrDeposit(): boolean {
-        return this.type === PaymentsHistoryItemType.Transaction || this.type === PaymentsHistoryItemType.DepositBonus;
     }
 }
 
@@ -272,6 +234,20 @@ export class DateRange {
         this.startDate = startDate;
         this.endDate = endDate;
     }
+}
+
+// TokenDeposit holds public information about token deposit
+export class TokenDeposit {
+    constructor(public amount: number, public address: string) {}
+}
+
+// Amount holds information for displaying billing item payment
+class Amount {
+    public constructor(
+        public currency: string = '',
+        public total: number = 0,
+        public received: number = 0,
+    ) {}
 }
 
 /**

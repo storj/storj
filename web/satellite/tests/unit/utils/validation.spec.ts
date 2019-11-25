@@ -1,7 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Validator } from '@/utils/validation';
+import {
+    validateEmail,
+    validatePassword,
+} from '@/utils/validation';
 
 describe('validation', (): void => {
     it('password regex works correctly', (): void => {

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 
@@ -239,7 +239,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.id,
                     item.description,
                     item.amount,
-                    item.received,
+                    item.tokenReceived,
                     item.status,
                     item.link,
                     new Date(item.start),
@@ -254,8 +254,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * makeTokenDeposit process coin payments.
-     *
+     * makeTokenDeposit process coin payments
      * @param amount
      * @throws Error
      */
@@ -273,27 +272,6 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const result = await response.json();
 
-        return new TokenDeposit(result.amount, result.address, result.link);
-    }
-
-    /**
-     * Indicates if paywall is enabled.
-     *
-     * @param userId
-     * @throws Error
-     */
-    public async getPaywallStatus(userId: string): Promise<boolean> {
-        const path = `${this.ROOT_PATH}/paywall-enabled/${userId}`;
-        const response = await this.client.get(path);
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
-            throw new Error('can not get paywall status');
-        }
-
-        return await response.json();
+        return new TokenDeposit(result.amount, result.address);
     }
 }

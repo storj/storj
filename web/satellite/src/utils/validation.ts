@@ -1,10 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * Validator holds validation check methods for strings.
- */
-export class Validator {
+// TODO: move functions to Validator class
+export function validateEmail(email: string): boolean {
+    const rgx = /.*@.*\..*$/;
 
     /**
      * Checks string to satisfy email rules.
