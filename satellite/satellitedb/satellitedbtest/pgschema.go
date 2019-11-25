@@ -16,7 +16,7 @@ import (
 
 // NewPostgres returns the default postgres satellite.DB for testing.
 func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
-	if err := DatabaseDefined(); err != nil {
+	if err := PostgresDefined(); err != nil {
 		return nil, err
 	}
 
@@ -32,9 +32,9 @@ func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
 	}, nil
 }
 
-// DatabaseDefined returns an error when no database connection string is provided
-func DatabaseDefined() error {
-	if *pgtest.ConnStr == "" && *pgtest.CrdbConnStr == "" {
+// PostgresDefined returns an error when no database connection string is provided
+func PostgresDefined() error {
+	if *pgtest.ConnStr == "" {
 		return errs.New("flag --postgres-test-db or environment variable STORJ_POSTGRES_TEST not defined for PostgreSQL test database")
 	}
 	return nil
