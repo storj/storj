@@ -248,7 +248,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				pathElements := storj.SplitPath(rawPath)
 
 				if len(pathElements) < 4 {
-					// We skip this path because it belongs to bucket metadata no an
+					// We skip this path because it belongs to bucket metadata, not to an
 					// actual object
 					continue nextSegment
 				}
