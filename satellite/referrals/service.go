@@ -59,7 +59,7 @@ func NewService(log *zap.Logger, signer signing.Signer, config Config, dialer rp
 func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (tokens []uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if userID.IsZero() {
-		return nil, errs.New("invalid argument")
+		return nil, errs.New("user ID is not defined")
 	}
 
 	conn, err := service.referralManagerConn(ctx)
@@ -73,14 +73,15 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 
 	client := conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
-		OwnerUserId: userID[:],
+		OwnerUserId:      userID[:],
+		OwnerSatelliteId: service.signer.ID(),
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	tokensInBytes := response.GetTokenSecrets()
-	if len(tokensInBytes) == 0 {
+	if tokensInBytes != nil && len(tokensInBytes) == 0 {
 		return nil, errs.New("no available tokens")
 	}
 
@@ -88,6 +89,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 	for i := range tokensInBytes {
 		token, err := bytesToUUID(tokensInBytes[i])
 		if err != nil {
+			service.log.Debug("failed to convert bytes to UUID", zap.Error(err))
 			continue
 		}
 		tokens[i] = token
@@ -104,7 +106,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 	}
 
 	if len(user.ReferralToken) == 0 {
-		return nil, errs.New("invalid argument")
+		return nil, errs.New("referral token is not defined")
 	}
 
 	_, err = service.db.GetByEmail(ctx, user.Email)

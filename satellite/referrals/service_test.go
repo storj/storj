@@ -45,8 +45,12 @@ func TestServiceSuccess(t *testing.T) {
 			Password:      "123a123",
 			ReferralToken: testrand.UUID().String(),
 		}
-		_, err = satellite.API.Referrals.Service.CreateUser(ctx, user)
+
+		createdUser, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
 		require.NoError(t, err)
+		require.Equal(t, user.Email, createdUser.Email)
+		require.Equal(t, user.FullName, createdUser.FullName)
+		require.Equal(t, user.ShortName, createdUser.ShortName)
 	})
 }
 

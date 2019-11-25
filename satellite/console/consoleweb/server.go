@@ -129,7 +129,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
 	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
 	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
 	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)

@@ -22,27 +22,21 @@ var ErrReferralsAPI = errs.Class("console referrals api error")
 
 // Referrals is an api controller that exposes all referrals functionality.
 type Referrals struct {
-	log                   *zap.Logger
-	service               *referrals.Service
-	consoleService        *console.Service
-	mailService           *mailservice.Service
-	ExternalAddress       string
-	LetUsKnowURL          string
-	TermsAndConditionsURL string
-	ContactInfoURL        string
+	log             *zap.Logger
+	service         *referrals.Service
+	consoleService  *console.Service
+	mailService     *mailservice.Service
+	ExternalAddress string
 }
 
 // NewReferrals is a constructor for api referrals controller.
-func NewReferrals(log *zap.Logger, service *referrals.Service, consoleService *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Referrals {
+func NewReferrals(log *zap.Logger, service *referrals.Service, consoleService *console.Service, mailService *mailservice.Service, externalAddress string) *Referrals {
 	return &Referrals{
-		log:                   log,
-		service:               service,
-		consoleService:        consoleService,
-		mailService:           mailService,
-		ExternalAddress:       externalAddress,
-		LetUsKnowURL:          letUsKnowURL,
-		TermsAndConditionsURL: termsAndConditionsURL,
-		ContactInfoURL:        contactInfoURL,
+		log:             log,
+		service:         service,
+		consoleService:  consoleService,
+		mailService:     mailService,
+		ExternalAddress: externalAddress,
 	}
 }
 
@@ -93,6 +87,10 @@ func (controller *Referrals) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := controller.service.CreateUser(ctx, registerData)
+	if err != nil {
+		controller.serveJSONError(w, err)
+		return
+	}
 	token, err := controller.consoleService.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		controller.serveJSONError(w, err)
