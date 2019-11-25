@@ -75,7 +75,7 @@ func TestInstaller_Config(t *testing.T) {
 	defer ctx.Cleanup()
 
 	requireInstaller(ctx, t)
-	//uninstall(t, ctx)
+	tryUninstall(t, ctx)
 
 	installDir := ctx.Dir("install")
 	configFile := ctx.File("install", "config.yaml")
@@ -91,7 +91,7 @@ func TestInstaller_Config(t *testing.T) {
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
 	}
 	install(t, ctx, args...)
-	defer uninstall(t, ctx)
+	defer requireUninstall(t, ctx)
 
 	configData, err := os.Open(configFile)
 	require.NoError(t, err)
@@ -149,11 +149,15 @@ func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 	}
 }
 
-func uninstall(t *testing.T, ctx *testcontext.Context) {
-	logPath := ctx.File("uninstall.log")
-	args := append([]string{"/uninstall", msiPath}, msiBaseArgs...)
+func tryUninstall(t *testing.T, ctx *testcontext.Context) {
+	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
+	if err != nil {
+		t.Logf("tried but failed to uninstall: %s", msiPath)
+	}
+}
 
-	uninstallOut, err := exec.Command("msiexec", args...).CombinedOutput()
+func requireUninstall(t *testing.T, ctx *testcontext.Context) {
+	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
 		if assert.NoError(t, err) {
@@ -161,6 +165,13 @@ func uninstall(t *testing.T, ctx *testcontext.Context) {
 		}
 		t.Logf("MSIExec output:\n============================\n%s", string(uninstallOut))
 	}
+}
+
+func uninstall(t *testing.T, ctx *testcontext.Context) *exec.Cmd {
+	logPath := ctx.File("uninstall.log")
+	args := append([]string{"/uninstall", msiPath}, msiBaseArgs...)
+
+	return exec.Command("msiexec", args...)
 }
 
 func requireInstaller(ctx *testcontext.Context, t *testing.T) {
