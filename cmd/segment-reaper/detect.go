@@ -89,6 +89,17 @@ func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, 
 	return nil
 }
 
+// processSegment aggregates, in the observer internal state, the objects that
+// belong the same project, tracking their segments indexes and aggregated
+// information of them for calling analyzeProject method, before a new project
+// list of object segments list starts and the internal status is reset.
+//
+// It also aggregates some stats about all the segments independently of the
+// object to which belong.
+//
+// NOTE it's expected that this method is called continually for the objects
+// which belong to a same project before calling it with objects of another
+// project.
 func (observer *Observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	cluster := Cluster{
 		projectID: path.ProjectIDString,
