@@ -8,18 +8,22 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"testing"
-	//"golang.org/x/sys/windows/svc"
-	//"golang.org/x/sys/windows/svc/mgr"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 
 	"storj.io/storj/private/testcontext"
 )
@@ -105,7 +109,6 @@ func TestInstaller_Config(t *testing.T) {
 	require.Contains(t, configStr, expectedAddr)
 }
 
-// TODO: use consistent parameter order for `t` and `ctx`
 func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 	logPath := ctx.File("install.log")
 	args = append(append([]string{
@@ -153,44 +156,44 @@ func uninstall(t *testing.T, ctx *testcontext.Context) *exec.Cmd {
 func stopServices(t *testing.T, ctx *testcontext.Context, names ...string) {
 	t.Helper()
 
-	//serviceMgr, err := mgr.Connect()
-	//require.NoError(t, err)
-	//
-	//group := new(errgroup.Group)
-	//for _, name := range names {
-	//	service, err := serviceMgr.OpenService(name)
-	//	require.NoError(t, err)
-	//	defer ctx.Check(service.Close)
-	//
-	//	_, err = service.Control(svc.Stop)
-	//	require.NoError(t, err)
-	//
-	//	group.Go(waitForStop(service))
-	//}
-	//
-	//err = group.Wait()
-	//require.NoError(t, err)
+	serviceMgr, err := mgr.Connect()
+	require.NoError(t, err)
+
+	group := new(errgroup.Group)
+	for _, name := range names {
+		service, err := serviceMgr.OpenService(name)
+		require.NoError(t, err)
+		defer ctx.Check(service.Close)
+
+		_, err = service.Control(svc.Stop)
+		require.NoError(t, err)
+
+		group.Go(waitForStop(service))
+	}
+
+	err = group.Wait()
+	require.NoError(t, err)
 }
 
-//func waitForStop(service *mgr.Service) (func() error) {
-//	return func() error {
-//		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-//		for {
-//			status, err := service.Query()
-//			if err != nil {
-//				return err
-//			}
-//
-//			if err := ctx.Err(); err != nil {
-//				return err
-//			}
-//
-//			switch status.State {
-//			case svc.Stopped:
-//				return nil
-//			default:
-//				time.Sleep(500 * time.Millisecond)
-//			}
-//		}
-//	}
-//}
+func waitForStop(service *mgr.Service) (func() error) {
+	return func() error {
+		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+		for {
+			status, err := service.Query()
+			if err != nil {
+				return err
+			}
+
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
+			switch status.State {
+			case svc.Stopped:
+				return nil
+			default:
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
+}
