@@ -54,7 +54,6 @@ func TestUsers(t *testing.T) {
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
 			Description: "some description",
-			UsageLimit:  int64(1000),
 			PartnerID:   testrand.UUID(),
 			CreatedAt:   time.Now(),
 		})
@@ -65,7 +64,6 @@ func TestUsers(t *testing.T) {
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
 			Description: "some description",
-			UsageLimit:  int64(1000),
 			CreatedAt:   time.Now(),
 		})
 		require.NoError(t, err)
