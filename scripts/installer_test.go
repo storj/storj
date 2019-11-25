@@ -9,6 +9,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,9 +21,15 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
+
 	"storj.io/storj/private/sync2"
 	"storj.io/storj/private/testcontext"
 )
@@ -31,7 +38,7 @@ var (
 	installerDir   string
 	storagenodeBin string
 	updaterBin     string
-	msiPath        string
+	builtMSIPath   string
 	releaseMSIPath string
 
 	// TODO: make this more dynamic and/or use versioncontrol server?
@@ -54,10 +61,14 @@ func TestMain(m *testing.M) {
 	storagenodeBin = filepath.Join(installerDir, "storagenode.exe")
 	updaterBin = filepath.Join(installerDir, "storagenode-updater.exe")
 
-	releaseMSIPath = filepath.Join(os.TempDir(), "installer.msi")
+	tmp, err := ioutil.TempDir("", "installer")
+	if err != nil {
+		panic(err)
+	}
+	releaseMSIPath = filepath.Join(tmp, "installer.msi")
 
 	msiDir := filepath.Join(installerDir, "bin", "Release")
-	msiPath = filepath.Join(msiDir, "storagenode.msi")
+	builtMSIPath = filepath.Join(msiDir, "storagenode.msi")
 
 	status := m.Run()
 
@@ -69,6 +80,10 @@ func TestMain(m *testing.M) {
 	if err != nil && !os.IsNotExist(err) {
 		log.Printf("unable to cleanup temp updater binary at \"%s\": %s", updaterBin, err)
 	}
+	err = os.Remove(releaseMSIPath)
+	if err != nil && !os.IsNotExist(err) {
+		log.Printf("unable to cleanup temp relase installer at \"%s\": %s", releaseMSIPath, err)
+	}
 
 	os.Exit(status)
 }
@@ -77,7 +92,6 @@ func TestInstaller_Config(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	//requireInstaller(ctx, t)
 	downloadInstaller(t, ctx)
 	tryUninstall(t, ctx, releaseMSIPath)
 
@@ -90,18 +104,22 @@ func TestInstaller_Config(t *testing.T) {
 
 	args := []string{
 		fmt.Sprintf("INSTALLFOLDER=%s", installDir),
-		fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
+		//fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
 		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
-		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
+		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
 	}
 	install(t, ctx, releaseMSIPath, args...)
 	defer requireUninstall(t, ctx, releaseMSIPath)
+	defer ctx.Check(func() error {
+		return stopServices("storagenode", "storagenode-updater")
+	})
 
 	configFile, err := os.Open(configPath)
 	require.NoError(t, err)
 	defer configFile.Close()
 
+	// NB: strip empty lines and comments
 	configBuf := bytes.Buffer{}
 	scanner := bufio.NewScanner(configFile)
 	for scanner.Scan() {
@@ -121,7 +139,6 @@ func TestInstaller_Config(t *testing.T) {
 	}
 
 	// TODO: require identity file paths
-	// TODO: require external-address
 	//certPath := ctx.File("install", "identity.cert")
 	//keyPath := ctx.File("install", "identity.key")
 
@@ -129,14 +146,14 @@ func TestInstaller_Config(t *testing.T) {
 	//expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
 	expectedEmail := fmt.Sprintf("operator.email: %s", email)
 	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
-	//expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
+	expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
 
 	configStr := configBuf.String()
 	//require.Contains(t, configStr, expectedCertPath)
 	//require.Contains(t, configStr, expectedKeyPath)
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
-	//require.Contains(t, configStr,expectedAddr)
+	require.Contains(t, configStr,expectedAddr)
 }
 
 // TODO: use consistent parameter order for `t` and `ctx`
@@ -182,49 +199,49 @@ func uninstall(t *testing.T, ctx *testcontext.Context, msi string) *exec.Cmd {
 	return exec.Command("msiexec", args...)
 }
 
-func requireInstaller(ctx *testcontext.Context, t *testing.T, msi string) {
-	t.Helper()
+//func buildInstaller(ctx *testcontext.Context, t *testing.T, msi string) {
+//	t.Helper()
+//
+//	require.NotEmpty(t, msi)
+//
+//	buildInstallerOnce.Do(func() {
+//		for name, path := range map[string]string{
+//			"storagenode":         storagenodeBin,
+//			"storagenode-updater": updaterBin,
+//		} {
+//			require.NotEmpty(t, path)
+//
+//			downloadBin(ctx, t, name, path)
+//
+//			_, err := os.Stat(path)
+//			require.NoError(t, err)
+//		}
+//
+//		args := []string{
+//			filepath.Join(installerDir, "windows.sln"),
+//			"/t:Build",
+//			"/p:Configuration=Release",
+//		}
+//		msbuildOut, err := exec.Command("msbuild", args...).CombinedOutput()
+//		if !assert.NoError(t, err) {
+//			t.Log(string(msbuildOut))
+//			t.Fatal(err)
+//		}
+//	})
+//
+//	_, err := os.Stat(msi)
+//	require.NoError(t, err)
+//}
 
-	require.NotEmpty(t, msi)
-
-	buildInstallerOnce.Do(func() {
-		for name, path := range map[string]string{
-			"storagenode":         storagenodeBin,
-			"storagenode-updater": updaterBin,
-		} {
-			require.NotEmpty(t, path)
-
-			downloadBin(ctx, t, name, path)
-
-			_, err := os.Stat(path)
-			require.NoError(t, err)
-		}
-
-		args := []string{
-			filepath.Join(installerDir, "windows.sln"),
-			"/t:Build",
-			"/p:Configuration=Release",
-		}
-		msbuildOut, err := exec.Command("msbuild", args...).CombinedOutput()
-		if !assert.NoError(t, err) {
-			t.Log(string(msbuildOut))
-			t.Fatal(err)
-		}
-	})
-
-	_, err := os.Stat(msi)
-	require.NoError(t, err)
-}
-
-func downloadBin(ctx *testcontext.Context, t *testing.T, name, dst string) {
-	t.Helper()
-
-	zipPath := ctx.File("archive", name+".exe.zip")
-	url := releaseUrl(name, ".exe")
-
-	downloadArchive(ctx, t, url, zipPath)
-	unpackBinary(ctx, t, zipPath, dst)
-}
+//func downloadBin(ctx *testcontext.Context, t *testing.T, name, dst string) {
+//	t.Helper()
+//
+//	zipPath := ctx.File("archive", name+".exe.zip")
+//	url := releaseUrl(name, ".exe")
+//
+//	downloadArchive(ctx, t, url, zipPath)
+//	unpackBinary(ctx, t, zipPath, dst)
+//}
 
 func releaseUrl(name, ext string) string {
 	urlTemplate := "https://github.com/storj/storj/releases/download/{version}/{service}_{os}_{arch}{ext}.zip"
@@ -281,4 +298,57 @@ func unpackBinary(ctx *testcontext.Context, t *testing.T, archive, dst string) {
 
 	_, err = sync2.Copy(ctx, newExec, zipedExec)
 	require.NoError(t, err)
+}
+
+func stopServices(names ...string) (err error) {
+	serviceMgr, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+
+	group := new(errgroup.Group)
+	for _, name := range names {
+		service, err := serviceMgr.OpenService(name)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errs.Combine(err, service.Close())
+		}()
+
+		_, err = service.Control(svc.Stop)
+		if err != nil {
+			return err
+		}
+
+		group.Go(waitForStop(service))
+	}
+
+	if err = group.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func waitForStop(service *mgr.Service) (func() error) {
+	return func() error {
+		ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+		for {
+			status, err := service.Query()
+			if err != nil {
+				return err
+			}
+
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
+			switch status.State {
+			case svc.Stopped:
+				return nil
+			default:
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
 }
