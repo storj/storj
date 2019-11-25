@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -176,7 +177,10 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 
 		since, err := service.db.CouponUsage().GetLatest(ctx, coupon.ID)
 		if err != nil {
-			// TODO: if err != noRows - return err
+			if err != sql.ErrNoRows {
+				return err // TODO: should we return or just continue?
+			}
+
 			since = time.Now().UTC()
 		}
 

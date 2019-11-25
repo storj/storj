@@ -5,7 +5,6 @@ package stripecoinpayments_test
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -28,29 +28,29 @@ func TestCouponRepository(t *testing.T) {
 			Duration:    time.Hour * 24,
 			Amount:      10,
 			Status:      payments.CouponActive,
-			Description: "qwe",
+			Description: "description",
 			ProjectID:   testrand.UUID(),
 			UserID:      testrand.UUID(),
 		}
 
-		t.Run("Insertion", func(t *testing.T) {
+		t.Run("insert", func(t *testing.T) {
 			err := couponsRepo.Insert(ctx, coupon)
 			assert.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponActive)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(coupons))
-			//coupon = coupons[0]
+			coupon = coupons[0]
 		})
 
 		t.Run("update", func(t *testing.T) {
 			err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
 			assert.NoError(t, err)
 
-			_, err = couponsRepo.List(ctx, payments.CouponActive)
+			coupons, err := couponsRepo.List(ctx, payments.CouponUsed)
 			assert.NoError(t, err)
-			//assert.Equal(t, payments.CouponUsed, coupons[0].Status)
-			//coupon = coupons[0]
+			assert.Equal(t, payments.CouponUsed, coupons[0].Status)
+			coupon = coupons[0]
 		})
 	})
 }
@@ -71,13 +71,31 @@ func TestCouponUsageRepository(t *testing.T) {
 			ProjectID:   testrand.UUID(),
 			UserID:      testrand.UUID(),
 		}
+		now := time.Now().UTC()
 
-		t.Run("Get latest on empty table", func(t *testing.T) {
+		t.Run("get latest on empty table return sql.ErrNoRows", func(t *testing.T) {
 			_, err := couponUsage.GetLatest(ctx, coupon.ID)
 			assert.Error(t, err)
-			fmt.Errorf(err.Error())
 			assert.Equal(t, true, sql.ErrNoRows == err)
 		})
-
+		t.Run("insert", func(t *testing.T) {
+			err := couponUsage.Insert(ctx, stripecoinpayments.CouponUsage{
+				CouponID: coupon.ID,
+				Amount:   1,
+				Start:    now.Add(-time.Hour * 24),
+				End:      now,
+			})
+			assert.NoError(t, err)
+			date, err := couponUsage.GetLatest(ctx, coupon.ID)
+			assert.NoError(t, err)
+			isoMillis := "2006-01-02T15:04:05.000-0700Z"
+			// go and postgres has different precision. go - nanoseconds, postgres milli
+			assert.Equal(t, date.Format(isoMillis), now.Format(isoMillis))
+		})
+		t.Run("total usage", func(t *testing.T) {
+			amount, err := couponUsage.TotalUsageForPeriod(ctx, coupon.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, amount, int64(1))
+		})
 	})
 }

@@ -45,9 +45,11 @@ func (couponUsage *couponUsage) Insert(ctx context.Context, usage stripecoinpaym
 func (couponUsage *couponUsage) TotalUsageForPeriod(ctx context.Context, couponID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
-	query := `SELECT SUM(amount)
+	query := couponUsage.db.Rebind(
+		`SELECT SUM(amount)
 			  FROM coupon_usages
-			  WHERE coupon_id = ?`
+			  WHERE coupon_id = ?;`,
+	)
 
 	amountRow := couponUsage.db.QueryRowContext(ctx, query, couponID[:])
 
@@ -61,11 +63,13 @@ func (couponUsage *couponUsage) TotalUsageForPeriod(ctx context.Context, couponI
 func (couponUsage *couponUsage) GetLatest(ctx context.Context, couponID uuid.UUID) (_ time.Time, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
-	query := `SELECT period_end
-			  FROM coupon_usages
-			  WHERE coupon_id = ?
+	query := couponUsage.db.Rebind(
+		`SELECT period_end 
+			  FROM coupon_usages 
+			  WHERE coupon_id = ? 
 			  ORDER BY period_end DESC
-			  LIMIT 1`
+			  LIMIT 1;`,
+	)
 
 	amountRow := couponUsage.db.QueryRowContext(ctx, query, couponID[:])
 
