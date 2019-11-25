@@ -117,6 +117,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.serveJSONError(w, err)
+		return
 	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
