@@ -973,12 +973,12 @@ model coupon (
     key id
 
     field id               blob
+    field project_id       blob
     field user_id          blob
     field amount           int64
-    field remaining_mount  int64     ( updatable )
     field description      text
-    field start            timestamp
-    field end              timestamp
+    field status           int   ( updatable )
+    field duration         int64
 
     field created_at timestamp ( autoinsert )
 )
@@ -990,14 +990,29 @@ update coupon (
 delete coupon (
     where coupon.id = ?
 )
-
-read one (
+read all (
     select coupon
     where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.status = ?
+    orderby desc coupon.created_at
 )
 read limitoffset (
     select coupon
     where coupon.created_at <= ?
+    where coupon.status = ?
     orderby desc coupon.created_at
 )
+model coupon_usage (
+    key id
 
+    field id           blob
+    field coupon_id    blob
+    field amount       int64
+    field period_start timestamp
+    field period_end   timestamp
+)
+create coupon_usage ()

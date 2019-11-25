@@ -1,34 +1,41 @@
 package payments
 
 import (
-	"context"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// CouponsDB is an interface for managing coupons table.
-//
-// architecture: Database
-type CouponsDB interface {
-	// Insert inserts a stripe customer into the database.
-	Insert(ctx context.Context, coupon Coupon) error
-	// Insert inserts a stripe customer into the database.
-	Update(ctx context.Context, coupon Coupon) error
-	// Insert inserts a stripe customer into the database.
-	Delete(ctx context.Context, couponID uuid.UUID) error
-	// List returns page with customers ids created before specified date.
-	List(ctx context.Context, offset int64, limit int, before time.Time) (error, error)
-}
-
 // Coupon is an entity that adds some funds to Accounts balance for some fixed period.
+// Coupon is attached to the project.
 // At the end of the period, the entire remaining coupon amount will be returned from the account balance.
 type Coupon struct {
-	ID              uuid.UUID `json:"id"`
-	UserID          uuid.UUID `json:"userId"`
-	Amount          int64     `json:"amount"`
-	RemainingAmount int64     `json:"remainingAmount"`
-	Description     string    `json:"description"`
-	Start           time.Time `json:"start"`
-	End             time.Time `json:"end"`
+	ID          uuid.UUID     `json:"id"`
+	UserID      uuid.UUID     `json:"userId"`
+	ProjectID   uuid.UUID     `json:"projectId"`
+	Amount      int64         `json:"amount"`   // Amount is stored in cents.
+	Duration    time.Duration `json:"duration"` // Duration is stored in days.
+	Description string        `json:"description"`
+	Status      CouponStatus  `json:"status"`
+	Created     time.Time     `json:"created"`
+}
+
+// CouponStatus indicates the state of the coupon.
+type CouponStatus int
+
+const (
+	// CouponActive is a default coupon state.
+	CouponActive CouponStatus = 0
+	// CouponUsed status indicates that coupon was used.
+	CouponUsed CouponStatus = 1
+	// CouponExpired status indicates that coupon is expired and unavailable.
+	CouponExpired CouponStatus = 2
+)
+
+// CouponsPage holds set of coupon and indicates if
+// there are more coupons to fetch.
+type CouponsPage struct {
+	Coupons    []Coupon
+	Next       bool
+	NextOffset int64
 }

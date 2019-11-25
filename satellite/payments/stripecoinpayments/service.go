@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -39,6 +41,7 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
+	CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -101,38 +104,117 @@ func (service *Service) Accounts() payments.Accounts {
 }
 
 // AddCoupon attaches a coupon for payment account.
-func (service *Service) AddCoupon(ctx context.Context, userID uuid.UUID, amount int64, start, end time.Time, description string) (err error) {
-	defer mon.Task()(&ctx, userID, amount, start, end)(&err)
+func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error) {
+	defer mon.Task()(&ctx, userID, amount, duration)(&err)
 
-	customerID, err := service.db.Customers().GetCustomerID(ctx, userID)
+	coupon := payments.Coupon{
+		UserID:      userID,
+		Status:      payments.CouponActive,
+		ProjectID:   projectID,
+		Amount:      amount,
+		Description: description,
+		Duration:    duration,
+	}
+
+	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
+}
+
+// updateCouponUsageLoop updates all daily coupon usage in a loop.
+func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	// takes first coupon page
+	couponPage, err := service.db.Coupons().ListPaged(ctx, 0, limit, before, payments.CouponActive)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	params := &stripe.CustomerBalanceTransactionParams{
-		Params: stripe.Params{},
-		// negative amount to credit balance in stripe.
-		Amount:   stripe.Int64(-amount),
-		Customer: stripe.String(customerID),
-		Currency: stripe.String(string(stripe.CurrencyUSD)),
-		Description: stripe.String(description),
-	}
-
-	if _, err = service.stripeClient.CustomerBalanceTransactions.New(params); err != nil {
+	// iterates through all coupons, takes daily project usage and create new coupon usage
+	err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	coupon := payments.Coupon{
-		UserID:          userID,
-		Amount:          amount,
-		RemainingAmount: amount,
-		Description:     description,
-		Start:           start,
-		End:             end,
+	// iterates by rest pages
+	for couponPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		couponPage, err = service.db.Coupons().ListPaged(ctx, couponPage.NextOffset, limit, before, payments.CouponActive)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// iterates through all coupons, takes daily project usage and create new coupon usage
+		err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
-	// TODO: delete CustomerBalanceTransactions from stripe, if db insertion fails
-	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
+	return nil
+}
+
+// createDailyCouponUsage iterates through all coupons, takes daily project usage and create new coupon usage.
+// TODO: it will works only for 1 coupon per project. Need rework in future.
+func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, coupon := range coupons {
+		// check if coupon expired
+		if coupon.Created.Add(coupon.Duration).After(time.Now().UTC()) {
+			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		since, err := service.db.CouponUsage().GetLatest(ctx, coupon.ID)
+		if err != nil {
+			// TODO: if err != noRows - return err
+			since = time.Now().UTC()
+		}
+
+		start, end := date.DayBoundary(since)
+		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, start, end)
+		if err != nil {
+			return err
+		}
+
+		// TODO: reuse this code fragment.
+		egressPrice := usage.Egress * service.EgressPrice / int64(memory.TB)
+		objectCountPrice := int64(usage.ObjectCount * float64(service.PerObjectPrice))
+		storageGbHrsPrice := int64(usage.Storage*float64(service.TBhPrice)) / int64(memory.TB)
+
+		amount := egressPrice + objectCountPrice + storageGbHrsPrice
+
+		// check if coupon is used
+		if amount >= coupon.Amount {
+			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed); err != nil {
+				return err
+			}
+
+			amount = coupon.Amount
+		}
+
+		couponUsage := CouponUsage{
+			Start:    since.UTC(),
+			End:      since.Add(time.Hour * 24).UTC(),
+			Amount:   amount,
+			CouponID: coupon.ID,
+		}
+
+		if err = service.db.CouponUsage().Insert(ctx, couponUsage); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // updateTransactionsLoop updates all pending transactions in a loop.
@@ -491,6 +573,99 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	return err
+}
+
+// InvoiceApplyCoupons iterates through all active coupons.
+func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	// takes first coupon page
+	couponPage, err := service.db.Coupons().ListPaged(ctx, 0, limit, before, payments.CouponActive)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err = service.applyCouponsDiscount(ctx, couponPage.Coupons); err != nil {
+		return Error.Wrap(err)
+	}
+
+	// iterates by rest pages
+	for couponPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		couponPage, err = service.db.Coupons().ListPaged(ctx, couponPage.NextOffset, limit, before, payments.CouponActive)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.applyCouponsDiscount(ctx, couponPage.Coupons); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// applyCouponsDiscount iterates through all coupons, gets total usage for this coupon and creates Invoice coupon item.
+func (service *Service) applyCouponsDiscount(ctx context.Context, coupons []payments.Coupon) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, coupon := range coupons {
+		customerID, err := service.db.Customers().GetCustomerID(ctx, coupon.UserID)
+		if err != nil {
+			if err != ErrNoCustomer {
+				return err
+			}
+
+			service.log.Error(
+				fmt.Sprintf("Could not apply coupon for user %s", coupon.UserID.String()),
+				zap.Error(Error.Wrap(err)),
+			)
+
+			continue
+		}
+
+		amountToCharge, err := service.db.CouponUsage().TotalUsageForPeriod(ctx, coupon.ID)
+		if err != nil {
+			return err
+		}
+
+		err = service.createInvoiceCouponItem(ctx, customerID, coupon, amountToCharge)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// createInvoiceCouponItem creates new Invoice item for specified coupon.
+func (service *Service) createInvoiceCouponItem(ctx context.Context, customerID string, coupon payments.Coupon, amountToCharge int64) (err error) {
+	defer mon.Task()(&ctx, customerID, coupon)(&err)
+
+	projectItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(-amountToCharge),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(customerID),
+		Description: stripe.String(fmt.Sprintf("Discount from coupon: %s", coupon.Description)),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(coupon.Created.Unix()),
+			Start: stripe.Int64(coupon.Created.Add(coupon.Duration).Unix()),
+		},
+	}
+
+	projectItem.AddMetadata("projectID", coupon.ProjectID.String())
+	projectItem.AddMetadata("couponID", coupon.ID.String())
+
+	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+
+	// TODO: do smth with coupon
 	return err
 }
 

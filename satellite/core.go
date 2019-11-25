@@ -312,7 +312,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				peer.Log.Named("stripecoinpayments clearing loop"),
 				service,
 				pc.StripeCoinPayments.TransactionUpdateInterval,
-				pc.StripeCoinPayments.AccountBalanceUpdateInterval)
+				pc.StripeCoinPayments.AccountBalanceUpdateInterval,
+				pc.StripeCoinPayments.CouponUsageCycleInterval,
+			)
 		}
 	}
 

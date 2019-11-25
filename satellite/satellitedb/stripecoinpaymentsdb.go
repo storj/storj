@@ -4,7 +4,6 @@
 package satellitedb
 
 import (
-	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -35,6 +34,11 @@ func (db *stripeCoinPaymentsDB) ProjectRecords() stripecoinpayments.ProjectRecor
 }
 
 // CouponsDB is getter for coupons db.
-func (db *stripeCoinPaymentsDB) Coupons() payments.CouponsDB {
-	return nil
+func (db *stripeCoinPaymentsDB) Coupons() stripecoinpayments.CouponsDB {
+	return &coupons{db: db.db}
+}
+
+// CouponUsage is getter for coupon usage db.
+func (db *stripeCoinPaymentsDB) CouponUsage() stripecoinpayments.CouponUsageDB {
+	return &couponUsage{db: db.db}
 }

@@ -3,8 +3,6 @@
 
 package stripecoinpayments
 
-import "storj.io/storj/satellite/payments"
-
 // DB is stripecoinpayments DB interface.
 //
 // architecture: Database
@@ -16,5 +14,7 @@ type DB interface {
 	// ProjectRecords is getter for invoice project records db.
 	ProjectRecords() ProjectRecordsDB
 	// CouponsDB is getter for coupons db.
-	Coupons() payments.CouponsDB
+	Coupons() CouponsDB
+	// CouponsDB is getter for coupon_usage db.
+	CouponUsage() CouponUsageDB
 }
