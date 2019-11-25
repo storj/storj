@@ -30,7 +30,7 @@ var (
 	downloadVersion    = "v0.26.2"
 	buildInstallerOnce = sync.Once{}
 	msiBaseArgs        = []string{
-		"/passive", "/qb",
+		"/quiet", "/qn",
 		"/norestart",
 	}
 
