@@ -28,6 +28,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
+			if satelliteDB.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
+			}
+
 			planetConfig := config
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				return satellitedbtest.CreateMasterDB(t, "S", index, satelliteDB.MasterDB)

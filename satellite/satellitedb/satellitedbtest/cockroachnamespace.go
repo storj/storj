@@ -40,10 +40,7 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 	}
 
 	// this regex matches substrings like this "/dbName?"
-	r, err := regexp.Compile("[/][a-zA-Z0-9]+[?]")
-	if err != nil {
-		return nil, err
-	}
+	r := regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
 	if !r.MatchString(source) {
 		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
 	}

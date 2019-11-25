@@ -32,7 +32,7 @@ func NewPostgres(log *zap.Logger, schema string) (satellite.DB, error) {
 	}, nil
 }
 
-// PostgresDefined returns an error when no database connection string is provided
+// PostgresDefined returns an error when the --postgres-test-db or STORJ_POSTGRES_TEST is not set for tests.
 func PostgresDefined() error {
 	if *pgtest.ConnStr == "" {
 		return errs.New("flag --postgres-test-db or environment variable STORJ_POSTGRES_TEST not defined for PostgreSQL test database")
