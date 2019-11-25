@@ -78,7 +78,7 @@ func TestInstaller_Config(t *testing.T) {
 	tryUninstall(t, ctx)
 
 	installDir := ctx.Dir("install")
-	configFile := ctx.File("install", "config.yaml")
+	configPath := ctx.File("install", "config.yaml")
 
 	walletAddr := "0x0000000000000000000000000000000000000000"
 	email := "user@mail.test"
@@ -94,11 +94,12 @@ func TestInstaller_Config(t *testing.T) {
 	install(t, ctx, args...)
 	defer requireUninstall(t, ctx)
 
-	configData, err := os.Open(configFile)
+	configFile, err := os.Open(configPath)
 	require.NoError(t, err)
+	defer configFile.Close()
 
 	configBuf := bytes.Buffer{}
-	scanner := bufio.NewScanner(configData)
+	scanner := bufio.NewScanner(configFile)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.Trim(line, " \t\n")
