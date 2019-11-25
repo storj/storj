@@ -129,7 +129,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repaired segment should not contain any piece in the killed and DQ nodes
 		metainfoService := satellite.Metainfo.Service
@@ -253,7 +253,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should update audit status as fail
 		node, err = overlay.Get(ctx, corruptedNodeID)
@@ -371,7 +371,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should update audit status as fail
 		node, err = overlay.Get(ctx, corruptedNodeID)
@@ -463,7 +463,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
 		count, err = satellite.DB.RepairQueue().Count(ctx)
@@ -545,7 +545,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
 		count, err = satellite.DB.RepairQueue().Count(ctx)
@@ -633,7 +633,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
@@ -728,7 +728,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should have been done, due to the override
 		metainfoService := satellite.Metainfo.Service
@@ -814,7 +814,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Increase offline count by the difference to trigger repair
 		toKill += repairThreshold - repairOverride
@@ -843,7 +843,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should have been done, due to the override
 		metainfoService := satellite.Metainfo.Service
@@ -949,7 +949,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.Limiter.Wait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Get the pointer after repair to check the nodes where the pieces are
 		// stored
