@@ -32,6 +32,7 @@ var (
 	storagenodeBin string
 	updaterBin     string
 	msiPath        string
+	releaseMSIPath string
 
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
@@ -52,6 +53,8 @@ func TestMain(m *testing.M) {
 
 	storagenodeBin = filepath.Join(installerDir, "storagenode.exe")
 	updaterBin = filepath.Join(installerDir, "storagenode-updater.exe")
+
+	releaseMSIPath = filepath.Join(os.TempDir(), "installer.msi")
 
 	msiDir := filepath.Join(installerDir, "bin", "Release")
 	msiPath = filepath.Join(msiDir, "storagenode.msi")
@@ -74,8 +77,9 @@ func TestInstaller_Config(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	requireInstaller(ctx, t)
-	tryUninstall(t, ctx)
+	//requireInstaller(ctx, t)
+	downloadInstaller(t, ctx)
+	tryUninstall(t, ctx, releaseMSIPath)
 
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
@@ -91,8 +95,8 @@ func TestInstaller_Config(t *testing.T) {
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
 	}
-	install(t, ctx, args...)
-	defer requireUninstall(t, ctx)
+	install(t, ctx, releaseMSIPath, args...)
+	defer requireUninstall(t, ctx, releaseMSIPath)
 
 	configFile, err := os.Open(configPath)
 	require.NoError(t, err)
@@ -135,10 +139,11 @@ func TestInstaller_Config(t *testing.T) {
 	//require.Contains(t, configStr,expectedAddr)
 }
 
-func install(t *testing.T, ctx *testcontext.Context, args ...string) {
+// TODO: use consistent parameter order for `t` and `ctx`
+func install(t *testing.T, ctx *testcontext.Context, msi string, args ...string) {
 	logPath := ctx.File("install.log")
 	args = append(append([]string{
-		"/i", msiPath,
+		"/i", msi,
 		"/log", logPath,
 	}, msiBaseArgs...), args...)
 
@@ -153,16 +158,16 @@ func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 	}
 }
 
-func tryUninstall(t *testing.T, ctx *testcontext.Context) {
-	_, err := uninstall(t, ctx).CombinedOutput()
+func tryUninstall(t *testing.T, ctx *testcontext.Context, msi string) {
+	_, err := uninstall(t, ctx, msi).CombinedOutput()
 	if err != nil {
-		t.Logf("WARN: tried but failed to uninstall from: %s", msiPath)
+		t.Logf("WARN: tried but failed to uninstall from: %s", msi)
 	}
 }
 
-func requireUninstall(t *testing.T, ctx *testcontext.Context) {
+func requireUninstall(t *testing.T, ctx *testcontext.Context, msi string) {
 	logPath := ctx.File("uninstall.log")
-	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
+	uninstallOut, err := uninstall(t, ctx, msi).CombinedOutput()
 	if err != nil {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
 		if assert.NoError(t, err) {
@@ -172,15 +177,15 @@ func requireUninstall(t *testing.T, ctx *testcontext.Context) {
 	}
 }
 
-func uninstall(t *testing.T, ctx *testcontext.Context) *exec.Cmd {
-	args := append([]string{"/uninstall", msiPath}, msiBaseArgs...)
+func uninstall(t *testing.T, ctx *testcontext.Context, msi string) *exec.Cmd {
+	args := append([]string{"/uninstall", msi}, msiBaseArgs...)
 	return exec.Command("msiexec", args...)
 }
 
-func requireInstaller(ctx *testcontext.Context, t *testing.T) {
+func requireInstaller(ctx *testcontext.Context, t *testing.T, msi string) {
 	t.Helper()
 
-	require.NotEmpty(t, msiPath)
+	require.NotEmpty(t, msi)
 
 	buildInstallerOnce.Do(func() {
 		for name, path := range map[string]string{
@@ -207,23 +212,39 @@ func requireInstaller(ctx *testcontext.Context, t *testing.T) {
 		}
 	})
 
-	_, err := os.Stat(msiPath)
+	_, err := os.Stat(msi)
 	require.NoError(t, err)
 }
 
 func downloadBin(ctx *testcontext.Context, t *testing.T, name, dst string) {
 	t.Helper()
 
-	zip := ctx.File("archive", name+".exe.zip")
-	urlTemplate := "https://github.com/storj/storj/releases/download/{version}/{service}_{os}_{arch}.exe.zip"
+	zipPath := ctx.File("archive", name+".exe.zip")
+	url := releaseUrl(name, ".exe")
+
+	downloadArchive(ctx, t, url, zipPath)
+	unpackBinary(ctx, t, zipPath, dst)
+}
+
+func releaseUrl(name, ext string) string {
+	urlTemplate := "https://github.com/storj/storj/releases/download/{version}/{service}_{os}_{arch}{ext}.zip"
 
 	url := strings.Replace(urlTemplate, "{version}", downloadVersion, 1)
 	url = strings.Replace(url, "{service}", name, 1)
 	url = strings.Replace(url, "{os}", runtime.GOOS, 1)
 	url = strings.Replace(url, "{arch}", runtime.GOARCH, 1)
+	url = strings.Replace(url, "{ext}", ext, 1)
+	return url
+}
 
-	downloadArchive(ctx, t, url, zip)
-	unpackBinary(ctx, t, zip, dst)
+func downloadInstaller(t *testing.T, ctx *testcontext.Context) {
+	t.Helper()
+
+	zipPath := ctx.File("archive", "installer.msi.zip")
+	url := releaseUrl("storagenode", ".msi")
+
+	downloadArchive(ctx, t, url, zipPath)
+	unpackBinary(ctx, t, zipPath, releaseMSIPath)
 }
 
 func downloadArchive(ctx *testcontext.Context, t *testing.T, url, dst string) {
