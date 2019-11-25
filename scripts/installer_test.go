@@ -44,7 +44,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	installerDir, err := filepath.Abs(filepath.Join("..", "installer", "windows"))
+	var err error
+	installerDir, err = filepath.Abs(filepath.Join("..", "installer", "windows"))
 	if err != nil {
 		panic(err)
 	}
