@@ -151,13 +151,14 @@ func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 }
 
 func tryUninstall(t *testing.T, ctx *testcontext.Context) {
-	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
+	_, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
 		t.Logf("tried but failed to uninstall: %s", msiPath)
 	}
 }
 
 func requireUninstall(t *testing.T, ctx *testcontext.Context) {
+	logPath := ctx.File("uninstall.log")
 	uninstallOut, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
@@ -169,9 +170,7 @@ func requireUninstall(t *testing.T, ctx *testcontext.Context) {
 }
 
 func uninstall(t *testing.T, ctx *testcontext.Context) *exec.Cmd {
-	logPath := ctx.File("uninstall.log")
 	args := append([]string{"/uninstall", msiPath}, msiBaseArgs...)
-
 	return exec.Command("msiexec", args...)
 }
 
