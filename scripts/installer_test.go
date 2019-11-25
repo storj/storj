@@ -23,11 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
-
 	"storj.io/storj/private/sync2"
 	"storj.io/storj/private/testcontext"
-	"storj.io/storj/storagenode"
 )
 
 var (
@@ -81,6 +78,7 @@ func TestInstaller_Config(t *testing.T) {
 
 	installDir := ctx.Dir("install")
 	configFile := ctx.File("install", "config.yaml")
+	//configFile := "/home/bwhite/.local/share/storj/storagenode/config.yaml"
 
 	walletAddr := "0x0000000000000000000000000000000000000000"
 	email := "user@mail.test"
@@ -93,27 +91,22 @@ func TestInstaller_Config(t *testing.T) {
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
 	}
 	install(t, ctx, args...)
+	defer uninstall(t, ctx)
 
-	files, err := ioutil.ReadDir(installDir)
-	require.NoError(t, err)
-	for _, f := range files {
-		t.Log(f.Name())
-	}
-
-	configData, err := ioutil.ReadFile(configFile)
+	configData, err := os.Open(configFile)
 	require.NoError(t, err)
 
-	CommentlessConfigData := bytes.Buffer{}
-	scanner := bufio.NewScanner(os.Stdin)
+	configBuf := bytes.Buffer{}
+	scanner := bufio.NewScanner(configData)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "#") {
-			_, err := CommentlessConfigData.Write(scanner.Bytes())
-			require.NoError(t, err)
-		}
 		line = strings.Trim(line, " \t\n")
-		if len(line) != 0 {
-			_, err := CommentlessConfigData.Write(scanner.Bytes())
+		out := append(scanner.Bytes(), byte('\n'))
+		if len(line) == 0 {
+			continue
+		}
+		if !strings.HasPrefix(line, "#") {
+			_, err := configBuf.Write(out)
 			require.NoError(t, err)
 		}
 	}
@@ -121,16 +114,13 @@ func TestInstaller_Config(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	var config storagenode.Config
-	err = yaml.Unmarshal(CommentlessConfigData.Bytes(), config)
-	require.NoError(t, err)
-
-	t.Logf("configData: %s", string(configData))
-
-	// TODO: assert config values match input props
-	t.Logf("config:\n%+v", config)
-
-	// TODO: uninstall
+	certPath := ctx.File("install", "identity.cert")
+	keyPath := ctx.File("install", "identity.key")
+	require.Contains(t, configBuf.String(), "identity.cert-path: %s", certPath)
+	require.Contains(t, configBuf.String(), "identity.key-path: %s", keyPath)
+	require.Contains(t, configBuf.String(), "operator.email: %s", email)
+	require.Contains(t, configBuf.String(), "operator.wallet: %s", walletAddr)
+	//require.Contains(t, configBuf.String(),"server.address: %s", publicAddr)
 }
 
 func install(t *testing.T, ctx *testcontext.Context, args ...string) {
