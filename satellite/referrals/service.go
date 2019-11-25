@@ -31,7 +31,7 @@ type Config struct {
 	ReferralManagerURL storj.NodeURL
 }
 
-// ReferralsService allows communicating with the Referral Manager
+// Service allows communicating with the Referral Manager
 //
 // architecture: Service
 type Service struct {
@@ -67,7 +67,9 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 		return nil, errs.Wrap(err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err = conn.Close()
+	}()
 
 	client := conn.ReferralManagerClient()
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
@@ -148,7 +150,9 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	defer conn.Close()
+	defer func() {
+		err = conn.Close()
+	}()
 
 	if userID.IsZero() || len(token) == 0 {
 		return errs.New("invalid argument")

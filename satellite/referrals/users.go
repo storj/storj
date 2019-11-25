@@ -14,6 +14,7 @@ import (
 // ErrValidation validation related error class
 var ErrValidation = errs.Class("validation error")
 
+// CreateUser contains information that's necessary for creating a new user through referral program
 type CreateUser struct {
 	FullName      string `json:"fullName"`
 	ShortName     string `json:"shortName"`

@@ -72,6 +72,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 	return referralmanager, nil
 }
 
+// GetTokens implements a mock GetTokens endpoint that returns a number of referral tokens. By default, it returns 0 tokens.
 func (server *DefaultReferralManagerServer) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
 	tokens := make([][]byte, server.tokenCount)
 	for i := 0; i < server.tokenCount; i++ {
@@ -83,10 +84,12 @@ func (server *DefaultReferralManagerServer) GetTokens(ctx context.Context, req *
 	}, nil
 }
 
+// RedeemToken implements a mock RedeemToken endpoint.
 func (server *DefaultReferralManagerServer) RedeemToken(ctx context.Context, req *pb.RedeemTokenRequest) (*pb.RedeemTokenResponse, error) {
 	return &pb.RedeemTokenResponse{}, nil
 }
 
+// SetTokenCount sets the number of tokens GetTokens endpoint should return.
 func (server *DefaultReferralManagerServer) SetTokenCount(tokenCount int) {
 	server.tokenCount = tokenCount
 }
