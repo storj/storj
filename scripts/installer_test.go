@@ -115,18 +115,18 @@ func TestInstaller_Config(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	certPath := ctx.File("install", "identity.cert")
-	keyPath := ctx.File("install", "identity.key")
+	//certPath := ctx.File("install", "identity.cert")
+	//keyPath := ctx.File("install", "identity.key")
 
-	expectedCertPath := fmt.Sprintf("identity.cert-path: %s", certPath)
-	expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
+	//expectedCertPath := fmt.Sprintf("identity.cert-path: %s", certPath)
+	//expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
 	expectedEmail := fmt.Sprintf("operator.email: %s", email)
 	expectedWallet := fmt.Sprintf("operator.wallet: %s", walletAddr)
 	expectedAddr := fmt.Sprintf("server.address: %s", publicAddr)
 
 	configStr := configBuf.String()
-	require.Contains(t, configStr, expectedCertPath)
-	require.Contains(t, configStr, expectedKeyPath)
+	//require.Contains(t, configStr, expectedCertPath)
+	//require.Contains(t, configStr, expectedKeyPath)
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
 	require.Contains(t, configStr,expectedAddr)
