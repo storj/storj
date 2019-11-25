@@ -116,13 +116,14 @@ func TestInstaller_Config(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// TODO: require identity path
 	//certPath := ctx.File("install", "identity.cert")
 	//keyPath := ctx.File("install", "identity.key")
 
 	//expectedCertPath := fmt.Sprintf("identity.cert-path: %s", certPath)
 	//expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
 	expectedEmail := fmt.Sprintf("operator.email: %s", email)
-	expectedWallet := fmt.Sprintf("operator.wallet: %s", walletAddr)
+	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
 	expectedAddr := fmt.Sprintf("server.address: %s", publicAddr)
 
 	configStr := configBuf.String()
@@ -154,7 +155,7 @@ func install(t *testing.T, ctx *testcontext.Context, args ...string) {
 func tryUninstall(t *testing.T, ctx *testcontext.Context) {
 	_, err := uninstall(t, ctx).CombinedOutput()
 	if err != nil {
-		t.Logf("tried but failed to uninstall: %s", msiPath)
+		t.Logf("WARN: tried but failed to uninstall from: %s", msiPath)
 	}
 }
 
