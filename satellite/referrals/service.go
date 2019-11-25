@@ -22,8 +22,6 @@ import (
 var mon = monkit.Package()
 
 var (
-	// ErrReferralsConfigMissing is an error class for reporting missing referrals service configuration.
-	ErrReferralsConfigMissing = errs.Class("misssing referrals service configuration")
 	// ErrUsedEmail is an error class for reporting already used emails.
 	ErrUsedEmail = errs.Class("email used error")
 )
@@ -176,7 +174,7 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 
 func (service *Service) referralManagerConn(ctx context.Context) (*rpc.Conn, error) {
 	if service.config.ReferralManagerURL.IsZero() {
-		return nil, ErrReferralsConfigMissing.New("")
+		return nil, errs.New("missing referral manager url configuration")
 	}
 
 	return service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
