@@ -495,7 +495,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if err := validatePassword(password); err != nil {
+	if err := ValidatePassword(password); err != nil {
 		return err
 	}
 
@@ -598,7 +598,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	}
 
 	// validate fullName
-	err = validateFullName(fullName)
+	err = ValidateFullName(fullName)
 	if err != nil {
 		return ErrValidation.Wrap(err)
 	}
@@ -635,7 +635,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
-	if err := validatePassword(newPass); err != nil {
+	if err := ValidatePassword(newPass); err != nil {
 		return err
 	}
 
