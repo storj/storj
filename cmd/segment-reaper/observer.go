@@ -73,7 +73,7 @@ func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, poi
 
 func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	if obsvr.lastProjectID != "" && obsvr.lastProjectID != path.ProjectIDString {
-		err := analyzeProject(ctx, obsvr.db, obsvr.lastProjectID, obsvr.objects, obsvr.writer)
+		err := obsvr.analyzeProject(ctx)
 		if err != nil {
 			return err
 		}
@@ -130,6 +130,14 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		obsvr.remoteSegments++
 	}
 
+	return nil
+}
+
+// analyzeProject analyzes the objects in obsv.objects field for detecting bad
+// segments and writing them to objs.writer.
+func (obsvr *observer) analyzeProject(ctx context.Context) error {
+	// TODO this part will be implemented in next PR
+	// TODO(if): For what is this?
 	return nil
 }
 

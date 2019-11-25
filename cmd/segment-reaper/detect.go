@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"encoding/csv"
 	"os"
 
@@ -90,11 +89,5 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	log.Info("number of inline segments", zap.Int("segments", observer.inlineSegments))
 	log.Info("number of last inline segments", zap.Int("segments", observer.lastInlineSegments))
 	log.Info("number of remote segments", zap.Int("segments", observer.remoteSegments))
-	return nil
-}
-
-func analyzeProject(ctx context.Context, db metainfo.PointerDB, projectID string, buckets bucketsObjects, csvWriter *csv.Writer) error {
-	// TODO this part will be implemented in next PR
-	// TODO(if): For what is this?
 	return nil
 }
