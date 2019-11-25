@@ -322,9 +322,9 @@ func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, tr
 	}
 
 	for _, deletedID := range deletedIDs {
-		pieceID, pieceIdErr := storj.PieceIDFromBytes(deletedID)
-		if pieceIdErr != nil {
-			return Error.Wrap(pieceIdErr)
+		pieceID, pieceIDErr := storj.PieceIDFromBytes(deletedID)
+		if pieceIDErr != nil {
+			return Error.Wrap(pieceIDErr)
 		}
 		_, deleteErr := store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
 		err = errs.Combine(err, deleteErr)
