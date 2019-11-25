@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
