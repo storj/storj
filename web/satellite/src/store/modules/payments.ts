@@ -67,7 +67,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
         state: new PaymentsState(),
         mutations: {
             [SET_BALANCE](state: PaymentsState, balance: number): void {
-                state.balance = balance;
+                // we need -1 multiplication because negative balance from server is credits
+                state.balance = balance * -1;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;

@@ -53,10 +53,6 @@ export default class BillingArea extends Vue {
     // If balance is lower - yellow notification should appear.
     private readonly CRITICAL_AMOUNT: number = 1000;
 
-    public beforeDestroy() {
-        this.$store.dispatch(CLEAR_PAYMENT_INFO);
-    }
-
     public get hasNoCreditCard(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
@@ -73,6 +69,7 @@ export default class BillingArea extends Vue {
 
 <style scoped lang="scss">
     .account-billing-area {
+        padding-bottom: 35px;
 
         &__notification-container {
             margin-top: 35px;

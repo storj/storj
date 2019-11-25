@@ -4,7 +4,12 @@
 <template>
     <div class="payment-methods-area">
         <div class="payment-methods-area__top-container">
-            <h1 class="payment-methods-area__title text">Payment Methods</h1>
+            <div>
+                <h1 class="payment-methods-area__title text">Payment Methods</h1>
+                <h2 v-if="isBonusInfoShown" class="payment-methods-area__bonus-info">
+                    You have a chance to get bonus credits!
+                </h2>
+            </div>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
                     <VButton
@@ -123,6 +128,10 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    public get isBonusInfoShown(): boolean {
+        return !this.$store.state.paymentsModule.creditCards.length;
+    }
+
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
 
@@ -218,6 +227,13 @@ export default class PaymentMethods extends Vue {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
+        }
+
+        &__bonus-info {
+            font-family: 'font_regular', sans-serif;
+            font-size: 16px;
+            line-height: 21px;
+            color: #7889a1;
         }
 
         &__button-area {
