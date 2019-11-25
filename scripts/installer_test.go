@@ -35,7 +35,7 @@ var (
 
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
-	downloadVersion    = "v0.25.1"
+	downloadVersion    = "v0.26.2"
 	buildInstallerOnce = sync.Once{}
 	msiBaseArgs        = []string{
 		"/passive", "/qb",
