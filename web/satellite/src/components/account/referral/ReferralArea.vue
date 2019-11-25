@@ -13,6 +13,22 @@
                 <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
                 <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
             </div>
+            <div class="referral-container__copy-and-share-container__link-holder">
+                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
+                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
+            </div>
+            <div class="referral-container__copy-and-share-container__link-holder">
+                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
+                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
+            </div>
+            <div class="referral-container__copy-and-share-container__link-holder">
+                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
+                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
+            </div>
+            <div class="referral-container__copy-and-share-container__link-holder">
+                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
+                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
+            </div>
         </div>
         <p class="referral-container__not-available" v-if="!isAvailableLinks">No available referral links. Try again later.</p>
     </div>
@@ -43,7 +59,6 @@ export default class ReferralArea extends Vue {
 
     .referral-container {
         position: relative;
-        margin-top: 83px;
         height: 90vh;
         font-family: 'font_regular', sans-serif;
         display: flex;
@@ -56,6 +71,7 @@ export default class ReferralArea extends Vue {
             flex-direction: column;
             justify-items: center;
             align-items: center;
+            margin-top: 83px;
 
             &__text {
                 text-align: center;
@@ -69,6 +85,7 @@ export default class ReferralArea extends Vue {
 
         &__available {
             margin-top: 60px;
+            padding-bottom: 75px;
 
             &__title {
                 text-align: center;
@@ -88,7 +105,7 @@ export default class ReferralArea extends Vue {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 16px 15px 16px 21px;
+                padding: 10px 15px 10px 21px;
                 background-color: white;
                 border-radius: 6px;
                 margin-top: 24px;
@@ -128,9 +145,5 @@ export default class ReferralArea extends Vue {
             font-size: 16px;
             color: #354049;
         }
-    }
-
-    .additional-margin {
-
     }
 </style>
