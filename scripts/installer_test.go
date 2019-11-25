@@ -83,7 +83,7 @@ func TestInstaller_Config(t *testing.T) {
 
 	walletAddr := "0x0000000000000000000000000000000000000000"
 	email := "user@mail.test"
-	publicAddr := "127.0.0.1:0"
+	publicAddr := "127.0.0.1:10000"
 
 	args := []string{
 		fmt.Sprintf("INSTALLFOLDER=%s", installDir),
@@ -122,14 +122,14 @@ func TestInstaller_Config(t *testing.T) {
 	expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
 	expectedEmail := fmt.Sprintf("operator.email: %s", email)
 	expectedWallet := fmt.Sprintf("operator.wallet: %s", walletAddr)
-	//expectedAddr := fmt.Sprintf("server.address: %s", publicAddr)
+	expectedAddr := fmt.Sprintf("server.address: %s", publicAddr)
 
 	configStr := configBuf.String()
 	require.Contains(t, configStr, expectedCertPath)
 	require.Contains(t, configStr, expectedKeyPath)
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
-	//require.Contains(t, configStr,expectedAddr)
+	require.Contains(t, configStr,expectedAddr)
 }
 
 func install(t *testing.T, ctx *testcontext.Context, args ...string) {
