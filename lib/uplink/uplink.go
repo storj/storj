@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/identity"
@@ -69,6 +70,23 @@ type Config struct {
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
 		DialTimeout time.Duration
+
+		// PBKDFConcurrency is the passphrase-based key derivation function
+		// concurrency to use.
+		// WARNING: changing this value fundamentally changes how keys are
+		// derived. Keys generated with one value will not be the same keys
+		// as generated with other values! Leaving this at the default is
+		// highly recommended.
+		//
+		// Unfortunately, prior to vx.x.x, we automatically set this to the
+		// number of CPU cores your processor had. If you are having trouble
+		// decrypting data uploaded prior to vx.x.x, you may need to set
+		// this value to the number of cores your computer had at the time
+		// you entered a passphrase.
+		//
+		// Otherwise, this value should be left at the default value of 0
+		// (which means to use the internal default).
+		PBKDFConcurrency int
 	}
 }
 
@@ -91,6 +109,16 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
+	}
+	if cfg.Volatile.PBKDFConcurrency == 0 {
+		// WARNING: if this default value changes, the root keys of every user will change.
+		// So, don't change this without sufficiently good reason.
+		// some other argon2 wrapper libraries have chosen 8 as the default, so
+		// we do here.
+		cfg.Volatile.PBKDFConcurrency = 8
+	}
+	if cfg.Volatile.PBKDFConcurrency < 0 || cfg.Volatile.PBKDFConcurrency >= 256 {
+		return errs.New("Invalid value for PBKDFConcurrency (must fit in a uint8)")
 	}
 	return nil
 }
@@ -162,11 +190,10 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
-		uplinkCfg:     u.cfg,
-		dialer:        u.dialer,
-		metainfo:      m,
-		project:       project,
-		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
+		uplinkCfg: u.cfg,
+		dialer:    u.dialer,
+		metainfo:  m,
+		project:   project,
 	}, nil
 }
 

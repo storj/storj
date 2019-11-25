@@ -6,6 +6,8 @@ package stripecoinpayments
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"sync"
 	"time"
 
 	"github.com/stripe/stripe-go"
@@ -14,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -29,10 +32,12 @@ var (
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
+	StripePublicKey              string        `help:"stripe API public key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -42,13 +47,32 @@ type Service struct {
 	log          *zap.Logger
 	db           DB
 	projectsDB   console.Projects
+	usageDB      accounting.ProjectAccounting
 	stripeClient *client.API
 	coinPayments *coinpayments.Client
+
+	PerObjectPrice int64
+	EgressPrice    int64
+	TBhPrice       int64
+
+	mu       sync.Mutex
+	rates    coinpayments.CurrencyRateInfos
+	ratesErr error
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects) *Service {
-	stripeClient := client.New(config.StripeSecretKey, nil)
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
+	backendConfig := &stripe.BackendConfig{
+		LeveledLogger: log.Sugar(),
+	}
+
+	stripeClient := client.New(config.StripeSecretKey,
+		&stripe.Backends{
+			API:     stripe.GetBackendWithConfig(stripe.APIBackend, backendConfig),
+			Connect: stripe.GetBackendWithConfig(stripe.ConnectBackend, backendConfig),
+			Uploads: stripe.GetBackendWithConfig(stripe.UploadsBackend, backendConfig),
+		},
+	)
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -58,11 +82,15 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	)
 
 	return &Service{
-		log:          log,
-		db:           db,
-		projectsDB:   projectsDB,
-		stripeClient: stripeClient,
-		coinPayments: coinPaymentsClient,
+		log:            log,
+		db:             db,
+		projectsDB:     projectsDB,
+		usageDB:        usageDB,
+		stripeClient:   stripeClient,
+		coinPayments:   coinPaymentsClient,
+		TBhPrice:       tbhPrice,
+		PerObjectPrice: perObjectPrice,
+		EgressPrice:    egressPrice,
 	}
 }
 
@@ -199,15 +227,19 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
+	rate, err := service.db.Transactions().GetLockedRate(ctx, tx.ID)
+	if err != nil {
+		return err
+	}
+
 	if err = service.db.Transactions().Consume(ctx, tx.ID); err != nil {
 		return err
 	}
 
-	// TODO: add conversion logic
-	amount, _ := tx.Received.Int64()
+	cents := convertToCents(rate, &tx.Received)
 
 	params := &stripe.CustomerBalanceTransactionParams{
-		Amount:      stripe.Int64(amount),
+		Amount:      stripe.Int64(-cents),
 		Customer:    stripe.String(cusID),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Description: stripe.String("storj token deposit"),
@@ -215,8 +247,47 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 
 	params.AddMetadata("txID", tx.ID.String())
 
+	// TODO: 0 amount will return an error, how to handle that?
 	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
 	return err
+}
+
+// UpdateRates fetches new rates and updates service rate cache.
+func (service *Service) UpdateRates(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rates, err := service.coinPayments.ConversionRates().Get(ctx)
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.rates = rates
+	service.ratesErr = err
+
+	return err
+}
+
+// GetRate returns conversion rate for specified currencies.
+func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.Currency) (_ *big.Float, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if service.ratesErr != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	info1, ok := service.rates[curr1]
+	if !ok {
+		return nil, Error.New("no rate for currency %s", curr1)
+	}
+	info2, ok := service.rates[curr2]
+	if !ok {
+		return nil, Error.New("no rate for currency %s", curr2)
+	}
+
+	return new(big.Float).Quo(&info1.RateBTC, &info2.RateBTC), nil
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if

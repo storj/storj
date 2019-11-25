@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// ProjectUsage sums usage for given period
+// ProjectUsage sums usage for given period.
 export class ProjectUsage {
     public storage: number;
     public egress: number;

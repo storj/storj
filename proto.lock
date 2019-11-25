@@ -136,11 +136,6 @@
             ]
           }
         ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
         "package": {
           "name": "node"
         },
@@ -395,11 +390,6 @@
                 ]
               }
             ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
           }
         ],
         "package": {
@@ -5318,9 +5308,6 @@
         ],
         "imports": [
           {
-            "path": "gogo.proto"
-          },
-          {
             "path": "node.proto"
           }
         ],
@@ -5602,6 +5589,12 @@
             "name": "RetainResponse"
           },
           {
+            "name": "RestoreTrashRequest"
+          },
+          {
+            "name": "RestoreTrashResponse"
+          },
+          {
             "name": "PieceHeader",
             "fields": [
               {
@@ -5674,6 +5667,11 @@
                 "name": "Retain",
                 "in_type": "RetainRequest",
                 "out_type": "RetainResponse"
+              },
+              {
+                "name": "RestoreTrash",
+                "in_type": "RestoreTrashRequest",
+                "out_type": "RestoreTrashResponse"
               }
             ]
           }
@@ -5963,9 +5961,6 @@
             "path": "gogo.proto"
           },
           {
-            "path": "node.proto"
-          },
-          {
             "path": "orders.proto"
           }
         ],
@@ -5989,33 +5984,12 @@
             "fields": [
               {
                 "id": 1,
-                "name": "user_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "GetTokensResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
-                "type": "bytes",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "ReserveTokenRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
+                "name": "owner_user_id",
                 "type": "bytes"
               },
               {
                 "id": 2,
-                "name": "redeeming_satellite_id",
+                "name": "owner_satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -6031,7 +6005,15 @@
             ]
           },
           {
-            "name": "ReserveTokenResponse"
+            "name": "GetTokensResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "token_secrets",
+                "type": "bytes",
+                "is_repeated": true
+              }
+            ]
           },
           {
             "name": "RedeemTokenRequest",
@@ -6043,8 +6025,23 @@
               },
               {
                 "id": 2,
-                "name": "user_id",
+                "name": "redeem_user_id",
                 "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "redeem_satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -6062,11 +6059,6 @@
                 "out_type": "GetTokensResponse"
               },
               {
-                "name": "ReserveToken",
-                "in_type": "ReserveTokenRequest",
-                "out_type": "ReserveTokenResponse"
-              },
-              {
                 "name": "RedeemToken",
                 "in_type": "RedeemTokenRequest",
                 "out_type": "RedeemTokenResponse"
@@ -6077,15 +6069,6 @@
         "imports": [
           {
             "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "metainfo.proto"
-          },
-          {
-            "path": "orders.proto"
           }
         ],
         "package": {
@@ -6125,9 +6108,6 @@
           }
         ],
         "imports": [
-          {
-            "path": "gogo.proto"
-          },
           {
             "path": "encryption_access.proto"
           }

@@ -1139,8 +1139,13 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: 1,
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1297,8 +1302,13 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: int64(len(segments)),
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1527,7 +1537,7 @@ func TestIDs(t *testing.T) {
 
 		{ // streamID expired
 			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
 
@@ -1543,9 +1553,30 @@ func TestIDs(t *testing.T) {
 			require.Error(t, err)
 		}
 
+		{ // segment id missing stream id
+			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+				CreationDate: time.Now().Add(-1 * time.Hour),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
+
 		{ // segmentID expired
 			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
+				StreamId: &pb.SatStreamID{
+					CreationDate: time.Now(),
+				},
 			})
 			require.NoError(t, err)
 
@@ -1629,7 +1660,13 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			requests = append(requests, &metainfo.CommitObjectParams{})
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
+			requests = append(requests, &metainfo.CommitObjectParams{
+				EncryptedMetadata: metadata,
+			})
 			requests = append(requests, &metainfo.ListSegmentsParams{})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1687,8 +1724,13 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID: streamID,
+				StreamID:          streamID,
+				EncryptedMetadata: metadata,
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)

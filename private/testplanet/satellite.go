@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
@@ -49,6 +50,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 )
@@ -120,7 +122,7 @@ type SatelliteSystem struct {
 	Accounting struct {
 		Tally        *tally.Service
 		Rollup       *rollup.Service
-		ProjectUsage *accounting.ProjectUsage
+		ProjectUsage *accounting.Service
 	}
 
 	LiveAccounting struct {
@@ -225,8 +227,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
-			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			if *pgtest.CrdbConnStr != "" {
+				db, err = satellitedb.New(log, *pgtest.CrdbConnStr)
+			} else {
+				schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
+				db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			}
 		}
 		if err != nil {
 			return nil, err
@@ -263,7 +269,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					UptimeCount:       0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
-					OnlineWindow:      0,
+					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
 
 					AuditReputationRepairWeight:  1,
@@ -381,6 +387,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
 			},
+		}
+
+		if planet.ReferralManager != nil {
+			config.Referrals.ReferralManagerURL = storj.NodeURL{
+				ID:      planet.ReferralManager.Identity().ID,
+				Address: planet.ReferralManager.Addr().String(),
+			}
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
