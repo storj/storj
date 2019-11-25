@@ -1,7 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package windows
+// +build ignore
+
+package main
 
 import (
 	"archive/zip"
@@ -9,7 +11,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
