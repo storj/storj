@@ -78,9 +78,9 @@ type Config struct {
 		// as generated with other values! Leaving this at the default is
 		// highly recommended.
 		//
-		// Unfortunately, prior to vx.x.x, we automatically set this to the
+		// Unfortunately, up to version v0.26.2, we automatically set this to the
 		// number of CPU cores your processor had. If you are having trouble
-		// decrypting data uploaded prior to vx.x.x, you may need to set
+		// decrypting data uploaded with v0.26.2 or older, you may need to set
 		// this value to the number of cores your computer had at the time
 		// you entered a passphrase.
 		//
