@@ -262,7 +262,6 @@ model project (
 
     field name           text
     field description    text      ( updatable )
-    field usage_limit    int64     ( updatable )
     field partner_id     blob      ( nullable  )
     field owner_id       blob
 
@@ -558,6 +557,24 @@ read all (
 read all (
 	select storagenode_storage_tally
 	where storagenode_storage_tally.interval_end_time >= ?
+)
+
+// --- storage node accounting tables --- //
+
+model project_limit (
+    key project_id limit_type
+
+    field project_id  blob
+    field usage_limit uint64
+    field limit_type  int
+
+    field created_at timestamp ( autoinsert )
+)
+
+read one (
+    select project_limit
+    where  project_limit.project_id = ?
+    where  project_limit.limit_type = ?
 )
 
 //--- peer_identity ---//

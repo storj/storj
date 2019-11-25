@@ -23,11 +23,10 @@ import (
 
 // Project represents a specific project access session.
 type Project struct {
-	uplinkCfg     *Config
-	dialer        rpc.Dialer
-	metainfo      *metainfo.Client
-	project       *kvmetainfo.Project
-	maxInlineSize memory.Size
+	uplinkCfg *Config
+	dialer    rpc.Dialer
+	metainfo  *metainfo.Client
+	project   *kvmetainfo.Project
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -199,7 +198,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs)
 
-	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
+	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.uplinkCfg.Volatile.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", uint8(p.uplinkCfg.Volatile.PBKDFConcurrency))
 	if err != nil {
 		return nil, err
 	}

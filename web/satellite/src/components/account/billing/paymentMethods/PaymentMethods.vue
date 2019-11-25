@@ -35,7 +35,7 @@
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
-                <StorjInput class="form"/>
+                <TokenDepositSelection class="form" @onChangeTokenValue="onChangeTokenValue"/>
             </div>
             <VButton
                 label="Continue to Coin Payments"
@@ -46,9 +46,9 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput
+            <StripeCardInput
                 class="payment-methods-area__adding-container__stripe"
-                ref="stripeInput"
+                ref="stripeCardInput"
                 :on-stripe-response-callback="addCard"
             />
             <VButton
@@ -72,8 +72,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
-import StorjInput from '@/components/account/billing/paymentMethods/StorjInput.vue';
-import StripeInput from '@/components/account/billing/paymentMethods/StripeInput.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -84,6 +84,8 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
+    MAKE_TOKEN_DEPOSIT,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 interface StripeForm {
@@ -94,13 +96,16 @@ interface StripeForm {
     components: {
         VButton,
         CardComponent,
-        StorjInput,
-        StripeInput,
+        TokenDepositSelection,
+        StripeCardInput,
     },
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
     private isLoading: boolean = false;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
+    private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
+    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public mounted() {
         try {
@@ -111,7 +116,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public $refs!: {
-        stripeInput: StripeInput & StripeForm;
+        stripeCardInput: StripeCardInput & StripeForm;
     };
 
     public get creditCards(): CreditCard[] {
@@ -132,6 +137,10 @@ export default class PaymentMethods extends Vue {
         return !this.$store.state.paymentsModule.creditCards.length;
     }
 
+    public onChangeTokenValue(value: number): void {
+        this.tokenDepositValue = value;
+    }
+
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
 
@@ -144,16 +153,43 @@ export default class PaymentMethods extends Vue {
     }
     public onCancel(): void {
         this.areaState = PaymentMethodsBlockState.DEFAULT;
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
         return;
     }
 
-    public onConfirmAddSTORJ(): void {
+    /**
+     * onConfirmAddSTORJ checks if amount is valid and if so process token
+     * payment and return state to default
+     */
+    public async onConfirmAddSTORJ(): Promise<void> {
+        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
+            await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
+            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+            this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+            return;
+        }
+
+        try {
+            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
+            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+        try {
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
         this.areaState = PaymentMethodsBlockState.DEFAULT;
     }
 
     public async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeInput.onSubmit();
+        await this.$refs.stripeCardInput.onSubmit();
     }
 
     public async addCard(token: string) {

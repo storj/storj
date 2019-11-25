@@ -125,13 +125,10 @@ export class AuthHttpApi {
 
         switch (response.status) {
             case 401: {
-                throw new ErrorUnauthorized();
-            }
-            case 500: {
-                throw new Error('can not change password');
+                throw new Error('old password is incorrect, please try again');
             }
             default: {
-                throw new Error('old password is incorrect, please try again');
+                throw new Error('can not change password');
             }
         }
     }

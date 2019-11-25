@@ -214,7 +214,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeReputationDQ:     dq,
 		}
 		// update check-in when node is offline
-		err = cache.UpdateCheckIn(ctx, info, config)
+		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 		node, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -230,7 +230,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		info.IsUp = true
 		// update check-in when node is online
-		err = cache.UpdateCheckIn(ctx, info, config)
+		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 		node, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
