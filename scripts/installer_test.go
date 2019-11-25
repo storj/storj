@@ -86,6 +86,7 @@ func TestInstaller_Config(t *testing.T) {
 
 	args := []string{
 		fmt.Sprintf("INSTALLFOLDER=%s", installDir),
+		fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
 		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESSS=%s", publicAddr),
