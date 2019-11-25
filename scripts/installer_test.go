@@ -79,7 +79,6 @@ func TestInstaller_Config(t *testing.T) {
 
 	installDir := ctx.Dir("install")
 	configFile := ctx.File("install", "config.yaml")
-	//configFile := "/home/bwhite/.local/share/storj/storagenode/config.yaml"
 
 	walletAddr := "0x0000000000000000000000000000000000000000"
 	email := "user@mail.test"
