@@ -40,7 +40,6 @@ type Project struct {
 
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	UsageLimit  int64     `json:"usageLimit"`
 	PartnerID   uuid.UUID `json:"partnerId"`
 	OwnerID     uuid.UUID `json:"ownerId"`
 
