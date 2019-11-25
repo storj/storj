@@ -136,13 +136,14 @@ We are thinking of using native packaging for the following reasons:
 - some linux users are reluctant to use snap
 - covering deb and rpm packaging would make us cover most used distributions
 - with proper packaging, we could directly be included in the distributions
-
+ 
 ## Implementation
 ### Debian package
 - create a storj debian git
-- Implement the debian package skeleton using dh-make-golang. It will create a debian directory that contains all the necessary files to generate the package using dpkg-buildpackage. Commit it to the storj debian git.
-- modify the `debian/rules` file to embed a `config.yaml` template file.
-- create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the storage directory.
+- Implement the debian package skeleton using dh-make. It will create a debian directory that contains all the necessary files to generate the package using dpkg-buildpackage. Commit it to the storj debian git.
+- Modify the `debian/rules` file to embed a `config.yaml` template file and create a `/var/storagenode/bin` directory (where the binaries will be put).
+- Create the script that will check the storagenode and storagenode-updates latest available versions, download them, put them in the `/var/storagenode/bin`
+- create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the storage and the `/var/storagenode/bin` directories.
 - Implement a systemD service running storagenode binary. It will be installed by calling `dh_installsystemd` in `debian/rules`
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
@@ -158,9 +159,8 @@ We are thinking of using native packaging for the following reasons:
 - write a Linux installation and auto-update contributor guide
 
 ### Repository
-- serve the package using reprepro
+- Create a dockerfile that serves the package using reprepro
     - https://wiki.debian.org/DebianRepository/SetupWithReprepro
-    - or use an already existing docker image (like https://github.com/bbinet/docker-reprepro)
 
 ### RPM
 - Generate a script to gather user input: https://superuser.com/questions/408852/is-it-possible-to-get-users-input-during-installation-of-rpm
@@ -174,4 +174,8 @@ We are thinking of using native packaging for the following reasons:
 
 ### Continuous Integration
 - Write a Dockerfile that builds the package.
-
+- Adapt the reprepro Dockerfile to commit to a git repository the content of the apt repository.
+## Wrapup
+- As a first step and as part of the PoC, the git repository and the debian package skeleton will be created.
+- The PoC will contain an already customized `config.yaml`, will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemD service.
+- The PoC will also contain first Dockerfile for the reprepro repository.
