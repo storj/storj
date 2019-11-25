@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage/teststore"
@@ -25,22 +26,23 @@ func TestObserver(t *testing.T) {
 		pointer *pb.Pointer
 	}
 
-	// Creates a list of segmen references which belongs to the same object.
+	// Creates a list of segment references which belongs to the same object.
 	// If inline is true the last segment will be of INLINE type.
 	// If withNumSegments is true the last segment pointer will have 3he
 	// NumberOfSegments set.
-	newObject := func(numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool) []objectSegmentRef {
-		var (
-			projectIDString = projectID.String()
-			references      = make([]objectSegmentRef, 0, numSegments)
-		)
-
+	newObject := func(numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool) (objectPath string, _ []objectSegmentRef) {
 		var objectID string
 		{
 			id, err := uuid.New()
 			require.NoError(t, err)
 			objectID = id.String()
 		}
+
+		var (
+			projectIDString = projectID.String()
+			references      = make([]objectSegmentRef, 0, numSegments)
+			encryptedPath   = fmt.Sprintf("%s-%s-%s", projectIDString, bucketName, objectID)
+		)
 
 		for i := 0; i < (numSegments - 1); i++ {
 			references = append(references, objectSegmentRef{
@@ -49,7 +51,7 @@ func TestObserver(t *testing.T) {
 					ProjectIDString:     projectIDString,
 					BucketName:          bucketName,
 					Segment:             fmt.Sprintf("s%d", i),
-					EncryptedObjectPath: fmt.Sprintf("%s-%s-%s-s%d", projectIDString, bucketName, objectID, i),
+					EncryptedObjectPath: encryptedPath,
 					Raw:                 fmt.Sprintf("%s/%s/%s/s%d", projectIDString, bucketName, objectID, i),
 				},
 				pointer: &pb.Pointer{
@@ -73,13 +75,13 @@ func TestObserver(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		return append(references, objectSegmentRef{
+		references = append(references, objectSegmentRef{
 			path: metainfo.ScopedPath{
 				ProjectID:           *projectID,
 				ProjectIDString:     projectIDString,
 				BucketName:          bucketName,
 				Segment:             "l",
-				EncryptedObjectPath: fmt.Sprintf("%s-%s-%s-l", projectIDString, bucketName, objectID),
+				EncryptedObjectPath: encryptedPath,
 				Raw:                 fmt.Sprintf("%s/%s/%s/l", projectIDString, bucketName, objectID),
 			},
 			pointer: &pb.Pointer{
@@ -87,6 +89,8 @@ func TestObserver(t *testing.T) {
 				Metadata: metadata,
 			},
 		})
+
+		return encryptedPath, references
 	}
 
 	t.Run("processSegment", func(t *testing.T) {
@@ -99,23 +103,83 @@ func TestObserver(t *testing.T) {
 		}
 
 		t.Run("objects of different project", func(t *testing.T) {
-			numSegments := rand.Intn(10) + 1
-			inline := (rand.Int() % 2) == 0
-			withNumSegments := (rand.Int() % 2) == 0
+			var (
+				expectedNumSegments    int
+				expectedInlineSegments int
+				expectedRemoteSegments int
+				expectedObjects        = map[string]map[storj.Path]*Object{}
+				objSegments            []objectSegmentRef
+			)
+
 			projID, err := uuid.New()
 			require.NoError(t, err)
+			{
+				numSegments := rand.Intn(10) + 1
+				inline := (rand.Int() % 2) == 0
+				withNumSegments := (rand.Int() % 2) == 0
 
-			objSegmentsProj := newObject(numSegments, projID, "project1", inline, withNumSegments)
-			objSegments := append([]objectSegmentRef{}, objSegmentsProj...)
+				_, objSegmentsProj := newObject(numSegments, projID, "project1", inline, withNumSegments)
+				objSegments = append(objSegments, objSegmentsProj...)
 
-			numSegments = rand.Intn(10) + 1
-			inline = (rand.Int() % 2) == 0
-			withNumSegments = (rand.Int() % 2) == 0
-			projID, err = uuid.New()
-			require.NoError(t, err)
+				expectedNumSegments += numSegments
+				if inline {
+					expectedInlineSegments++
+					expectedRemoteSegments += (numSegments - 1)
+				} else {
+					expectedRemoteSegments += numSegments
+				}
 
-			objSegmentsProj = newObject(numSegments, projID, "project2", inline, withNumSegments)
-			objSegments = append([]objectSegmentRef{}, objSegmentsProj...)
+				// Reset project ID to create several objects in the same project
+				projID, err = uuid.New()
+				require.NoError(t, err)
+
+				var (
+					bucketName = "0"
+					numObjs    = rand.Intn(10) + 2
+				)
+				for i := 0; i < numObjs; i++ {
+					numSegments = rand.Intn(10) + 1
+					inline = (rand.Int() % 2) == 0
+					withNumSegments = (rand.Int() % 2) == 0
+
+					if rand.Int()%2 == 0 {
+						bucketName = fmt.Sprintf("bucket-%d", i)
+					}
+					objPath, objSegmentsProj := newObject(numSegments, projID, bucketName, inline, withNumSegments)
+					objSegments = append(objSegments, objSegmentsProj...)
+
+					// TODO: use findOrCreate when cluster removal is merged
+					var expectedObj *Object
+					bucketObjects, ok := expectedObjects[bucketName]
+					if !ok {
+						expectedObj = &Object{}
+						expectedObjects[bucketName] = map[storj.Path]*Object{
+							storj.Path(objPath): expectedObj,
+						}
+					} else {
+						expectedObj, ok = bucketObjects[storj.Path(objPath)]
+						if !ok {
+							expectedObj = &Object{}
+							bucketObjects[storj.Path(objPath)] = expectedObj
+						}
+					}
+
+					if withNumSegments {
+						expectedObj.expectedNumberOfSegments = byte(numSegments)
+					}
+
+					expectedObj.hasLastSegment = true
+					expectedObj.skip = false
+
+					expectedNumSegments += numSegments
+					if inline {
+						expectedInlineSegments++
+						expectedRemoteSegments += (numSegments - 1)
+					} else {
+						expectedRemoteSegments += numSegments
+					}
+				}
+			}
 
 			ctx := testcontext.New(t)
 			for _, objSeg := range objSegments {
@@ -124,20 +188,34 @@ func TestObserver(t *testing.T) {
 			}
 
 			assert.Equal(t, projID.String(), obsvr.lastProjectID, "lastProjectID")
+			assert.Equal(t, expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
+			// newObject if returns an inline segment is always the last
+			assert.Equal(t, expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
+			assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 
-			if inline {
-				assert.Equal(t, 1, obsvr.inlineSegments, "inlineSegments")
-				assert.Equal(t, 1, obsvr.lastInlineSegments, "lastInlineSegments")
+			if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
+				for cluster, bucketObjs := range obsvr.objects {
+					expBucketObjs, ok := expectedObjects[cluster.bucket]
+					if !ok {
+						t.Errorf("bucket '%s' shouldn't exist in objects map", cluster.bucket)
+						continue
+					}
 
-				if numSegments > 1 {
-					assert.Equal(t, 1, obsvr.remoteSegments, "remoteSegments")
-				} else {
-					assert.Zero(t, obsvr.remoteSegments, "remoteSegments")
+					if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", cluster.bucket) {
+						continue
+					}
+
+					for expPath, expObj := range expBucketObjs {
+						if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
+							continue
+						}
+
+						obj := bucketObjs[expPath]
+						assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
+						assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
+						assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
+					}
 				}
-			} else {
-				assert.Zero(t, obsvr.inlineSegments, "inlineSegments")
-				assert.Zero(t, obsvr.lastInlineSegments, "lastInlineSegments")
-				assert.Equal(t, numSegments, obsvr.remoteSegments, "remoteSegments")
 			}
 		})
 
