@@ -144,7 +144,7 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	// Clear error in the beginning to avoid issues down the line.
-	if err := satellitedbtest.PostgresDefined(); err != nil {
+	if err := satellitedbtest.DatabaseDefined(); err != nil {
 		return nil, err
 	}
 
