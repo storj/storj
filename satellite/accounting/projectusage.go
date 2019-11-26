@@ -61,7 +61,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
+		projectLimit, err := usage.projectAccountingDB.GetProjectBandwidthLimit(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
 		}
@@ -100,7 +100,7 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
+		projectLimit, err := usage.projectAccountingDB.GetProjectStorageLimit(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
 		}

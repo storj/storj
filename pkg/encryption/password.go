@@ -6,7 +6,6 @@ package encryption
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"runtime"
 
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/argon2"
@@ -25,7 +24,7 @@ func sha256hmac(key, data []byte) ([]byte, error) {
 
 // DeriveRootKey derives a root key for some path using the salt for the bucket and
 // a password from the user. See the password key derivation design doc.
-func DeriveRootKey(password, salt []byte, path storj.Path) (*storj.Key, error) {
+func DeriveRootKey(password, salt []byte, path storj.Path, argon2Threads uint8) (*storj.Key, error) {
 	mixedSalt, err := sha256hmac(password, salt)
 	if err != nil {
 		return nil, err
@@ -37,7 +36,7 @@ func DeriveRootKey(password, salt []byte, path storj.Path) (*storj.Key, error) {
 	}
 
 	// use a time of 1, 64MB of ram, and all of the cores.
-	keyData := argon2.IDKey(password, pathSalt, 1, uint32(64*memory.MiB/memory.KiB), uint8(runtime.GOMAXPROCS(-1)), 32)
+	keyData := argon2.IDKey(password, pathSalt, 1, uint32(64*memory.MiB/memory.KiB), argon2Threads, 32)
 	if len(keyData) != len(storj.Key{}) {
 		return nil, errs.New("invalid output from argon2id")
 	}
