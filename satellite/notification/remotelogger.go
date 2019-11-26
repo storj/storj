@@ -33,83 +33,47 @@ func (log *RemoteLogger) Zap() *zap.Logger {
 	return log.log
 }
 
-func (log *RemoteLogger) Debug(message string, fields ...zapcore.Field) {
+func (log *RemoteLogger) ProcessDebug(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	address := log.getAddress(ctx, log.target)
-
-	msg := &pb.NotificationMessage{
-		NodeId:   log.target,
-		Address:  address,
-		Message:  []byte(message),
-		Loglevel: pb.LogLevel_DEBUG,
-	}
-
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.log.Error("failed to process notification", zap.Error(err))
-	}
+	log.processNotification(ctx, log.target, message, pb.LogLevel_DEBUG)
 }
 
-func (log *RemoteLogger) Info(message string, fields ...zapcore.Field) {
+func (log *RemoteLogger) ProcessInfo(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	address := log.getAddress(ctx, log.target)
-
-	msg := &pb.NotificationMessage{
-		NodeId:   log.target,
-		Address:  address,
-		Message:  []byte(message),
-		Loglevel: pb.LogLevel_INFO,
-	}
-
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.log.Error("failed to process notification", zap.Error(err))
-	}
+	log.processNotification(ctx, log.target, message, pb.LogLevel_INFO)
 }
 
-func (log *RemoteLogger) Warn(message string, fields ...zapcore.Field) {
+func (log *RemoteLogger) ProcessWarn(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	address := log.getAddress(ctx, log.target)
-
-	msg := &pb.NotificationMessage{
-		NodeId:   log.target,
-		Address:  address,
-		Message:  []byte(message),
-		Loglevel: pb.LogLevel_WARN,
-	}
-
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.log.Error("failed to process notification", zap.Error(err))
-	}
+	log.processNotification(ctx, log.target, message, pb.LogLevel_WARN)
 }
 
-func (log *RemoteLogger) Error(message string, fields ...zapcore.Field) {
+func (log *RemoteLogger) ProcessError(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	address := log.getAddress(ctx, log.target)
-
-	msg := &pb.NotificationMessage{
-		NodeId:   log.target,
-		Address:  address,
-		Message:  []byte(message),
-		Loglevel: pb.LogLevel_ERROR,
-	}
-
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.log.Error("failed to process notification", zap.Error(err))
-	}
+	log.processNotification(ctx, log.target, message, pb.LogLevel_ERROR)
 }
 
-func (log *RemoteLogger) getAddress(ctx context.Context, _ storj.NodeID) string {
+func (log *RemoteLogger) processNotification(ctx context.Context, _ storj.NodeID, message string, level pb.LogLevel) {
 	node, err := log.Service.overlay.Get(ctx, log.target)
 	if err != nil {
 		log.log.Error("failed to receive node info", zap.Error(err))
 	}
 
-	return node.GetAddress().GetAddress()
+	address := node.GetAddress().GetAddress()
+
+	msg := &pb.NotificationMessage{
+		NodeId:   log.target,
+		Address:  address,
+		Message:  []byte(message),
+		Loglevel: level,
+	}
+
+	err = log.Service.ProcessNotification(msg)
+	if err != nil {
+		log.log.Error("failed to process notification", zap.Error(err))
+	}
 }
