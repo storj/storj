@@ -80,7 +80,8 @@ func TestMain(m *testing.M) {
 
 func TestInstaller_Config(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
+	t.Logf("ctx tmp path: %s", ctx.Dir(""))
 
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
@@ -90,6 +91,7 @@ func TestInstaller_Config(t *testing.T) {
 	publicAddr := "127.0.0.1:10000"
 
 	args := []string{
+		"INSTALLFOLDER=" + installDir,
 		//fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
 		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
@@ -156,11 +158,13 @@ func TestUpgrade_Config(t *testing.T) {
 }
 
 func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string, args ...string) {
+	log.Printf("installing from %s\n", msiPath)
 	logPath := ctx.File("log", "install.log")
 	args = append(append([]string{
 		"/i", msiPath,
 		"/log", logPath,
-	}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
+		//}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
+	}, msiBaseArgs...), args...)
 
 	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
 	if !assert.NoError(t, err) {
