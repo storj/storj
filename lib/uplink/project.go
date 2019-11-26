@@ -235,7 +235,7 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	return key, nil
 }
 
-// trySetBucketAttribution sets the bucket attribution if PartnerID or UserAgent is available
+// trySetBucketAttribution sets the bucket attribution if PartnerID or UserAgent is available.
 func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

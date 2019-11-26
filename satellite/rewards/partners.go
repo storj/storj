@@ -15,6 +15,7 @@ var DefaultPartnersDB = func() PartnersDB {
 	return db
 }()
 
+// parseUUID parse string to UUID, should be used ONLY with hardcoded partner UUID's.
 func parseUUID(s string) *uuid.UUID {
 	u, err := uuid.Parse(s)
 	if err != nil {
