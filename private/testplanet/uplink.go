@@ -149,7 +149,7 @@ func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey)
+	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey, "Test/1.0")
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.

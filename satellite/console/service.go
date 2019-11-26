@@ -231,18 +231,18 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, err
 	}
 
-	for _, tx := range txsInfos {
+	for _, info := range txsInfos {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID:            tx.ID.String(),
-				Description:   "STORJ Token Deposit",
-				TokenAmount:   tx.Amount.String(),
-				TokenReceived: tx.Received.String(),
-				Status:        tx.Status.String(),
-				Link:          tx.Link,
-				Start:         tx.CreatedAt,
-				End:           tx.ExpiresAt,
-				Type:          Transaction,
+				ID:          info.ID.String(),
+				Description: "STORJ Token Deposit",
+				Amount:      info.AmountCents,
+				Received:    info.ReceivedCents,
+				Status:      info.Status.String(),
+				Link:        info.Link,
+				Start:       info.CreatedAt,
+				End:         info.ExpiresAt,
+				Type:        Transaction,
 			},
 		)
 	}
@@ -257,7 +257,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -495,7 +495,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if err := validatePassword(password); err != nil {
+	if err := ValidatePassword(password); err != nil {
 		return err
 	}
 
@@ -598,7 +598,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	}
 
 	// validate fullName
-	err = validateFullName(fullName)
+	err = ValidateFullName(fullName)
 	if err != nil {
 		return ErrValidation.Wrap(err)
 	}
@@ -635,7 +635,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
-	if err := validatePassword(newPass); err != nil {
+	if err := ValidatePassword(newPass); err != nil {
 		return err
 	}
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -194,6 +194,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.id,
                     item.description,
                     item.amount,
+                    item.tokenReceived,
                     item.status,
                     item.link,
                     new Date(item.start),
@@ -203,5 +204,27 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return [];
+    }
+
+    /**
+     * makeTokenDeposit process coin payments
+     * @param amount
+     * @throws Error
+     */
+    public async makeTokenDeposit(amount: number): Promise<TokenDeposit> {
+        const path = `${this.ROOT_PATH}/tokens/deposit`;
+        const response = await this.client.post(path, JSON.stringify({ amount }));
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not process coin payment');
+        }
+
+        const result = await response.json();
+
+        return new TokenDeposit(result.amount, result.address);
     }
 }
