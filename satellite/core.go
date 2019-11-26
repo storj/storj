@@ -5,6 +5,16 @@ package satellite
 
 import (
 	"context"
+	"net"
+	"net/mail"
+	"net/smtp"
+
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
+
+	"storj.io/storj/satellite/notification"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -55,6 +65,10 @@ type Core struct {
 	Overlay struct {
 		DB      overlay.DB
 		Service *overlay.Service
+	}
+
+	Mail struct {
+		Service *mailservice.Service
 	}
 
 	Metainfo struct {
@@ -109,6 +123,10 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	Notification struct {
+		Service *notification.Service
+	}
 }
 
 // New creates a new satellite
@@ -156,6 +174,84 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
 		peer.LiveAccounting.Cache = liveAccounting
+	}
+
+	{ // setup mailservice
+		log.Debug("Satellite API Process setting up mail service")
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConfig := config.Mail
+
+		// validate from mail address
+		from, err := mail.ParseAddress(mailConfig.From)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
+		case "oauth2":
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "plain":
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "login":
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: post.LoginAuth{
+					Username: mailConfig.Login,
+					Password: mailConfig.Password,
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		default:
+			sender = &simulate.LinkClicker{}
+		}
+
+		peer.Mail.Service, err = mailservice.New(
+			peer.Log.Named("mail:service"),
+			sender,
+			mailConfig.TemplatePath,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup notification
+		log.Debug("Satellite API Process setting up notification endpoint")
+		peer.Notification.Service = notification.NewService(
+			peer.Log.Named("notification:service"),
+			config.Notification,
+			peer.Dialer,
+			peer.Overlay.Service,
+			peer.Mail.Service,
+		)
 	}
 
 	{ // setup accounting project usage

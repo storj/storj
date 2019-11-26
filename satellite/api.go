@@ -13,6 +13,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
+	"storj.io/storj/satellite/mailservice/simulate"
+
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -23,8 +27,6 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -35,7 +37,6 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodestats"
@@ -140,7 +141,7 @@ type API struct {
 	}
 }
 
-// NewAPI creates a new satellite API process
+// NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
@@ -186,6 +187,84 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector)
+	}
+
+	{ // setup mailservice
+		log.Debug("Satellite API Process setting up mail service")
+		// TODO(yar): test multiple satellites using same OAUTH credentials
+		mailConfig := config.Mail
+
+		// validate from mail address
+		from, err := mail.ParseAddress(mailConfig.From)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// validate smtp server address
+		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		var sender mailservice.Sender
+		switch mailConfig.AuthType {
+		case "oauth2":
+			creds := oauth2.Credentials{
+				ClientID:     mailConfig.ClientID,
+				ClientSecret: mailConfig.ClientSecret,
+				TokenURI:     mailConfig.TokenURI,
+			}
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: &oauth2.Auth{
+					UserEmail: from.Address,
+					Storage:   oauth2.NewTokenStore(creds, *token),
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "plain":
+			sender = &post.SMTPSender{
+				From:          *from,
+				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		case "login":
+			sender = &post.SMTPSender{
+				From: *from,
+				Auth: post.LoginAuth{
+					Username: mailConfig.Login,
+					Password: mailConfig.Password,
+				},
+				ServerAddress: mailConfig.SMTPServerAddress,
+			}
+		default:
+			sender = &simulate.LinkClicker{}
+		}
+
+		peer.Mail.Service, err = mailservice.New(
+			peer.Log.Named("mail:service"),
+			sender,
+			mailConfig.TemplatePath,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup notification
+		log.Debug("Satellite API Process setting up notification endpoint")
+		peer.Notification.Service = notification.NewService(
+			peer.Log.Named("notification:service"),
+			config.Notification,
+			peer.Dialer,
+			peer.Overlay.Service,
+			peer.Mail.Service,
+		)
 	}
 
 	{ // setup contact service
@@ -301,73 +380,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		)
 		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 		pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint)
-	}
-
-	{ // setup mailservice
-		log.Debug("Satellite API Process setting up mail service")
-		// TODO(yar): test multiple satellites using same OAUTH credentials
-		mailConfig := config.Mail
-
-		// validate from mail address
-		from, err := mail.ParseAddress(mailConfig.From)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		// validate smtp server address
-		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		var sender mailservice.Sender
-		switch mailConfig.AuthType {
-		case "oauth2":
-			creds := oauth2.Credentials{
-				ClientID:     mailConfig.ClientID,
-				ClientSecret: mailConfig.ClientSecret,
-				TokenURI:     mailConfig.TokenURI,
-			}
-			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: &oauth2.Auth{
-					UserEmail: from.Address,
-					Storage:   oauth2.NewTokenStore(creds, *token),
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "plain":
-			sender = &post.SMTPSender{
-				From:          *from,
-				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "login":
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: post.LoginAuth{
-					Username: mailConfig.Login,
-					Password: mailConfig.Password,
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		default:
-			sender = &simulate.LinkClicker{}
-		}
-
-		peer.Mail.Service, err = mailservice.New(
-			peer.Log.Named("mail:service"),
-			sender,
-			mailConfig.TemplatePath,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup payments
@@ -493,17 +505,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 		}
-	}
-
-	{ // setup notification
-		log.Debug("Satellite API Process setting up notification endpoint")
-		peer.Notification.Service = notification.NewService(
-			notification.NewLogger(peer.Log.Named("notification:service")),
-			config.Notification,
-			peer.Dialer,
-			peer.Overlay.Service,
-			peer.Mail.Service,
-		)
 	}
 
 	return peer, nil

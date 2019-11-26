@@ -152,8 +152,7 @@ type SatelliteSystem struct {
 	}
 
 	Notification struct {
-		Service  *notification.Service
-		Endpoint *notification.Endpoint
+		Service *notification.Service
 	}
 
 	GracefulExit struct {
@@ -495,7 +494,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
-	system.Notification.Endpoint = api.Notification.Endpoint
+	// system.Notification.Endpoint = api.Notification.Endpoint
 	system.Notification.Service = api.Notification.Service
 
 	system.Metrics.Chore = peer.Metrics.Chore

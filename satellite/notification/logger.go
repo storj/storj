@@ -1,10 +1,11 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package notification
 
 import (
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/sap"
 	"storj.io/storj/pkg/storj"
 )
@@ -14,56 +15,18 @@ type Logger struct {
 	*Service
 }
 
-func NewLogger(log *zap.Logger) Logger {
-	return Logger{*log, nil}
+func NewLogger(log *zap.Logger, service *Service) *Logger {
+	return &Logger{*log, service}
+}
+
+func (log *Logger) Named(s string) sap.Logger {
+	return &Logger{*log.log.Named(s), log.Service}
 }
 
 func (log *Logger) Remote(target storj.NodeID) sap.Logger {
-	return &RemoteLogger{log.log, log.Service, target}
+	return &RemoteLogger{target: target, Service: log.Service, Logger: log.Logger}
 }
 
-func (log *Logger) Debug(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_DEBUG}
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.Remote(msg.NodeId)
-	}
-}
-
-func (log *Logger) Info(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_INFO}
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.Remote(msg.NodeId)
-	}
-}
-
-func (log *Logger) Warn(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_WARN}
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.Remote(msg.NodeId)
-	}
-}
-
-func (log *Logger) Error(message string, fields ...zapcore.Field) {
-	msg := &pb.NotificationMessage{Message: []byte(message), Loglevel: pb.LogLevel_ERROR}
-	err := log.Service.ProcessNotification(msg)
-	if err != nil {
-		log.Remote(msg.NodeId)
-	}
-}
-
-type RemoteLogger struct {
-	sap.Logger
-	*Service
-	Target storj.NodeID
-}
-
-func (log *RemoteLogger) Remote(target storj.NodeID) sap.Logger {
-	return log
-}
-
-func (log *RemoteLogger) Named(s string) sap.Logger {
-	return log.Named(s)
+func (log *Logger) Zap() *zap.Logger {
+	return log.log
 }

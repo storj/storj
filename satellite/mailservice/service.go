@@ -99,7 +99,10 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	service.sending.Add(1)
 	go func() {
 		defer service.sending.Done()
-		_ = service.SendRendered(ctx, to, msg)
+		err := service.SendRendered(ctx, to, msg)
+		if err != nil {
+			service.log.Error(err.Error())
+		}
 	}()
 }
 

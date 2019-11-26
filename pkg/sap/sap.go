@@ -5,6 +5,7 @@ package sap
 
 import (
 	"go.uber.org/zap/zapcore"
+
 	"storj.io/storj/pkg/storj"
 )
 

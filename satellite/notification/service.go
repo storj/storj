@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/sap"
 	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/overlay"
@@ -29,7 +28,7 @@ type ClientSetting struct {
 // Service is the notification service between storage nodes and satellites.
 // architecture: Service
 type Service struct {
-	log     sap.Logger
+	log     *zap.Logger
 	config  Config
 	dialer  rpc.Dialer
 	overlay *overlay.Service
@@ -41,7 +40,7 @@ type Service struct {
 }
 
 // NewService creates a new notification service.
-func NewService(log sap.Logger, config Config, dialer rpc.Dialer, overlay *overlay.Service, mail *mailservice.Service) *Service {
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay *overlay.Service, mail *mailservice.Service) *Service {
 	return &Service{
 		log:     log,
 		config:  config,
@@ -112,6 +111,7 @@ func (service *Service) CheckEmailLimit(id string) bool {
 func (service *Service) ProcessNotification(message *pb.NotificationMessage) (err error) {
 	var eSent, rSent = false, false
 	ctx := context.Background()
+
 	service.log.Debug("sending to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
 	if service.CheckRPCLimit(message.NodeId.String()) {
 		_, err = service.processNotificationRPC(ctx, message)
@@ -139,6 +139,7 @@ func (service *Service) processNotificationRPC(ctx context.Context, message *pb.
 		if ok {
 			return &pb.NotificationResponse{}, Error.New("failed to connect to %s: %v", message.Address, err)
 		}
+
 		service.log.Warn("internal error", zap.String("error", err.Error()))
 		return &pb.NotificationResponse{}, Error.New("couldn't connect to client at addr: %s due to internal error.", message.Address)
 	}
@@ -171,7 +172,6 @@ func (service *Service) sendBroadcastNotification(ctx context.Context, message s
 		}
 		sentCount++
 	}
-
 	service.log.Info("sent to nodes", zap.Int("count", sentCount))
 	service.log.Debug("notification to the following nodes failed", zap.Strings("nodeIDs", failed))
 }
