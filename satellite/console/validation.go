@@ -32,8 +32,8 @@ func (validation *validationErrors) Combine() error {
 	return errs.Combine(*validation...)
 }
 
-// validatePassword validates password
-func validatePassword(pass string) error {
+// ValidatePassword validates password
+func ValidatePassword(pass string) error {
 	var errs validationErrors
 
 	if len(pass) < passMinLength {
@@ -43,8 +43,8 @@ func validatePassword(pass string) error {
 	return errs.Combine()
 }
 
-// validateFullName validates full name.
-func validateFullName(name string) error {
+// ValidateFullName validates full name.
+func ValidateFullName(name string) error {
 	if name == "" {
 		return errs.New("full name can not be empty")
 	}

@@ -70,7 +70,18 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 		return 0, Error.Wrap(err)
 	}
 
-	return c.Balance, nil
+	// add all active coupons amount to balance.
+	coupons, err := accounts.service.db.Coupons().ListByUserID(ctx, userID)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	var couponAmount int64 = 0
+	for _, coupon := range coupons {
+		couponAmount += coupon.Amount
+	}
+
+	return c.Balance + couponAmount, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
@@ -87,6 +98,7 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 
 	start, end := date.MonthBoundary(time.Now().UTC())
 
+	// TODO: we should improve performance of this block of code. It takes ~4-5 sec to get project charges.
 	for _, project := range projects {
 		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
 		if err != nil {
@@ -103,6 +115,15 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 	}
 
 	return charges, nil
+}
+
+// Coupons return list of all coupons of specified payment account.
+func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	coupons, err = accounts.service.db.Coupons().ListByUserID(ctx, userID)
+
+	return coupons, Error.Wrap(err)
 }
 
 // StorjTokens exposes all storj token related functionality.
