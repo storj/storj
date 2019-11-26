@@ -985,3 +985,51 @@ read one (
     select stripecoinpayments_tx_conversion_rate
     where stripecoinpayments_tx_conversion_rate.tx_id = ?
 )
+
+model coupon (
+    key id
+    unique project_id
+
+    field id               blob
+    field project_id       blob
+    field user_id          blob
+    field amount           int64
+    field description      text
+    field status           int   ( updatable )
+    field duration         int64
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon ()
+update coupon (
+    where coupon.id = ?
+)
+delete coupon (
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read limitoffset (
+    select coupon
+    where coupon.created_at <= ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+model coupon_usage (
+    key id
+
+    field id             blob
+    field coupon_id      blob
+    field amount         int64
+    field interval_end   timestamp
+)
+create coupon_usage ()
