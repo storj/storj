@@ -5571,6 +5571,29 @@
             "name": "PieceDeleteResponse"
           },
           {
+            "name": "PieceDeletePieceRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDeletePieceResponse"
+          },
+          {
             "name": "RetainRequest",
             "fields": [
               {
@@ -5671,7 +5694,18 @@
               {
                 "name": "Delete",
                 "in_type": "PieceDeleteRequest",
-                "out_type": "PieceDeleteResponse"
+                "out_type": "PieceDeleteResponse",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "name": "DeletePiece",
+                "in_type": "PieceDeletePieceRequest",
+                "out_type": "PieceDeletePieceResponse"
               },
               {
                 "name": "Retain",
