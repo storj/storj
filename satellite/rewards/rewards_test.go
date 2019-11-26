@@ -71,7 +71,7 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			var pID string
 			if new.Type == rewards.Partner {
-				partner, err := planet.Satellites[0].API.Marketing.PartnersService.PartnerByName(ctx, new.Name)
+				partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, new.Name)
 				require.NoError(t, err)
 				pID = partner.ID
 			}

@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
@@ -70,7 +71,8 @@ type Endpoint struct {
 	metainfo          *Service
 	orders            *orders.Service
 	overlay           *overlay.Service
-	partnerinfo       attribution.DB
+	attributions      attribution.DB
+	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
 	projectUsage      *accounting.Service
 	apiKeys           APIKeys
@@ -81,7 +83,8 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service,
+	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -89,7 +92,8 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		metainfo:          metainfo,
 		orders:            orders,
 		overlay:           cache,
-		partnerinfo:       partnerinfo,
+		attributions:      attributions,
+		partners:          partners,
 		peerIdentities:    peerIdentities,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
@@ -746,62 +750,40 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// TODO set default Redundancy if not set
-
 	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
-		var partnerID uuid.UUID
-		err = partnerID.UnmarshalJSON(req.GetPartnerId())
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		// partnerID not set
-		if partnerID.IsZero() {
-			return resp, rpcstatus.Error(rpcstatus.AlreadyExists, "Bucket already exists")
-		}
-
-		//update the bucket
-		bucket.PartnerID = partnerID
-		bucket, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
-
-		pbBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return resp, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: pbBucket,
-		}, nil
+		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
+	}
+	if !storj.ErrBucketNotFound.Has(err) {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	// create the bucket
-	if storj.ErrBucketNotFound.Has(err) {
-		bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		convBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return resp, err
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: convBucket,
-		}, nil
+	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-	return nil, Error.Wrap(err)
+
+	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+	}
+
+	convBucket, err := convertBucketToProto(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+	}
+
+	return &pb.BucketCreateResponse{
+		Bucket: convBucket,
+	}, nil
 }
 
 // DeleteBucket deletes a bucket
@@ -892,7 +874,30 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, parterID []byte) error {
+// resolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
+// returns empty uuid when neither is defined.
+func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
+	if len(partnerIDBytes) > 0 {
+		partnerID, err := bytesToUUID(partnerIDBytes)
+		if err != nil {
+			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		}
+		return partnerID, nil
+	}
+
+	if len(header.UserAgent) == 0 {
+		return uuid.UUID{}, nil
+	}
+
+	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
+	if err != nil || partner.UUID == nil {
+		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
+	}
+
+	return *partner.UUID, nil
+}
+
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
 	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
@@ -903,15 +908,18 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	partnerID, err := bytesToUUID(parterID)
+	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+	if partnerID.IsZero() {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
 	}
 
 	// check if attribution is set for given bucket
-	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, bucketName)
+	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
-		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
 		return nil
 	}
 
@@ -933,10 +941,33 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	if len(items) > 0 {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
-	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+	// checks if bucket exists before updates it or makes a new entry
+	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
+		}
+		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+	}
+	if !bucket.PartnerID.IsZero() {
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
+		return nil
+	}
+
+	// update bucket information
+	bucket.PartnerID = partnerID
+	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+	}
+
+	// update attribution table
+	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: bucketName,
 		PartnerID:  partnerID,
@@ -945,6 +976,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
 	return nil
 }
 
@@ -957,6 +989,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	defaultRS := req.GetDefaultRedundancyScheme()
 	defaultEP := req.GetDefaultEncryptionParameters()
 
+	// TODO: resolve partner id
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
 

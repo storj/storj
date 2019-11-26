@@ -1866,6 +1866,11 @@
                 "id": 1,
                 "name": "api_key",
                 "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "user_agent",
+                "type": "bytes"
               }
             ]
           },
