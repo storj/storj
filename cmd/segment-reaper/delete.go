@@ -4,6 +4,9 @@
 package main
 
 import (
+	"encoding/csv"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -14,15 +17,22 @@ import (
 
 var (
 	deleteCmd = &cobra.Command{
-		Use:   "delete",
+		Use:   "delete input_file.csv [flags]",
 		Short: "Deletes zombie segments from DB",
-		Args:  cobra.OnlyValidArgs,
-		RunE:  cmdDelete,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			if err := cobra.OnlyValidArgs(cmd, args); err != nil {
+				return err
+			}
+			return nil
+		},
+		RunE: cmdDelete,
 	}
 
 	deleteCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"postgres://"`
-		File        string `help:"location of file with report" default:"detect_result.csv"`
 		DryRun      bool   `help:"with this option no deletion will be done, only printing results" default:"false"`
 	}
 )
@@ -42,6 +52,18 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
+
+	inputFile, err := os.Open(args[0])
+	if err != nil {
+		return errs.New("error openning input file: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, inputFile.Close())
+	}()
+
+	_ = csv.NewReader(inputFile)
+
+	// TODO logice will be added in next PR
 
 	return nil
 }
