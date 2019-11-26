@@ -26,7 +26,3 @@ func (log *Logger) Named(s string) sap.Logger {
 func (log *Logger) Remote(target storj.NodeID) sap.Logger {
 	return &RemoteLogger{target: target, Service: log.Service, Logger: log.Logger}
 }
-
-func (log *Logger) Zap() *zap.Logger {
-	return log.log
-}

@@ -29,10 +29,6 @@ func (log *RemoteLogger) Named(s string) sap.Logger {
 	return &RemoteLogger{*log.Logger.Named(s), log.target, log.Service}
 }
 
-func (log *RemoteLogger) Zap() *zap.Logger {
-	return log.log
-}
-
 func (log *RemoteLogger) ProcessDebug(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_DEBUG)
 }
