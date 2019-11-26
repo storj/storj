@@ -149,12 +149,12 @@ export default class BandwidthChart extends Vue {
         tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
         tooltipEl.style.position = this.TOOLTIP_POSITION;
         tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
-        tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 150}px`;
+        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 303}px`;
 
         tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
         tooltipArrow.style.position = this.TOOLTIP_POSITION;
         tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
-        tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 125}px`;
+        tooltipArrow.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 35}px`;
     }
 }
 </script>
