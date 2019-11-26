@@ -94,6 +94,8 @@ func TestObserver(t *testing.T) {
 
 				expectedObj.hasLastSegment = true
 				expectedObj.skip = false
+				// segments mask doesn't contain the last segment, hence we move 1 bit more
+				expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
 
 				expectedNumSegments += numSegments
 				if inline {
@@ -140,8 +142,7 @@ func TestObserver(t *testing.T) {
 					assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
 					assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
 					assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
-
-					// TODO: WIP#orange-v3-3243 Check segments field
+					assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
 				}
 			}
 		}
