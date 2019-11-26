@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	defaultBucket = ""
+	defaultBatchSize = 10000
+	defaultBucket    = ""
 )
 
 var (
@@ -39,6 +40,7 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(pgConn, mon)
 
+	// TODO: Need to bring this back but sourcing CockroachDB compatible schema.
 	// err = schema.PrepareDB(pgConn, dbURL)
 	// if err != nil {
 	// 	return nil, err
@@ -54,6 +56,7 @@ func (client *Client) Close() error {
 	return client.pgConn.Close()
 }
 
+// TODO: Need to bring this back but sourcing CockroachDB compatible schema.
 // DropSchema drops the schema.
 // func (client *Client) DropSchema(schema string) error {
 // 	return pgutil.DropSchema(client.pgConn, schema)
@@ -172,13 +175,23 @@ func (client *Client) DeletePath(ctx context.Context, bucket, key storage.Key) (
 	return nil
 }
 
-func (client *Client) List(ctx context.Context, start storage.Key, limit int) (storage.Keys, error) {
-	return nil, nil
+// List returns either a list of known keys, in order, or an error.
+func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return storage.ListKeys(ctx, client, first, limit)
 }
 
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return nil
+	opi, err := newOrderedCockroachIterator(ctx, client, opts, defaultBatchSize)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, opi.Close())
+	}()
+
+	return fn(ctx, opi)
 }
 
 // CompareAndSwap atomically compares and swaps oldValue with newValue
