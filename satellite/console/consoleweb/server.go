@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 const (
@@ -77,9 +78,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
+	config           Config
+	service          *console.Service
+	mailService      *mailservice.Service
+	referralsService *referrals.Service
 
 	listener net.Listener
 	server   http.Server
@@ -99,14 +101,15 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:             logger,
-		config:          config,
-		listener:        listener,
-		service:         service,
-		mailService:     mailService,
-		stripePublicKey: stripePublicKey,
+		log:              logger,
+		config:           config,
+		listener:         listener,
+		service:          service,
+		mailService:      mailService,
+		referralsService: referralsService,
+		stripePublicKey:  stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -125,6 +128,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
+	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
+	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
+	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()

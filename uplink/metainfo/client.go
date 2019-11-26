@@ -32,6 +32,8 @@ type Client struct {
 	conn      *rpc.Conn
 	client    rpc.MetainfoClient
 	apiKeyRaw []byte
+
+	userAgent string
 }
 
 // ListItem is a single item in a listing
@@ -42,15 +44,17 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey) *Client {
+func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey, userAgent string) *Client {
 	return &Client{
 		client:    client,
 		apiKeyRaw: apiKey.SerializeRaw(),
+
+		userAgent: userAgent,
 	}
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey) (*Client, error) {
+func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey, userAgent string) (*Client, error) {
 	conn, err := dialer.DialAddressInsecureBestEffort(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -60,6 +64,7 @@ func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaro
 		conn:      conn,
 		client:    conn.MetainfoClient(),
 		apiKeyRaw: apiKey.SerializeRaw(),
+		userAgent: userAgent,
 	}, nil
 }
 
@@ -73,7 +78,8 @@ func (client *Client) Close() error {
 
 func (client *Client) header() *pb.RequestHeader {
 	return &pb.RequestHeader{
-		ApiKey: client.apiKeyRaw,
+		ApiKey:    client.apiKeyRaw,
+		UserAgent: []byte(client.userAgent),
 	}
 }
 
@@ -353,10 +359,15 @@ type SetBucketAttributionParams struct {
 }
 
 func (params *SetBucketAttributionParams) toRequest(header *pb.RequestHeader) *pb.BucketSetAttributionRequest {
+	var bytes []byte
+	if !params.PartnerID.IsZero() {
+		bytes = params.PartnerID[:]
+	}
+
 	return &pb.BucketSetAttributionRequest{
 		Header:    header,
 		Name:      []byte(params.Bucket),
-		PartnerId: params.PartnerID[:],
+		PartnerId: bytes,
 	}
 }
 

@@ -3,13 +3,13 @@
 
 <template>
     <div class="chart">
-        <p class="egress-chart__data-dimension">{{chartDataDimension}}</p>
+        <p class="ingress-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
-            id="egress-chart"
+            id="ingress-chart"
             :chart-data="chartData"
             :width="400"
             :height="240"
-            :tooltip-constructor="egressTooltip"
+            :tooltip-constructor="ingressTooltip"
         />
     </div>
 </template>
@@ -22,21 +22,19 @@ import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { EgressUsed } from '@/storagenode/satellite';
+import { IngressUsed } from '@/storagenode/satellite';
 
 /**
- * stores egress data for egress bandwidth chart's tooltip
+ * stores ingress data for ingress bandwidth chart's tooltip
  */
-class EgressTooltip {
-    public normalEgress: string;
-    public repairEgress: string;
-    public auditEgress: string;
+class IngressTooltip {
+    public normalIngress: string;
+    public repairIngress: string;
     public date: string;
 
-    public constructor(bandwidth: EgressUsed) {
-        this.normalEgress = formatBytes(bandwidth.egress.usage);
-        this.repairEgress = formatBytes(bandwidth.egress.repair);
-        this.auditEgress = formatBytes(bandwidth.egress.audit);
+    public constructor(bandwidth: IngressUsed) {
+        this.normalIngress = formatBytes(bandwidth.ingress.usage);
+        this.repairIngress = formatBytes(bandwidth.ingress.repair);
         this.date = bandwidth.intervalStart.toUTCString().slice(0, 16);
     }
 }
@@ -46,16 +44,16 @@ class EgressTooltip {
         VChart,
     },
 })
-export default class EgressChart extends Vue {
+export default class IngressChart extends Vue {
     private readonly TOOLTIP_OPACITY: string = '1';
     private readonly TOOLTIP_POSITION: string = 'absolute';
 
-    private get allBandwidth(): EgressUsed[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
+    private get allBandwidth(): IngressUsed[] {
+        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.ingressChartData);
     }
 
     public get chartDataDimension(): string {
-        if (!this.$store.state.node.egressChartData.length) {
+        if (!this.$store.state.node.ingressChartData.length) {
             return 'Bytes';
         }
 
@@ -67,8 +65,8 @@ export default class EgressChart extends Vue {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#edf9f4';
-        const chartBorderColor = '#48a77f';
+        const chartBackgroundColor = '#fff4df';
+        const chartBorderColor = '#e1a128';
         const chartBorderWidth = 2;
 
         if (this.allBandwidth.length) {
@@ -78,22 +76,22 @@ export default class EgressChart extends Vue {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public egressTooltip(tooltipModel): void {
+    public ingressTooltip(tooltipModel): void {
         // Tooltip Element
-        let tooltipEl = document.getElementById('egress-tooltip');
+        let tooltipEl = document.getElementById('ingress-tooltip');
         // Create element on first render
         if (!tooltipEl) {
             tooltipEl = document.createElement('div');
-            tooltipEl.id = 'egress-tooltip';
+            tooltipEl.id = 'ingress-tooltip';
             document.body.appendChild(tooltipEl);
         }
 
         // Tooltip Arrow
-        let tooltipArrow = document.getElementById('egress-tooltip-arrow');
+        let tooltipArrow = document.getElementById('ingress-tooltip-arrow');
         // Create element on first render
         if (!tooltipArrow) {
             tooltipArrow = document.createElement('div');
-            tooltipArrow.id = 'egress-tooltip-arrow';
+            tooltipArrow.id = 'ingress-tooltip-arrow';
             document.body.appendChild(tooltipArrow);
         }
 
@@ -108,39 +106,34 @@ export default class EgressChart extends Vue {
         // Set Text
         if (tooltipModel.body) {
             const dataIndex = tooltipModel.dataPoints[0].index;
-            const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
+            const dataPoint = new IngressTooltip(this.allBandwidth[dataIndex]);
 
-            tooltipEl.innerHTML = `<div class='egress-tooltip-body'>
-                                       <div class='egress-tooltip-body__info'>
+            tooltipEl.innerHTML = `<div class='ingress-tooltip-body'>
+                                       <div class='ingress-tooltip-body__info'>
                                            <p>USAGE</p>
-                                           <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
+                                           <b class="ingress-tooltip-bold-text">${dataPoint.normalIngress}</b>
                                        </div>
-                                       <div class='egress-tooltip-body__info'>
+                                       <div class='ingress-tooltip-body__info'>
                                            <p>REPAIR</p>
-                                           <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
-                                       </div>
-                                       <div class='egress-tooltip-body__info'>
-                                           <p>AUDIT</p>
-                                           <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
+                                           <b class="ingress-tooltip-bold-text">${dataPoint.repairIngress}</b>
                                        </div>
                                    </div>
-                                   <div class='egress-tooltip-footer'>
+                                   <div class='ingress-tooltip-footer'>
                                        <p>${dataPoint.date}</p>
                                    </div>`;
         }
 
-        const egressChart = document.getElementById('egress-chart');
-        if (!egressChart) {
+        const ingressChart = document.getElementById('ingress-chart');
+        if (!ingressChart) {
             return;
         }
 
         // `this` will be the overall tooltip.
-        const position = egressChart.getBoundingClientRect();
+        const position = ingressChart.getBoundingClientRect();
         tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
-
         tooltipEl.style.position = this.TOOLTIP_POSITION;
         tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
-        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 255}px`;
+        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 205}px`;
 
         tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
         tooltipArrow.style.position = this.TOOLTIP_POSITION;
@@ -155,7 +148,7 @@ export default class EgressChart extends Vue {
         margin: 0;
     }
 
-    .egress-chart {
+    .ingress-chart {
 
         &__data-dimension {
             font-size: 13px;
@@ -165,7 +158,7 @@ export default class EgressChart extends Vue {
         }
     }
 
-    #egress-tooltip {
+    #ingress-tooltip {
         background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
@@ -178,7 +171,7 @@ export default class EgressChart extends Vue {
         pointer-events: none;
     }
 
-    #egress-tooltip-arrow {
+    #ingress-tooltip-arrow {
         background-image: url('../../../static/images/tooltipArrow.png');
         background-repeat: no-repeat;
         background-size: 50px 30px;
@@ -187,28 +180,28 @@ export default class EgressChart extends Vue {
         pointer-events: none;
     }
 
-    .egress-tooltip-body {
+    .ingress-tooltip-body {
         margin: 8px;
 
         &__info {
             display: flex;
-            background-color: rgba(211, 242, 204, 0.3);
+            background-color: rgba(254, 238, 215, 0.3);
             border-radius: 12px;
             padding: 14px;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 14px;
             position: relative;
-            color: #2e5f46;
+            color: #6e4f15;
         }
     }
 
-    .egress-tooltip-bold-text {
+    .ingress-tooltip-bold-text {
         font-family: 'font_bold', sans-serif;
         font-size: 14px;
     }
 
-    .egress-tooltip-footer {
+    .ingress-tooltip-footer {
         position: relative;
         font-size: 12px;
         width: auto;
