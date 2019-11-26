@@ -6,14 +6,17 @@ set argC=0
 for %%x in (%*) do Set /A argC+=1
 
 if not %argC% gtr 0 (
-    echo usage: %~nx0 "<msi path (using '\' separators)>"
+    echo usage: %~nx0 ^[\q^] "<msi path (using '\' separators)>" ^[PROPERTY="value" ...^]
     exit /B 1
 )
 
-set msipath=%1
+set interactivity=/passive /qb
+if not %1==/q set msipath=%1
+if %1==/q set msipath=%2
 set props=STORJ_WALLET="0x0000000000000000000000000000000000000000" STORJ_EMAIL="user@mail.example" STORJ_PUBLIC_ADDRESS="127.0.0.1:10000"
 for %%x in (%*) do (
-    if  not %%x==%msipath% set props=!props! %%x
+    if  not %%x==%msipath% if not %%x==/q set props=!props! %%x
+    if  %%x==/q set interactivity=/quiet /qn
 )
 
 rem uninstall existing storagenode product
@@ -21,4 +24,4 @@ echo uninstalling storagenode
 call %~dp0uninstall.bat %msipath%
 
 echo installing storagenode from %msipath%
-msiexec /i %msipath% /passive /qb /norestart /log %~dp1install.log %props%
+msiexec /i %msipath% %interactivity% /norestart /log %~dp1install.log %props%
