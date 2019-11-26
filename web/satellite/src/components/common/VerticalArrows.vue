@@ -50,7 +50,7 @@ export default class VerticalArrows extends Vue {
     .active {
 
         .arrow-svg-path {
-            fill: #2683FF !important;
+            fill: #2683ff !important;
         }
     }
 </style>

@@ -14,10 +14,10 @@ import (
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/testcontext"
 )
 
 func TestAPIKey(t *testing.T) {

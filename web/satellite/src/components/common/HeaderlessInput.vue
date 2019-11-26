@@ -141,7 +141,7 @@ export default class HeaderlessInput extends Vue {
     .input-wrap {
         position: relative;
         width: 100%;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__image {
             position: absolute;
@@ -152,7 +152,7 @@ export default class HeaderlessInput extends Vue {
             cursor: pointer;
 
             &:hover .input-wrap__image__path {
-                fill: #2683FF !important;
+                fill: #2683ff !important;
             }
         }
     }
@@ -197,17 +197,17 @@ export default class HeaderlessInput extends Vue {
     }
 
     .headerless-input::placeholder {
-        color: #384B65;
+        color: #384b65;
         opacity: 0.4;
     }
 
     .inputError::placeholder {
-        color: #EB5757;
+        color: #eb5757;
         opacity: 0.4;
     }
 
     .error {
-        color: #FF5560;
+        color: #ff5560;
         margin-left: 10px;
     }
 

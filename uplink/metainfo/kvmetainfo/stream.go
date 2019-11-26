@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/metainfo"
 )
 
 var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
@@ -46,14 +47,19 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		_, segmentEnc, err := stream.db.segments.Get(ctx, stream.id, int32(index), stream.info.RedundancyScheme)
+		info, _, err := stream.db.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+			StreamID: stream.id,
+			Position: storj.SegmentPosition{
+				Index: int32(index),
+			},
+		})
 		if err != nil {
 			return segment, err
 		}
 
 		segment.Size = stream.info.FixedSegmentSize
-		segment.EncryptedKeyNonce = segmentEnc.EncryptedKeyNonce
-		segment.EncryptedKey = segmentEnc.EncryptedKey
+		segment.EncryptedKeyNonce = info.SegmentEncryption.EncryptedKeyNonce
+		segment.EncryptedKey = info.SegmentEncryption.EncryptedKey
 	} else {
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce

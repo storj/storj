@@ -10,9 +10,11 @@
             <div class="avatar">
                 <AvatarIcon class="avatar__image"/>
             </div>
-            <p class="name">{{getItemName}}</p>
+            <div :title="itemData.name">
+                <p class="name">{{ itemData.formattedName() }}</p>
+            </div>
         </div>
-        <p class="date">{{getItemDate}}</p>
+        <p class="date">{{ itemData.getDate() }}</p>
     </div>
 </template>
 
@@ -33,14 +35,6 @@ import { ApiKey } from '@/types/apiKeys';
 export default class ApiKeysItem extends Vue {
     @Prop({default: () => new ApiKey('', '', '', '')})
     private readonly itemData: ApiKey;
-
-    public get getItemName(): string {
-        return this.itemData.formattedName();
-    }
-
-    public get getItemDate(): string {
-        return this.itemData.getDate();
-    }
 }
 </script>
 
@@ -52,7 +46,7 @@ export default class ApiKeysItem extends Vue {
         height: 83px;
         background-color: #fff;
         cursor: pointer;
-        
+
         &:hover {
             background-color: rgba(255, 255, 255, 0.5);
         }
@@ -81,30 +75,30 @@ export default class ApiKeysItem extends Vue {
             }
 
             .name {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
                 margin-left: 17px;
             }
         }
-        
+
         .date {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             font-size: 16px;
             line-height: 21px;
             color: #354049;
             margin: 0;
         }
     }
-    
+
     .apikey-item-container.selected {
-        background-color: #2683FF;
+        background-color: #2683ff;
 
         .apikey-item-container__common-info {
 
             .checkbox-container {
-                background-image: url(../../../static/images/apiKeys/Vector.png);
+                background-image: url('../../../static/images/apiKeys/Vector.png');
                 background-repeat: no-repeat;
                 background-size: 18px 12px;
                 background-position: center;
@@ -121,7 +115,7 @@ export default class ApiKeysItem extends Vue {
             .avatar {
 
                 &__image {
-                    border: 1px solid #FFFFFF;
+                    border: 1px solid #fff;
                     box-sizing: border-box;
                     border-radius: 6px;
                 }
@@ -130,7 +124,7 @@ export default class ApiKeysItem extends Vue {
 
         .name,
         .date {
-            color: #FFFFFF;
+            color: #fff;
         }
     }
 </style>

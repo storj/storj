@@ -21,7 +21,7 @@ type creditCards struct {
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (cards []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -41,7 +41,7 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		isDefault := false
-		if customer.InvoiceSettings != nil {
+		if customer.InvoiceSettings.DefaultPaymentMethod != nil {
 			isDefault = customer.InvoiceSettings.DefaultPaymentMethod.ID == stripeCard.ID
 		}
 
@@ -62,11 +62,11 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 	return cards, nil
 }
 
-// Add is used to save new credit card and attach it to payment account.
+// Add is used to save new credit card, attach it to payment account and make it default.
 func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return payments.ErrAccountNotSetup.Wrap(err)
 	}
@@ -85,7 +85,18 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 		Customer: &customerID,
 	}
 
-	_, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+	card, err = creditCards.service.stripeClient.PaymentMethods.Attach(card.ID, attachParams)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: stripe.String(card.ID),
+		},
+	}
+
+	_, err = creditCards.service.stripeClient.Customers.Update(customerID, params)
 
 	// TODO: handle created but not attached card manually?
 	return Error.Wrap(err)
@@ -96,7 +107,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
 	defer mon.Task()(&ctx, userID, cardID)(&err)
 
-	customerID, err := creditCards.service.customers.GetCustomerID(ctx, userID)
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return payments.ErrAccountNotSetup.Wrap(err)
 	}

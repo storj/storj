@@ -29,9 +29,9 @@ import { Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -43,31 +43,32 @@ export default class ProjectSelectionDropdown extends Vue {
 
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+            await this.$notify.error('Unable to fetch buckets: ' + error.message);
         }
     }
 
@@ -78,6 +79,12 @@ export default class ProjectSelectionDropdown extends Vue {
 </script>
 
 <style scoped lang="scss">
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin-top: 0;
+    }
+
     .project-selection-choice-container {
         position: absolute;
         top: 9vh;
@@ -85,19 +92,20 @@ export default class ProjectSelectionDropdown extends Vue {
         border-radius: 4px;
         padding: 10px 0 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
-        background-color: #FFFFFF;
+        background-color: #fff;
         z-index: 1120;
     }
 
     .project-selection-overflow-container {
         position: relative;
-        width: 226px;
+        min-width: 226px;
+        width: auto;
         overflow-y: auto;
         overflow-x: hidden;
         height: auto;
         max-height: 240px;
-        background-color: #FFFFFF;
-        font-family: 'font_regular';
+        background-color: #fff;
+        font-family: 'font_regular', sans-serif;
 
         &__project-choice {
             display: flex;
@@ -108,14 +116,14 @@ export default class ProjectSelectionDropdown extends Vue {
             padding-right: 20px;
 
             &__unselected {
-                margin-left: 20px;
+                margin: 12px 20px;
                 font-size: 14px;
                 line-height: 20px;
                 color: #354049;
             }
 
             &:hover {
-                background-color: #F2F2F6;
+                background-color: #f2f2f6;
             }
 
             &__mark-container {
@@ -129,27 +137,31 @@ export default class ProjectSelectionDropdown extends Vue {
     }
 
     .selected {
-        font-family: 'font_bold';
+        font-family: 'font_bold', sans-serif;
     }
 
     /* width */
+
     ::-webkit-scrollbar {
         width: 4px;
     }
 
     /* Track */
+
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
     /* Handle */
+
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }
 
     @media screen and (max-width: 1024px) {
+
         .project-selection-choice-container {
             top: 50px;
         }

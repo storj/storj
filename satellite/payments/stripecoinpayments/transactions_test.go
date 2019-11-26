@@ -13,21 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestInsertUpdate(t *testing.T) {
+func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		transactions := db.CoinpaymentsTransactions()
+		transactions := db.StripeCoinPayments().Transactions()
 
 		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
 		require.True(t, ok)
@@ -42,6 +42,7 @@ func TestInsertUpdate(t *testing.T) {
 			Received:  *received,
 			Status:    coinpayments.StatusReceived,
 			Key:       "testKey",
+			Timeout:   time.Second * 60,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -62,7 +63,7 @@ func TestInsertUpdate(t *testing.T) {
 				Received:      *received,
 			}
 
-			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update})
+			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
 			require.NoError(t, err)
 
 			page, err := transactions.ListPending(ctx, 0, 1, time.Now())
@@ -73,60 +74,158 @@ func TestInsertUpdate(t *testing.T) {
 			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
 			assert.Equal(t, update.Received, page.Transactions[0].Received)
 			assert.Equal(t, update.Status, page.Transactions[0].Status)
+
+			err = transactions.Update(ctx,
+				[]stripecoinpayments.TransactionUpdate{
+					{
+						TransactionID: createTx.ID,
+						Status:        coinpayments.StatusReceived,
+						Received:      *received,
+					},
+				},
+				coinpayments.TransactionIDList{
+					createTx.ID,
+				},
+			)
+			require.NoError(t, err)
+
+			page, err = transactions.ListUnapplied(ctx, 0, 1, time.Now())
+			require.NoError(t, err)
+			require.NotNil(t, page.Transactions)
+			require.Equal(t, 1, len(page.Transactions))
+
+			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
+			assert.Equal(t, update.Received, page.Transactions[0].Received)
+			assert.Equal(t, coinpayments.StatusReceived, page.Transactions[0].Status)
+		})
+
+		t.Run("consume", func(t *testing.T) {
+			err := transactions.Consume(ctx, createTx.ID)
+			require.NoError(t, err)
+
+			page, err := transactions.ListUnapplied(ctx, 0, 1, time.Now())
+			require.NoError(t, err)
+
+			assert.Nil(t, page.Transactions)
+			assert.Equal(t, 0, len(page.Transactions))
 		})
 	})
 }
 
-func TestList(t *testing.T) {
+func TestTransactionsDBList(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const (
+		transactionCount = 10
+	)
+
+	// create transactions
+	amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
+	require.True(t, ok)
+	received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
+	require.True(t, ok)
+
+	var txs []stripecoinpayments.Transaction
+	for i := 0; i < transactionCount; i++ {
+		id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+		addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+		key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+
+		createTX := stripecoinpayments.Transaction{
+			ID:        coinpayments.TransactionID(id),
+			AccountID: uuid.UUID{},
+			Address:   addr,
+			Amount:    *amount,
+			Received:  *received,
+			Status:    coinpayments.StatusPending,
+			Key:       key,
+		}
+
+		txs = append(txs, createTX)
+	}
+	t.Run("pending transactions", func(t *testing.T) {
+		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+			for _, tx := range txs {
+				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
+				require.NoError(t, err)
+			}
+
+			page, err := db.StripeCoinPayments().Transactions().ListPending(ctx, 0, transactionCount, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, transactionCount, len(page.Transactions))
+
+			for _, act := range page.Transactions {
+				for _, exp := range txs {
+					if act.ID == exp.ID {
+						compareTransactions(t, exp, act)
+					}
+				}
+			}
+		})
+	})
+
+	t.Run("unapplied transaction", func(t *testing.T) {
+		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+			var updatedTxs []stripecoinpayments.Transaction
+			var updates []stripecoinpayments.TransactionUpdate
+			var applies coinpayments.TransactionIDList
+
+			for _, tx := range txs {
+				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
+				require.NoError(t, err)
+
+				tx.Status = coinpayments.StatusReceived
+
+				updates = append(updates,
+					stripecoinpayments.TransactionUpdate{
+						TransactionID: tx.ID,
+						Status:        tx.Status,
+						Received:      tx.Received,
+					},
+				)
+
+				applies = append(applies, tx.ID)
+				updatedTxs = append(updatedTxs, tx)
+			}
+
+			err := db.StripeCoinPayments().Transactions().Update(ctx, updates, applies)
+			require.NoError(t, err)
+
+			page, err := db.StripeCoinPayments().Transactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, transactionCount, len(page.Transactions))
+
+			for _, act := range page.Transactions {
+				for _, exp := range updatedTxs {
+					if act.ID == exp.ID {
+						compareTransactions(t, exp, act)
+					}
+				}
+			}
+		})
+	})
+}
+
+func TestTransactionsDBRates(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		transactions := db.CoinpaymentsTransactions()
+		transactions := db.StripeCoinPayments().Transactions()
 
-		const (
-			transactionCount = 10
-		)
-
-		// create transactions
-		amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
+		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
 		require.True(t, ok)
 
-		var txs []stripecoinpayments.Transaction
-		for i := 0; i < transactionCount; i++ {
-			id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
-			addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
-			key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+		const txID = "tx_id"
 
-			createTX := stripecoinpayments.Transaction{
-				ID:        coinpayments.TransactionID(id),
-				AccountID: uuid.UUID{},
-				Address:   addr,
-				Amount:    *amount,
-				Received:  *received,
-				Status:    coinpayments.StatusPending,
-				Key:       key,
-			}
-
-			_, err := transactions.Insert(ctx, createTX)
-			require.NoError(t, err)
-
-			txs = append(txs, createTX)
-		}
-
-		page, err := transactions.ListPending(ctx, 0, transactionCount, time.Now())
+		err := transactions.LockRate(ctx, txID, val)
 		require.NoError(t, err)
-		require.Equal(t, transactionCount, len(page.Transactions))
 
-		for _, act := range page.Transactions {
-			for _, exp := range txs {
-				if act.ID == exp.ID {
-					compareTransactions(t, exp, act)
-				}
-			}
-		}
+		rate, err := transactions.GetLockedRate(ctx, txID)
+		require.NoError(t, err)
+
+		assert.Equal(t, val, rate)
 	})
 }
 
@@ -141,5 +240,6 @@ func compareTransactions(t *testing.T, exp, act stripecoinpayments.Transaction) 
 	assert.Equal(t, exp.Received, act.Received)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Key, act.Key)
+	assert.Equal(t, exp.Timeout, act.Timeout)
 	assert.False(t, act.CreatedAt.IsZero())
 }

@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -70,14 +70,20 @@ func TestGetExitingNodes(t *testing.T) {
 		nodes, err := cache.GetExitingNodes(ctx)
 		require.NoError(t, err)
 		require.Len(t, nodes, exitingCount)
-		for _, id := range nodes {
-			require.True(t, exiting[id])
+		for _, node := range nodes {
+			require.True(t, exiting[node.NodeID])
 		}
 
-		nodes, err = cache.GetExitingNodesLoopIncomplete(ctx)
+		nodes, err = cache.GetExitingNodes(ctx)
 		require.NoError(t, err)
-		require.Len(t, nodes, exitingLoopIncompleteCount)
-		for _, id := range nodes {
+		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, len(nodes))
+		for _, node := range nodes {
+			if node.ExitLoopCompletedAt == nil {
+				exitingNodesLoopIncomplete = append(exitingNodesLoopIncomplete, node.NodeID)
+			}
+		}
+		require.Len(t, exitingNodesLoopIncomplete, exitingLoopIncompleteCount)
+		for _, id := range exitingNodesLoopIncomplete {
 			require.True(t, exitingLoopIncomplete[id])
 		}
 	})

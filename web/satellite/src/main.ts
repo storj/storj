@@ -4,13 +4,19 @@
 import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
+
 import App from './App.vue';
-import router from './router';
-import store from './store';
+import { router } from './router';
+import { store } from './store';
 
 Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
+
+const notificator = new NotificatorPlugin();
+
+Vue.use(notificator);
 
 let clickOutsideEvent: EventListener;
 
@@ -31,6 +37,41 @@ Vue.directive('click-outside', {
     unbind: function(): void {
         document.body.removeEventListener('click', clickOutsideEvent);
     },
+});
+
+/**
+ * number directive allow user to type only numbers in input
+ */
+Vue.directive('number', {
+    bind (el: HTMLElement) {
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+            const keyCode = parseInt(e.key);
+
+            if (!isNaN(keyCode) || e.key === 'Delete' || e.key === 'Backspace') {
+                return;
+            }
+
+            e.preventDefault();
+        });
+    },
+});
+
+/**
+ * leadingZero adds zero to the start of single digit number
+ */
+Vue.filter('leadingZero', function (value: number): string {
+    if (value <= 9) {
+        return `0${value}`;
+    }
+
+    return `${value}`;
+});
+
+/**
+ * centsToDollars is a Vue filter that converts amount of cents in dollars string.
+ */
+Vue.filter('centsToDollars', (cents: number): string => {
+    return `$${(cents / 100).toFixed(2)}`;
 });
 
 new Vue({

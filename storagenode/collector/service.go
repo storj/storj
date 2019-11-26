@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -49,7 +49,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.Collect(ctx, time.Now())
+		// V3-3143 Pieces should be collected at least 24 hours after expiration
+		// to avoid premature deletion due to timezone issues, which may lead to
+		// storage node disqualification.
+		err := service.Collect(ctx, time.Now().Add(-24*time.Hour))
 		if err != nil {
 			service.log.Error("error during collecting pieces: ", zap.Error(err))
 		}
@@ -95,11 +98,12 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			if err != nil {
 				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
 				if errfailed != nil {
-					service.log.Error("unable to update piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(errfailed))
+					service.log.Error("unable to update piece info", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(errfailed))
 				}
-				service.log.Error("unable to delete piece", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(err))
+				service.log.Error("unable to delete piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
 				continue
 			}
+			service.log.Info("delete expired", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 
 			count++
 		}

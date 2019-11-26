@@ -254,7 +254,7 @@ export default class VPagination extends Vue {
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: 1px solid #AFB7C1;
+            border: 1px solid #afb7c1;
             border-radius: 6px;
             width: 30px;
             height: 30px;

@@ -57,6 +57,7 @@ export default class VChart extends Vue {
 
     public get chartOptions(): object {
         const filterCallback = this.filterDaysDisplayed;
+
         return {
             responsive: false,
             maintainAspectRatios: false,
@@ -69,8 +70,8 @@ export default class VChart extends Vue {
                 point: {
                     radius: 0,
                     hitRadius: 5,
-                    hoverRadius: 5,
-                    hoverBackgroundColor: '#4D72B7',
+                    hoverRadius: 3,
+                    hoverBorderWidth: 7,
                 }
             },
 
@@ -151,5 +152,3 @@ export default class VChart extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss"></style>

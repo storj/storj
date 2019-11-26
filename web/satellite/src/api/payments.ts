@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { CreditCard, PaymentsApi } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -55,6 +55,35 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * projectsCharges returns how much money current user will be charged for each project which he owns.
+     */
+    public async projectsCharges(): Promise<ProjectCharge[]> {
+        const path = `${this.ROOT_PATH}/account/charges`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not get projects charges');
+        }
+
+        const charges = await response.json();
+        if (charges) {
+            return charges.map(charge =>
+                new ProjectCharge(
+                    charge.projectId,
+                    charge.storage,
+                    charge.egress,
+                    charge.objectCount),
+            );
+        }
+
+        return [];
+    }
+
+    /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error
@@ -63,7 +92,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/cards`;
         const response = await this.client.post(path, token);
 
-        if (!response.ok) {
+        if (response.ok) {
             return;
         }
 
@@ -138,5 +167,64 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         throw new Error('can not make credit card default');
+    }
+
+    /**
+     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     *
+     * @returns list of billing history items
+     * @throws Error
+     */
+    public async billingHistory(): Promise<BillingHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/billing-history`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('can not list billing history');
+        }
+
+        const billingHistoryItems = await response.json();
+
+        if (billingHistoryItems) {
+            return billingHistoryItems.map(item =>
+                new BillingHistoryItem(
+                    item.id,
+                    item.description,
+                    item.amount,
+                    item.tokenReceived,
+                    item.status,
+                    item.link,
+                    new Date(item.start),
+                    new Date(item.end),
+                    item.type),
+            );
+        }
+
+        return [];
+    }
+
+    /**
+     * makeTokenDeposit process coin payments
+     * @param amount
+     * @throws Error
+     */
+    public async makeTokenDeposit(amount: number): Promise<TokenDeposit> {
+        const path = `${this.ROOT_PATH}/tokens/deposit`;
+        const response = await this.client.post(path, JSON.stringify({ amount }));
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not process coin payment');
+        }
+
+        const result = await response.json();
+
+        return new TokenDeposit(result.amount, result.address);
     }
 }

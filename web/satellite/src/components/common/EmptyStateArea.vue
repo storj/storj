@@ -57,7 +57,7 @@ export default class EmptyStateProjectArea extends Vue {
         justify-content: center;
         margin-top: 100px;
         color: rgba(56, 75, 101, 0.7);
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
 
         &__wrap {
             text-align: center;
@@ -67,7 +67,7 @@ export default class EmptyStateProjectArea extends Vue {
             align-items: center;
 
             &__additional-text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 width: 60%;
                 margin-bottom: 10px;
@@ -78,23 +78,26 @@ export default class EmptyStateProjectArea extends Vue {
             }
 
             &__title {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 35px;
                 margin-bottom: 15px;
                 min-width: 900px;
                 color: #354049;
+                user-select: none;
             }
         }
     }
 
     @media screen and (max-width: 1440px) {
+
         .empty-state {
             margin-top: 60px;
         }
     }
 
     @media screen and (max-width: 1280px) {
+
         .empty-state {
             margin-top: 20px;
         }

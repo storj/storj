@@ -15,19 +15,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -624,81 +625,88 @@ func TestCommitSegmentPointer(t *testing.T) {
 	// all tests needs to generate error
 	tests := []struct {
 		// defines how modify pointer before CommitSegment
-		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity)
+		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit)
 		ErrorMessage string
 	}{
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.ExpirationDate = pointer.ExpirationDate.Add(time.Second * 100)
 			},
 			ErrorMessage: "pointer expiration date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.MinReq += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.RepairThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.SuccessThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Total += 100
 			},
 			// this error is triggered earlier then Create/Commit RS comparison
 			ErrorMessage: "invalid no order limit for piece",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.ErasureShareSize += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Type = 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Type = pb.Pointer_INLINE
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
 		{
 			// no piece hash removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
+			// set piece number to be out of range of limit slice
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				pointer.Remote.RemotePieces[0].PieceNum = int32(len(limits))
+			},
+			ErrorMessage: "invalid piece number",
+		},
+		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
 
 				ctx := testcontext.New(t)
@@ -712,20 +720,20 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "all pieces needs to have the same size",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.SegmentSize = 100
 			},
 			ErrorMessage: "expected piece size is different from provided",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// nil piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity) {
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// invalid piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 
@@ -741,6 +749,21 @@ func TestCommitSegmentPointer(t *testing.T) {
 				pointer.Remote.RemotePieces[0].Hash = newHash
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
+		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				firstPiece := pointer.Remote.RemotePieces[0]
+				pointer.Remote.RemotePieces[1] = firstPiece
+				pointer.Remote.RemotePieces[2] = firstPiece
+			},
+			ErrorMessage: "piece num 0 is duplicated",
+		},
+		{
+			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+				firstNodeID := pointer.Remote.RemotePieces[0].NodeId
+				pointer.Remote.RemotePieces[1].NodeId = firstNodeID
+			},
+			ErrorMessage: "invalid order limit piece id",
 		},
 	}
 
@@ -760,7 +783,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
-			test.Modify(pointer, fullIDMap)
+			test.Modify(pointer, fullIDMap, limits)
 
 			_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err, "Case #%v", i)
@@ -779,40 +802,43 @@ func TestSetBucketAttribution(t *testing.T) {
 		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
 		require.NoError(t, err)
 
+		err = uplink.CreateBucket(ctx, planet.Satellites[0], "alpha-new")
+		require.NoError(t, err)
+
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
 		partnerID := testrand.UUID()
-		{
-			// bucket with no items
+		{ // bucket with no items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
 				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
+		}
 
-			// no bucket exists
+		{ // setting attribution on a bucket that doesn't exist should fail
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "beta",
 				PartnerID: partnerID,
 			})
-			require.NoError(t, err)
+			require.Error(t, err)
 		}
-		{
-			// already attributed bucket, adding files
+
+		{ // add data to an attributed bucket
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
-			// bucket with items
+			// trying to set attribution should be ignored
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "beta",
+				Bucket:    "alpha",
 				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
 		}
-		{
-			//non attributed bucket, and adding files
+
+		{ // non attributed bucket, and adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
@@ -1116,8 +1142,13 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: 1,
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1274,8 +1305,13 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: int64(len(segments)),
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1504,7 +1540,7 @@ func TestIDs(t *testing.T) {
 
 		{ // streamID expired
 			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
 
@@ -1520,9 +1556,30 @@ func TestIDs(t *testing.T) {
 			require.Error(t, err)
 		}
 
+		{ // segment id missing stream id
+			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+				CreationDate: time.Now().Add(-1 * time.Hour),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
+
 		{ // segmentID expired
 			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
+				StreamId: &pb.SatStreamID{
+					CreationDate: time.Now(),
+				},
 			})
 			require.NoError(t, err)
 
@@ -1606,7 +1663,13 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			requests = append(requests, &metainfo.CommitObjectParams{})
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
+			requests = append(requests, &metainfo.CommitObjectParams{
+				EncryptedMetadata: metadata,
+			})
 			requests = append(requests, &metainfo.ListSegmentsParams{})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1664,13 +1727,60 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID: streamID,
+				StreamID:          streamID,
+				EncryptedMetadata: metadata,
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
 			require.Equal(t, numOfSegments+1, len(responses))
 		}
+	})
+}
+
+func TestValidateRS(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinTotalThreshold = 4
+				config.Metainfo.RS.MaxTotalThreshold = 5
+				config.Metainfo.RS.Validate = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		testData := testrand.Bytes(8 * memory.KiB)
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     3,
+		}
+		// test below permitted total value
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/below", testData)
+		require.Error(t, err)
+
+		// test above permitted total value
+		rs.MaxThreshold = 6
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/above", testData)
+		require.Error(t, err)
+
+		// test minimum permitted total value
+		rs.MaxThreshold = 4
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/min", testData)
+		require.NoError(t, err)
+
+		// test maximum permitted total value
+		rs.MaxThreshold = 5
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/max", testData)
+		require.NoError(t, err)
 	})
 }

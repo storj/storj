@@ -34,15 +34,14 @@ export default class Page404 extends Vue {}
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        -webkit-touch-callout: none; 
-        -webkit-user-select: none; 
-        -khtml-user-select: none; 
-        -moz-user-select: none; 
-        -ms-user-select: none; 
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
         user-select: none;
 
         &__title {
-            font-family: 'font_regular';
+            font-family: 'font_regular', sans-serif;
             margin-bottom: 60px;
             font-size: 32px;
         }
