@@ -42,7 +42,7 @@ The installer will be a debian package. We choose to auto-update the binary, eve
   - Storage directory
 - Generate `config.yaml` file with the user configuration.
 
-We choose to reuse the storagenode-updater and the updater-updater used in windows. They will be daemonized using systemD. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
+We choose to reuse the storagenode-updater and the recovery mechanism used in windows. They will be daemonized using systemD. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
 We will use debconf to retrieve user data. 
 
 The debian package will NOT contain the storagenode and storagenode-updater binaries. They will be downloaded as part of the post-installation script. A separate git repository will be created for holding the debian package.
@@ -76,8 +76,9 @@ Guidelines about how to build packages are provided for the most commonly used p
 
 
 The process for building a package is as follows:
-    - make a source package
-    - compile it to get binary packages.
+- make a source package
+- compile it to get binary packages.
+
 Only the binary package is used by the user for installation. It is not a recommended pratice to directly integrate binaries.
 
 Building the source package is the most difficult part. But once it is done, we can use tools such as [fpm](https://github.com/jordansissel/fpm/wiki) to convert it to other package formats.
