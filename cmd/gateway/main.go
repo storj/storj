@@ -41,7 +41,7 @@ type GatewayFlags struct {
 
 	Version checker.Config
 
-	PBKDFConcurrency int `help:"please see <url>. default value recommended" default:"0"`
+	PBKDFConcurrency int `help:"Unfortunately, up until v0.26.2, keys generated from passphrases depended on the number of cores the local CPU had. If you entered a passphrase with v0.26.2 earlier, you'll want to set this number to the number of CPU cores your computer had at the time. This flag may go away in the future. For new installations the default value is highly recommended." default:"0"`
 }
 
 var (

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 )
 
@@ -20,6 +21,7 @@ type PartnerList struct {
 type PartnerInfo struct {
 	Name string
 	ID   string
+	UUID *uuid.UUID
 }
 
 // UserAgent returns canonical user agent.
