@@ -86,7 +86,7 @@ func TestObserver(t *testing.T) {
 						}
 					} else {
 						expectedObj = &Object{}
-						bucketObjects[storj.Path(objPath)] = expectedObj
+						bucketObjects[objPath] = expectedObj
 					}
 
 					if withNumSegments {
@@ -190,11 +190,11 @@ func TestObserver(t *testing.T) {
 					if !ok {
 						expectedObj = &Object{}
 						expectedObjects[bucketName] = map[storj.Path]*Object{
-							storj.Path(objPath): expectedObj,
+							objPath: expectedObj,
 						}
 					} else {
 						expectedObj = &Object{}
-						bucketObjects[storj.Path(objPath)] = expectedObj
+						bucketObjects[objPath] = expectedObj
 					}
 
 					// segments mask doesn't contain the last segment, hence we move 1 bit more
@@ -310,11 +310,11 @@ func TestObserver(t *testing.T) {
 					if !ok {
 						expectedObj = &Object{}
 						expectedObjects[bucketName] = map[storj.Path]*Object{
-							storj.Path(objPath): expectedObj,
+							objPath: expectedObj,
 						}
 					} else {
 						expectedObj = &Object{}
-						bucketObjects[storj.Path(objPath)] = expectedObj
+						bucketObjects[objPath] = expectedObj
 					}
 
 					if withNumSegments {
