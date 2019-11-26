@@ -313,7 +313,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				service,
 				pc.StripeCoinPayments.TransactionUpdateInterval,
 				pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-				pc.StripeCoinPayments.CouponUsageCycleInterval,
+				// TODO: uncomment when coupons will be finished.
+				//pc.StripeCoinPayments.CouponUsageCycleInterval,
 			)
 		}
 	}

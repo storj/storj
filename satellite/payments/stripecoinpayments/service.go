@@ -43,7 +43,8 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
-	CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
+	// TODO: uncomment when coupons will be finished.
+	// CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
