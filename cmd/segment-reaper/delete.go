@@ -22,7 +22,7 @@ var (
 
 	deleteCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"postgres://"`
-		File        string `help:"location of file with report" default:"detect_result.out"`
+		File        string `help:"location of file with report" default:"detect_result.csv"`
 		DryRun      bool   `help:"with this option no deletion will be done, only printing results" default:"false"`
 	}
 )
