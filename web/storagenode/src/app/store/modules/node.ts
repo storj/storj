@@ -44,6 +44,7 @@ export const node = {
             lastPinged: new Date(),
             startedAt: new Date(),
             version: '',
+            allowedVersion: '',
             wallet: '',
             isLastVersion: false
         },
@@ -80,6 +81,7 @@ export const node = {
             state.info.id = nodeInfo.nodeID;
             state.info.isLastVersion = nodeInfo.isUpToDate;
             state.info.version = nodeInfo.version;
+            state.info.allowedVersion = nodeInfo.allowedVersion;
             state.info.wallet = nodeInfo.wallet;
             state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
             state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;

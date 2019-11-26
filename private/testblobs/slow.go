@@ -95,6 +95,12 @@ func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) error
 	return slow.blobs.RestoreTrash(ctx, namespace)
 }
 
+// EmptyTrash empties the trash
+func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error) {
+	slow.sleep()
+	return slow.blobs.EmptyTrash(ctx, namespace, trashedBefore)
+}
+
 // Delete deletes the blob with the namespace and key.
 func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	slow.sleep()
