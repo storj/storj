@@ -89,7 +89,7 @@ func CreateMasterDB(t *testing.T, category string, index int, dbInfo Database) (
 		namespace := strings.ReplaceAll(schema, "/", "")
 		db, err = NewCockroach(log.Named("db"), namespace)
 	default:
-		db, err = satellitedb.New(log, dbInfo.Name)
+		db, err = satellitedb.New(log.Named("db"), dbInfo.URL)
 	}
 	return db, err
 }

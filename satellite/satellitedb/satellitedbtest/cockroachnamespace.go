@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -34,7 +35,7 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 		return nil, err
 	}
 
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", namespacedTestDB))
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(namespacedTestDB)))
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func (db *namespacedDB) Close() error {
 	var dropErr error
 	if db.autoDrop {
 		// connect to the parent db and delete the namespaced database used for the test
-		_, dropErr = db.parentRawConn.Exec(fmt.Sprintf("DROP DATABASE %s;", db.namespace))
+		_, dropErr = db.parentRawConn.Exec(fmt.Sprintf("DROP DATABASE %s;", pq.QuoteIdentifier(db.namespace)))
 	}
 
 	return errs.Combine(dropErr, db.parentRawConn.Close())

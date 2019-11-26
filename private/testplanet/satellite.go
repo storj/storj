@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -229,8 +228,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		} else {
 			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
 			if *pgtest.CrdbConnStr != "" {
-				namespace := strings.ReplaceAll(schema, "/", "")
-				db, err = satellitedbtest.NewCockroach(log.Named("db"), namespace)
+				db, err = satellitedbtest.NewCockroach(log.Named("db"), schema)
 			} else {
 				db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
 			}

@@ -4,7 +4,6 @@
 package satellitedbtest_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +24,7 @@ func TestNewCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skip("Cockroachdb flag missing")
 	}
-	namespacedDBName := "namespacedTestDB"
+	namespacedDBName := "namespaced/Test/DB"
 	testdb, err := satellitedbtest.NewCockroach(zap.L(), namespacedDBName)
 	require.NoError(t, err)
 
@@ -38,10 +37,12 @@ func TestNewCockroach(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ctx.Check(db.Close)
+
 	var exists *bool
-	row := db.QueryRow(fmt.Sprintf(`SELECT EXISTS (
-			SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s')
-   		);`, namespacedDBName),
+	row := db.QueryRow(`SELECT EXISTS (
+			SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1)
+		);`, namespacedDBName,
 	)
 	err = row.Scan(&exists)
 	if err != nil {
@@ -53,9 +54,9 @@ func TestNewCockroach(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert new test db was deleted
-	row = db.QueryRow(fmt.Sprintf(`SELECT EXISTS (
-		SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s')
-	   );`, namespacedDBName),
+	row = db.QueryRow(`SELECT EXISTS (
+			SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1)
+		);`, namespacedDBName,
 	)
 	err = row.Scan(&exists)
 	if err != nil {
