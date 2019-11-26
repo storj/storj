@@ -118,7 +118,7 @@ export default class SNOContentTitle extends Vue {
         const nodeInfo = this.$store.state.node.info;
 
         return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
-        nodeInfo.isLastVersion);
+            nodeInfo.isLastVersion);
     }
 
     public get online(): boolean {
