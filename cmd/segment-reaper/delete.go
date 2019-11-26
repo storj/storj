@@ -55,7 +55,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 
 	inputFile, err := os.Open(args[0])
 	if err != nil {
-		return errs.New("error openning input file: %+v", err)
+		return errs.New("error opening input file: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, inputFile.Close())
