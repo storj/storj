@@ -105,6 +105,8 @@ func TestObserver(t *testing.T) {
 		}
 
 		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		for _, objSeg := range objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
