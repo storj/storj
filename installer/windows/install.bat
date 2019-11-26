@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+rem NB: This script requires administrative privileges.
+rem     It can't prompt for escalation if the `/q` option is used.
+
 rem count # of args
 set argC=0
 for %%x in (%*) do Set /A argC+=1
