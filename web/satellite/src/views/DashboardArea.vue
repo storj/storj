@@ -12,7 +12,7 @@
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
                     <VBanner
-                        v-if="!isBannerShown"
+                        v-if="isBannerShown"
                         text="You have no payment method added."
                         additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
                     />
@@ -159,7 +159,7 @@ export default class DashboardArea extends Vue {
     }
 
     public get isBannerShown(): boolean {
-        return !this.$store.state.paymentsModule.creditCards.length;
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public get isLoading(): boolean {

@@ -134,7 +134,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public get isBonusInfoShown(): boolean {
-        return !this.$store.state.paymentsModule.creditCards.length;
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public onChangeTokenValue(value: number): void {
