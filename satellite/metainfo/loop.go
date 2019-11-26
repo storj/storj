@@ -19,7 +19,7 @@ import (
 var (
 	// LoopError is a standard error class for this component.
 	LoopError = errs.Class("metainfo loop error")
-	// LoopClosedError is a loop closed error
+	// LoopClosedError is a loop closed error.
 	LoopClosedError = LoopError.New("loop closed")
 )
 
@@ -32,7 +32,7 @@ type Observer interface {
 	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
 }
 
-// ScopedPath contains full expanded information about the path
+// ScopedPath contains full expanded information about the path.
 type ScopedPath struct {
 	ProjectID           uuid.UUID
 	ProjectIDString     string
@@ -169,7 +169,7 @@ waitformore:
 	return iterateDatabase(ctx, loop.db, observers)
 }
 
-// IterateDatabase iterate over PointerDB and notify specified observers about results
+// IterateDatabase iterates over PointerDB and notifies specified observers about results.
 func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
@@ -183,7 +183,7 @@ func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) e
 }
 
 // handlePointer deals with a pointer for a single observer
-// if there is some error on the observer, handle the error and return false. Otherwise, return true
+// if there is some error on the observer, handles the error and returns false. Otherwise, returns true.
 func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
 	switch pointer.GetType() {
 	case pb.Pointer_REMOTE:
@@ -235,6 +235,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 			var item storage.ListItem
 
 			// iterate over every segment in metainfo
+		nextSegment:
 			for it.Next(ctx, &item) {
 				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
@@ -246,10 +247,10 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 
 				pathElements := storj.SplitPath(rawPath)
 
-				// we are not storing buckets in pointerDB anymore so
-				// it will be projectID/segmentIndex/bucket_name/encrypted_object_path
 				if len(pathElements) < 4 {
-					return LoopError.New("invalid path %q", rawPath)
+					// We skip this path because it belongs to bucket metadata, not to an
+					// actual object
+					continue nextSegment
 				}
 
 				isLastSegment := pathElements[1] == "l"
