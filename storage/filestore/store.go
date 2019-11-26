@@ -6,6 +6,7 @@ package filestore
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -113,6 +114,16 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (err
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.RestoreTrash(ctx, namespace)
 	return Error.Wrap(err)
+}
+
+// // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur
+func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (keys [][]byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return keys, nil
 }
 
 // GarbageCollect tries to delete any files that haven't yet been deleted
