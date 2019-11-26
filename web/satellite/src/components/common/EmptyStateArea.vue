@@ -4,7 +4,7 @@
 <template>
     <div class="empty-state">
         <div class="empty-state__wrap">
-            <h1 class="empty-state__wrap__title">{{mainTitle}}</h1>
+            <p class="empty-state__wrap__title">{{mainTitle}}</p>
             <div class="empty-state__wrap__additional-text" v-html="additionalText"></div>
             <div v-if="isButtonShown">
                 <VButton
