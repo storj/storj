@@ -36,7 +36,7 @@ func TestObserver(t *testing.T) {
 
 		projID, err := uuid.New()
 		require.NoError(t, err)
-		{
+		{ // Generate objects for testing
 			numSegments := rand.Intn(10) + 1
 			inline := (rand.Int() % 2) == 0
 			withNumSegments := (rand.Int() % 2) == 0
