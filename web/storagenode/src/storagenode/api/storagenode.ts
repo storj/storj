@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { AllowedVersion, BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 import {
     BandwidthUsed,
     Egress,
@@ -48,15 +48,12 @@ export class SNOApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified);
         });
 
-        const allowedVersion: AllowedVersion = new AllowedVersion(json.allowedVersion.major, json.allowedVersion.minor,
-            json.allowedVersion.patch);
-
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
 
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
-            new Date(json.lastPinged), new Date(json.startedAt), json.version, allowedVersion, json.upToDate);
+            new Date(json.lastPinged), new Date(json.startedAt), json.version, json.allowedVersion, json.upToDate);
     }
 
     /**

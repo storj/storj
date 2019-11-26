@@ -120,9 +120,9 @@ type Dashboard struct {
 	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
 	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
-	Version        version.SemVer    `json:"version"`
-	AllowedVersion version.OldSemVer `json:"allowedVersion"`
-	UpToDate       bool              `json:"upToDate"`
+	Version        version.SemVer `json:"version"`
+	AllowedVersion version.SemVer `json:"allowedVersion"`
+	UpToDate       bool           `json:"upToDate"`
 
 	StartedAt time.Time `json:"startedAt"`
 }

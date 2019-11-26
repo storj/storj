@@ -3,7 +3,7 @@
 
 import { datesDiffInMinutes } from '@/app/utils/date';
 import { SNOApi } from '@/storagenode/api/storagenode';
-import { AllowedVersion, Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
+import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Stamp } from '@/storagenode/satellite';
 
 export const NODE_MUTATIONS = {
@@ -44,7 +44,7 @@ export const node = {
             lastPinged: new Date(),
             startedAt: new Date(),
             version: '',
-            allowedVersion: new AllowedVersion(0, 0, 0),
+            allowedVersion: '',
             wallet: '',
             isLastVersion: false
         },
