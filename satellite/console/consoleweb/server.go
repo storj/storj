@@ -216,10 +216,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src api.segment.io",
+		"connect-src 'self' api.segment.io",
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
+		"img-src 'self' data: *.customer.io",
 		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
