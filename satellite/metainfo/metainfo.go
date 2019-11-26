@@ -1262,6 +1262,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
+	endpoint.log.Sugar().Info("Authorize get object for project ID ", keyInfo.ProjectID)
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1310,6 +1311,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
+
+	endpoint.log.Sugar().Info("Authorize list objects for project ID ", keyInfo.ProjectID)
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1363,6 +1366,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, err
 	}
 
+	endpoint.log.Sugar().Info("Authorize delete object for project ID ", keyInfo.ProjectID)
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1469,6 +1473,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		CreationDate:        time.Now(),
 	})
 
+	endpoint.log.Sugar().Info("Authorize segment upload for project ID ", keyInfo.ProjectID)
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
 		AddressedLimits: addressedLimits,
@@ -1688,6 +1693,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Sugar().Info("Authorize make inline segment for project ID ", keyInfo.ProjectID)
+
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
@@ -1738,6 +1745,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		Index:               req.Position.Index,
 		CreationDate:        time.Now(),
 	})
+	endpoint.log.Sugar().Info("Authorize delete segment for project ID ", keyInfo.ProjectID)
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1814,6 +1822,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.log.Sugar().Info("Authorize list segments for project ID ", keyInfo.ProjectID)
 
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
@@ -1983,6 +1993,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+		endpoint.log.Sugar().Info("Authorize download segment for project ID ", keyInfo.ProjectID)
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -2005,6 +2016,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				limits[i] = &pb.AddressedOrderLimit{}
 			}
 		}
+
+		endpoint.log.Sugar().Info("Authorize download segment for project ID ", keyInfo.ProjectID)
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
