@@ -216,10 +216,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
+		"connect-src api.segment.io",
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
 		"img-src 'self' data:",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
@@ -237,8 +238,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 
-	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
-		server.log.Error("index template could not be executed")
+	err := server.templates.index.Execute(w, data)
+	if server.templates.index == nil || err != nil {
+		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
 }
