@@ -238,9 +238,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 
-	err := server.templates.index.Execute(w, data)
-	if server.templates.index == nil || err != nil {
-		server.log.Error("index template could not be executed", zap.Error(err))
+	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
+		server.log.Error("index template could not be executed")
 		return
 	}
 }
