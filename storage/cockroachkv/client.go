@@ -271,18 +271,17 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 			RETURNING 1
 		`
 
-		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
+		row = txn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
 	} else {
 		q = `
 		UPDATE pathdata
 			SET metadata = $4:::BYTEA
-			FROM matching_key mk
 			WHERE pathdata.metadata = $3:::BYTEA
 				AND pathdata.bucket = $1:::BYTEA
 				AND pathdata.fullpath = $2:::BYTEA
 			RETURNING 1
 		`
-		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
+		row = txn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
 	}
 
 	err = row.Scan(&updated)
