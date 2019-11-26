@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -110,6 +111,8 @@ type Config struct {
 	Mail mailservice.Config
 
 	Payments paymentsconfig.Config
+
+	Referrals referrals.Config
 
 	Console consoleweb.Config
 

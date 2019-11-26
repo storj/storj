@@ -101,7 +101,9 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 	}
 }
 
-func (worker *Worker) work(ctx context.Context, path storj.Path) error {
+func (worker *Worker) work(ctx context.Context, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var errlist errs.Group
 
 	// First, attempt to reverify nodes for this segment that are in containment mode.
@@ -129,6 +131,9 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 	for _, pending := range report.PendingAudits {
 		skip[pending.NodeID] = true
+	}
+	for _, nodeID := range report.Unknown {
+		skip[nodeID] = true
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.

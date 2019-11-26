@@ -22,6 +22,21 @@ type ProjectAccounting struct {
 	db *dbx.DB
 }
 
+// projectLimitType represents project limit types.
+type projectLimitType int
+
+const (
+	// projectLimitTypeStorage defines project storage limit type.
+	projectLimitTypeStorage = 0
+	// projectLimitTypeBandwidth defines project bandwidth limit type.
+	projectLimitTypeBandwidth = 1
+)
+
+// Int returns int value of project limit type.
+func (limitType projectLimitType) Int() int {
+	return int(limitType)
+}
+
 // SaveTallies saves the latest bucket info
 func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -135,14 +150,74 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 	return inlineSum.Int64, remoteSum.Int64, err
 }
 
-// GetProjectUsageLimits returns project usage limit
-func (db *ProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+// UpdateProjectStorageLimit updates project storage usage limit.
+func (db *ProjectAccounting) UpdateProjectStorageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	project, err := db.db.Get_Project_By_Id(ctx, dbx.Project_Id(projectID[:]))
+	return db.updateProjectLimit(ctx, projectID, projectLimitTypeStorage, limit)
+}
+
+// UpdateProjectBandwidthLimit updates project bandwidth usage limit.
+func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return db.updateProjectLimit(ctx, projectID, projectLimitTypeBandwidth, limit)
+}
+
+// GetProjectStorageLimit returns project storage usage limit.
+func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return db.getProjectLimit(ctx, projectID, projectLimitTypeStorage)
+}
+
+// GetProjectBandwidthLimit returns project bandwidth usage limit.
+func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return db.getProjectLimit(ctx, projectID, projectLimitTypeBandwidth)
+}
+
+// updateProjectLimit updates project limit by project id and project limit type.
+// Returns error if no rows were affected.
+func (db *ProjectAccounting) updateProjectLimit(ctx context.Context, projectID uuid.UUID, limitType projectLimitType, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := db.db.Rebind(`INSERT INTO project_limits (project_id, limit_type, usage_limit, created_at) 
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT (project_id, limit_type)
+				DO UPDATE SET usage_limit = ?;`)
+
+	result, err := db.db.ExecContext(ctx, query, projectID[:], limitType.Int(), limit, time.Now().UTC(), limit)
 	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return Error.New("no rows were affected")
+	}
+
+	return nil
+}
+
+// getProjectLimit returns project limit by type and project id.
+// Returns 0 if there is no such limit.
+func (db *ProjectAccounting) getProjectLimit(ctx context.Context, projectID uuid.UUID, limitType projectLimitType) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxLimit, err := db.db.Get_ProjectLimit_By_ProjectId_And_LimitType(ctx,
+		dbx.ProjectLimit_ProjectId(projectID[:]),
+		dbx.ProjectLimit_LimitType(limitType.Int()),
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+
 		return 0, err
 	}
-	return memory.Size(project.UsageLimit), nil
+
+	return memory.Size(dbxLimit.UsageLimit), nil
 }
 
 // GetProjectTotal retrieves project usage for a given period
