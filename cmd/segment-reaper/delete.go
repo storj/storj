@@ -19,16 +19,8 @@ var (
 	deleteCmd = &cobra.Command{
 		Use:   "delete input_file.csv [flags]",
 		Short: "Deletes zombie segments from DB",
-		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-				return err
-			}
-			if err := cobra.OnlyValidArgs(cmd, args); err != nil {
-				return err
-			}
-			return nil
-		},
-		RunE: cmdDelete,
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdDelete,
 	}
 
 	deleteCfg struct {
