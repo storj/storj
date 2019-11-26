@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
@@ -231,7 +232,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
 			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
-			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			if *pgtest.CrdbConnStr != "" {
+				db, err = satellitedbtest.NewCockroach(log.Named("db"), schema)
+			} else {
+				db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			}
 		}
 		if err != nil {
 			return nil, err
@@ -386,6 +391,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
 			},
+		}
+
+		if planet.ReferralManager != nil {
+			config.Referrals.ReferralManagerURL = storj.NodeURL{
+				ID:      planet.ReferralManager.Identity().ID,
+				Address: planet.ReferralManager.Addr().String(),
+			}
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)

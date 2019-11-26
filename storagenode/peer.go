@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -134,6 +135,7 @@ type Peer struct {
 		// TODO: lift things outside of it to organize better
 		Trust         *trust.Pool
 		Store         *pieces.Store
+		TrashChore    *pieces.TrashChore
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
@@ -251,6 +253,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),
 			peer.DB.PieceSpaceUsedDB(),
+		)
+
+		peer.Storage2.TrashChore = pieces.NewTrashChore(
+			log.Named("pieces:trashchore"),
+			24*time.Hour,   // choreInterval: how often to run the chore
+			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
 		)
 
 		peer.Storage2.CacheService = pieces.NewService(
@@ -450,6 +460,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.TrashChore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
 	})
 
@@ -496,6 +509,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
+	}
+	if peer.Storage2.TrashChore != nil {
+		errlist.Add(peer.Storage2.TrashChore.Close())
 	}
 	if peer.Storage2.RetainService != nil {
 		errlist.Add(peer.Storage2.RetainService.Close())

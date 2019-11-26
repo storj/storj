@@ -112,9 +112,6 @@ export default class RegisterArea extends Vue {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
-    public setShortName(value: string): void {
-        this.user.shortName = value.trim();
-    }
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;

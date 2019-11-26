@@ -49,7 +49,6 @@ require (
 	github.com/hashicorp/raft v1.0.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
-	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
@@ -115,5 +114,5 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
-	storj.io/drpc v0.0.7-0.20191105232401-03e121f6d8e4
+	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
 )

@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
@@ -113,6 +114,10 @@ type API struct {
 		Accounts  payments.Accounts
 		Inspector *stripecoinpayments.Endpoint
 		Version   *stripecoinpayments.VersionService
+	}
+
+	Referrals struct {
+		Service *referrals.Service
 	}
 
 	Console struct {
@@ -340,6 +345,36 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC())
 	}
 
+	{ // setup marketing portal
+		log.Debug("Satellite API Process setting up marketing server")
+
+		peer.Marketing.PartnersService = rewards.NewPartnersService(
+			peer.Log.Named("partners"),
+			rewards.DefaultPartnersDB,
+			[]string{
+				"https://us-central-1.tardigrade.io/",
+				"https://asia-east-1.tardigrade.io/",
+				"https://europe-west-1.tardigrade.io/",
+			},
+		)
+
+		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			config.Marketing,
+			peer.DB.Rewards(),
+			peer.Marketing.PartnersService,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
 	{ // setup metainfo
 		log.Debug("Satellite API Process setting up metainfo")
 		peer.Metainfo.Database = pointerDB
@@ -353,6 +388,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
+			peer.Marketing.PartnersService,
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
@@ -413,36 +449,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		}
 	}
 
-	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-
-		peer.Marketing.PartnersService = rewards.NewPartnersService(
-			peer.Log.Named("partners"),
-			rewards.DefaultPartnersDB,
-			[]string{
-				"https://us-central-1.tardigrade.io/",
-				"https://asia-east-1.tardigrade.io/",
-				"https://europe-west-1.tardigrade.io/",
-			},
-		)
-
-		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			config.Marketing,
-			peer.DB.Rewards(),
-			peer.Marketing.PartnersService,
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup console
 		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
@@ -453,6 +459,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
 		}
+
+		peer.Referrals.Service = referrals.NewService(
+			peer.Log.Named("referrals:service"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			config.Referrals,
+			peer.Dialer,
+			peer.DB.Console().Users(),
+			consoleConfig.PasswordCost,
+		)
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
@@ -467,12 +482,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
+			peer.Referrals.Service,
 			peer.Console.Listener,
+			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
 	}
 

@@ -56,7 +56,7 @@ func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMet
 // Store interface methods for streams to satisfy to be a store
 type typedStore interface {
 	Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (Meta, error)
-	Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (ranger.Ranger, Meta, error)
+	Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
 	List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -380,128 +380,74 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 // Get returns a ranger that knows what the overall size is (from l/<path>)
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
-func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (rr ranger.Ranger, meta Meta, err error) {
+func (s *streamStore) Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	resps, err := s.metainfo.Batch(ctx,
-		&metainfo.GetObjectParams{
-			Bucket:        []byte(path.Bucket()),
-			EncryptedPath: []byte(encPath.Raw()),
+	info, limits, err := s.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+		StreamID: object.ID,
+		Position: storj.SegmentPosition{
+			Index: -1, // Request the last segment
 		},
-		&metainfo.DownloadSegmentParams{
-			Position: storj.SegmentPosition{
-				Index: -1, // Request the last segment
-			},
-		},
-	)
+	})
 	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	if len(resps) != 2 {
-		return nil, Meta{}, errs.New(
-			"metainfo.Batch request returned an unexpected number of responses. Want: 2, got: %d", len(resps),
-		)
-	}
-
-	var object storj.ObjectInfo
-	{
-		resp, err := resps[0].GetObject()
-		if err != nil {
-			return nil, Meta{}, err
-		}
-
-		object = resp.Info
-	}
-
-	var (
-		info   storj.SegmentDownloadInfo
-		limits []*pb.AddressedOrderLimit
-	)
-	{
-		resp, err := resps[1].DownloadSegment()
-		if err != nil {
-			return nil, Meta{}, err
-		}
-
-		info = resp.Info
-		limits = resp.Limits
+		return nil, err
 	}
 
 	lastSegmentRanger, err := s.segments.Ranger(ctx, info, limits, object.RedundancyScheme)
 	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	stream := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfo, &stream)
-	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	var rangers []ranger.Ranger
-	for i := int64(0); i < numberOfSegments(&stream, &streamMeta)-1; i++ {
+	for i := int64(0); i < object.SegmentCount-1; i++ {
 		var contentNonce storj.Nonce
 		_, err = encryption.Increment(&contentNonce, i+1)
 		if err != nil {
-			return nil, Meta{}, err
+			return nil, err
 		}
 
 		rangers = append(rangers, &lazySegmentRanger{
 			metainfo:      s.metainfo,
 			segments:      s.segments,
-			streamID:      object.StreamID,
+			streamID:      object.ID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
-			size:          stream.SegmentsSize,
+			size:          object.FixedSegmentSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
-			encBlockSize:  int(streamMeta.EncryptionBlockSize),
-			cipher:        storj.CipherSuite(streamMeta.EncryptionType),
+			encBlockSize:  int(object.EncryptionParameters.BlockSize),
+			cipher:        object.CipherSuite,
 		})
 	}
 
 	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, numberOfSegments(&stream, &streamMeta))
+	_, err = encryption.Increment(&contentNonce, object.SegmentCount)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
-	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 	decryptedLastSegmentRanger, err := decryptRanger(
 		ctx,
 		lastSegmentRanger,
-		stream.LastSegmentSize,
-		storj.CipherSuite(streamMeta.EncryptionType),
+		object.LastSegment.Size,
+		object.CipherSuite,
 		derivedKey,
-		encryptedKey,
-		keyNonce,
+		info.SegmentEncryption.EncryptedKey,
+		&info.SegmentEncryption.EncryptedKeyNonce,
 		&contentNonce,
-		int(streamMeta.EncryptionBlockSize),
+		int(object.EncryptionParameters.BlockSize),
 	)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	rangers = append(rangers, decryptedLastSegmentRanger)
-	catRangers := ranger.Concat(rangers...)
-	meta = convertMeta(object.Modified, object.Expires, stream, streamMeta)
-	return catRangers, meta, nil
+	return ranger.Concat(rangers...), nil
 }
 
 // Meta implements Store.Meta
