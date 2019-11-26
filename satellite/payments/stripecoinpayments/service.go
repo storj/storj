@@ -5,7 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -29,6 +28,8 @@ import (
 var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service error")
+	// ErrNoCouponUsages indicates that there are no coupon usages.
+	ErrNoCouponUsages = errs.Class("stripecoinpayments no coupon usages")
 
 	mon = monkit.Package()
 )
@@ -175,13 +176,13 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 			continue
 		}
 
-		since, err := service.db.CouponUsage().GetLatest(ctx, coupon.ID)
+		since, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				return err // TODO: should we return or just continue?
+			if !ErrNoCouponUsages.Has(err) {
+				return err
 			}
 
-			since = time.Now().UTC()
+			since = coupon.Created
 		}
 
 		start, end := date.DayBoundary(since)
@@ -195,25 +196,31 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 		objectCountPrice := int64(usage.ObjectCount * float64(service.PerObjectPrice))
 		storageGbHrsPrice := int64(usage.Storage*float64(service.TBhPrice)) / int64(memory.TB)
 
-		amount := egressPrice + objectCountPrice + storageGbHrsPrice
+		currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
+
+		// TODO: we should add caching for TotalUsage call
+		alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return err
+		}
+		remaining := coupon.Amount - alreadyChargedAmount
 
 		// check if coupon is used
-		if amount >= coupon.Amount {
+		if currentUsageAmount >= remaining {
 			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed); err != nil {
 				return err
 			}
 
-			amount = coupon.Amount
+			currentUsageAmount = remaining
 		}
 
 		couponUsage := CouponUsage{
-			Start:    since.UTC(),
-			End:      since.Add(time.Hour * 24).UTC(),
-			Amount:   amount,
+			End:      time.Now().UTC(),
+			Amount:   currentUsageAmount,
 			CouponID: coupon.ID,
 		}
 
-		if err = service.db.CouponUsage().Insert(ctx, couponUsage); err != nil {
+		if err = service.db.Coupons().AddUsage(ctx, couponUsage); err != nil {
 			return err
 		}
 	}
@@ -581,6 +588,10 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 }
 
 // InvoiceApplyCoupons iterates through all active coupons.
+// TODO: current implementation could possibly charge some coupons twice
+// TODO: in case when this method failed and we call it again.
+// TODO: we should mark coupons as 'already charged for current billing period' somehow to prevent multiple charge
+// TODO: during invoices generation.
 func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -635,12 +646,17 @@ func (service *Service) applyCouponsDiscount(ctx context.Context, coupons []paym
 			continue
 		}
 
-		amountToCharge, err := service.db.CouponUsage().TotalUsageForPeriod(ctx, coupon.ID)
+		amountToCharge, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
 			return err
 		}
 
-		err = service.createInvoiceCouponItem(ctx, customerID, coupon, amountToCharge)
+		intervalEnd, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
+		if err != nil {
+			return err
+		}
+
+		err = service.createInvoiceCouponItem(ctx, customerID, coupon, amountToCharge, intervalEnd)
 		if err != nil {
 			return err
 		}
@@ -650,7 +666,7 @@ func (service *Service) applyCouponsDiscount(ctx context.Context, coupons []paym
 }
 
 // createInvoiceCouponItem creates new Invoice item for specified coupon.
-func (service *Service) createInvoiceCouponItem(ctx context.Context, customerID string, coupon payments.Coupon, amountToCharge int64) (err error) {
+func (service *Service) createInvoiceCouponItem(ctx context.Context, customerID string, coupon payments.Coupon, amountToCharge int64, intervalEnd time.Time) (err error) {
 	defer mon.Task()(&ctx, customerID, coupon)(&err)
 
 	projectItem := &stripe.InvoiceItemParams{
@@ -659,8 +675,8 @@ func (service *Service) createInvoiceCouponItem(ctx context.Context, customerID 
 		Customer:    stripe.String(customerID),
 		Description: stripe.String(fmt.Sprintf("Discount from coupon: %s", coupon.Description)),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(coupon.Created.Unix()),
-			Start: stripe.Int64(coupon.Created.Add(coupon.Duration).Unix()),
+			End:   stripe.Int64(intervalEnd.Unix()),
+			Start: stripe.Int64(coupon.Created.Unix()),
 		},
 	}
 

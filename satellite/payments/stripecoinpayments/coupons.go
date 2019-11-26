@@ -26,16 +26,11 @@ type CouponsDB interface {
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]payments.Coupon, error)
 	// ListPending returns paginated list of coupons with specified status.
 	ListPaged(ctx context.Context, offset int64, limit int, before time.Time, status payments.CouponStatus) (payments.CouponsPage, error)
-}
 
-// CouponUsageDB is an interface for managing coupons_usage table.
-//
-// architecture: Database
-type CouponUsageDB interface {
-	// Insert creates new coupon usage record in database.
-	Insert(ctx context.Context, usage CouponUsage) error
-	// TotalUsageForPeriod gets sum of all usage records for specified coupon.
-	TotalUsageForPeriod(ctx context.Context, couponID uuid.UUID) (_ int64, err error)
+	// AddUsage creates new coupon usage record in database.
+	AddUsage(ctx context.Context, usage CouponUsage) error
+	// TotalUsage gets sum of all usage records for specified coupon.
+	TotalUsage(ctx context.Context, couponID uuid.UUID) (_ int64, err error)
 	// GetLatest return period_end of latest coupon charge.
 	GetLatest(ctx context.Context, couponID uuid.UUID) (time.Time, error)
 }
@@ -45,6 +40,5 @@ type CouponUsage struct {
 	ID       uuid.UUID
 	CouponID uuid.UUID
 	Amount   int64
-	Start    time.Time
 	End      time.Time
 }

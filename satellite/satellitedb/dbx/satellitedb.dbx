@@ -988,6 +988,7 @@ read one (
 
 model coupon (
     key id
+    unique project_id
 
     field id               blob
     field project_id       blob
@@ -1026,10 +1027,9 @@ read limitoffset (
 model coupon_usage (
     key id
 
-    field id           blob
-    field coupon_id    blob
-    field amount       int64
-    field period_start timestamp
-    field period_end   timestamp
+    field id             blob
+    field coupon_id      blob
+    field amount         int64
+    field interval_end   timestamp
 )
 create coupon_usage ()

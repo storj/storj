@@ -15,6 +15,4 @@ type DB interface {
 	ProjectRecords() ProjectRecordsDB
 	// CouponsDB is getter for coupons db.
 	Coupons() CouponsDB
-	// CouponsDB is getter for coupon_usage db.
-	CouponUsage() CouponUsageDB
 }

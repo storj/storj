@@ -37,8 +37,3 @@ func (db *stripeCoinPaymentsDB) ProjectRecords() stripecoinpayments.ProjectRecor
 func (db *stripeCoinPaymentsDB) Coupons() stripecoinpayments.CouponsDB {
 	return &coupons{db: db.db}
 }
-
-// CouponUsage is getter for coupon usage db.
-func (db *stripeCoinPaymentsDB) CouponUsage() stripecoinpayments.CouponUsageDB {
-	return &couponUsage{db: db.db}
-}

@@ -327,14 +327,14 @@ CREATE TABLE coupons (
 	status integer NOT NULL,
 	duration bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id )
 );
 CREATE TABLE coupon_usages (
 	id bytea NOT NULL,
 	coupon_id bytea NOT NULL,
 	amount bigint NOT NULL,
-	period_start timestamp with time zone NOT NULL,
-	period_end timestamp with time zone NOT NULL,
+	interval_end timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
@@ -1641,8 +1641,7 @@ type CouponUsage struct {
 	Id          []byte
 	CouponId    []byte
 	Amount      int64
-	PeriodStart time.Time
-	PeriodEnd   time.Time
+	IntervalEnd time.Time
 }
 
 func (CouponUsage) _Table() string { return "coupon_usages" }
@@ -1707,43 +1706,24 @@ func (f CouponUsage_Amount_Field) value() interface{} {
 
 func (CouponUsage_Amount_Field) _Column() string { return "amount" }
 
-type CouponUsage_PeriodStart_Field struct {
+type CouponUsage_IntervalEnd_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func CouponUsage_PeriodStart(v time.Time) CouponUsage_PeriodStart_Field {
-	return CouponUsage_PeriodStart_Field{_set: true, _value: v}
+func CouponUsage_IntervalEnd(v time.Time) CouponUsage_IntervalEnd_Field {
+	return CouponUsage_IntervalEnd_Field{_set: true, _value: v}
 }
 
-func (f CouponUsage_PeriodStart_Field) value() interface{} {
+func (f CouponUsage_IntervalEnd_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (CouponUsage_PeriodStart_Field) _Column() string { return "period_start" }
-
-type CouponUsage_PeriodEnd_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func CouponUsage_PeriodEnd(v time.Time) CouponUsage_PeriodEnd_Field {
-	return CouponUsage_PeriodEnd_Field{_set: true, _value: v}
-}
-
-func (f CouponUsage_PeriodEnd_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CouponUsage_PeriodEnd_Field) _Column() string { return "period_end" }
+func (CouponUsage_IntervalEnd_Field) _Column() string { return "interval_end" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -7286,22 +7266,20 @@ func (obj *postgresImpl) Create_CouponUsage(ctx context.Context,
 	coupon_usage_id CouponUsage_Id_Field,
 	coupon_usage_coupon_id CouponUsage_CouponId_Field,
 	coupon_usage_amount CouponUsage_Amount_Field,
-	coupon_usage_period_start CouponUsage_PeriodStart_Field,
-	coupon_usage_period_end CouponUsage_PeriodEnd_Field) (
+	coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
 	coupon_usage *CouponUsage, err error) {
 	__id_val := coupon_usage_id.value()
 	__coupon_id_val := coupon_usage_coupon_id.value()
 	__amount_val := coupon_usage_amount.value()
-	__period_start_val := coupon_usage_period_start.value()
-	__period_end_val := coupon_usage_period_end.value()
+	__interval_end_val := coupon_usage_interval_end.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_usages ( id, coupon_id, amount, period_start, period_end ) VALUES ( ?, ?, ?, ?, ? ) RETURNING coupon_usages.id, coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.period_start, coupon_usages.period_end")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_usages ( id, coupon_id, amount, interval_end ) VALUES ( ?, ?, ?, ? ) RETURNING coupon_usages.id, coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.interval_end")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __coupon_id_val, __amount_val, __period_start_val, __period_end_val)
+	obj.logStmt(__stmt, __id_val, __coupon_id_val, __amount_val, __interval_end_val)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __coupon_id_val, __amount_val, __period_start_val, __period_end_val).Scan(&coupon_usage.Id, &coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.PeriodStart, &coupon_usage.PeriodEnd)
+	err = obj.driver.QueryRow(__stmt, __id_val, __coupon_id_val, __amount_val, __interval_end_val).Scan(&coupon_usage.Id, &coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.IntervalEnd)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11757,14 +11735,13 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 	coupon_usage_id CouponUsage_Id_Field,
 	coupon_usage_coupon_id CouponUsage_CouponId_Field,
 	coupon_usage_amount CouponUsage_Amount_Field,
-	coupon_usage_period_start CouponUsage_PeriodStart_Field,
-	coupon_usage_period_end CouponUsage_PeriodEnd_Field) (
+	coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
 	coupon_usage *CouponUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CouponUsage(ctx, coupon_usage_id, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_period_start, coupon_usage_period_end)
+	return tx.Create_CouponUsage(ctx, coupon_usage_id, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_interval_end)
 
 }
 
@@ -13077,8 +13054,7 @@ type Methods interface {
 		coupon_usage_id CouponUsage_Id_Field,
 		coupon_usage_coupon_id CouponUsage_CouponId_Field,
 		coupon_usage_amount CouponUsage_Amount_Field,
-		coupon_usage_period_start CouponUsage_PeriodStart_Field,
-		coupon_usage_period_end CouponUsage_PeriodEnd_Field) (
+		coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
 		coupon_usage *CouponUsage, err error)
 
 	Create_Offer(ctx context.Context,

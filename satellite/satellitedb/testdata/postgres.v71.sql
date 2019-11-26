@@ -368,15 +368,15 @@ CREATE TABLE coupons
     status integer NOT NULL,
     duration bigint NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY ( id )
+    PRIMARY KEY ( id ),
+    UNIQUE ( project_id )
 );
 CREATE TABLE coupon_usages
 (
     id bytea NOT NULL,
     coupon_id bytea NOT NULL,
     amount bigint NOT NULL,
-    period_start timestamp with time zone NOT NULL,
-    period_end timestamp with time zone NOT NULL,
+    interval_end timestamp with time zone NOT NULL,
     PRIMARY KEY ( id )
 );
 
