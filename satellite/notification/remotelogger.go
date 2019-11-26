@@ -36,28 +36,28 @@ func (log *RemoteLogger) Zap() *zap.Logger {
 func (log *RemoteLogger) ProcessDebug(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	log.processNotification(ctx, log.target, message, pb.LogLevel_DEBUG)
+	log.processNotification(ctx, message, pb.LogLevel_DEBUG)
 }
 
 func (log *RemoteLogger) ProcessInfo(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	log.processNotification(ctx, log.target, message, pb.LogLevel_INFO)
+	log.processNotification(ctx, message, pb.LogLevel_INFO)
 }
 
 func (log *RemoteLogger) ProcessWarn(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	log.processNotification(ctx, log.target, message, pb.LogLevel_WARN)
+	log.processNotification(ctx, message, pb.LogLevel_WARN)
 }
 
 func (log *RemoteLogger) ProcessError(message string, fields ...zapcore.Field) {
 	ctx := context.Background()
 
-	log.processNotification(ctx, log.target, message, pb.LogLevel_ERROR)
+	log.processNotification(ctx, message, pb.LogLevel_ERROR)
 }
 
-func (log *RemoteLogger) processNotification(ctx context.Context, _ storj.NodeID, message string, level pb.LogLevel) {
+func (log *RemoteLogger) processNotification(ctx context.Context, message string, level pb.LogLevel) {
 	node, err := log.Service.overlay.Get(ctx, log.target)
 	if err != nil {
 		log.log.Error("failed to receive node info", zap.Error(err))
