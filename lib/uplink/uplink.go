@@ -64,8 +64,13 @@ type Config struct {
 		MaxMemory memory.Size
 
 		// PartnerID is the identity given to the partner for value
-		// attribution
+		// attribution.
+		//
+		// Deprecated: prefer UserAgent
 		PartnerID string
+
+		// UserAgent for the product using the library.
+		UserAgent string
 
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
@@ -179,7 +184,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key)
+	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key, u.cfg.Volatile.UserAgent)
 	if err != nil {
 		return nil, err
 	}
