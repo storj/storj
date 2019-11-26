@@ -4,7 +4,7 @@
 import {
     validateEmail,
     validatePassword,
- } from '@/utils/validation';
+} from '@/utils/validation';
 
 describe('validation', () => {
     it('validatePassword regex works correctly', () => {
