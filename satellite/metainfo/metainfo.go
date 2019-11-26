@@ -771,12 +771,14 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
 	}
 
 	convBucket, err := convertBucketToProto(ctx, bucket)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
 	}
 
 	return &pb.BucketCreateResponse{
@@ -948,7 +950,8 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		if storj.ErrBucketNotFound.Has(err) {
 			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
 		}
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 	}
 	if !bucket.PartnerID.IsZero() {
 		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
@@ -959,7 +962,8 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	bucket.PartnerID = partnerID
 	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 	}
 
 	// update attribution table
