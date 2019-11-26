@@ -12,30 +12,30 @@ import (
 	"storj.io/storj/pkg/signing"
 )
 
-func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer *pendingTransfer) error {
-	if transfer.satelliteMessage == nil {
+func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer *PendingTransfer) error {
+	if transfer.SatelliteMessage == nil {
 		return Error.New("Satellite message cannot be nil")
 	}
-	if transfer.satelliteMessage.GetTransferPiece() == nil {
+	if transfer.SatelliteMessage.GetTransferPiece() == nil {
 		return Error.New("Satellite message transfer piece cannot be nil")
 	}
-	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit() == nil {
+	if transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit() == nil {
 		return Error.New("Addressed order limit on transfer piece cannot be nil")
 	}
-	if transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
+	if transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
 		return Error.New("Addressed order limit on transfer piece cannot be nil")
 	}
-	if transfer.path == nil {
+	if transfer.Path == nil {
 		return Error.New("Transfer path cannot be nil")
 	}
-	if transfer.originalPointer == nil || transfer.originalPointer.GetRemote() == nil {
+	if transfer.OriginalPointer == nil || transfer.OriginalPointer.GetRemote() == nil {
 		return Error.New("could not get remote pointer from transfer item")
 	}
 
 	return nil
 }
 
-func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *pendingTransfer, receivingNodePeerID *identity.PeerIdentity) error {
+func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *pb.StorageNodeMessage_Succeeded, transfer *PendingTransfer, receivingNodePeerID *identity.PeerIdentity) error {
 	originalOrderLimit := message.Succeeded.GetOriginalOrderLimit()
 	if originalOrderLimit == nil {
 		return ErrInvalidArgument.New("Original order limit cannot be nil")
@@ -70,8 +70,8 @@ func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *p
 		return ErrInvalidArgument.New("Invalid original piece ID")
 	}
 
-	receivingNodeID := transfer.satelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
-	calculatedNewPieceID := transfer.originalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.pieceNum)
+	receivingNodeID := transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
+	calculatedNewPieceID := transfer.OriginalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.PieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
 		return ErrInvalidArgument.New("Invalid replacement piece ID")
 	}

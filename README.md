@@ -27,6 +27,8 @@ retrieve those files!
 
 # Contributing to Storj
 
+[![](https://sourcerer.io/fame/jtolds/storj/storj/images/0)](https://sourcerer.io/fame/jtolds/storj/storj/links/0)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/1)](https://sourcerer.io/fame/jtolds/storj/storj/links/1)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/2)](https://sourcerer.io/fame/jtolds/storj/storj/links/2)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/3)](https://sourcerer.io/fame/jtolds/storj/storj/links/3)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/4)](https://sourcerer.io/fame/jtolds/storj/storj/links/4)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/5)](https://sourcerer.io/fame/jtolds/storj/storj/links/5)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/6)](https://sourcerer.io/fame/jtolds/storj/storj/links/6)[![](https://sourcerer.io/fame/jtolds/storj/storj/images/7)](https://sourcerer.io/fame/jtolds/storj/storj/links/7)
+
 All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along! Make sure to sign our [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) first. See our [license section](#license) for more details.
 
 Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [forum](https://forum.storj.io) and join the [Engineering Discussions](https://forum.storj.io/c/engineer-amas) to say hi to the developer community and to talk to the Storj core team.

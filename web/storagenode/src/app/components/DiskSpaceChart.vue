@@ -104,16 +104,16 @@ export default class DiskSpaceChart extends Vue {
         }
 
         const diskSpaceChart = document.getElementById('disk-space-chart');
-
-        if (diskSpaceChart) {
-            const position = diskSpaceChart.getBoundingClientRect();
-            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - this.TOOLTIP_MARGIN + 'px';
-            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+        if (!diskSpaceChart) {
+            return;
         }
 
-        return;
+        // `this` will be the overall tooltip.
+        const position = diskSpaceChart.getBoundingClientRect();
+        tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipEl.style.position = this.TOOLTIP_POSITION;
+        tooltipEl.style.right = `${position.left + window.pageXOffset - tooltipModel.caretX - this.TOOLTIP_MARGIN}px`;
+        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY}px`;
     }
 }
 </script>

@@ -4,7 +4,6 @@
 syntax = "proto3";
 option go_package = "pb";
 
-import "gogo.proto";
 import "node.proto";
 
 package overlay;

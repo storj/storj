@@ -98,7 +98,9 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			worker.limiter.Go(ctx, func() {
 				err = worker.transferPiece(ctx, transferPieceMsg, c)
 				if err != nil {
-					worker.log.Error("failed to transfer piece.", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(errs.Wrap(err)))
+					worker.log.Error("failed to transfer piece.",
+						zap.Stringer("Satellite ID", worker.satelliteID),
+						zap.Error(errs.Wrap(err)))
 				}
 			})
 
@@ -245,6 +247,10 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 			},
 		},
 	}
+	worker.log.Info("piece transferred to new storagenode",
+		zap.Stringer("Storagenode ID", addrLimit.Limit.StorageNodeId),
+		zap.Stringer("Satellite ID", worker.satelliteID),
+		zap.Stringer("Piece ID", pieceID))
 	return c.Send(success)
 }
 
@@ -297,6 +303,9 @@ func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.Pi
 			}
 			continue
 		}
+		worker.log.Debug("delete piece",
+			zap.Stringer("Satellite ID", worker.satelliteID),
+			zap.Stringer("Piece ID", id))
 		totalDeleted += size
 	}
 
