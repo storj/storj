@@ -4,7 +4,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
+	"math"
+	"math/bits"
 	"math/rand"
 	"testing"
 
@@ -139,6 +143,8 @@ func TestObserver(t *testing.T) {
 					assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
 					assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
 					assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
+
+					// TODO: WIP#orange-v3-3243 Check segments field
 				}
 			}
 		}
@@ -146,15 +152,167 @@ func TestObserver(t *testing.T) {
 
 	t.Run("analyzeProject", func(t *testing.T) {
 		t.Run("object without last segment", func(t *testing.T) {
-			t.Skip("TODO")
+			var objectsMap ObjectsMap
+			{ // Generate an objects without last segment
+				const (
+					bucketName = "analyzeBucket"
+					objPath    = storj.Path("analyzePath")
+				)
+				var segments uint64
+				{
+					numSegments := rand.Intn(62) + 1
+					segments = math.MaxUint64 >> numSegments
+				}
+
+				projID, err := uuid.New()
+				require.NoError(t, err)
+				objectsMap = ObjectsMap{
+					Cluster{
+						projectID: projID.String(),
+						bucket:    bucketName,
+					}: map[storj.Path]*Object{
+						objPath: {
+							segments:       segments,
+							hasLastSegment: false,
+						},
+					},
+				}
+			}
+
+			var (
+				buf   = &bytes.Buffer{}
+				obsvr = Observer{
+					db:      teststore.New(),
+					writer:  csv.NewWriter(buf),
+					objects: objectsMap,
+				}
+			)
+
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+			require.NoError(t, err)
+
+			// TODO: Add assertions for buf content
 		})
 
 		t.Run("object with non sequenced segments", func(t *testing.T) {
-			t.Skip("TODO")
+			var objectsMap ObjectsMap
+			{ // Generate an objects without last segment
+				const (
+					bucketName = "analyzeBucket"
+					objPath    = storj.Path("analyzePath")
+				)
+				var segments uint64
+				{ // Calculate a unaligned number of segments
+					segments = rand.Uint64()
+					for {
+						trailingZeros := bits.TrailingZeros64(segments)
+						leadingZeros := bits.LeadingZeros64(segments)
+
+						if (trailingZeros + leadingZeros) == 64 {
+							continue
+						}
+
+						ones := bits.OnesCount64(segments)
+						if (trailingZeros + leadingZeros + ones) == 64 {
+							continue
+						}
+
+						break
+					}
+				}
+
+				projID, err := uuid.New()
+				require.NoError(t, err)
+				objectsMap = ObjectsMap{
+					Cluster{
+						projectID: projID.String(),
+						bucket:    bucketName,
+					}: map[storj.Path]*Object{
+						objPath: {
+							segments:       segments,
+							hasLastSegment: true,
+						},
+					},
+				}
+			}
+
+			var (
+				buf   = &bytes.Buffer{}
+				obsvr = Observer{
+					db:      teststore.New(),
+					writer:  csv.NewWriter(buf),
+					objects: objectsMap,
+				}
+			)
+
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+			require.NoError(t, err)
+
+			// TODO: Add assertions for buf content
 		})
 
 		t.Run("object with unencrypted segments with different stored number", func(t *testing.T) {
-			t.Skip("TODO")
+			var objectsMap ObjectsMap
+			{ // Generate an object
+				const (
+					bucketName = "analyzeBucket"
+					objPath    = storj.Path("analyzePath")
+				)
+				var (
+					segments           uint64
+					invalidNumSegments byte
+				)
+				{
+					numSegments := rand.Intn(62) + 1
+					segments = math.MaxUint64 >> numSegments
+
+					for {
+						numSeg := rand.Intn(65)
+						if numSeg != numSegments {
+							invalidNumSegments = byte(numSeg)
+							break
+						}
+					}
+				}
+
+				projID, err := uuid.New()
+				require.NoError(t, err)
+				objectsMap = ObjectsMap{
+					Cluster{
+						projectID: projID.String(),
+						bucket:    bucketName,
+					}: map[storj.Path]*Object{
+						objPath: {
+							segments:                 segments,
+							expectedNumberOfSegments: invalidNumSegments,
+							hasLastSegment:           false,
+						},
+					},
+				}
+			}
+
+			var (
+				buf   = &bytes.Buffer{}
+				obsvr = Observer{
+					db:      teststore.New(),
+					writer:  csv.NewWriter(buf),
+					objects: objectsMap,
+				}
+			)
+
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+			require.NoError(t, err)
+
+			// TODO: Add assertions for buf content
 		})
 	})
 }
