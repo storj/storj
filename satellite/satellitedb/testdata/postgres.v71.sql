@@ -471,4 +471,4 @@ INSERT INTO "project_limits" ("project_id", "limit_type", "usage_limit", "create
 
 -- NEW DATA --
 INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 111111111121, '2019-06-01 08:28:24.267934+00');
-INSERT INTO "coupon_usages" ("id", "coupon_id", "amount", "period_start", "period_end") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, '2019-06-01 08:28:24.267934+00', '2019-06-01 09:28:24.267934+00');
+INSERT INTO "coupon_usages" ("id", "coupon_id", "amount", "interval_end") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, '2019-06-01 09:28:24.267934+00');
