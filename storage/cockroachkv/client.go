@@ -8,8 +8,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/internal/dbutil"
@@ -236,75 +236,61 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		return Error.Wrap(err)
 	}
 
-	txn, err := client.pgConn.Begin()
-	defer func() {
-		RollbackUnlessCommited(txn)
-	}()
+	return crdb.ExecuteTx(ctx, client.pgConn, nil, func(txn *sql.Tx) error {
+		q := "SELECT metadata FROM pathdata WHERE bucket = $1:::BYTEA AND fullpath = $2:::BYTEA;"
+		row := txn.QueryRowContext(ctx, q, []byte(bucket), []byte(key))
 
-	q := "SELECT metadata FROM pathdata WHERE bucket = $1:::BYTEA AND fullpath = $2:::BYTEA;"
-	row := txn.QueryRow(q, []byte(bucket), []byte(key))
+		var metadata []byte
+		err = row.Scan(&metadata)
+		if err == sql.ErrNoRows {
+			// Row not found for this bucket+fullpath combination.
+			// Potentially because another concurrent transaction changed the row.
+			return storage.ErrKeyNotFound.New("%q", key)
+		}
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-	var metadata []byte
-	err = row.Scan(&metadata)
-	if err == sql.ErrNoRows {
-		// Row not found for this bucket+fullpath combination.
-		// Potentially because another concurrent transaction changed the row.
-		return storage.ErrKeyNotFound.New("%q", key)
-	}
-	if err != nil {
-		return Error.Wrap(err)
-	}
+		if equal := bytes.Compare(metadata, oldValue); equal != 0 {
+			// If the row is found but the metadata has been already changed
+			// we can't continue to delete it.
+			return storage.ErrValueChanged.New("%q", key)
+		}
 
-	if equal := bytes.Compare(metadata, oldValue); equal != 0 {
-		// If the row is found but the metadata has been already changed
-		// we can't continue to delete it.
-		return storage.ErrValueChanged.New("%q", key)
-	}
-
-	var updated bool
-	if newValue == nil {
-		q = `
+		var res sql.Result
+		if newValue == nil {
+			q = `
 		DELETE FROM pathdata
 			WHERE pathdata.metadata = $3:::BYTEA
 				AND pathdata.bucket = $1:::BYTEA
 				AND pathdata.fullpath = $2:::BYTEA
-			RETURNING 1
 		`
 
-		row = txn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
-	} else {
-		q = `
+			res, err = txn.ExecContext(ctx, q, []byte(bucket), []byte(key), []byte(oldValue))
+		} else {
+			q = `
 		UPDATE pathdata
 			SET metadata = $4:::BYTEA
 			WHERE pathdata.metadata = $3:::BYTEA
 				AND pathdata.bucket = $1:::BYTEA
 				AND pathdata.fullpath = $2:::BYTEA
-			RETURNING 1
 		`
-		row = txn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
-	}
+			res, err = txn.ExecContext(ctx, q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
+		}
 
-	err = row.Scan(&updated)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if !updated {
-		// Don't think this can ever happen because we should get no rows if the row isn't found
-		// but just in case we might as well check and return an error.
-		return Error.Wrap(err)
-	}
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-	// Commit the transaction. If it fails we will Rollback.
-	err = txn.Commit()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	return nil
-}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-func RollbackUnlessCommited(tx *sql.Tx) error {
-	if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
-		return err
-	}
-	return nil
+		if affected != 1 {
+			return storage.ErrValueChanged.New("%q", key)
+		}
+
+		return nil
+	})
 }
