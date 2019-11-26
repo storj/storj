@@ -989,6 +989,11 @@
                 "id": 4,
                 "name": "successful",
                 "type": "bool"
+              },
+              {
+                "id": 5,
+                "name": "completion_receipt",
+                "type": "bytes"
               }
             ]
           },
