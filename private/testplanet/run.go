@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/postgreskv"
 )
@@ -26,9 +25,6 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
 			t.Parallel()
 
-			schemaSuffix := satellitedbtest.SchemaSuffix()
-			t.Log("schema-suffix ", schemaSuffix)
-
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
@@ -38,27 +34,13 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				var schema string
-				db, err := satellitedb.New(log, satelliteDB.MasterDB.URL)
-
-				if satelliteDB.MasterDB.Name == "Postgres" {
-					schema = satellitedbtest.SchemaName(t.Name(), "S", index, schemaSuffix)
-					db, err = satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
-					if err != nil {
-						t.Fatal(err)
-					}
-					return &satellitedbtest.SchemaDB{
-						DB:       db,
-						Schema:   schema,
-						AutoDrop: true,
-					}, nil
-				}
-
-				return db, err
+				return satellitedbtest.CreateMasterDB(t, "S", index, satelliteDB.MasterDB)
 			}
 
 			if satelliteDB.PointerDB.URL != "" {
 				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
+					schemaSuffix := satellitedbtest.SchemaSuffix()
+					t.Log("schema-suffix ", schemaSuffix)
 					schema := satellitedbtest.SchemaName(t.Name(), "P", index, schemaSuffix)
 
 					db, err := postgreskv.New(pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema))
