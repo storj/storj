@@ -30,7 +30,10 @@
                 <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
             </div>
         </div>
-        <p class="referral-container__not-available" v-if="!isAvailableLinks">No available referral links. Try again later.</p>
+        <div class="referral-container__not-available" v-if="!isAvailableLinks">
+            <p class="referral-container__not-available__text">No available referral links. Try again later.</p>
+            <NoLinksIcon />
+        </div>
     </div>
 </template>
 
@@ -38,16 +41,28 @@
 import VueClipboards from 'vue-clipboards';
 import { Component, Vue } from 'vue-property-decorator';
 
+import NoLinksIcon from '@/../static/images/referral/NoLinks.svg';
+
+import { REFERRAL_ACTIONS } from '@/store/modules/referral';
+
 Vue.use(VueClipboards);
 
-@Component
+@Component({
+    components: {
+        NoLinksIcon,
+    },
+})
 export default class ReferralArea extends Vue {
     public copyLink(): void {
         this.$notify.success('Link saved to clipboard');
     }
 
     public get isAvailableLinks(): boolean {
-        return false;
+        return this.$store.state.referralModule.referralLinks.length === 0;
+    }
+
+    public async beforeMount() {
+        await this.$store.dispatch(REFERRAL_ACTIONS.GET_LINKS);
     }
 }
 </script>
@@ -59,19 +74,17 @@ export default class ReferralArea extends Vue {
 
     .referral-container {
         position: relative;
-        height: 90vh;
-        font-family: 'font_regular', sans-serif;
         display: flex;
         flex-direction: column;
-        justify-items: center;
+        justify-content: center;
         align-items: center;
+        height: 100%;
 
         &__title-container {
             display: flex;
             flex-direction: column;
             justify-items: center;
             align-items: center;
-            margin-top: 83px;
 
             &__text {
                 text-align: center;
@@ -125,6 +138,7 @@ export default class ReferralArea extends Vue {
                     justify-content: center;
                     background-color: #2683ff;
                     color: #fff;
+                    font-family: 'font_regular', sans-serif;
                     border-radius: 6px;
                     font-weight: 900;
                     font-size: 16px;
@@ -139,11 +153,14 @@ export default class ReferralArea extends Vue {
         }
 
         &__not-available {
-            margin: 30px 0 0 0;
-            text-align: center;
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            color: #354049;
+
+            &__text {
+                margin: 30px 0 60px 0;
+                text-align: center;
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                color: #384b65;
+            }
         }
     }
 </style>

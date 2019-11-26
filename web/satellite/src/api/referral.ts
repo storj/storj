@@ -18,9 +18,14 @@ export class ReferralHttpApi {
      * @throws Error
      */
     public async getLinks(): Promise<any> {
-        const path = `${this.ROOT_PATH}/account`;
+        const path = `${this.ROOT_PATH}`;
         const response = await this.http.get(path, true);
+
+        // TODO: remove mock and add types after final referral manager implementation
+        return [];
+
         if (response.ok) {
+
             return await response.json();
         }
 
