@@ -19,6 +19,8 @@ var (
 	ErrValidateVersionQuery = errs.Class("validate db version query error")
 	// ErrValidateVersionMismatch is when the migration version does not match the current database version
 	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
+	// ErrValidateMinVersion is when the migration version does not match the current database version
+	ErrValidateMinVersion = errs.Class("validate minimum version error")
 )
 
 /*
@@ -225,6 +227,15 @@ func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
 		version, time.Now().String(),
 	)
 	return err
+}
+
+// CurrentVersion finds the latest version for the db
+func (migration *Migration) CurrentVersion(log *zap.Logger, db DB) (int, error) {
+	err := migration.ensureVersionTable(log, db)
+	if err != nil {
+		return -1, Error.Wrap(err)
+	}
+	return migration.getLatestVersion(log, db)
 }
 
 // SQL statements that are executed on the database

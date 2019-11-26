@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { BillingHistoryItem, CreditCard, PaymentsApi } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 
 const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -11,6 +11,7 @@ const PAYMENTS_MUTATIONS = {
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
     UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
     SET_BILLING_HISTORY: 'SET_BILLING_HISTORY',
+    SET_PROJECT_CHARGES: 'SET_PROJECT_CHARGES',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -24,6 +25,8 @@ export const PAYMENTS_ACTIONS = {
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
     GET_BILLING_HISTORY: 'getBillingHistory',
+    MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
+    GET_PROJECT_CHARGES: 'getProjectCharges',
 };
 
 const {
@@ -33,6 +36,7 @@ const {
     UPDATE_CARDS_SELECTION,
     UPDATE_CARDS_DEFAULT,
     SET_BILLING_HISTORY,
+    SET_PROJECT_CHARGES,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -46,6 +50,8 @@ const {
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
     GET_BILLING_HISTORY,
+    MAKE_TOKEN_DEPOSIT,
+    GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -55,6 +61,7 @@ export class PaymentsState {
     public balance: number = 0;
     public creditCards: CreditCard[] = [];
     public billingHistory: BillingHistoryItem[] = [];
+    public charges: ProjectCharge[] = [];
 }
 
 /**
@@ -100,6 +107,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [SET_BILLING_HISTORY](state: PaymentsState, billingHistory: BillingHistoryItem[]): void {
                 state.billingHistory = billingHistory;
+            },
+            [SET_PROJECT_CHARGES](state: PaymentsState, charges: ProjectCharge[]): void {
+                state.charges = charges;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = 0;
@@ -148,6 +158,14 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 const billingHistory: BillingHistoryItem[] = await api.billingHistory();
 
                 commit(SET_BILLING_HISTORY, billingHistory);
+            },
+            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
+                return await api.makeTokenDeposit(amount);
+            },
+            [GET_PROJECT_CHARGES]: async function({commit}: any): Promise<void> {
+                const charges: ProjectCharge[] = await api.projectsCharges();
+
+                commit(SET_PROJECT_CHARGES, charges);
             },
         },
     };

@@ -67,6 +67,10 @@ type PieceExpirationDB interface {
 	// DeleteFailed marks an expiration record as having experienced a failure in deleting the
 	// piece from the disk
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
+	// Trash marks a piece as in the trash
+	Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	// RestoreTrash marks all piece as not being in trash
+	RestoreTrash(ctx context.Context, satelliteID storj.NodeID) error
 }
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
@@ -273,6 +277,50 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	}
 
 	return Error.Wrap(err)
+}
+
+// Trash moves the specified piece to the blob trash. If necessary, it converts
+// the v0 piece to a v1 piece. It also marks the item as "trashed" in the
+// pieceExpirationDB.
+func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
+	// this is an old piece version and attempt to migrate it.
+	_, err = store.blobs.StatWithStorageFormat(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.MaxFormatVersionSupported)
+	if err != nil && !errs.IsFunc(err, os.IsNotExist) {
+		return Error.Wrap(err)
+	}
+
+	if errs.IsFunc(err, os.IsNotExist) {
+		// MaxFormatVersionSupported does not exist, migrate.
+		err = store.MigrateV0ToV1(ctx, satellite, pieceID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err = store.expirationInfo.Trash(ctx, satellite, pieceID)
+	err = errs.Combine(err, store.blobs.Trash(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}))
+
+	return Error.Wrap(err)
+}
+
+// RestoreTrash restores all pieces in the trash
+func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return Error.Wrap(store.expirationInfo.RestoreTrash(ctx, satelliteID))
 }
 
 // MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
