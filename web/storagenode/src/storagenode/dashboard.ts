@@ -14,6 +14,7 @@ export class Dashboard {
         public lastPinged: Date,
         public startedAt: Date,
         public version: string,
+        public allowedVersion: string,
         public isUpToDate: boolean) {}
 }
 
