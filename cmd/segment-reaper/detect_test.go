@@ -84,11 +84,8 @@ func TestObserver(t *testing.T) {
 						storj.Path(objPath): expectedObj,
 					}
 				} else {
-					expectedObj, ok = bucketObjects[storj.Path(objPath)]
-					if !ok {
-						expectedObj = &Object{}
-						bucketObjects[storj.Path(objPath)] = expectedObj
-					}
+					expectedObj = &Object{}
+					bucketObjects[storj.Path(objPath)] = expectedObj
 				}
 
 				if withNumSegments {
