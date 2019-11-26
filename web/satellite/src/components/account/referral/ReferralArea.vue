@@ -58,7 +58,7 @@ export default class ReferralArea extends Vue {
     }
 
     public get isAvailableLinks(): boolean {
-        return this.$store.state.referralModule.referralLinks.length === 0;
+        return this.$store.state.referralModule.referralLinks.length !== 0;
     }
 
     public async beforeMount() {
