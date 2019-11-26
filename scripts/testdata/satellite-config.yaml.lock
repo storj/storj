@@ -370,6 +370,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price in cents user should pay for storing each TB per hour
 # payments.tbh-price: 0
 
+# referrals.referral-manager-url: ""
+
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 

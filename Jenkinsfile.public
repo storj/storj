@@ -29,6 +29,9 @@ pipeline {
 
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
+
+                sh 'cockroach start --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --join=localhost:26257 --background'
+                sh 'cockroach init --insecure --host=localhost:26257'
             }
         }
 
@@ -111,6 +114,21 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+                stage('CockroachDB migration compatibility') {
+                    environment {
+                        STORJ_COCKROACH_TEST = 'postgres://root@localhost:26257/teststorj?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
+                    }
+
+                    steps {
+                        // Until we can run all the unit tests with cockroach (i.e. all the sql is fixed to be cockroachdb compatible),
+                        // lets just run a bare bones test here that sets up testplanet and runs the database migtation
+                        sh 'psql -U postgres -c \'create database teststorj4;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj;\''
+                        sh 'cd private/testplanet && go test ./... -run=TestRun'
                     }
                 }
 

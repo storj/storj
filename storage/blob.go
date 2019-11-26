@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -82,6 +83,8 @@ type Blobs interface {
 	Trash(ctx context.Context, ref BlobRef) error
 	// RestoreTrash restores all files in the trash for a given namespace
 	RestoreTrash(ctx context.Context, namespace []byte) error
+	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore
+	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error)
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
