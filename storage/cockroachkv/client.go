@@ -4,6 +4,7 @@
 package cockroachkv
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 
@@ -175,7 +176,8 @@ func (client *Client) List(ctx context.Context, start storage.Key, limit int) (s
 	return nil, nil
 }
 
-func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) error {
+func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
@@ -221,48 +223,76 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		return Error.Wrap(err)
 	}
 
-	var row *sql.Row
+	txn, err := client.pgConn.Begin()
+	defer func() {
+		RollbackUnlessCommited(txn)
+	}()
+
+	q := "SELECT metadata FROM pathdata WHERE bucket = $1:::BYTEA AND fullpath = $2:::BYTEA;"
+	row := txn.QueryRow(q, []byte(bucket), []byte(key))
+
+	var metadata []byte
+	err = row.Scan(&metadata)
+	if err == sql.ErrNoRows {
+		// Row not found for this bucket+fullpath combination.
+		// Potentially because another concurrent transaction changed the row.
+		return storage.ErrKeyNotFound.New("%q", key)
+	}
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if equal := bytes.Compare(metadata, oldValue); equal != 0 {
+		// If the row is found but the metadata has been already changed
+		// we can't continue to delete it.
+		return storage.ErrValueChanged.New("%q", key)
+	}
+
+	var updated bool
 	if newValue == nil {
-		q := `
-		WITH updated AS (
-			DELETE FROM pathdata
+		q = `
+		DELETE FROM pathdata
 			WHERE pathdata.metadata = $3:::BYTEA
 				AND pathdata.bucket = $1:::BYTEA
 				AND pathdata.fullpath = $2:::BYTEA
 			RETURNING 1
-		)
-		SELECT EXISTS(SELECT 1 FROM pathdata WHERE pathdata.bucket = $1:::BYTEA AND pathdata.fullpath = $2:::BYTEA) AS key_present,
-		       EXISTS(SELECT 1 FROM updated) AS value_updated
 		`
+
 		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
 	} else {
-		q := `
-		WITH matching_key AS (
-			SELECT * FROM pathdata WHERE bucket = $1:::BYTEA AND fullpath = $2:::BYTEA
-		), updated AS (
-			UPDATE pathdata
-				SET metadata = $4:::BYTEA
-				FROM matching_key mk
-				WHERE pathdata.metadata = $3:::BYTEA
-					AND pathdata.bucket = mk.bucket
-					AND pathdata.fullpath = mk.fullpath
-				RETURNING 1
-		)
-		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
+		q = `
+		UPDATE pathdata
+			SET metadata = $4:::BYTEA
+			FROM matching_key mk
+			WHERE pathdata.metadata = $3:::BYTEA
+				AND pathdata.bucket = $1:::BYTEA
+				AND pathdata.fullpath = $2:::BYTEA
+			RETURNING 1
 		`
 		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
 	}
 
-	var keyPresent, valueUpdated bool
-	err = row.Scan(&keyPresent, &valueUpdated)
+	err = row.Scan(&updated)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if !keyPresent {
-		return storage.ErrKeyNotFound.New("%q", key)
+	if !updated {
+		// Don't think this can ever happen because we should get no rows if the row isn't found
+		// but just in case we might as well check and return an error.
+		return Error.Wrap(err)
 	}
-	if !valueUpdated {
-		return storage.ErrValueChanged.New("%q", key)
+
+	// Commit the transaction. If it fails we will Rollback.
+	err = txn.Commit()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+func RollbackUnlessCommited(tx *sql.Tx) error {
+	if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+		return err
 	}
 	return nil
 }
