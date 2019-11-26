@@ -11,8 +11,8 @@ import (
 
 func TestDeriveRootKey(t *testing.T) {
 	// ensure that we can derive with no errors
-	_, err := DeriveRootKey([]byte("password"), []byte("salt"), "")
+	_, err := DeriveRootKey([]byte("password"), []byte("salt"), "", 8)
 	assert.NoError(t, err)
-	_, err = DeriveRootKey([]byte("password"), []byte("salt"), "any/path")
+	_, err = DeriveRootKey([]byte("password"), []byte("salt"), "any/path", 8)
 	assert.NoError(t, err)
 }
