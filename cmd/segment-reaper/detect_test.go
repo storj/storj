@@ -269,6 +269,121 @@ func TestObserver(t *testing.T) {
 				}
 			}
 		})
+
+		t.Run("object with more than 64 segments", func(t *testing.T) {
+			var (
+				obsvr = Observer{
+					db:      teststore.New(),
+					objects: make(ObjectsMap),
+				}
+				expectedNumSegments    int
+				expectedInlineSegments int
+				expectedRemoteSegments int
+				expectedObjects        = map[string]map[storj.Path]*Object{}
+				objSegments            []objectSegmentRef
+			)
+
+			projID, err := uuid.New()
+			require.NoError(t, err)
+			{ // Generate objects for testing
+				var (
+					bucketName            = "0"
+					numObjs               = rand.Intn(10) + 2
+					objWithNumSegsOverMax = false
+				)
+				for i := 0; i < numObjs || !objWithNumSegsOverMax; i++ {
+					var (
+						numSegments     = rand.Intn(100) + 1
+						inline          = (rand.Int() % 2) == 0
+						withNumSegments = (rand.Int() % 2) == 0
+					)
+
+					if rand.Int()%2 == 0 {
+						bucketName = fmt.Sprintf("bucket-%d", i)
+					}
+					objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, projID, bucketName, inline, withNumSegments)
+					objSegments = append(objSegments, objSegmentsProj...)
+
+					// TODO: use findOrCreate when cluster removal is merged
+					var expectedObj *Object
+					bucketObjects, ok := expectedObjects[bucketName]
+					if !ok {
+						expectedObj = &Object{}
+						expectedObjects[bucketName] = map[storj.Path]*Object{
+							storj.Path(objPath): expectedObj,
+						}
+					} else {
+						expectedObj = &Object{}
+						bucketObjects[storj.Path(objPath)] = expectedObj
+					}
+
+					if withNumSegments {
+						expectedObj.expectedNumberOfSegments = byte(numSegments)
+					}
+
+					expectedObj.hasLastSegment = true
+
+					if numSegments > int(maxNumOfSegments) {
+						objWithNumSegsOverMax = true
+						expectedObj.skip = true
+					} else {
+						// segments mask doesn't contain the last segment, hence we move 1 bit more
+						expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
+					}
+
+					expectedNumSegments += numSegments
+					if inline {
+						expectedInlineSegments++
+						expectedRemoteSegments += (numSegments - 1)
+					} else {
+						expectedRemoteSegments += numSegments
+					}
+				}
+			}
+
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			for _, objSeg := range objSegments {
+				err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, projID.String(), obsvr.lastProjectID, "lastProjectID")
+			assert.Equal(t, expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
+			// newObject if returns an inline segment is always the last
+			assert.Equal(t, expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
+			assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
+
+			if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
+				for cluster, bucketObjs := range obsvr.objects {
+					expBucketObjs, ok := expectedObjects[cluster.bucket]
+					if !ok {
+						t.Errorf("bucket '%s' shouldn't exist in objects map", cluster.bucket)
+						continue
+					}
+
+					if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", cluster.bucket) {
+						continue
+					}
+
+					for expPath, expObj := range expBucketObjs {
+						if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
+							continue
+						}
+
+						obj := bucketObjs[expPath]
+						assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
+						assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
+
+						assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
+						if !expObj.skip {
+							assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
+						}
+					}
+				}
+			}
+		})
 	})
 
 	t.Run("analyzeProject", func(t *testing.T) {
