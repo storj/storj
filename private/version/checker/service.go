@@ -35,9 +35,10 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	checked sync2.Fence
-	mu      sync.Mutex
-	allowed bool
+	checked         sync2.Fence
+	mu              sync.Mutex
+	allowed         bool
+	acceptedVersion version.SemVer
 }
 
 // NewService creates a Version Check Client with default configuration
@@ -85,34 +86,47 @@ func (srv *Service) Run(ctx context.Context) (err error) {
 }
 
 // IsAllowed returns whether if the Service is allowed to operate or not
-func (srv *Service) IsAllowed(ctx context.Context) bool {
+func (srv *Service) IsAllowed(ctx context.Context) (version.SemVer, bool) {
 	if !srv.checked.Wait(ctx) {
-		return false
+		return version.SemVer{}, false
 	}
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	return srv.allowed
+	return srv.acceptedVersion, srv.allowed
 }
 
-// CheckVersion checks if the client is running latest/allowed code
+// checkVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
-	defer mon.Task()(&ctx)(nil)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var minimum version.SemVer
 
 	defer func() {
 		srv.mu.Lock()
 		srv.allowed = allowed
+		if err == nil {
+			srv.acceptedVersion = minimum
+		}
 		srv.mu.Unlock()
 		srv.checked.Release()
 	}()
 
 	if !srv.info.Release {
+		minimum = srv.info.Version
 		return true
 	}
 
-	minimum, err := srv.client.OldMinimum(ctx, srv.service)
+	minimumOld, err := srv.client.OldMinimum(ctx, srv.service)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
 		srv.log.Sugar().Errorf("Failed to do periodic version check: %s", err.Error())
+		return true
+	}
+
+	minimum, err = version.NewSemVer(minimumOld.String())
+	if err != nil {
+		srv.log.Sugar().Errorf("failed to convert old sem version to sem version")
 		return true
 	}
 
@@ -122,7 +136,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 		srv.log.Sugar().Errorf("no version from control server, accepting to run")
 		return true
 	}
-	if isAcceptedVersion(srv.info.Version, minimum) {
+	if isAcceptedVersion(srv.info.Version, minimumOld) {
 		srv.log.Sugar().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}
