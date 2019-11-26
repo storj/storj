@@ -11,6 +11,7 @@ import { CreditsApiGql } from '@/api/credits';
 import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
+import { ReferralHttpApi } from '@/api/referral';
 import { ProjectUsageApiGql } from '@/api/usage';
 import { notProjectRelatedRoutes, router } from '@/router';
 import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
@@ -21,6 +22,7 @@ import { makeNotificationsModule, NotificationsState } from '@/store/modules/not
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeReferralModule, ReferralState } from '@/store/modules/referral';
 import { makeUsageModule, UsageState } from '@/store/modules/usage';
 import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
 import { CreditUsage } from '@/types/credits';
@@ -44,6 +46,7 @@ const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const projectUsageApi = new ProjectUsageApiGql();
 const paymentsApi = new PaymentsHttpApi();
+const referralApi = new ReferralHttpApi();
 
 class ModulesState {
     public notificationsModule: NotificationsState;
@@ -55,6 +58,7 @@ class ModulesState {
     public usersModule: User;
     public projectsModule: ProjectsState;
     public usageModule: UsageState;
+    public referralModule: ReferralState;
 }
 
 // Satellite store (vuex)
@@ -70,6 +74,7 @@ export const store = new Vuex.Store<ModulesState>({
         projectsModule: makeProjectsModule(projectsApi),
         usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
+        referralModule: makeReferralModule(referralApi),
     },
 });
 
