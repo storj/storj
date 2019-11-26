@@ -410,7 +410,6 @@ func TestDeletePiece(t *testing.T) {
 	t.Run("Ok", func(t *testing.T) {
 		pieceID := storj.PieceID{1}
 		data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
-		require.NoError(t, err)
 
 		err := client.DeletePiece(ctx.Context, pieceID)
 		require.NoError(t, err)
