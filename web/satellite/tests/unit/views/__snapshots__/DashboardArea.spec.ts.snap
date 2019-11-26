@@ -8,7 +8,10 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
     <div class="dashboard-container__wrap__column">
       <dashboardheader-stub></dashboardheader-stub>
       <div class="dashboard-container__main-area">
-        <router-view-stub name="default"></router-view-stub>
+        <!---->
+        <div class="dashboard-container__main-area__content">
+          <router-view-stub name="default"></router-view-stub>
+        </div>
       </div>
     </div>
   </div>
