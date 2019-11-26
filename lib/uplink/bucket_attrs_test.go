@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -56,14 +57,14 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 }
 
 // check that partner bucket attributes are stored and retrieved correctly.
-func TestPartnerBucketAttrs(t *testing.T) {
+func TestBucket_PartnerAttribution(t *testing.T) {
 	var (
 		access     = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName = "mightynein"
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()].Serialize())
@@ -137,6 +138,94 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
 			require.NoError(t, err)
 			assert.NotEqual(t, bucketInfo.PartnerID.String(), config.Volatile.PartnerID)
+		})
+	})
+}
+
+// check that partner bucket attributes are stored and retrieved correctly.
+func TestBucket_UserAgent(t *testing.T) {
+	var (
+		access     = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
+		bucketName = "mightynein"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()].Serialize())
+		require.NoError(t, err)
+
+		t.Run("without user agent", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+
+			assert.True(t, bucketInfo.PartnerID.IsZero())
+
+			_, err = project.CreateBucket(ctx, bucketName, nil)
+			require.Error(t, err)
+		})
+
+		t.Run("open with user agent", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.UserAgent = "Zenko"
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			require.NoError(t, err)
+			assert.Equal(t, *partnerID, bucketInfo.PartnerID)
+		})
+
+		t.Run("open with different user agent", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.UserAgent = "Temporal"
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			require.NoError(t, err)
+			assert.Equal(t, *partnerID, bucketInfo.PartnerID)
 		})
 	})
 }
