@@ -25,7 +25,7 @@ import { formatBytes } from '@/app/utils/converter';
 import { EgressUsed } from '@/storagenode/satellite';
 
 /**
- * stores egress bandwidth data for egress bandwidth chart's tooltip
+ * stores egress data for egress bandwidth chart's tooltip
  */
 class EgressTooltip {
     public normalEgress: string;
@@ -129,22 +129,23 @@ export default class EgressChart extends Vue {
                                    </div>`;
         }
 
-        // `this` will be the overall tooltip
-        const bandwidthChart = document.getElementById('egress-chart');
-        if (bandwidthChart) {
-            const position = bandwidthChart.getBoundingClientRect();
-            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
-            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
-
-            tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipArrow.style.position = this.TOOLTIP_POSITION;
-            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
-            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 103}px`;
+        const egressChart = document.getElementById('egress-chart');
+        if (!egressChart) {
+            return;
         }
 
-        return;
+        // `this` will be the overall tooltip.
+        const position = egressChart.getBoundingClientRect();
+        tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+
+        tooltipEl.style.position = this.TOOLTIP_POSITION;
+        tooltipEl.style.left = `${position.left + tooltipModel.caretX - 94}px`;
+        tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 150}px`;
+
+        tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipArrow.style.position = this.TOOLTIP_POSITION;
+        tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+        tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY + 125}px`;
     }
 }
 </script>
