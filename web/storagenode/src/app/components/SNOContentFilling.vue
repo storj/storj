@@ -45,23 +45,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="selectedSatellite.id">
-            <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
-            <div class="info-area__checks-area">
-                <ChecksArea
-                    label="Uptime Checks"
-                    :amount="checks.uptime"
-                    info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."
-                />
-                <ChecksArea
-                    label="Audit Checks"
-                    :amount="checks.audit"
-                    info-text="Percentage of successful pings/communication between the node & satellite."
-                />
-            </div>
-        </div>
         <div>
-            <p class="info-area__title">Remaining on the Node</p>
             <div class="info-area__remaining-space-area">
                 <BarInfo
                     label="Bandwidth Remaining"
@@ -76,6 +60,21 @@
                     info-text="of disk space left"
                     :current-bar-amount="diskSpace.used"
                     :max-bar-amount="diskSpace.available"
+                />
+            </div>
+        </div>
+        <div v-if="selectedSatellite.id">
+            <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
+            <div class="info-area__checks-area">
+                <ChecksArea
+                    label="Uptime Checks"
+                    :amount="checks.uptime"
+                    info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."
+                />
+                <ChecksArea
+                    label="Audit Checks"
+                    :amount="checks.audit"
+                    info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
         </div>
