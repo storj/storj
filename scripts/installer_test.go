@@ -8,8 +8,6 @@ package main
 
 import (
 	"archive/zip"
-	"bufio"
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -259,32 +257,6 @@ func waitForState(ctx context.Context, service *mgr.Service, state svc.State) er
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
-}
-
-func readConfigLines(t *testing.T, ctx *testcontext.Context, configPath string) string {
-	configFile, err := os.Open(configPath)
-	require.NoError(t, err)
-	defer ctx.Check(configFile.Close)
-
-	// NB: strip empty lines and comments
-	configBuf := new(bytes.Buffer)
-	scanner := bufio.NewScanner(configFile)
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.Trim(line, " \t\n")
-		out := append(scanner.Bytes(), byte('\n'))
-		if len(line) == 0 {
-			continue
-		}
-		if !strings.HasPrefix(line, "#") {
-			_, err := configBuf.Write(out)
-			require.NoError(t, err)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		require.NoError(t, err)
-	}
-	return configBuf.String()
 }
 
 func releaseUrl(version, name, ext string) string {
