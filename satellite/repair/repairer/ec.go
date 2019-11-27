@@ -6,6 +6,7 @@ package repairer
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -142,6 +143,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
+		mon.Meter(fmt.Sprintf("%s_%s", "download_failed_not_enough_pieces_repair", path)).Mark(1) //locked
 		return nil, failedPieces, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
