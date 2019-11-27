@@ -139,22 +139,22 @@ export default class BandwidthChart extends Vue {
                                    </div>`;
         }
 
-        // `this` will be the overall tooltip
         const bandwidthChart = document.getElementById('bandwidth-chart');
-        if (bandwidthChart) {
-            const position = bandwidthChart.getBoundingClientRect();
-            tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipEl.style.position = this.TOOLTIP_POSITION;
-            tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
-            tooltipEl.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 83}px`;
-
-            tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
-            tooltipArrow.style.position = this.TOOLTIP_POSITION;
-            tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
-            tooltipArrow.style.bottom = `${position.bottom + window.pageYOffset - tooltipModel.caretY - 103}px`;
+        if (!bandwidthChart) {
+            return;
         }
 
-        return;
+        // `this` will be the overall tooltip.
+        const position = bandwidthChart.getBoundingClientRect();
+        tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipEl.style.position = this.TOOLTIP_POSITION;
+        tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
+        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 303}px`;
+
+        tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipArrow.style.position = this.TOOLTIP_POSITION;
+        tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+        tooltipArrow.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 35}px`;
     }
 }
 </script>

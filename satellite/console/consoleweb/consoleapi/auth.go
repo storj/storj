@@ -89,7 +89,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		PartnerID      string `json:"partnerId"`
 		Password       string `json:"password"`
 		SecretInput    string `json:"secret"`
-		ReferrerUserID string `json:"referrerUserID"`
+		ReferrerUserID string `json:"referrerUserId"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)

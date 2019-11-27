@@ -25,15 +25,19 @@ type Chore struct {
 	log                 *zap.Logger
 	service             *Service
 	TransactionCycle    sync2.Cycle
+	CouponUsageCycle    sync2.Cycle
 	AccountBalanceCycle sync2.Cycle
 }
 
 // NewChore creates new clearing loop chore.
-func NewChore(log *zap.Logger, service *Service, txInterval time.Duration, accBalanceInterval time.Duration) *Chore {
+// TODO: uncomment new interval when coupons will be finished.
+func NewChore(log *zap.Logger, service *Service, txInterval, accBalanceInterval /* couponUsageInterval */ time.Duration) *Chore {
 	return &Chore{
-		log:                 log,
-		service:             service,
-		TransactionCycle:    *sync2.NewCycle(txInterval),
+		log:              log,
+		service:          service,
+		TransactionCycle: *sync2.NewCycle(txInterval),
+		// TODO: uncomment when coupons will be finished.
+		//CouponUsageCycle:    *sync2.NewCycle(couponUsageInterval),
 		AccountBalanceCycle: *sync2.NewCycle(accBalanceInterval),
 	}
 }
@@ -66,6 +70,18 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		},
 	)
+	// TODO: uncomment when coupons will be finished.
+	//chore.CouponUsageCycle.Start(ctx, &group,
+	//	func(ctx context.Context) error {
+	//		chore.log.Info("running coupon usage cycle")
+	//
+	//		if err := chore.service.updateCouponUsageLoop(ctx); err != nil {
+	//			chore.log.Error("coupon usage cycle failed", zap.Error(ErrChore.Wrap(err)))
+	//		}
+	//
+	//		return nil
+	//	},
+	//)
 
 	return ErrChore.Wrap(group.Wait())
 }
