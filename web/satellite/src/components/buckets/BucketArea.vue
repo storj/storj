@@ -172,15 +172,15 @@ export default class BucketArea extends Vue {
 <style scoped lang="scss">
     .buckets-header {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        padding: 40px 60px 20px 60px;
+        padding: 32px 65px 20px 65px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
-            color: #384b65;
+            color: #263549;
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
