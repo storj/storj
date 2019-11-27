@@ -16,7 +16,7 @@
     "types": [
       "webpack-env",
       "jest",
-      "segment-analytics",
+      "segment-analytics"
     ],
     "paths": {
       "@/*": [

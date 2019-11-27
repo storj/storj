@@ -4,5 +4,5 @@
 export enum SegmentEvent {
     CLICKED_LOGO = 'clicked-on-logo',
     CLICKED_LOGIN = 'clicked-on-login',
-    CLICKED_BACK_TO_LOGIN = 'clicked-on-back-to-login'
-};
+    CLICKED_BACK_TO_LOGIN = 'clicked-on-back-to-login',
+}

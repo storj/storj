@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import loadScript from 'load-script';
+
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 /**
@@ -41,8 +42,7 @@ export class Segmentio {
         this.analytics.identify();
     }
 
-    public track(event: SegmentEvent, properties?: Object, options?: SegmentAnalytics.SegmentOpts,
-        callback?: () => void) {
+    public track(event: SegmentEvent, properties?: Object, options?: SegmentAnalytics.SegmentOpts, callback?: () => void) {
         if (!this.analytics) {
             return;
         }
