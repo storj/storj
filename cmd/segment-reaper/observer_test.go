@@ -33,7 +33,6 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			obsvr = observer{
-				db:      teststore.New(),
 				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
@@ -158,7 +157,6 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			obsvr = observer{
-				db:      teststore.New(),
 				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
@@ -279,7 +277,6 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			obsvr = observer{
-				db:      teststore.New(),
 				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
