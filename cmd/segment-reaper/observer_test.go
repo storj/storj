@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"math"
@@ -27,6 +28,9 @@ import (
 
 func TestObserver_processSegment(t *testing.T) {
 	t.Run("valid objects of different projects", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		var (
 			obsvr = observer{
 				db:      teststore.New(),
@@ -45,7 +49,9 @@ func TestObserver_processSegment(t *testing.T) {
 			inline := (rand.Int() % 2) == 0
 			withNumSegments := (rand.Int() % 2) == 0
 
-			_, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, "project1", inline, withNumSegments)
+			_, objSegmentsProj := createNewObjectSegments(
+				t, ctx.Context, numSegments, &projID, "project1", inline, withNumSegments,
+			)
 			objSegments = append(objSegments, objSegmentsProj...)
 
 			expectedNumSegments += numSegments
@@ -71,7 +77,9 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(
+					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
+				)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -105,9 +113,6 @@ func TestObserver_processSegment(t *testing.T) {
 				}
 			}
 		}
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		for _, objSeg := range objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
@@ -148,6 +153,9 @@ func TestObserver_processSegment(t *testing.T) {
 	})
 
 	t.Run("object without last segment", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		var (
 			obsvr = observer{
 				db:      teststore.New(),
@@ -177,7 +185,9 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(
+					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
+				)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -225,9 +235,6 @@ func TestObserver_processSegment(t *testing.T) {
 			}
 		}
 
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
 		for _, objSeg := range objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
@@ -267,6 +274,9 @@ func TestObserver_processSegment(t *testing.T) {
 	})
 
 	t.Run("object with more than 64 segments", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		var (
 			obsvr = observer{
 				db:      teststore.New(),
@@ -296,7 +306,9 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(
+					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
+				)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -335,9 +347,6 @@ func TestObserver_processSegment(t *testing.T) {
 				}
 			}
 		}
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		for _, objSeg := range objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
@@ -549,7 +558,7 @@ type segmentRef struct {
 //
 // It returns the object path and the list of object segment references.
 func createNewObjectSegments(
-	t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
+	t *testing.T, ctx context.Context, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
 ) (objectPath string, _ []segmentRef) {
 	t.Helper()
 
@@ -566,6 +575,9 @@ func createNewObjectSegments(
 	)
 
 	for i := 0; i < (numSegments - 1); i++ {
+		raw, err := metainfo.CreatePath(ctx, *projectID, int64(i), []byte(bucketName), []byte(objectID))
+		require.NoError(t, err)
+
 		references = append(references, segmentRef{
 			path: metainfo.ScopedPath{
 				ProjectID:           *projectID,
@@ -573,7 +585,7 @@ func createNewObjectSegments(
 				BucketName:          bucketName,
 				Segment:             fmt.Sprintf("s%d", i),
 				EncryptedObjectPath: encryptedPath,
-				Raw:                 fmt.Sprintf("%s/%s/%s/s%d", projectIDString, bucketName, objectID, i),
+				Raw:                 raw,
 			},
 			pointer: &pb.Pointer{
 				Type: pb.Pointer_REMOTE,
@@ -596,6 +608,9 @@ func createNewObjectSegments(
 	})
 	require.NoError(t, err)
 
+	raw, err := metainfo.CreatePath(ctx, *projectID, -1, []byte(bucketName), []byte(objectID))
+	require.NoError(t, err)
+
 	references = append(references, segmentRef{
 		path: metainfo.ScopedPath{
 			ProjectID:           *projectID,
@@ -603,7 +618,7 @@ func createNewObjectSegments(
 			BucketName:          bucketName,
 			Segment:             "l",
 			EncryptedObjectPath: encryptedPath,
-			Raw:                 fmt.Sprintf("%s/%s/%s/l", projectIDString, bucketName, objectID),
+			Raw:                 raw,
 		},
 		pointer: &pb.Pointer{
 			Type:     pointerType,
