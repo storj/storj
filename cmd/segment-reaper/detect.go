@@ -16,8 +16,6 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-const maxNumOfSegments = byte(64)
-
 var (
 	detectCmd = &cobra.Command{
 		Use:   "detect",

@@ -17,6 +17,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
+const maxNumOfSegments = byte(64)
+
 // object represents object with segments.
 type object struct {
 	// TODO verify if we have more than 64 segments for object in network
