@@ -5,8 +5,10 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -34,19 +36,35 @@ type object struct {
 // name.
 type bucketsObjects map[string]map[storj.Path]*object
 
-func newObserver(db metainfo.PointerDB, w *csv.Writer) *observer {
+func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*observer, error) {
+	headers := []string{
+		"ProjectID",
+		"SegmentIndex",
+		"Bucket",
+		"EncodedEncryptedPath",
+		"CreationDate",
+	}
+	err := w.Write(headers)
+	if err != nil {
+		return nil, err
+	}
+
 	return &observer{
 		db:     db,
 		writer: w,
+		from:   from,
+		to:     to,
 
 		objects: make(bucketsObjects),
-	}
+	}, nil
 }
 
 // observer metainfo.Loop observer for zombie reaper.
 type observer struct {
 	db     metainfo.PointerDB
 	writer *csv.Writer
+	from   *time.Time
+	to     *time.Time
 
 	lastProjectID string
 
@@ -54,6 +72,7 @@ type observer struct {
 	inlineSegments     int
 	lastInlineSegments int
 	remoteSegments     int
+	zombieSegments     int
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
@@ -127,6 +146,12 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 	}
 
+	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
+		object.skip = true
+	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
+		object.skip = true
+	}
+
 	// collect number of pointers for report
 	if pointer.Type == pb.Pointer_INLINE {
 		obsvr.inlineSegments++
@@ -143,9 +168,137 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {
-	// TODO this part will be implemented in next PR
-	// TODO(if): For what is this?
+	for bucket, objects := range obsvr.objects {
+		for path, object := range objects {
+			if object.skip {
+				continue
+			}
+
+			brokenObject := false
+			if !object.hasLastSegment {
+				brokenObject = true
+			} else {
+				includeLastSegment := true
+				segmentsCount := object.segments.Count()
+
+				// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
+				switch {
+				// this case is only for old style pointers with encrypted number of segments
+				// value 0 means that we don't know how much segments object should have
+				case object.expectedNumberOfSegments == 0:
+					// verify if initial sequence is valid
+					lastSequenceIndex := 0
+					for ; lastSequenceIndex < maxNumOfSegments; lastSequenceIndex++ {
+						has, err := object.segments.Has(lastSequenceIndex)
+						if err != nil {
+							panic(err)
+						}
+						if !has {
+							break
+						}
+					}
+					// unset valid sequence and mark as broken but don't remove last segment
+					for index := 0; index < lastSequenceIndex; index++ {
+						err := object.segments.Unset(index)
+						if err != nil {
+							panic(err)
+						}
+					}
+					// in this case we always mark object as broken because if
+					// there was valid sequence we are removing it from bitmask and leave only
+					// zombie segments
+					brokenObject = true
+					includeLastSegment = false
+				case segmentsCount < int(object.expectedNumberOfSegments)-1:
+					brokenObject = true
+				case segmentsCount > int(object.expectedNumberOfSegments)-1:
+					// verify if initial sequence is valid
+					for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
+						has, err := object.segments.Has(index)
+						if err != nil {
+							panic(err)
+						}
+						if !has {
+							brokenObject = true
+							break
+						}
+					}
+					if !brokenObject {
+						// if initial sequence is valid then remove it from object and
+						// mark rest of segments as broken
+						for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
+							err := object.segments.Unset(index)
+							if err != nil {
+								panic(err)
+							}
+						}
+						brokenObject = true
+						includeLastSegment = false
+					}
+				case segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+					brokenObject = true
+				}
+
+				if brokenObject && includeLastSegment {
+					err := obsvr.printSegment(ctx, "l", bucket, path)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			if brokenObject {
+				for index := 0; index < maxNumOfSegments; index++ {
+					has, err := object.segments.Has(index)
+					if err != nil {
+						panic(err)
+					}
+					if has {
+						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path)
+						if err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
 	return nil
+}
+
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex, bucket, path string) error {
+	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
+	if err != nil {
+		return err
+	}
+	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
+	err = obsvr.writer.Write([]string{
+		obsvr.lastProjectID,
+		segmentIndex,
+		bucket,
+		encodedPath,
+		creationDate,
+	})
+	if err != nil {
+		return err
+	}
+	obsvr.zombieSegments++
+	return nil
+}
+
+func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string) (string, error) {
+	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
+	pointerBytes, err := db.Get(ctx, key)
+	if err != nil {
+		return "", err
+	}
+
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		return "", err
+	}
+	return pointer.CreationDate.Format(time.RFC3339Nano), nil
 }
 
 // clearBucketsObjects clears up the buckets objects map for reusing it.
