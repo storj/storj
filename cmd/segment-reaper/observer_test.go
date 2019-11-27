@@ -28,14 +28,14 @@ import (
 func TestObserver_processSegment(t *testing.T) {
 	t.Run("valid objects of different projects", func(t *testing.T) {
 		var (
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
-				objects: make(ObjectsMap),
+				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
 			expectedInlineSegments int
 			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*Object{}
+			expectedObjects        = map[string]map[storj.Path]*object{}
 			objSegments            []objectSegmentRef
 			projID                 = testrand.UUID()
 		)
@@ -75,15 +75,15 @@ func TestObserver_processSegment(t *testing.T) {
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *Object
+				var expectedObj *object
 				bucketObjects, ok := expectedObjects[bucketName]
 				if !ok {
-					expectedObj = &Object{}
-					expectedObjects[bucketName] = map[storj.Path]*Object{
+					expectedObj = &object{}
+					expectedObjects[bucketName] = map[storj.Path]*object{
 						objPath: expectedObj,
 					}
 				} else {
-					expectedObj = &Object{}
+					expectedObj = &object{}
 					bucketObjects[objPath] = expectedObj
 				}
 
@@ -121,14 +121,14 @@ func TestObserver_processSegment(t *testing.T) {
 		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 
 		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
-			for cluster, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[cluster.bucket]
+			for bucket, bucketObjs := range obsvr.objects {
+				expBucketObjs, ok := expectedObjects[bucket]
 				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", cluster.bucket)
+					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
 				}
 
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", cluster.bucket) {
+				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
 					continue
 				}
 
@@ -149,14 +149,14 @@ func TestObserver_processSegment(t *testing.T) {
 
 	t.Run("object without last segment", func(t *testing.T) {
 		var (
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
-				objects: make(ObjectsMap),
+				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
 			expectedInlineSegments int
 			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*Object{}
+			expectedObjects        = map[string]map[storj.Path]*object{}
 			objSegments            []objectSegmentRef
 			projID                 = testrand.UUID()
 		)
@@ -181,15 +181,15 @@ func TestObserver_processSegment(t *testing.T) {
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *Object
+				var expectedObj *object
 				bucketObjects, ok := expectedObjects[bucketName]
 				if !ok {
-					expectedObj = &Object{}
-					expectedObjects[bucketName] = map[storj.Path]*Object{
+					expectedObj = &object{}
+					expectedObjects[bucketName] = map[storj.Path]*object{
 						objPath: expectedObj,
 					}
 				} else {
-					expectedObj = &Object{}
+					expectedObj = &object{}
 					bucketObjects[objPath] = expectedObj
 				}
 
@@ -240,14 +240,14 @@ func TestObserver_processSegment(t *testing.T) {
 		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 
 		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
-			for cluster, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[cluster.bucket]
+			for bucket, bucketObjs := range obsvr.objects {
+				expBucketObjs, ok := expectedObjects[bucket]
 				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", cluster.bucket)
+					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
 				}
 
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", cluster.bucket) {
+				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
 					continue
 				}
 
@@ -268,14 +268,14 @@ func TestObserver_processSegment(t *testing.T) {
 
 	t.Run("object with more than 64 segments", func(t *testing.T) {
 		var (
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
-				objects: make(ObjectsMap),
+				objects: make(bucketsObjects),
 			}
 			expectedNumSegments    int
 			expectedInlineSegments int
 			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*Object{}
+			expectedObjects        = map[string]map[storj.Path]*object{}
 			objSegments            []objectSegmentRef
 			projID                 = testrand.UUID()
 		)
@@ -300,15 +300,15 @@ func TestObserver_processSegment(t *testing.T) {
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *Object
+				var expectedObj *object
 				bucketObjects, ok := expectedObjects[bucketName]
 				if !ok {
-					expectedObj = &Object{}
-					expectedObjects[bucketName] = map[storj.Path]*Object{
+					expectedObj = &object{}
+					expectedObjects[bucketName] = map[storj.Path]*object{
 						objPath: expectedObj,
 					}
 				} else {
-					expectedObj = &Object{}
+					expectedObj = &object{}
 					bucketObjects[objPath] = expectedObj
 				}
 
@@ -351,14 +351,14 @@ func TestObserver_processSegment(t *testing.T) {
 		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 
 		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
-			for cluster, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[cluster.bucket]
+			for bucket, bucketObjs := range obsvr.objects {
+				expBucketObjs, ok := expectedObjects[bucket]
 				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", cluster.bucket)
+					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
 				}
 
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", cluster.bucket) {
+				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
 					continue
 				}
 
@@ -383,7 +383,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 func TestObsever_analyzeProject(t *testing.T) {
 	t.Run("object without last segment", func(t *testing.T) {
-		var objectsMap ObjectsMap
+		var bucketsObjs bucketsObjects
 		{ // Generate an objects without last segment
 			const (
 				bucketName = "analyzeBucket"
@@ -395,12 +395,8 @@ func TestObsever_analyzeProject(t *testing.T) {
 				segments = math.MaxUint64 >> numSegments
 			}
 
-			projID := testrand.UUID()
-			objectsMap = ObjectsMap{
-				Cluster{
-					projectID: projID.String(),
-					bucket:    bucketName,
-				}: map[storj.Path]*Object{
+			bucketsObjs = bucketsObjects{
+				bucketName: map[storj.Path]*object{
 					objPath: {
 						segments:       segments,
 						hasLastSegment: false,
@@ -411,24 +407,24 @@ func TestObsever_analyzeProject(t *testing.T) {
 
 		var (
 			buf   = &bytes.Buffer{}
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
 				writer:  csv.NewWriter(buf),
-				objects: objectsMap,
+				objects: bucketsObjs,
 			}
 		)
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+		err := obsvr.analyzeProject(ctx.Context)
 		require.NoError(t, err)
 
 		// TODO: Add assertions for buf content
 	})
 
 	t.Run("object with non sequenced segments", func(t *testing.T) {
-		var objectsMap ObjectsMap
+		var bucketsObjs bucketsObjects
 		{ // Generate an objects without last segment
 			const (
 				bucketName = "analyzeBucket"
@@ -454,12 +450,8 @@ func TestObsever_analyzeProject(t *testing.T) {
 				}
 			}
 
-			projID := testrand.UUID()
-			objectsMap = ObjectsMap{
-				Cluster{
-					projectID: projID.String(),
-					bucket:    bucketName,
-				}: map[storj.Path]*Object{
+			bucketsObjs = bucketsObjects{
+				bucketName: map[storj.Path]*object{
 					objPath: {
 						segments:       segments,
 						hasLastSegment: true,
@@ -470,24 +462,24 @@ func TestObsever_analyzeProject(t *testing.T) {
 
 		var (
 			buf   = &bytes.Buffer{}
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
 				writer:  csv.NewWriter(buf),
-				objects: objectsMap,
+				objects: bucketsObjs,
 			}
 		)
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+		err := obsvr.analyzeProject(ctx.Context)
 		require.NoError(t, err)
 
 		// TODO: Add assertions for buf content
 	})
 
 	t.Run("object with unencrypted segments with different stored number", func(t *testing.T) {
-		var objectsMap ObjectsMap
+		var bucketsObjs bucketsObjects
 		{ // Generate an object
 			const (
 				bucketName = "analyzeBucket"
@@ -510,12 +502,8 @@ func TestObsever_analyzeProject(t *testing.T) {
 				}
 			}
 
-			projID := testrand.UUID()
-			objectsMap = ObjectsMap{
-				Cluster{
-					projectID: projID.String(),
-					bucket:    bucketName,
-				}: map[storj.Path]*Object{
+			bucketsObjs = bucketsObjects{
+				bucketName: map[storj.Path]*object{
 					objPath: {
 						segments:                 segments,
 						expectedNumberOfSegments: invalidNumSegments,
@@ -527,17 +515,17 @@ func TestObsever_analyzeProject(t *testing.T) {
 
 		var (
 			buf   = &bytes.Buffer{}
-			obsvr = Observer{
+			obsvr = observer{
 				db:      teststore.New(),
 				writer:  csv.NewWriter(buf),
-				objects: objectsMap,
+				objects: bucketsObjs,
 			}
 		)
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		err := analyzeProject(ctx.Context, obsvr.db, obsvr.objects, obsvr.writer)
+		err := obsvr.analyzeProject(ctx.Context)
 		require.NoError(t, err)
 
 		// TODO: Add assertions for buf content
