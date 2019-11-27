@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// +build windows
 // +build ignore
 
 package main
@@ -38,7 +39,7 @@ var (
 	releaseMSIPath string
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
-	oldRelease  = "v0.23.5"
+	oldRelease  = "v0.26.2"
 	msiBaseArgs = []string{
 		"/quiet", "/qn",
 		"/norestart",
@@ -53,12 +54,6 @@ func TestMain(m *testing.M) {
 		log.Fatal("no msi passed, use `go test ... -args -msi \"<msi path (using \\ seperator)>\"`")
 	}
 
-	logPath, err := ioutil.TempDir("", "uninstall.log")
-	if err != nil {
-		panic(err)
-	}
-	tryUninstall(logPath)
-
 	tmp, err := ioutil.TempDir("", "release")
 	if err != nil {
 		panic(err)
@@ -72,16 +67,12 @@ func TestMain(m *testing.M) {
 		err = errs.Combine(os.RemoveAll(tmp))
 	}()
 
-	status := m.Run()
-	defer tryUninstall(logPath)
-
-	os.Exit(status)
+	os.Exit(m.Run())
 }
 
 func TestInstaller_Config(t *testing.T) {
 	ctx := testcontext.New(t)
-	//defer ctx.Cleanup()
-	t.Logf("ctx tmp path: %s", ctx.Dir(""))
+	defer ctx.Cleanup()
 
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
@@ -91,29 +82,19 @@ func TestInstaller_Config(t *testing.T) {
 	publicAddr := "127.0.0.1:10000"
 
 	args := []string{
-		"INSTALLFOLDER=" + installDir,
-		//fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
 		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
 		fmt.Sprintf("STORJ_EMAIL=%s", email),
 		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
 	}
 	install(t, ctx, *msiPathFlag, installDir, args...)
-	requireUninstall(ctx.File("log", "uninstall.log"))
+	defer requireUninstall(t, ctx)
 
-	// TODO: require identity file paths
-	//certPath := ctx.File("install", "identity.cert")
-	//keyPath := ctx.File("install", "identity.key")
-
-	//expectedCertPath := fmt.Sprintf("identity.cert-path: %s", certPath)
-	//expectedKeyPath := fmt.Sprintf("identity.key-path: %s", keyPath)
 	expectedEmail := fmt.Sprintf("operator.email: %s", email)
 	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
 	expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
 
 	configStr := readConfigLines(t, ctx, configPath)
 
-	//require.Contains(t, configStr, expectedCertPath)
-	//require.Contains(t, configStr, expectedKeyPath)
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
 	require.Contains(t, configStr, expectedAddr)
@@ -134,27 +115,27 @@ func TestUpgrade_Config(t *testing.T) {
 	email := "user@mail.test"
 	publicAddr := "127.0.0.1:10000"
 
-	{ // install old release
-		args := []string{
-			//fmt.Sprintf("STORJ_IDENTITYDIR=%s", installDir),
-			fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
-			fmt.Sprintf("STORJ_EMAIL=%s", email),
-			fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
-		}
-		install(t, ctx, releaseMSIPath, installDir, args...)
+	// install old release
+	args := []string{
+		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
+		fmt.Sprintf("STORJ_EMAIL=%s", email),
+		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
 	}
+	install(t, ctx, releaseMSIPath, installDir, args...)
 
-	{ // install test msi (upgrade)
-		args := []string{
-			fmt.Sprintf("STORJ_EMAIL=%s", email),
-		}
-		install(t, ctx, *msiPathFlag, installDir, args...)
-	}
+	// upgrade using test msi
+	install(t, ctx, *msiPathFlag, installDir)
+	defer requireUninstall(t, ctx)
+
+	expectedEmail := fmt.Sprintf("operator.email: %s", email)
+	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
+	expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
 
 	configStr := readConfigLines(t, ctx, configPath)
 
-	expectedEmail := fmt.Sprintf("operator.email: %s", "changed@mail.test")
 	require.Contains(t, configStr, expectedEmail)
+	require.Contains(t, configStr, expectedWallet)
+	require.Contains(t, configStr, expectedAddr)
 }
 
 func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string, args ...string) {
@@ -163,8 +144,8 @@ func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string,
 	args = append(append([]string{
 		"/i", msiPath,
 		"/log", logPath,
-		//}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
-	}, msiBaseArgs...), args...)
+	}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
+	//}, msiBaseArgs...), args...)
 
 	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
 	if !assert.NoError(t, err) {
@@ -177,21 +158,15 @@ func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string,
 	}
 }
 
-func tryUninstall(logPath string) {
-	_, err := uninstall(logPath)
-	if err != nil {
-		log.Printf("WARN: tried but failed to uninstall from: %s\n", *msiPathFlag)
-	}
-}
-
-func requireUninstall(logPath string) {
+func requireUninstall(t *testing.T, ctx *testcontext.Context) {
+	logPath := ctx.File("log", "uninstall.log")
 	uninstallOut, err := uninstall(logPath)
-	if err != nil {
+	if !assert.NoError(t, err) {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
-		if err != nil {
-			log.Printf("MSIExec log:\n============================\n%s\n", string(uninstallLogData))
+		if !assert.NoError(t, err) {
+			t.Logf("MSIExec log:\n============================\n%s\n", string(uninstallLogData))
 		}
-		log.Printf("MSIExec output:\n============================\n%s", string(uninstallOut))
+		t.Fatalf("MSIExec output:\n============================\n%s", string(uninstallOut))
 	}
 }
 
