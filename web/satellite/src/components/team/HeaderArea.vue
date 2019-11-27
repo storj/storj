@@ -19,7 +19,7 @@
                 <div class="header-default-state" v-if="isDefaultState">
                     <VButton
                         class="button"
-                        label="+Add"
+                        label="+ Add"
                         width="122px"
                         height="48px"
                         :on-press="onAddUsersClick"
