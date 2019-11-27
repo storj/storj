@@ -10,15 +10,20 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+var _ sap.Logger = (*Logger)(nil)
+
 type Logger struct {
 	zap.Logger
 	*Service
 }
 
+// NewLogger returns new instance of Logger.
 func NewLogger(log *zap.Logger, service *Service) *Logger {
 	return &Logger{*log, service}
 }
 
+// Named adds a new path segment to the logger's name. Segments are joined by
+// periods. By default, Loggers are unnamed.
 func (log *Logger) Named(s string) sap.Logger {
 	return &Logger{*log.log.Named(s), log.Service}
 }

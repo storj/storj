@@ -9,13 +9,6 @@ import (
 	"net/mail"
 	"net/smtp"
 
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
-	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/simulate"
-
-	"storj.io/storj/satellite/notification"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -28,6 +21,8 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -37,8 +32,11 @@ import (
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
@@ -166,7 +164,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 	{ // setup overlay
 		log.Debug("Starting overlay")
-
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 	}

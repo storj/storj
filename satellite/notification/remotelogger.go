@@ -9,11 +9,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/sap"
 	"storj.io/storj/pkg/storj"
-
-	"storj.io/storj/pkg/pb"
 )
+
+var _ sap.Logger = (*RemoteLogger)(nil)
 
 type RemoteLogger struct {
 	zap.Logger
@@ -25,26 +26,37 @@ func (log *RemoteLogger) Remote(target storj.NodeID) sap.Logger {
 	return log
 }
 
+// Named adds a new path segment to the logger's name. Segments are joined by
+// periods. By default, Loggers are unnamed.
 func (log *RemoteLogger) Named(s string) sap.Logger {
 	return &RemoteLogger{*log.Logger.Named(s), log.target, log.Service}
 }
 
-func (log *RemoteLogger) ProcessDebug(message string, fields ...zapcore.Field) {
+// Debug sends a DebugLevel message to specified set of nodes. The message includes any fields passed
+// at the log site, as well as any fields accumulated on the logger.
+func (log *RemoteLogger) Debug(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_DEBUG)
 }
 
-func (log *RemoteLogger) ProcessInfo(message string, fields ...zapcore.Field) {
+// Info sends a DebugLevel message to specified set of nodes. The message includes any fields passed
+// at the log site, as well as any fields accumulated on the logger.
+func (log *RemoteLogger) Info(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_INFO)
 }
 
-func (log *RemoteLogger) ProcessWarn(message string, fields ...zapcore.Field) {
+// warn sends a DebugLevel message to specified set of nodes. The message includes any fields passed
+// at the log site, as well as any fields accumulated on the logger.
+func (log *RemoteLogger) Warn(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_WARN)
 }
 
-func (log *RemoteLogger) ProcessError(message string, fields ...zapcore.Field) {
+// Error sends a DebugLevel message to specified set of nodes. The message includes any fields passed
+// at the log site, as well as any fields accumulated on the logger.
+func (log *RemoteLogger) Error(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_ERROR)
 }
 
+// ProcessNotification sends message to the specified set of nodes (ids)
 func (log *RemoteLogger) processNotification(message string, level pb.LogLevel) {
 	ctx := context.Background()
 	node, err := log.Service.overlay.Get(ctx, log.target)

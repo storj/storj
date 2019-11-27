@@ -52,17 +52,16 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay *over
 	}
 }
 
-// Run sets the Rate Limiter up to ensure we dont spam
+// Run sets the Rate Limiter up to ensure we dont spam.
 func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Debug("Starting Rate Limiter")
 	service.loop = sync2.NewCycle(1 * time.Hour)
 
 	err = service.loop.Run(ctx, service.resetLimiter)
-
 	return err
 }
 
-// resetLimiter resets the Usage every hour
+// resetLimiter resets the Usage every hour.
 func (service *Service) resetLimiter(ctx context.Context) error {
 	service.lock.Lock()
 	defer service.lock.Unlock()
@@ -73,7 +72,6 @@ func (service *Service) resetLimiter(ctx context.Context) error {
 
 // Close closes the resources
 func (service *Service) Close() error {
-
 	service.loop.Stop()
 	service.loop.Close()
 
@@ -93,6 +91,7 @@ func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
 	service.limiter[id] = entry
 }
 
+// CheckRPCLimit checks if hourly RPC limit've been reached.
 func (service *Service) CheckRPCLimit(id string) bool {
 	if entry, ok := service.limiter[id]; ok && entry.RPC < service.config.HourlyRPC {
 		return false
@@ -100,6 +99,7 @@ func (service *Service) CheckRPCLimit(id string) bool {
 	return true
 }
 
+// CheckEmailLimit checks if hourly email limit've been reached.
 func (service *Service) CheckEmailLimit(id string) bool {
 	if entry, ok := service.limiter[id]; ok && entry.Emails < service.config.HourlyEmails {
 		return false
@@ -107,7 +107,7 @@ func (service *Service) CheckEmailLimit(id string) bool {
 	return true
 }
 
-// ProcessNotification sends message to the specified set of nodes (ids)
+// ProcessNotification sends message to the specified set of nodes (ids).
 func (service *Service) ProcessNotification(message *pb.NotificationMessage) (err error) {
 	var eSent, rSent = false, false
 	ctx := context.Background()
@@ -127,10 +127,12 @@ func (service *Service) ProcessNotification(message *pb.NotificationMessage) (er
 		}
 		eSent = true
 	}
+
 	service.IncrementLimiter(message.NodeId.String(), eSent, rSent)
 	return nil
 }
 
+// processNotificationRPC processing notification by rpc.
 func (service *Service) processNotificationRPC(ctx context.Context, message *pb.NotificationMessage) (_ *pb.NotificationResponse, err error) {
 	client, err := newClient(ctx, service.dialer, message.Address, message.NodeId)
 	if err != nil {
@@ -148,11 +150,13 @@ func (service *Service) processNotificationRPC(ctx context.Context, message *pb.
 	return client.client.ProcessNotification(ctx, message)
 }
 
+// processNotificationEmail processing notification by mail service.
 func (service *Service) processNotificationEmail(ctx context.Context, message *pb.NotificationMessage) (err error) {
 	//return endpoint.service.mailer.Send(ctx, &post.Message{})
 	return nil
 }
 
+//
 func (service *Service) sendBroadcastNotification(ctx context.Context, message string, ids []pb.Node) {
 	var sentCount int
 	var failed []string
