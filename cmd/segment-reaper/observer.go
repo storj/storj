@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"strconv"
 
@@ -143,9 +144,82 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {
-	// TODO this part will be implemented in next PR
-	// TODO(if): For what is this?
+	// // create one max len segments array and reuse it for all objects
+	// segments := make([]byte, 0, maxNumOfSegments+1)
+
+	for bucket, objects := range obsvr.objects {
+		for path, object := range objects {
+			if object.skip {
+				continue
+			}
+
+			if object.hasLastSegment {
+				brokenObject := false
+				if object.expectedNumberOfSegments == 0 {
+					if !object.segments.IsSequence() {
+						brokenObject = true
+					}
+
+				} else if object.segments.Count() != int(object.expectedNumberOfSegments)-1 {
+					// TODO should we also check if its valid sequence
+					// expectedNumberOfSegments-1 because 'segments' doesn't contain last segment
+					brokenObject = true
+				}
+
+				if brokenObject {
+					err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "l", bucket, path, obsvr.writer)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			for index := 0; index < maxNumOfSegments; index++ {
+				has, err := object.segments.Has(index)
+				if err != nil {
+					return nil
+				}
+				if has {
+					err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 	return nil
+}
+
+func printSegment(ctx context.Context, db metainfo.PointerDB, projectID string, bucket string, segmentIndex string, path string, csvWriter *csv.Writer) error {
+	creationDate, err := pointerCreationDate(ctx, db, projectID, segmentIndex, bucket, path)
+	if err != nil {
+		return err
+	}
+	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
+	csvWriter.Write([]string{
+		projectID,
+		segmentIndex,
+		bucket,
+		encodedPath,
+		creationDate,
+	})
+	return nil
+}
+
+func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID string, bucket string, segmentIndex string, path string) (string, error) {
+	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
+	pointerBytes, err := db.Get(ctx, key)
+	if err != nil {
+		return "", err
+	}
+
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		return "", err
+	}
+	return pointer.CreationDate.String(), nil
 }
 
 // clearBucketsObjects clears up the buckets objects map for reusing it.
