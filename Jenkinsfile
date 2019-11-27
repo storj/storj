@@ -37,7 +37,7 @@ node('node') {
 
         unstash "storagenode-installer"
 
-        bat 'go test -race -v scripts\\installer_testing.go'
+        bat 'for /d %%d in (release\\*) do go test -race -v scripts\\installer_testing.go -args -msi %%d\\storagenode_windows_amd64.msi'
 
         echo "Current build result: ${currentBuild.result}"
       }
