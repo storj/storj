@@ -13,7 +13,11 @@ import "orders.proto";
 service Piecestore {
     rpc Upload(stream PieceUploadRequest) returns (PieceUploadResponse) {}
     rpc Download(stream PieceDownloadRequest) returns (stream PieceDownloadResponse) {}
-    rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {}
+    rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {
+      option deprecated = true;
+    }
+    // DeletePiece deletes a piece from a satellite request
+    rpc DeletePiece(PieceDeletePieceRequest) returns (PieceDeletePieceResponse);
     rpc Retain(RetainRequest) returns (RetainResponse);
     rpc RestoreTrash(RestoreTrashRequest) returns (RestoreTrashResponse) {}
 }
@@ -84,6 +88,13 @@ message PieceDeleteRequest {
 }
 
 message PieceDeleteResponse {
+}
+
+message PieceDeletePieceRequest {
+    bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+}
+
+message PieceDeletePieceResponse {
 }
 
 message RetainRequest {

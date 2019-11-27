@@ -52,6 +52,25 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coupons (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	status integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id )
+);
+CREATE TABLE coupon_usages (
+	id bytea NOT NULL,
+	coupon_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	interval_end timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
