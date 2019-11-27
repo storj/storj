@@ -318,6 +318,25 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE coupons (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	status integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id )
+);
+CREATE TABLE coupon_usages (
+	id bytea NOT NULL,
+	coupon_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	interval_end timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -1448,6 +1467,263 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Coupon struct {
+	Id          []byte
+	ProjectId   []byte
+	UserId      []byte
+	Amount      int64
+	Description string
+	Status      int
+	Duration    int64
+	CreatedAt   time.Time
+}
+
+func (Coupon) _Table() string { return "coupons" }
+
+type Coupon_Update_Fields struct {
+	Status Coupon_Status_Field
+}
+
+type Coupon_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Coupon_Id(v []byte) Coupon_Id_Field {
+	return Coupon_Id_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Id_Field) _Column() string { return "id" }
+
+type Coupon_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Coupon_ProjectId(v []byte) Coupon_ProjectId_Field {
+	return Coupon_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f Coupon_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_ProjectId_Field) _Column() string { return "project_id" }
+
+type Coupon_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Coupon_UserId(v []byte) Coupon_UserId_Field {
+	return Coupon_UserId_Field{_set: true, _value: v}
+}
+
+func (f Coupon_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_UserId_Field) _Column() string { return "user_id" }
+
+type Coupon_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Coupon_Amount(v int64) Coupon_Amount_Field {
+	return Coupon_Amount_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Amount_Field) _Column() string { return "amount" }
+
+type Coupon_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Coupon_Description(v string) Coupon_Description_Field {
+	return Coupon_Description_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Description_Field) _Column() string { return "description" }
+
+type Coupon_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Coupon_Status(v int) Coupon_Status_Field {
+	return Coupon_Status_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Status_Field) _Column() string { return "status" }
+
+type Coupon_Duration_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Coupon_Duration(v int64) Coupon_Duration_Field {
+	return Coupon_Duration_Field{_set: true, _value: v}
+}
+
+func (f Coupon_Duration_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_Duration_Field) _Column() string { return "duration" }
+
+type Coupon_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Coupon_CreatedAt(v time.Time) Coupon_CreatedAt_Field {
+	return Coupon_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Coupon_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_CreatedAt_Field) _Column() string { return "created_at" }
+
+type CouponUsage struct {
+	Id          []byte
+	CouponId    []byte
+	Amount      int64
+	IntervalEnd time.Time
+}
+
+func (CouponUsage) _Table() string { return "coupon_usages" }
+
+type CouponUsage_Update_Fields struct {
+}
+
+type CouponUsage_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CouponUsage_Id(v []byte) CouponUsage_Id_Field {
+	return CouponUsage_Id_Field{_set: true, _value: v}
+}
+
+func (f CouponUsage_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponUsage_Id_Field) _Column() string { return "id" }
+
+type CouponUsage_CouponId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CouponUsage_CouponId(v []byte) CouponUsage_CouponId_Field {
+	return CouponUsage_CouponId_Field{_set: true, _value: v}
+}
+
+func (f CouponUsage_CouponId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponUsage_CouponId_Field) _Column() string { return "coupon_id" }
+
+type CouponUsage_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func CouponUsage_Amount(v int64) CouponUsage_Amount_Field {
+	return CouponUsage_Amount_Field{_set: true, _value: v}
+}
+
+func (f CouponUsage_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponUsage_Amount_Field) _Column() string { return "amount" }
+
+type CouponUsage_IntervalEnd_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CouponUsage_IntervalEnd(v time.Time) CouponUsage_IntervalEnd_Field {
+	return CouponUsage_IntervalEnd_Field{_set: true, _value: v}
+}
+
+func (f CouponUsage_IntervalEnd_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponUsage_IntervalEnd_Field) _Column() string { return "interval_end" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -6952,6 +7228,65 @@ func (obj *postgresImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.C
 
 }
 
+func (obj *postgresImpl) Create_Coupon(ctx context.Context,
+	coupon_id Coupon_Id_Field,
+	coupon_project_id Coupon_ProjectId_Field,
+	coupon_user_id Coupon_UserId_Field,
+	coupon_amount Coupon_Amount_Field,
+	coupon_description Coupon_Description_Field,
+	coupon_status Coupon_Status_Field,
+	coupon_duration Coupon_Duration_Field) (
+	coupon *Coupon, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coupon_id.value()
+	__project_id_val := coupon_project_id.value()
+	__user_id_val := coupon_user_id.value()
+	__amount_val := coupon_amount.value()
+	__description_val := coupon_description.value()
+	__status_val := coupon_status.value()
+	__duration_val := coupon_duration.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, project_id, user_id, amount, description, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __status_val, __duration_val, __created_at_val)
+
+	coupon = &Coupon{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __status_val, __duration_val, __created_at_val).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
+
+}
+
+func (obj *postgresImpl) Create_CouponUsage(ctx context.Context,
+	coupon_usage_id CouponUsage_Id_Field,
+	coupon_usage_coupon_id CouponUsage_CouponId_Field,
+	coupon_usage_amount CouponUsage_Amount_Field,
+	coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
+	coupon_usage *CouponUsage, err error) {
+	__id_val := coupon_usage_id.value()
+	__coupon_id_val := coupon_usage_coupon_id.value()
+	__amount_val := coupon_usage_amount.value()
+	__interval_end_val := coupon_usage_interval_end.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_usages ( id, coupon_id, amount, interval_end ) VALUES ( ?, ?, ?, ? ) RETURNING coupon_usages.id, coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.interval_end")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __coupon_id_val, __amount_val, __interval_end_val)
+
+	coupon_usage = &CouponUsage{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __coupon_id_val, __amount_val, __interval_end_val).Scan(&coupon_usage.Id, &coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.IntervalEnd)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon_usage, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -8718,6 +9053,109 @@ func (obj *postgresImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx cont
 
 }
 
+func (obj *postgresImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_user_id Coupon_UserId_Field) (
+	rows []*Coupon, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, coupon_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		coupon := &Coupon{}
+		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, coupon)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_status Coupon_Status_Field) (
+	rows []*Coupon, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, coupon_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		coupon := &Coupon{}
+		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, coupon)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_created_at_less_or_equal Coupon_CreatedAt_Field,
+	coupon_status Coupon_Status_Field,
+	limit int, offset int64) (
+	rows []*Coupon, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_created_at_less_or_equal.value(), coupon_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		coupon := &Coupon{}
+		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, coupon)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -9863,6 +10301,46 @@ func (obj *postgresImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *postgresImpl) Update_Coupon_By_Id(ctx context.Context,
+	coupon_id Coupon_Id_Field,
+	update Coupon_Update_Fields) (
+	coupon *Coupon, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, coupon_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon = &Coupon{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon, nil
+}
+
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -10362,6 +10840,32 @@ func (obj *postgresImpl) Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx
 
 }
 
+func (obj *postgresImpl) Delete_Coupon_By_Id(ctx context.Context,
+	coupon_id Coupon_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM coupons WHERE coupons.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -10645,6 +11149,26 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM coupon_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10792,6 +11316,26 @@ func (rx *Rx) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx c
 		return
 	}
 	return tx.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_user_id)
+}
+
+func (rx *Rx) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_status Coupon_Status_Field) (
+	rows []*Coupon, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx, coupon_status)
+}
+
+func (rx *Rx) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_user_id Coupon_UserId_Field) (
+	rows []*Coupon, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx, coupon_user_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -11170,6 +11714,37 @@ func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_Coupon(ctx context.Context,
+	coupon_id Coupon_Id_Field,
+	coupon_project_id Coupon_ProjectId_Field,
+	coupon_user_id Coupon_UserId_Field,
+	coupon_amount Coupon_Amount_Field,
+	coupon_description Coupon_Description_Field,
+	coupon_status Coupon_Status_Field,
+	coupon_duration Coupon_Duration_Field) (
+	coupon *Coupon, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Coupon(ctx, coupon_id, coupon_project_id, coupon_user_id, coupon_amount, coupon_description, coupon_status, coupon_duration)
+
+}
+
+func (rx *Rx) Create_CouponUsage(ctx context.Context,
+	coupon_usage_id CouponUsage_Id_Field,
+	coupon_usage_coupon_id CouponUsage_CouponId_Field,
+	coupon_usage_amount CouponUsage_Amount_Field,
+	coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
+	coupon_usage *CouponUsage, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_CouponUsage(ctx, coupon_usage_id, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_interval_end)
+
+}
+
 func (rx *Rx) Create_Offer(ctx context.Context,
 	offer_name Offer_Name_Field,
 	offer_description Offer_Description_Field,
@@ -11400,6 +11975,16 @@ func (rx *Rx) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
+func (rx *Rx) Delete_Coupon_By_Id(ctx context.Context,
+	coupon_id Coupon_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Coupon_By_Id(ctx, coupon_id)
 }
 
 func (rx *Rx) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
@@ -11939,6 +12524,18 @@ func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Statu
 	return tx.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_created_at_less_or_equal, coinpayments_transaction_status, limit, offset)
 }
 
+func (rx *Rx) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coupon_created_at_less_or_equal Coupon_CreatedAt_Field,
+	coupon_status Coupon_Status_Field,
+	limit int, offset int64) (
+	rows []*Coupon, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coupon_created_at_less_or_equal, coupon_status, limit, offset)
+}
+
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
@@ -12130,6 +12727,17 @@ func (rx *Rx) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	return tx.Update_CoinpaymentsTransaction_By_Id(ctx, coinpayments_transaction_id, update)
 }
 
+func (rx *Rx) Update_Coupon_By_Id(ctx context.Context,
+	coupon_id Coupon_Id_Field,
+	update Coupon_Update_Fields) (
+	coupon *Coupon, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Coupon_By_Id(ctx, coupon_id, update)
+}
+
 func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -12229,6 +12837,14 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
+
+	All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+		coupon_status Coupon_Status_Field) (
+		rows []*Coupon, err error)
+
+	All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+		coupon_user_id Coupon_UserId_Field) (
+		rows []*Coupon, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
@@ -12424,6 +13040,23 @@ type Methods interface {
 		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Create_Coupon(ctx context.Context,
+		coupon_id Coupon_Id_Field,
+		coupon_project_id Coupon_ProjectId_Field,
+		coupon_user_id Coupon_UserId_Field,
+		coupon_amount Coupon_Amount_Field,
+		coupon_description Coupon_Description_Field,
+		coupon_status Coupon_Status_Field,
+		coupon_duration Coupon_Duration_Field) (
+		coupon *Coupon, err error)
+
+	Create_CouponUsage(ctx context.Context,
+		coupon_usage_id CouponUsage_Id_Field,
+		coupon_usage_coupon_id CouponUsage_CouponId_Field,
+		coupon_usage_amount CouponUsage_Amount_Field,
+		coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
+		coupon_usage *CouponUsage, err error)
+
 	Create_Offer(ctx context.Context,
 		offer_name Offer_Name_Field,
 		offer_description Offer_Description_Field,
@@ -12538,6 +13171,10 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		deleted bool, err error)
+
+	Delete_Coupon_By_Id(ctx context.Context,
+		coupon_id Coupon_Id_Field) (
 		deleted bool, err error)
 
 	Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
@@ -12768,6 +13405,12 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*CoinpaymentsTransaction, err error)
 
+	Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+		coupon_created_at_less_or_equal Coupon_CreatedAt_Field,
+		coupon_status Coupon_Status_Field,
+		limit int, offset int64) (
+		rows []*Coupon, err error)
+
 	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 		limit int, offset int64) (
@@ -12856,6 +13499,11 @@ type Methods interface {
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 		update CoinpaymentsTransaction_Update_Fields) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
+
+	Update_Coupon_By_Id(ctx context.Context,
+		coupon_id Coupon_Id_Field,
+		update Coupon_Update_Fields) (
+		coupon *Coupon, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

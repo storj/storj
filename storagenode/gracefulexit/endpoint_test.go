@@ -98,4 +98,6 @@ func TestGetExitProgress(t *testing.T) {
 	require.Equal(t, progress.GetDomainName(), exitingSatellite.Addr())
 	require.Equal(t, progress.NodeId, exitingSatellite.ID())
 	require.EqualValues(t, 20, progress.GetPercentComplete())
+	require.False(t, progress.GetSuccessful())
+	require.Empty(t, progress.GetCompletionReceipt())
 }

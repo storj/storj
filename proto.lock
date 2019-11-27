@@ -989,6 +989,11 @@
                 "id": 4,
                 "name": "successful",
                 "type": "bool"
+              },
+              {
+                "id": 5,
+                "name": "completion_receipt",
+                "type": "bytes"
               }
             ]
           },
@@ -1865,6 +1870,11 @@
               {
                 "id": 1,
                 "name": "api_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "user_agent",
                 "type": "bytes"
               }
             ]
@@ -5561,6 +5571,29 @@
             "name": "PieceDeleteResponse"
           },
           {
+            "name": "PieceDeletePieceRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDeletePieceResponse"
+          },
+          {
             "name": "RetainRequest",
             "fields": [
               {
@@ -5661,7 +5694,18 @@
               {
                 "name": "Delete",
                 "in_type": "PieceDeleteRequest",
-                "out_type": "PieceDeleteResponse"
+                "out_type": "PieceDeleteResponse",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "name": "DeletePiece",
+                "in_type": "PieceDeletePieceRequest",
+                "out_type": "PieceDeletePieceResponse"
               },
               {
                 "name": "Retain",
