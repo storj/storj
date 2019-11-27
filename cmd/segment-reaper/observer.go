@@ -121,20 +121,20 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		if segmentIndex >= int(maxNumOfSegments) {
 			object.skip = true
 			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
-		}
+		} else {
+			ok, err := object.segments.Has(segmentIndex)
+			if err != nil {
+				return err
+			}
+			if ok {
+				// TODO make path displayable
+				return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+			}
 
-		ok, err := object.segments.Has(segmentIndex)
-		if err != nil {
-			return err
-		}
-		if ok {
-			// TODO make path displayable
-			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
-		}
-
-		err = object.segments.Set(segmentIndex)
-		if err != nil {
-			return err
+			err = object.segments.Set(segmentIndex)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
