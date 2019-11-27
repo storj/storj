@@ -89,5 +89,6 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	log.Info("number of inline segments", zap.Int("segments", observer.inlineSegments))
 	log.Info("number of last inline segments", zap.Int("segments", observer.lastInlineSegments))
 	log.Info("number of remote segments", zap.Int("segments", observer.remoteSegments))
+	log.Info("number of zombie segments", zap.Int("segments", observer.zombieSegments))
 	return nil
 }

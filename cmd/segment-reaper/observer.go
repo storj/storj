@@ -55,6 +55,7 @@ type observer struct {
 	inlineSegments     int
 	lastInlineSegments int
 	remoteSegments     int
+	zombieSegments     int
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
@@ -163,7 +164,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 				}
 
 				if brokenObject {
-					err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "l", bucket, path, obsvr.writer)
+					err := obsvr.printSegment(ctx, "l", bucket, path, obsvr.writer)
 					if err != nil {
 						return err
 					}
@@ -179,7 +180,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						return nil
 					}
 					if has {
-						err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
+						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
 						if err != nil {
 							return err
 						}
@@ -191,19 +192,23 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	return nil
 }
 
-func printSegment(ctx context.Context, db metainfo.PointerDB, projectID string, bucket string, segmentIndex string, path string, csvWriter *csv.Writer) error {
-	creationDate, err := pointerCreationDate(ctx, db, projectID, segmentIndex, bucket, path)
+func (obsvr *observer) printSegment(ctx context.Context, bucket string, segmentIndex string, path string, csvWriter *csv.Writer) error {
+	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
 	if err != nil {
 		return err
 	}
 	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
-	csvWriter.Write([]string{
-		projectID,
+	err = csvWriter.Write([]string{
+		obsvr.lastProjectID,
 		segmentIndex,
 		bucket,
 		encodedPath,
 		creationDate,
 	})
+	if err != nil {
+		return err
+	}
+	obsvr.zombieSegments++
 	return nil
 }
 
