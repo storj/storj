@@ -539,7 +539,7 @@ type segmentRef struct {
 	pointer *pb.Pointer
 }
 
-// crateNewObjectSegments creates a list of segment references which belongs to
+// createNewObjectSegments creates a list of segment references which belongs to
 // a same object.
 //
 // If inline is true the last segment will be of INLINE type.
