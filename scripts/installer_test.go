@@ -139,13 +139,12 @@ func TestUpgrade_Config(t *testing.T) {
 }
 
 func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string, args ...string) {
-	log.Printf("installing from %s\n", msiPath)
+	t.Logf("installing from %s\n", msiPath)
 	logPath := ctx.File("log", "install.log")
 	args = append(append([]string{
 		"/i", msiPath,
 		"/log", logPath,
 	}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
-	//}, msiBaseArgs...), args...)
 
 	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
 	if !assert.NoError(t, err) {
