@@ -558,6 +558,7 @@ type segmentRef struct {
 // NumberOfSegments set.
 //
 // It returns the object path and the list of object segment references.
+//nolint:golint
 func createNewObjectSegments(
 	t *testing.T, ctx context.Context, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
 ) (objectPath string, _ []segmentRef) {
