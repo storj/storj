@@ -5,25 +5,23 @@ package main
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/teststore"
 )
 
 func TestDeleteSegment(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+filepath.Join(ctx.Dir(), "pointers.db"))
-	require.NoError(t, err)
+	db := teststore.New()
 	defer ctx.Check(db.Close)
 
 	{
