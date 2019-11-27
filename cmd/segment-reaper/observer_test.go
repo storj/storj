@@ -398,7 +398,7 @@ func TestObsever_analyzeProject(t *testing.T) {
 				bucketName = "analyzeBucket"
 				objPath    = storj.Path("analyzePath")
 			)
-			var segments uint64
+			var segments bitmask
 			{
 				numSegments := rand.Intn(62) + 1
 				segments = math.MaxUint64 >> numSegments
@@ -439,22 +439,23 @@ func TestObsever_analyzeProject(t *testing.T) {
 				bucketName = "analyzeBucket"
 				objPath    = storj.Path("analyzePath")
 			)
-			var segments uint64
+			var segments bitmask
 			{ // Calculate a unaligned number of segments
-				segments = rand.Uint64()
+				unaligned := rand.Uint64()
 				for {
-					trailingZeros := bits.TrailingZeros64(segments)
-					leadingZeros := bits.LeadingZeros64(segments)
+					trailingZeros := bits.TrailingZeros64(unaligned)
+					leadingZeros := bits.LeadingZeros64(unaligned)
 
 					if (trailingZeros + leadingZeros) == 64 {
 						continue
 					}
 
-					ones := bits.OnesCount64(segments)
+					ones := bits.OnesCount64(unaligned)
 					if (trailingZeros + leadingZeros + ones) == 64 {
 						continue
 					}
 
+					segments = bitmask(unaligned)
 					break
 				}
 			}
@@ -495,7 +496,7 @@ func TestObsever_analyzeProject(t *testing.T) {
 				objPath    = storj.Path("analyzePath")
 			)
 			var (
-				segments           uint64
+				segments           bitmask
 				invalidNumSegments byte
 			)
 			{
