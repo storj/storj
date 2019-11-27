@@ -158,6 +158,7 @@ We are thinking of using native packaging for the following reasons:
     - https://www.debian.org/doc/packaging-manuals/menu.html/ch3.html
 - changelog
 - write a Linux installation and auto-update contributor guide
+- the storagenode and storagenode-updater binaries for Linux should be added to the assets [here](https://github.com/storj/storj/releases/).
 
 ### Repository
 - Create a dockerfile that serves the package using reprepro
