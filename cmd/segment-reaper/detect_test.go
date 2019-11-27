@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage/teststore"
 )
@@ -36,16 +37,15 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*Object{}
 			objSegments            []objectSegmentRef
+			projID                 = testrand.UUID()
 		)
 
-		projID, err := uuid.New()
-		require.NoError(t, err)
 		{ // Generate objects for testing
 			numSegments := rand.Intn(10) + 1
 			inline := (rand.Int() % 2) == 0
 			withNumSegments := (rand.Int() % 2) == 0
 
-			_, objSegmentsProj := createNewObjectSegments(t, numSegments, projID, "project1", inline, withNumSegments)
+			_, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, "project1", inline, withNumSegments)
 			objSegments = append(objSegments, objSegmentsProj...)
 
 			expectedNumSegments += numSegments
@@ -57,8 +57,7 @@ func TestObserver_processSegment(t *testing.T) {
 			}
 
 			// Reset project ID to create several objects in the same project
-			projID, err = uuid.New()
-			require.NoError(t, err)
+			projID = testrand.UUID()
 
 			var (
 				bucketName = "0"
@@ -72,7 +71,7 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -159,10 +158,9 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*Object{}
 			objSegments            []objectSegmentRef
+			projID                 = testrand.UUID()
 		)
 
-		projID, err := uuid.New()
-		require.NoError(t, err)
 		{ // Generate objects for testing
 			var (
 				bucketName         = "0"
@@ -179,7 +177,7 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -279,10 +277,9 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*Object{}
 			objSegments            []objectSegmentRef
+			projID                 = testrand.UUID()
 		)
 
-		projID, err := uuid.New()
-		require.NoError(t, err)
 		{ // Generate objects for testing
 			var (
 				bucketName            = "0"
@@ -299,7 +296,7 @@ func TestObserver_processSegment(t *testing.T) {
 				if rand.Int()%2 == 0 {
 					bucketName = fmt.Sprintf("bucket-%d", i)
 				}
-				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, projID, bucketName, inline, withNumSegments)
+				objPath, objSegmentsProj := createNewObjectSegments(t, numSegments, &projID, bucketName, inline, withNumSegments)
 				objSegments = append(objSegments, objSegmentsProj...)
 
 				// TODO: use findOrCreate when cluster removal is merged
@@ -398,8 +395,7 @@ func TestObsever_analyzeProject(t *testing.T) {
 				segments = math.MaxUint64 >> numSegments
 			}
 
-			projID, err := uuid.New()
-			require.NoError(t, err)
+			projID := testrand.UUID()
 			objectsMap = ObjectsMap{
 				Cluster{
 					projectID: projID.String(),
@@ -458,8 +454,7 @@ func TestObsever_analyzeProject(t *testing.T) {
 				}
 			}
 
-			projID, err := uuid.New()
-			require.NoError(t, err)
+			projID := testrand.UUID()
 			objectsMap = ObjectsMap{
 				Cluster{
 					projectID: projID.String(),
@@ -515,8 +510,7 @@ func TestObsever_analyzeProject(t *testing.T) {
 				}
 			}
 
-			projID, err := uuid.New()
-			require.NoError(t, err)
+			projID := testrand.UUID()
 			objectsMap = ObjectsMap{
 				Cluster{
 					projectID: projID.String(),
@@ -571,8 +565,7 @@ func createNewObjectSegments(t *testing.T, numSegments int, projectID *uuid.UUID
 
 	var objectID string
 	{
-		id, err := uuid.New()
-		require.NoError(t, err)
+		id := testrand.UUID()
 		objectID = id.String()
 	}
 
