@@ -144,22 +144,18 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {
-	// // create one max len segments array and reuse it for all objects
-	// segments := make([]byte, 0, maxNumOfSegments+1)
-
 	for bucket, objects := range obsvr.objects {
 		for path, object := range objects {
 			if object.skip {
 				continue
 			}
 
+			brokenObject := false
 			if object.hasLastSegment {
-				brokenObject := false
 				if object.expectedNumberOfSegments == 0 {
 					if !object.segments.IsSequence() {
 						brokenObject = true
 					}
-
 				} else if object.segments.Count() != int(object.expectedNumberOfSegments)-1 {
 					// TODO should we also check if its valid sequence
 					// expectedNumberOfSegments-1 because 'segments' doesn't contain last segment
@@ -172,17 +168,21 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						return err
 					}
 				}
+			} else {
+				brokenObject = true
 			}
 
-			for index := 0; index < maxNumOfSegments; index++ {
-				has, err := object.segments.Has(index)
-				if err != nil {
-					return nil
-				}
-				if has {
-					err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
+			if brokenObject {
+				for index := 0; index < maxNumOfSegments; index++ {
+					has, err := object.segments.Has(index)
 					if err != nil {
-						return err
+						return nil
+					}
+					if has {
+						err := printSegment(ctx, obsvr.db, obsvr.lastProjectID, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}
