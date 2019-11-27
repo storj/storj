@@ -36,7 +36,7 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedInlineSegments int
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []objectSegmentRef
+			objSegments            []segmentRef
 			projID                 = testrand.UUID()
 		)
 
@@ -157,7 +157,7 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedInlineSegments int
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []objectSegmentRef
+			objSegments            []segmentRef
 			projID                 = testrand.UUID()
 		)
 
@@ -276,7 +276,7 @@ func TestObserver_processSegment(t *testing.T) {
 			expectedInlineSegments int
 			expectedRemoteSegments int
 			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []objectSegmentRef
+			objSegments            []segmentRef
 			projID                 = testrand.UUID()
 		)
 
@@ -532,9 +532,9 @@ func TestObsever_analyzeProject(t *testing.T) {
 	})
 }
 
-// objectSegmentRef is an object segment reference to be used for simulating
-// calls observer.processSegment
-type objectSegmentRef struct {
+// segmentRef is an object segment reference to be used for simulating calls to
+// observer.processSegment
+type segmentRef struct {
 	path    metainfo.ScopedPath
 	pointer *pb.Pointer
 }
@@ -548,7 +548,9 @@ type objectSegmentRef struct {
 // NumberOfSegments set.
 //
 // It returns the object path and the list of object segment references.
-func createNewObjectSegments(t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool) (objectPath string, _ []objectSegmentRef) {
+func createNewObjectSegments(
+	t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
+) (objectPath string, _ []segmentRef) {
 	t.Helper()
 
 	var objectID string
@@ -559,12 +561,12 @@ func createNewObjectSegments(t *testing.T, numSegments int, projectID *uuid.UUID
 
 	var (
 		projectIDString = projectID.String()
-		references      = make([]objectSegmentRef, 0, numSegments)
+		references      = make([]segmentRef, 0, numSegments)
 		encryptedPath   = fmt.Sprintf("%s-%s-%s", projectIDString, bucketName, objectID)
 	)
 
 	for i := 0; i < (numSegments - 1); i++ {
-		references = append(references, objectSegmentRef{
+		references = append(references, segmentRef{
 			path: metainfo.ScopedPath{
 				ProjectID:           *projectID,
 				ProjectIDString:     projectIDString,
@@ -594,7 +596,7 @@ func createNewObjectSegments(t *testing.T, numSegments int, projectID *uuid.UUID
 	})
 	require.NoError(t, err)
 
-	references = append(references, objectSegmentRef{
+	references = append(references, segmentRef{
 		path: metainfo.ScopedPath{
 			ProjectID:           *projectID,
 			ProjectIDString:     projectIDString,
