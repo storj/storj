@@ -8,6 +8,7 @@ import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
+import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsageModule } from '@/store/modules/usage';
@@ -21,6 +22,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ApiKeysMock } from '../mock/api/apiKeys';
 import { BucketsMock } from '../mock/api/buckets';
+import { PaymentsMock } from '../mock/api/payments';
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { ProjectsApiMock } from '../mock/api/projects';
 import { ProjectUsageMock } from '../mock/api/usage';
@@ -42,6 +44,7 @@ const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const usageModule = makeUsageModule(new ProjectUsageMock());
 const notificationsModule = makeNotificationsModule();
+const paymentsModule = makePaymentsModule(new PaymentsMock());
 
 const store = new Vuex.Store({
     modules: {
@@ -53,6 +56,7 @@ const store = new Vuex.Store({
         projectsModule,
         appStateModule,
         teamMembersModule,
+        paymentsModule,
     },
 });
 
