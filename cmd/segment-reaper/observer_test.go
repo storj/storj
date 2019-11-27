@@ -31,102 +31,30 @@ func TestObserver_processSegment(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		var (
-			obsvr = observer{
-				objects: make(bucketsObjects),
-			}
-			expectedNumSegments    int
-			expectedInlineSegments int
-			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []segmentRef
-			projID                 = testrand.UUID()
-		)
-
-		{ // Generate objects for testing
-			numSegments := rand.Intn(10) + 1
-			inline := (rand.Int() % 2) == 0
-			withNumSegments := (rand.Int() % 2) == 0
-
-			_, objSegmentsProj := createNewObjectSegments(
-				t, ctx.Context, numSegments, &projID, "project1", inline, withNumSegments,
-			)
-			objSegments = append(objSegments, objSegmentsProj...)
-
-			expectedNumSegments += numSegments
-			if inline {
-				expectedInlineSegments++
-				expectedRemoteSegments += (numSegments - 1)
-			} else {
-				expectedRemoteSegments += numSegments
-			}
-
-			// Reset project ID to create several objects in the same project
-			projID = testrand.UUID()
-
-			var (
-				bucketName = "0"
-				numObjs    = rand.Intn(10) + 2
-			)
-			for i := 0; i < numObjs; i++ {
-				numSegments = rand.Intn(10) + 1
-				inline = (rand.Int() % 2) == 0
-				withNumSegments = (rand.Int() % 2) == 0
-
-				if rand.Int()%2 == 0 {
-					bucketName = fmt.Sprintf("bucket-%d", i)
-				}
-				objPath, objSegmentsProj := createNewObjectSegments(
-					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
-				)
-				objSegments = append(objSegments, objSegmentsProj...)
-
-				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *object
-				bucketObjects, ok := expectedObjects[bucketName]
-				if !ok {
-					expectedObj = &object{}
-					expectedObjects[bucketName] = map[storj.Path]*object{
-						objPath: expectedObj,
-					}
-				} else {
-					expectedObj = &object{}
-					bucketObjects[objPath] = expectedObj
-				}
-
-				if withNumSegments {
-					expectedObj.expectedNumberOfSegments = byte(numSegments)
-				}
-
-				expectedObj.hasLastSegment = true
-				expectedObj.skip = false
-				// segments mask doesn't contain the last segment, hence we move 1 bit more
-				expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
-
-				expectedNumSegments += numSegments
-				if inline {
-					expectedInlineSegments++
-					expectedRemoteSegments += (numSegments - 1)
-				} else {
-					expectedRemoteSegments += numSegments
-				}
-			}
+		obsvr := observer{
+			objects: make(bucketsObjects),
 		}
 
-		for _, objSeg := range objSegments {
+		testdata1 := generateTestdataObjects(t, ctx.Context, false, false)
+		// Call processSegment with testadata objects of the first project
+		for _, objSeg := range testdata1.objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
-		assert.Equal(t, projID.String(), obsvr.lastProjectID, "lastProjectID")
-		assert.Equal(t, expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
-		// newObject if returns an inline segment is always the last
-		assert.Equal(t, expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
-		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
+		testdata2 := generateTestdataObjects(t, ctx.Context, false, false)
+		// Call processSegment with testadata objects of the second project
+		for _, objSeg := range testdata2.objSegments {
+			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
+			require.NoError(t, err)
+		}
 
-		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
+		// Inspect observer internal state to assert that it only has the state
+		// related to the second project
+		assert.Equal(t, testdata2.projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		if assert.Equal(t, len(testdata2.expectedObjects), len(obsvr.objects), "objects number") {
 			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[bucket]
+				expBucketObjs, ok := testdata2.expectedObjects[bucket]
 				if !ok {
 					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
@@ -149,6 +77,24 @@ func TestObserver_processSegment(t *testing.T) {
 				}
 			}
 		}
+
+		// Assert that objserver keep track global stats of all the segments which
+		// have received through processSegment calls
+		assert.Equal(t,
+			testdata1.expectedInlineSegments+testdata2.expectedInlineSegments,
+			obsvr.inlineSegments,
+			"inlineSegments",
+		)
+		assert.Equal(t,
+			testdata1.expectedInlineSegments+testdata2.expectedInlineSegments,
+			obsvr.lastInlineSegments,
+			"lastInlineSegments",
+		)
+		assert.Equal(t,
+			testdata1.expectedRemoteSegments+testdata2.expectedRemoteSegments,
+			obsvr.remoteSegments,
+			"remoteSegments",
+		)
 	})
 
 	t.Run("object without last segment", func(t *testing.T) {
@@ -156,97 +102,23 @@ func TestObserver_processSegment(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var (
-			obsvr = observer{
+			testdata = generateTestdataObjects(t, ctx.Context, true, false)
+			obsvr    = observer{
 				objects: make(bucketsObjects),
 			}
-			expectedNumSegments    int
-			expectedInlineSegments int
-			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []segmentRef
-			projID                 = testrand.UUID()
 		)
 
-		{ // Generate objects for testing
-			var (
-				bucketName         = "0"
-				numObjs            = rand.Intn(10) + 2
-				withoutLastSegment = 0
-			)
-			for i := 0; i < numObjs; i++ {
-				var (
-					numSegments     = rand.Intn(10) + 2
-					inline          = (rand.Int() % 2) == 0
-					withNumSegments = (rand.Int() % 2) == 0
-				)
-
-				if rand.Int()%2 == 0 {
-					bucketName = fmt.Sprintf("bucket-%d", i)
-				}
-				objPath, objSegmentsProj := createNewObjectSegments(
-					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
-				)
-				objSegments = append(objSegments, objSegmentsProj...)
-
-				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *object
-				bucketObjects, ok := expectedObjects[bucketName]
-				if !ok {
-					expectedObj = &object{}
-					expectedObjects[bucketName] = map[storj.Path]*object{
-						objPath: expectedObj,
-					}
-				} else {
-					expectedObj = &object{}
-					bucketObjects[objPath] = expectedObj
-				}
-
-				// segments mask doesn't contain the last segment, hence we move 1 bit more
-				expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
-				expectedObj.skip = false
-
-				// random object without last segment or remove the segment of the
-				// generated object if all the previous generated objects have the
-				// last segment, then remove from this one
-				if (rand.Int()%2) == 0 || (i == (numObjs-1) && withoutLastSegment == 0) {
-					withoutLastSegment++
-					expectedObj.hasLastSegment = false
-					numSegments--
-					objSegments = objSegments[:len(objSegments)-1]
-					expectedRemoteSegments += numSegments
-				} else {
-					expectedObj.hasLastSegment = true
-
-					if inline {
-						expectedInlineSegments++
-						expectedRemoteSegments += (numSegments - 1)
-					} else {
-						expectedRemoteSegments += numSegments
-					}
-
-					if withNumSegments {
-						expectedObj.expectedNumberOfSegments = byte(numSegments)
-					}
-				}
-
-				expectedNumSegments += numSegments
-			}
-		}
-
-		for _, objSeg := range objSegments {
+		// Call processSegment with the testdata
+		for _, objSeg := range testdata.objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
-		assert.Equal(t, projID.String(), obsvr.lastProjectID, "lastProjectID")
-		assert.Equal(t, expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
-		// newObject if returns an inline segment is always the last
-		assert.Equal(t, expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
-		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
-
-		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
+		// Assert observer internal state
+		assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
 			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[bucket]
+				expBucketObjs, ok := testdata.expectedObjects[bucket]
 				if !ok {
 					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
@@ -269,6 +141,11 @@ func TestObserver_processSegment(t *testing.T) {
 				}
 			}
 		}
+
+		// Assert observer global stats
+		assert.Equal(t, testdata.expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
+		assert.Equal(t, testdata.expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
+		assert.Equal(t, testdata.expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 	})
 
 	t.Run("object with more than 64 segments", func(t *testing.T) {
@@ -276,89 +153,22 @@ func TestObserver_processSegment(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var (
-			obsvr = observer{
+			testdata = generateTestdataObjects(t, ctx.Context, false, true)
+			obsvr    = observer{
 				objects: make(bucketsObjects),
 			}
-			expectedNumSegments    int
-			expectedInlineSegments int
-			expectedRemoteSegments int
-			expectedObjects        = map[string]map[storj.Path]*object{}
-			objSegments            []segmentRef
-			projID                 = testrand.UUID()
 		)
 
-		{ // Generate objects for testing
-			var (
-				bucketName            = "0"
-				numObjs               = rand.Intn(10) + 2
-				objWithNumSegsOverMax = false
-			)
-			for i := 0; i < numObjs || !objWithNumSegsOverMax; i++ {
-				var (
-					numSegments     = rand.Intn(100) + 1
-					inline          = (rand.Int() % 2) == 0
-					withNumSegments = (rand.Int() % 2) == 0
-				)
-
-				if rand.Int()%2 == 0 {
-					bucketName = fmt.Sprintf("bucket-%d", i)
-				}
-				objPath, objSegmentsProj := createNewObjectSegments(
-					t, ctx.Context, numSegments, &projID, bucketName, inline, withNumSegments,
-				)
-				objSegments = append(objSegments, objSegmentsProj...)
-
-				// TODO: use findOrCreate when cluster removal is merged
-				var expectedObj *object
-				bucketObjects, ok := expectedObjects[bucketName]
-				if !ok {
-					expectedObj = &object{}
-					expectedObjects[bucketName] = map[storj.Path]*object{
-						objPath: expectedObj,
-					}
-				} else {
-					expectedObj = &object{}
-					bucketObjects[objPath] = expectedObj
-				}
-
-				if withNumSegments {
-					expectedObj.expectedNumberOfSegments = byte(numSegments)
-				}
-
-				expectedObj.hasLastSegment = true
-
-				if numSegments > int(maxNumOfSegments) {
-					objWithNumSegsOverMax = true
-					expectedObj.skip = true
-				} else {
-					// segments mask doesn't contain the last segment, hence we move 1 bit more
-					expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
-				}
-
-				expectedNumSegments += numSegments
-				if inline {
-					expectedInlineSegments++
-					expectedRemoteSegments += (numSegments - 1)
-				} else {
-					expectedRemoteSegments += numSegments
-				}
-			}
-		}
-
-		for _, objSeg := range objSegments {
+		for _, objSeg := range testdata.objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
-		assert.Equal(t, projID.String(), obsvr.lastProjectID, "lastProjectID")
-		assert.Equal(t, expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
-		// newObject if returns an inline segment is always the last
-		assert.Equal(t, expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
-		assert.Equal(t, expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
-
-		if assert.Equal(t, len(expectedObjects), len(obsvr.objects), "objects number") {
+		// Assert observer internal state
+		assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
 			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := expectedObjects[bucket]
+				expBucketObjs, ok := testdata.expectedObjects[bucket]
 				if !ok {
 					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
 					continue
@@ -384,6 +194,11 @@ func TestObserver_processSegment(t *testing.T) {
 				}
 			}
 		}
+
+		// Assert observer global stats
+		assert.Equal(t, testdata.expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
+		assert.Equal(t, testdata.expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
+		assert.Equal(t, testdata.expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 	})
 }
 
@@ -626,4 +441,140 @@ func createNewObjectSegments(
 	})
 
 	return encryptedPath, references
+}
+
+type testdataObjects struct {
+	// expectations
+	expectedNumSegments    int
+	expectedInlineSegments int
+	expectedRemoteSegments int
+	expectedObjects        bucketsObjects
+
+	// data used for calling processSegment
+	objSegments []segmentRef
+	projectID   *uuid.UUID
+}
+
+// generateTestdataObjects generate a testdataObjecst with a random number of
+// segments of a random number of objects and buckets but under the same
+// project.
+//
+// When withoutLastSegment is true, there will be objects without last segment,
+// otherwise all of them will have a last segment.
+//
+// When withMoreThanMaxNumSegments is true, there will be objects with more
+// segments than the maxNumOfSegments, otherwise all of them will have less or
+// equal than it.
+// nolint:golint
+func generateTestdataObjects(
+	t *testing.T, ctx context.Context, withoutLastSegment bool, withMoreThanMaxNumSegments bool,
+) testdataObjects {
+	t.Helper()
+
+	var (
+		testdata = testdataObjects{
+			expectedObjects: make(bucketsObjects),
+		}
+		bucketName                      = "0"
+		numObjs                         = rand.Intn(10) + 2
+		projID                          = testrand.UUID()
+		withoutLastSegmentCount         = 0
+		withMoreThanMaxNumSegmentsCount = 0
+		numMaxSegments                  = 10
+	)
+
+	if withMoreThanMaxNumSegments {
+		numMaxSegments = 100
+	}
+
+	testdata.projectID = &projID
+
+	for i := 0; i < numObjs; i++ {
+		var (
+			inline          = (rand.Int() % 2) == 0
+			withNumSegments = (rand.Int() % 2) == 0
+			numSegments     = rand.Intn(numMaxSegments) + 2
+		)
+
+		if numSegments > int(maxNumOfSegments) {
+			withMoreThanMaxNumSegmentsCount++
+		}
+
+		// If withMoreThanMaxNumSegments is true and all the objects created in all
+		// the previous iterations have less or equal than maximum number of segments
+		// and this is the last iteration then force that the object crated in this
+		// iteration has more segments than the maximum.
+		if withMoreThanMaxNumSegments &&
+			withMoreThanMaxNumSegmentsCount == 0 &&
+			i == (numObjs-1) {
+			numSegments += int(maxNumOfSegments)
+			withMoreThanMaxNumSegmentsCount++
+		}
+
+		if rand.Int()%2 == 0 {
+			bucketName = fmt.Sprintf("bucket-%d", i)
+		}
+		objPath, objSegmentsProj := createNewObjectSegments(
+			t, ctx, numSegments, &projID, bucketName, inline, withNumSegments,
+		)
+		testdata.objSegments = append(testdata.objSegments, objSegmentsProj...)
+
+		// TODO: use findOrCreate when cluster removal is merged
+		var expectedObj *object
+		bucketObjects, ok := testdata.expectedObjects[bucketName]
+		if !ok {
+			expectedObj = &object{}
+			testdata.expectedObjects[bucketName] = map[storj.Path]*object{
+				objPath: expectedObj,
+			}
+		} else {
+			expectedObj = &object{}
+			bucketObjects[objPath] = expectedObj
+		}
+
+		// only create segments mask if the number of segments is less or equal than
+		// maxNumOfSegments
+		if numSegments <= int(maxNumOfSegments) {
+			// segments mask doesn't contain the last segment, hence we move 1 bit more
+			expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
+			expectedObj.skip = false
+		} else {
+			expectedObj.skip = true
+		}
+
+		// If withoutLastSegment is true, then choose random objects without last
+		// segment or	force to remove it from the object generated in the last
+		// iteration if in any object of the previous iterations have the last
+		// segment
+		if withoutLastSegment &&
+			((rand.Int()%2) == 0 || (i == (numObjs-1) && withoutLastSegmentCount == 0)) {
+			withoutLastSegmentCount++
+			expectedObj.hasLastSegment = false
+			numSegments--
+			testdata.objSegments = testdata.objSegments[:len(testdata.objSegments)-1]
+			testdata.expectedRemoteSegments += numSegments
+		} else {
+			expectedObj.hasLastSegment = true
+
+			if inline {
+				testdata.expectedInlineSegments++
+				testdata.expectedRemoteSegments += (numSegments - 1)
+			} else {
+				testdata.expectedRemoteSegments += numSegments
+			}
+
+			if withNumSegments {
+				expectedObj.expectedNumberOfSegments = byte(numSegments)
+			}
+		}
+
+		testdata.expectedNumSegments += numSegments
+	}
+
+	// Shuffle the segments for not having a object segments serial order
+	rand.Shuffle(len(testdata.objSegments), func(i, j int) {
+		testdata.objSegments[i], testdata.objSegments[j] = testdata.objSegments[j], testdata.objSegments[i]
+	})
+
+	return testdata
 }
