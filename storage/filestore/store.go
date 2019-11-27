@@ -19,7 +19,8 @@ var (
 	// Error is the default filestore error class
 	Error = errs.Class("filestore error")
 
-	mon = monkit.Package()
+	mon            = monkit.Package()
+	monFileInTrash = mon.Meter("open_file_in_trash") //locked
 
 	_ storage.Blobs = (*blobStore)(nil)
 )
