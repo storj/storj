@@ -82,7 +82,7 @@ func TestObserver(t *testing.T) {
 					if !ok {
 						expectedObj = &Object{}
 						expectedObjects[bucketName] = map[storj.Path]*Object{
-							storj.Path(objPath): expectedObj,
+							objPath: expectedObj,
 						}
 					} else {
 						expectedObj = &Object{}
