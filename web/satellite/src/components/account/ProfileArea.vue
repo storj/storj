@@ -295,8 +295,6 @@ export default class ProfileArea extends Vue {
             &__button-area {
                 margin-top: 20px;
             }
-
-            margin-top: 70px;
         }
     }
 

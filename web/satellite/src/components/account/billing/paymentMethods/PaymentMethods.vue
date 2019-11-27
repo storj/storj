@@ -4,7 +4,12 @@
 <template>
     <div class="payment-methods-area">
         <div class="payment-methods-area__top-container">
-            <h1 class="payment-methods-area__title text">Payment Methods</h1>
+            <div>
+                <h1 class="payment-methods-area__title text">Payment Methods</h1>
+                <h2 v-if="isBonusInfoShown" class="payment-methods-area__bonus-info">
+                    You have a chance to get bonus credits!
+                </h2>
+            </div>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
                     <VButton
@@ -128,6 +133,10 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    public get isBonusInfoShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
     public onChangeTokenValue(value: number): void {
         this.tokenDepositValue = value;
     }
@@ -155,7 +164,7 @@ export default class PaymentMethods extends Vue {
      */
     public async onConfirmAddSTORJ(): Promise<void> {
         if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
-            await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
+            await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
 
@@ -254,6 +263,13 @@ export default class PaymentMethods extends Vue {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
+        }
+
+        &__bonus-info {
+            font-family: 'font_regular', sans-serif;
+            font-size: 16px;
+            line-height: 21px;
+            color: #7889a1;
         }
 
         &__button-area {
