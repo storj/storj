@@ -544,7 +544,7 @@ type objectSegmentRef struct {
 //
 // If inline is true the last segment will be of INLINE type.
 //
-// If withNumSegments is true the last segment pointer will have 3he
+// If withNumSegments is true the last segment pointer will have the
 // NumberOfSegments set.
 //
 // It returns the object path and the list of object segment references.
