@@ -35,15 +35,24 @@ import (
 	"storj.io/storj/private/testcontext"
 )
 
-var (
-	releaseMSIPath string
+const (
 	// TODO: make this more dynamic and/or use versioncontrol server?
 	// (NB: can't use versioncontrol server until updater process is added to response)
-	oldRelease  = "v0.26.2"
+	oldRelease = "v0.26.2"
+
+	testWalletAddr = "0x0000000000000000000000000000000000000000"
+	testEmail      = "user@mail.test"
+	testPublicAddr = "127.0.0.1:10000"
+)
+
+var (
+	releaseMSIPath string
+
 	msiBaseArgs = []string{
 		"/quiet", "/qn",
 		"/norestart",
 	}
+	serviceNames = []string{"storagenode", "storagenode-updater"}
 
 	msiPathFlag = flag.String("msi", "", "path to the msi to use")
 )
@@ -70,28 +79,36 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestService_StopStart(t *testing.T) {
+	ctx := testcontext.NewWithTimeout(t, 30*time.Second)
+	defer ctx.Cleanup()
+
+	installDir := ctx.Dir("install")
+	testInstall(t, ctx, *msiPathFlag, installDir)
+	defer requireUninstall(t, ctx)
+
+	// NB: wait for install to complete / services to be running
+	noop := func(*mgr.Service) error { return nil }
+	err := controlServices(ctx, svc.Running, noop)
+	require.NoError(t, err)
+
+	require.NoError(t, stopServices(ctx))
+	require.NoError(t, startServices(ctx))
+}
+
 func TestInstaller_Config(t *testing.T) {
-	ctx := testcontext.New(t)
+	ctx := testcontext.NewWithTimeout(t, 30*time.Second)
 	defer ctx.Cleanup()
 
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
 
-	walletAddr := "0x0000000000000000000000000000000000000000"
-	email := "user@mail.test"
-	publicAddr := "127.0.0.1:10000"
-
-	args := []string{
-		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
-		fmt.Sprintf("STORJ_EMAIL=%s", email),
-		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
-	}
-	install(t, ctx, *msiPathFlag, installDir, args...)
+	testInstall(t, ctx, *msiPathFlag, installDir)
 	defer requireUninstall(t, ctx)
 
-	expectedEmail := fmt.Sprintf("operator.email: %s", email)
-	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
-	expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
+	expectedEmail := fmt.Sprintf("operator.email: %s", testEmail)
+	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", testWalletAddr)
+	expectedAddr := fmt.Sprintf("contact.external-address: %s", testPublicAddr)
 
 	configStr := readConfigLines(t, ctx, configPath)
 
@@ -111,31 +128,30 @@ func TestUpgrade_Config(t *testing.T) {
 	installDir := ctx.Dir("install")
 	configPath := ctx.File("install", "config.yaml")
 
-	walletAddr := "0x0000000000000000000000000000000000000000"
-	email := "user@mail.test"
-	publicAddr := "127.0.0.1:10000"
-
-	// install old release
-	args := []string{
-		fmt.Sprintf("STORJ_WALLET=%s", walletAddr),
-		fmt.Sprintf("STORJ_EMAIL=%s", email),
-		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", publicAddr),
-	}
-	install(t, ctx, releaseMSIPath, installDir, args...)
+	testInstall(t, ctx, releaseMSIPath, installDir)
 
 	// upgrade using test msi
 	install(t, ctx, *msiPathFlag, installDir)
 	defer requireUninstall(t, ctx)
 
-	expectedEmail := fmt.Sprintf("operator.email: %s", email)
-	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", walletAddr)
-	expectedAddr := fmt.Sprintf("contact.external-address: %s", publicAddr)
+	expectedEmail := fmt.Sprintf("operator.email: %s", testEmail)
+	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", testWalletAddr)
+	expectedAddr := fmt.Sprintf("contact.external-address: %s", testPublicAddr)
 
 	configStr := readConfigLines(t, ctx, configPath)
 
 	require.Contains(t, configStr, expectedEmail)
 	require.Contains(t, configStr, expectedWallet)
 	require.Contains(t, configStr, expectedAddr)
+}
+
+func testInstall(t *testing.T, ctx *testcontext.Context, msiPath, installDir string) {
+	args := []string{
+		fmt.Sprintf("STORJ_WALLET=%s", testWalletAddr),
+		fmt.Sprintf("STORJ_EMAIL=%s", testEmail),
+		fmt.Sprintf("STORJ_PUBLIC_ADDRESS=%s", testPublicAddr),
+	}
+	install(t, ctx, msiPath, installDir, args...)
 }
 
 func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string, args ...string) {
@@ -159,7 +175,7 @@ func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string,
 
 func requireUninstall(t *testing.T, ctx *testcontext.Context) {
 	logPath := ctx.File("log", "uninstall.log")
-	uninstallOut, err := uninstall(logPath)
+	uninstallOut, err := uninstall(ctx, logPath)
 	if !assert.NoError(t, err) {
 		uninstallLogData, err := ioutil.ReadFile(logPath)
 		if !assert.NoError(t, err) {
@@ -169,8 +185,8 @@ func requireUninstall(t *testing.T, ctx *testcontext.Context) {
 	}
 }
 
-func uninstall(logPath string) ([]byte, error) {
-	if err := stopServices("storagenode", "storagenode-updater"); err != nil {
+func uninstall(ctx context.Context, logPath string) ([]byte, error) {
+	if err := stopServices(ctx); err != nil {
 		return []byte{}, err
 	}
 
@@ -178,14 +194,27 @@ func uninstall(logPath string) ([]byte, error) {
 	return exec.Command("msiexec", args...).CombinedOutput()
 }
 
-func stopServices(names ...string) (err error) {
+func startServices(ctx context.Context, names ...string) (err error) {
+	return controlServices(ctx, svc.Running, func(service *mgr.Service) error {
+		return service.Start()
+	})
+}
+
+func stopServices(ctx context.Context) (err error) {
+	return controlServices(ctx, svc.Stopped, func(service *mgr.Service) error {
+		_, err := service.Control(svc.Stop)
+		return err
+	})
+}
+
+func controlServices(ctx context.Context, waitState svc.State, controlF func(*mgr.Service) error) error {
 	serviceMgr, err := mgr.Connect()
 	if err != nil {
 		return err
 	}
 
 	group := new(errgroup.Group)
-	for _, name := range names {
+	for _, name := range serviceNames {
 		name := name
 		group.Go(func() (err error) {
 			service, err := serviceMgr.OpenService(name)
@@ -196,18 +225,17 @@ func stopServices(names ...string) (err error) {
 				err = errs.Combine(err, service.Close())
 			}()
 
-			if _, err = service.Control(svc.Stop); err != nil {
+			if err := controlF(service); err != nil {
 				return err
 			}
-			return waitForStop(service)
+			return waitForState(ctx, service, waitState)
 		})
 	}
 
 	return group.Wait()
 }
 
-func waitForStop(service *mgr.Service) error {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+func waitForState(ctx context.Context, service *mgr.Service, state svc.State) error {
 	for {
 		status, err := service.Query()
 		if err != nil {
@@ -219,7 +247,7 @@ func waitForStop(service *mgr.Service) error {
 		}
 
 		switch status.State {
-		case svc.Stopped:
+		case state:
 			return nil
 		default:
 			time.Sleep(500 * time.Millisecond)
