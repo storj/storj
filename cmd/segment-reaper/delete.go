@@ -33,7 +33,7 @@ var (
 
 	deleteCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"postgres://"`
-		DryRun      bool   `help:"with this option no deletion will be done, only printing results" default:"true"`
+		DryRun      bool   `help:"with this option no deletion will be done, only printing results" default:"false"`
 	}
 )
 

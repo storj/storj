@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite/metainfo"
