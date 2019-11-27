@@ -10,6 +10,7 @@
     "dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
+    "@types/segment-analytics": "0.0.32",
     "apollo-cache-inmemory": "1.6.3",
     "apollo-client": "2.6.4",
     "apollo-link": "1.2.12",

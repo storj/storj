@@ -2,9 +2,13 @@
 // See LICENSE for copying information.
 
 import loadScript from 'load-script';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
+/**
+ * Segmentio is a wrapper around segment.io analytics package
+ */
 export class Segmentio {
-    analytics: any;
+    analytics: SegmentAnalytics.AnalyticsJS;
     public init(key: string) {
         if (this.analytics || key.length === 0 || key.includes('SegmentIOPublicKey')) {
             return;
@@ -37,12 +41,13 @@ export class Segmentio {
         this.analytics.identify();
     }
 
-    public track(eventName: string, attributes: object) {
+    public track(event: SegmentEvent, properties?: Object, options?: SegmentAnalytics.SegmentOpts,
+        callback?: () => void) {
         if (!this.analytics) {
             return;
         }
 
-        this.analytics.track(eventName, attributes);
+        this.analytics.track(event, properties, options, callback);
     }
 }
 
