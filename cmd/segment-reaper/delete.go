@@ -65,6 +65,8 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 
 	csvReader := csv.NewReader(inputFile)
 
+	segmentsDeleted := 0
+	segmentsSkipped := 0
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -97,11 +99,17 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 		err = deleteSegment(ctx, db, path, creationDateFromReport, deleteCfg.DryRun)
 		if err != nil {
 			log.Error("error while deleting segment", zap.String("path", rawPath), zap.Error(err))
+			segmentsSkipped++
 			continue
 		}
 
 		log.Info("segment deleted", zap.String("path", rawPath))
+		segmentsDeleted++
 	}
+
+	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped))
+
+	// TODO is printing results with zap is good enough?
 
 	return nil
 }
