@@ -164,7 +164,7 @@ export default class PaymentMethods extends Vue {
      */
     public async onConfirmAddSTORJ(): Promise<void> {
         if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
-            await this.$notify.error('Deposit amount must be more than 0 and less then 1000000');
+            await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
 
