@@ -20,7 +20,7 @@ import (
 // object represents object with segments.
 type object struct {
 	// TODO verify if we have more than 64 segments for object in network
-	segments uint64
+	segments bitmask
 
 	expectedNumberOfSegments byte
 
@@ -112,12 +112,19 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
 		}
 
-		if object.segments&(1<<uint64(segmentIndex)) != 0 {
+		ok, err := object.segments.Has(segmentIndex)
+		if err != nil {
+			return err
+		}
+		if ok {
 			// TODO make path displayable
 			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
 		}
 
-		object.segments |= 1 << uint64(segmentIndex)
+		err = object.segments.Set(segmentIndex)
+		if err != nil {
+			return err
+		}
 	}
 
 	// collect number of pointers for report
