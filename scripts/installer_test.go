@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -76,6 +77,8 @@ func TestMain(m *testing.M) {
 		err = errs.Combine(os.RemoveAll(tmp))
 	}()
 
+	viper.SetConfigType("yaml")
+
 	os.Exit(m.Run())
 }
 
@@ -101,20 +104,19 @@ func TestInstaller_Config(t *testing.T) {
 	defer ctx.Cleanup()
 
 	installDir := ctx.Dir("install")
-	configPath := ctx.File("install", "config.yaml")
-
 	testInstall(t, ctx, *msiPathFlag, installDir)
 	defer requireUninstall(t, ctx)
 
-	expectedEmail := fmt.Sprintf("operator.email: %s", testEmail)
-	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", testWalletAddr)
-	expectedAddr := fmt.Sprintf("contact.external-address: %s", testPublicAddr)
+	configFile, err := os.Open(ctx.File("install", "config.yaml"))
+	require.NoError(t, err)
+	defer ctx.Check(configFile.Close)
 
-	configStr := readConfigLines(t, ctx, configPath)
+	err = viper.ReadConfig(configFile)
+	require.NoError(t, err)
 
-	require.Contains(t, configStr, expectedEmail)
-	require.Contains(t, configStr, expectedWallet)
-	require.Contains(t, configStr, expectedAddr)
+	require.Equal(t, testEmail, viper.GetString("operator.email"))
+	require.Equal(t, testWalletAddr, viper.GetString("operator.wallet"))
+	require.Equal(t, testPublicAddr, viper.GetString("contact.external-address"))
 }
 
 func TestUpgrade_Config(t *testing.T) {
@@ -126,23 +128,22 @@ func TestUpgrade_Config(t *testing.T) {
 	defer ctx.Cleanup()
 
 	installDir := ctx.Dir("install")
-	configPath := ctx.File("install", "config.yaml")
-
 	testInstall(t, ctx, releaseMSIPath, installDir)
 
 	// upgrade using test msi
-	install(t, ctx, *msiPathFlag, installDir)
+	install(t, ctx, *msiPathFlag, "")
 	defer requireUninstall(t, ctx)
 
-	expectedEmail := fmt.Sprintf("operator.email: %s", testEmail)
-	expectedWallet := fmt.Sprintf("operator.wallet: \"%s\"", testWalletAddr)
-	expectedAddr := fmt.Sprintf("contact.external-address: %s", testPublicAddr)
+	configFile, err := os.Open(ctx.File("install", "config.yaml"))
+	require.NoError(t, err)
+	defer ctx.Check(configFile.Close)
 
-	configStr := readConfigLines(t, ctx, configPath)
+	err = viper.ReadConfig(configFile)
+	require.NoError(t, err)
 
-	require.Contains(t, configStr, expectedEmail)
-	require.Contains(t, configStr, expectedWallet)
-	require.Contains(t, configStr, expectedAddr)
+	require.Equal(t, testEmail, viper.GetString("operator.email"))
+	require.Equal(t, testWalletAddr, viper.GetString("operator.wallet"))
+	require.Equal(t, testPublicAddr, viper.GetString("contact.external-address"))
 }
 
 func testInstall(t *testing.T, ctx *testcontext.Context, msiPath, installDir string) {
@@ -157,10 +158,15 @@ func testInstall(t *testing.T, ctx *testcontext.Context, msiPath, installDir str
 func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string, args ...string) {
 	t.Logf("installing from %s\n", msiPath)
 	logPath := ctx.File("log", "install.log")
+
+	baseArgs := msiBaseArgs
+	if installDir != "" {
+		baseArgs = append(baseArgs, "INSTALLFOLDER="+installDir)
+	}
 	args = append(append([]string{
 		"/i", msiPath,
 		"/log", logPath,
-	}, append(msiBaseArgs, "INSTALLFOLDER="+installDir)...), args...)
+	}, baseArgs...), args...)
 
 	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
 	if !assert.NoError(t, err) {
