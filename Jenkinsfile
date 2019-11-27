@@ -31,6 +31,18 @@ node('node') {
       }
     }
 
+    stage('Test Windows Installer') {
+      node('windows') {
+        checkout scm
+
+        unstash "storagenode-installer"
+
+        bat 'go test -race -v scripts\\installer_testing.go'
+
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
+
     stage('Sign Windows Installer') {
       unstash "storagenode-installer"
 
