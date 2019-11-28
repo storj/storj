@@ -229,11 +229,6 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 
-	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
-	if err != nil {
-		return nil, err
-	}
-
 	bucketNames, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
@@ -282,6 +277,11 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	}
 
 	defer func() { err = errs.Combine(err, storageTalliesRows.Close()) }()
+
+	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
+	if err != nil {
+		return nil, err
+	}
 
 	usage = new(accounting.ProjectUsage)
 	usage.Egress = memory.Size(totalEgress).Int64()
