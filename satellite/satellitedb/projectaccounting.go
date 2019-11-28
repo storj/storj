@@ -244,14 +244,28 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name FROM bucket_bandwidth_rollups WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?`)
+	bucketsQuery := db.db.Rebind(`
+		SELECT DISTINCT 
+			bucket_name 
+		FROM 
+			bucket_bandwidth_rollups 
+		WHERE 
+			project_id = ? AND 
+			interval_start >= ? AND 
+			interval_start <= ?
+	`)
 
+	// TODO: pass actions as parameters or leave like that?
 	totalEgressQuery := db.db.Rebind(`
-		SELECT SUM(settled) + SUM(inline) FROM bucket_bandwidth_rollups WHERE 
-					project_id = ? AND 
-					interval_start >= ? AND 
-					interval_start <= ? AND 
-					action IN (2, 3, 4);
+		SELECT 
+			SUM(settled) + SUM(inline) 
+		FROM 
+			bucket_bandwidth_rollups 
+		WHERE 
+			project_id = ? AND 
+			interval_start >= ? AND 
+			interval_start <= ? AND 
+			action IN (2, 3, 4);
 	`)
 
 	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before)
