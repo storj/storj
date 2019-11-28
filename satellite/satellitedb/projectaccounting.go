@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -228,6 +229,16 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 
+	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
+	if err != nil {
+		return nil, err
+	}
+
+	bucketNames, err := db.getBuckets(ctx, projectID, since, before)
+	if err != nil {
+		return nil, err
+	}
+
 	storageQuery := db.db.Rebind(`
 		SELECT
 			bucket_storage_tallies.interval_start, 
@@ -244,58 +255,11 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
-	bucketsQuery := db.db.Rebind(`
-		SELECT DISTINCT 
-			bucket_name 
-		FROM 
-			bucket_bandwidth_rollups 
-		WHERE 
-			project_id = ? AND 
-			interval_start >= ? AND 
-			interval_start <= ?
-	`)
-
-	// TODO: pass actions as parameters or leave like that?
-	totalEgressQuery := db.db.Rebind(`
-		SELECT 
-			SUM(settled) + SUM(inline) 
-		FROM 
-			bucket_bandwidth_rollups 
-		WHERE 
-			project_id = ? AND 
-			interval_start >= ? AND 
-			interval_start <= ? AND 
-			action IN (2, 3, 4);
-	`)
-
-	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before)
-
-	var totalEgress int64
-	err = totalEgressRow.Scan(&totalEgress)
-	if err != nil {
-		return nil, err
-	}
-
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
-
-	var buckets []string
-	for bucketRows.Next() {
-		var bucket string
-		err = bucketRows.Scan(&bucket)
-		if err != nil {
-			return nil, err
-		}
-
-		buckets = append(buckets, bucket)
-	}
-
 	bucketsTallies := make(map[string][]*accounting.BucketStorageTally)
+
 	var storageTalliesRows *sql.Rows = nil
-	for _, bucket := range buckets {
+
+	for _, bucket := range bucketNames {
 		storageTallies := make([]*accounting.BucketStorageTally, 0)
 		storageTalliesRows, err = db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
@@ -316,6 +280,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 		bucketsTallies[bucket] = storageTallies
 	}
+
 	defer func() { err = errs.Combine(err, storageTalliesRows.Close()) }()
 
 	usage = new(accounting.ProjectUsage)
@@ -337,6 +302,29 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	usage.Since = since
 	usage.Before = before
 	return usage, nil
+}
+
+// getTotalEgress returns total egress (settled + inline) of each bucket_bandwidth_rollup
+// in selected time period, project id.
+// only process PieceAction_GET, PieceAction_GET_AUDIT, PieceAction_GET_REPAIR actions.
+func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
+	totalEgressQuery := db.db.Rebind(fmt.Sprintf(`
+		SELECT 
+			SUM(settled) + SUM(inline) 
+		FROM 
+			bucket_bandwidth_rollups 
+		WHERE 
+			project_id = ? AND 
+			interval_start >= ? AND 
+			interval_start <= ? AND 
+			action IN (%d, %d, %d);
+	`, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR))
+
+	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before)
+
+	err = totalEgressRow.Scan(&totalEgress)
+
+	return totalEgress, err
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
