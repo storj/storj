@@ -31,11 +31,11 @@
                 alt="offline status image"
             />
             <p class="title__info__version-title"><b>Node Version</b></p>
-            <p class="title__info__version-value">{{version}}</p>
+            <p class="title__info__version-value">{{info.version}}</p>
             <VInfo
                 v-if="info.isLastVersion"
                 text="Running the minimal allowed version:"
-                bold-text="v0.0.0"
+                :bold-text="info.allowedVersion"
                 is-custom-position="true"
             >
                 <div class="version-svg-container">
@@ -81,15 +81,21 @@ class NodeInfo {
     public id: string;
     public status: string;
     public version: string;
+    public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
 
-    public constructor(id: string, status: string, version: string, wallet: string, isLastVersion: boolean) {
+    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean) {
         this.id = id;
         this.status = status;
-        this.version = version;
+        this.version = this.toVersionString(version);
+        this.allowedVersion = this.toVersionString(allowedVersion);
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
+    }
+
+    private toVersionString(version: string): string {
+        return `v${version}`;
     }
 }
 
@@ -109,13 +115,10 @@ export default class SNOContentTitle extends Vue {
     }
 
     public get info(): NodeInfo {
-        return this.$store.state.node.info;
-    }
+        const nodeInfo = this.$store.state.node.info;
 
-    public get version(): string {
-        const version = this.$store.state.node.info.version;
-
-        return `v${version}`;
+        return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
+            nodeInfo.isLastVersion);
     }
 
     public get online(): boolean {
