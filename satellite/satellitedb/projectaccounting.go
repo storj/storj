@@ -270,6 +270,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 				return nil, err
 			}
 			tally.BucketName = bucket
+			storageTallies = append(storageTallies, &tally)
 		}
 
 		bucketsTallies[bucket] = storageTallies
