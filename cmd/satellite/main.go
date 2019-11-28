@@ -18,8 +18,10 @@ import (
 
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
@@ -374,7 +376,40 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdNotification(cmd *cobra.Command, args []string) (err error) {
-	//ctx, _ := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
+	logLevel := args[0]
+	message := []byte(args[1])
+
+	var parsedLogLevel pb.LogLevel
+	switch logLevel {
+	case "INFO":
+		parsedLogLevel = pb.LogLevel_INFO
+	case "WARN":
+		parsedLogLevel = pb.LogLevel_WARN
+	case "DEBUG":
+		parsedLogLevel = pb.LogLevel_DEBUG
+	default:
+		parsedLogLevel = pb.LogLevel_ERROR
+	}
+
+	address := runCfg.Server.Address
+	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
+	if err != nil {
+		return err
+	}
+
+	client := conn.NotificationClient()
+
+	notificationMessage := pb.NotificationMessage{
+		Loglevel: parsedLogLevel,
+		Message:  message,
+	}
+
+	_, err = client.ProcessNotification(ctx, &notificationMessage)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

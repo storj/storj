@@ -153,7 +153,8 @@ type SatelliteSystem struct {
 	}
 
 	Notification struct {
-		Service *notification.Service
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 
 	GracefulExit struct {

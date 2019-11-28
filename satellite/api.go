@@ -141,7 +141,8 @@ type API struct {
 	}
 
 	Notification struct {
-		Service *notification.Service
+		Service  *notification.Service
+		Endpoint *notification.Endpoint
 	}
 }
 
@@ -269,6 +270,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Overlay.Service,
 			peer.Mail.Service,
 		)
+
+		peer.Notification.Endpoint = notification.NewEndpoint(peer.Notification.Service)
+
+		pb.RegisterNotificationServer(peer.Server.PrivateGRPC(), peer.Notification.Endpoint)
+		pb.DRPCRegisterNotification(peer.Server.PrivateDRPC(), peer.Notification.Endpoint)
 	}
 
 	{ // setup contact service
