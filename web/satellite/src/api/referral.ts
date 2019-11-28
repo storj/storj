@@ -13,19 +13,15 @@ export class ReferralHttpApi {
     private readonly ROOT_PATH: string = '/api/v0/referrals';
 
     /**
-     * Used to get referral links
+     * Used to get referral tokens
      *
      * @throws Error
      */
-    public async getLinks(): Promise<any> {
-        const path = `${this.ROOT_PATH}`;
+    public async getTokens(): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/tokens`;
         const response = await this.http.get(path, true);
 
-        // TODO: remove mock and add types after final referral manager implementation
-        return [];
-
         if (response.ok) {
-
             return await response.json();
         }
 
@@ -33,6 +29,6 @@ export class ReferralHttpApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('can not get referral links');
+        throw new Error('can not get referral tokens');
     }
 }

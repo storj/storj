@@ -11,5 +11,16 @@ export interface ReferralApi {
      * @returns links
      * @throws Error
      */
-    getLinks(): Promise<any>;
+    getTokens(): Promise<string[]>;
+}
+
+/**
+ * ReferralLink creates url from token
+ */
+export class ReferralLink {
+    public url: string = '';
+
+    constructor(token: string = '') {
+        this.url = `${location.host}/${token}`;
+    }
 }

@@ -8,26 +8,14 @@
             <p class="referral-container__title-container__text">Decentralized Future</p>
         </div>
         <div class="referral-container__available" v-if="isAvailableLinks">
-            <p class="referral-container__available__title">You Have {{ 5 }} Invitations To Share!</p>
-            <div class="referral-container__copy-and-share-container__link-holder">
-                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
-                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
-            </div>
-            <div class="referral-container__copy-and-share-container__link-holder">
-                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
-                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
-            </div>
-            <div class="referral-container__copy-and-share-container__link-holder">
-                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
-                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
-            </div>
-            <div class="referral-container__copy-and-share-container__link-holder">
-                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
-                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
-            </div>
-            <div class="referral-container__copy-and-share-container__link-holder">
-                <p class="referral-container__copy-and-share-container__link-holder__link">https://us-central-1.tardigrade.io/ref/?uuid=96a33796-2c9b-47</p>
-                <div class="copy-button" v-clipboard="'test'" @click="copyLink">Copy</div>
+            <p class="referral-container__available__title">You Have {{ referralLinks.length }} Invitations To Share!</p>
+            <div
+                class="referral-container__copy-and-share-container__link-holder"
+                v-for="link in referralLinks"
+                :key="link.url"
+            >
+                <p class="referral-container__copy-and-share-container__link-holder__link">{{ link.url }}</p>
+                <div class="copy-button" v-clipboard="link.url" @click="copyLink">Copy</div>
             </div>
         </div>
         <div class="referral-container__not-available" v-if="!isAvailableLinks">
@@ -44,6 +32,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import NoLinksIcon from '@/../static/images/referral/NoLinks.svg';
 
 import { REFERRAL_ACTIONS } from '@/store/modules/referral';
+import { ReferralLink } from '@/types/referral';
 
 Vue.use(VueClipboards);
 
@@ -58,11 +47,15 @@ export default class ReferralArea extends Vue {
     }
 
     public get isAvailableLinks(): boolean {
-        return this.$store.state.referralModule.referralLinks.length !== 0;
+        return this.$store.state.referralModule.referralTokens.length !== 0;
+    }
+
+    public get referralLinks(): ReferralLink[] {
+        return this.$store.getters.referralLinks;
     }
 
     public async beforeMount() {
-        await this.$store.dispatch(REFERRAL_ACTIONS.GET_LINKS);
+        await this.$store.dispatch(REFERRAL_ACTIONS.GET_TOKENS);
     }
 }
 </script>

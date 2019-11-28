@@ -2,26 +2,26 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { ReferralApi } from '@/types/referral';
+import { ReferralApi, ReferralLink } from '@/types/referral';
 
 export const REFERRAL_ACTIONS = {
-    GET_LINKS: 'getReferralLinks',
+    GET_TOKENS: 'getReferralTokens',
 };
 
 export const REFERRAL_MUTATIONS = {
-    SET_LINKS: 'setReferralLinks',
+    SET_TOKENS: 'setReferralTokens',
 };
 
 const {
-    GET_LINKS,
+    GET_TOKENS,
 } = REFERRAL_ACTIONS;
 
 const {
-    SET_LINKS,
+    SET_TOKENS,
 } = REFERRAL_MUTATIONS;
 
 export class ReferralState {
-    public referralLinks = [];
+    public referralTokens: string[] = [];
 }
 
 /**
@@ -33,17 +33,24 @@ export function makeReferralModule(api: ReferralApi): StoreModule<ReferralState>
     return {
         state: new ReferralState(),
         mutations: {
-            [SET_LINKS](state: ReferralState, referralLinks): void {
-                state.referralLinks = referralLinks;
+            [SET_TOKENS](state: ReferralState, referralTokens: string[]): void {
+                state.referralTokens = referralTokens;
             },
         },
         actions: {
-            [GET_LINKS]: async function ({commit}: any): Promise<any> {
-                const referralLinks = await api.getLinks();
+            [GET_TOKENS]: async function ({commit}: any): Promise<string[]> {
+                const referralTokens = await api.getTokens();
 
-                commit(GET_LINKS, referralLinks);
+                commit(SET_TOKENS, referralTokens);
 
-                return referralLinks;
+                return referralTokens;
+            },
+        },
+        getters: {
+            referralLinks: (state: ReferralState): ReferralLink[] => {
+                return state.referralTokens.map(token => {
+                    return new ReferralLink(token);
+                });
             },
         },
     };
