@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,6 +17,9 @@ import (
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensure that ProjectAccounting implements accounting.ProjectAccounting.
+var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
 // ProjectAccounting implements the accounting/db ProjectAccounting interface
 type ProjectAccounting struct {
@@ -225,53 +229,57 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 
-	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
-
-	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
-		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		GROUP BY action`)
-
-	rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], since, before)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
-
-	var totalEgress int64
-	for rollupsRows.Next() {
-		var action pb.PieceAction
-		var settled, inline int64
-
-		err = rollupsRows.Scan(&settled, &inline, &action)
-		if err != nil {
-			return nil, err
-		}
-
-		// add values for egress
-		if action == pb.PieceAction_GET || action == pb.PieceAction_GET_AUDIT || action == pb.PieceAction_GET_REPAIR {
-			totalEgress += settled + inline
-		}
-	}
-
-	buckets, err := db.getBuckets(ctx, projectID, since, before)
+	bucketNames, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
 	}
 
-	bucketsTallies := make(map[string]*[]*dbx.BucketStorageTally)
-	for _, bucket := range buckets {
-		storageTallies, err := storageQuery(ctx,
-			dbx.BucketStorageTally_ProjectId(projectID[:]),
-			dbx.BucketStorageTally_BucketName([]byte(bucket)),
-			dbx.BucketStorageTally_IntervalStart(since),
-			dbx.BucketStorageTally_IntervalStart(before))
+	storageQuery := db.db.Rebind(`
+		SELECT
+			bucket_storage_tallies.interval_start, 
+			bucket_storage_tallies.inline,
+			bucket_storage_tallies.remote,
+			bucket_storage_tallies.object_count
+		FROM 
+			bucket_storage_tallies 
+		WHERE 
+			bucket_storage_tallies.project_id = ? AND 
+			bucket_storage_tallies.bucket_name = ? AND 
+			bucket_storage_tallies.interval_start >= ? AND 
+			bucket_storage_tallies.interval_start <= ? 
+		ORDER BY bucket_storage_tallies.interval_start DESC
+	`)
 
+	bucketsTallies := make(map[string][]*accounting.BucketStorageTally)
+
+	var storageTalliesRows *sql.Rows = nil
+
+	for _, bucket := range bucketNames {
+		storageTallies := make([]*accounting.BucketStorageTally, 0)
+		storageTalliesRows, err = db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
 
-		bucketsTallies[bucket] = &storageTallies
+		// generating tallies for each bucket name.
+		for storageTalliesRows.Next() {
+			tally := accounting.BucketStorageTally{}
+
+			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.InlineBytes, &tally.RemoteBytes, &tally.ObjectCount)
+			if err != nil {
+				return nil, err
+			}
+			tally.BucketName = bucket
+		}
+
+		bucketsTallies[bucket] = storageTallies
+	}
+
+	defer func() { err = errs.Combine(err, storageTalliesRows.Close()) }()
+
+	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
+	if err != nil {
+		return nil, err
 	}
 
 	usage = new(accounting.ProjectUsage)
@@ -279,13 +287,13 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	// sum up storage and objects
 	for _, tallies := range bucketsTallies {
-		for i := len(*tallies) - 1; i > 0; i-- {
-			current := (*tallies)[i]
+		for i := len(tallies) - 1; i > 0; i-- {
+			current := (tallies)[i]
 
-			hours := (*tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
+			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
 
-			usage.Storage += memory.Size(current.Inline).Float64() * hours
-			usage.Storage += memory.Size(current.Remote).Float64() * hours
+			usage.Storage += memory.Size(current.InlineBytes).Float64() * hours
+			usage.Storage += memory.Size(current.RemoteBytes).Float64() * hours
 			usage.ObjectCount += float64(current.ObjectCount) * hours
 		}
 	}
@@ -293,6 +301,29 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	usage.Since = since
 	usage.Before = before
 	return usage, nil
+}
+
+// getTotalEgress returns total egress (settled + inline) of each bucket_bandwidth_rollup
+// in selected time period, project id.
+// only process PieceAction_GET, PieceAction_GET_AUDIT, PieceAction_GET_REPAIR actions.
+func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
+	totalEgressQuery := db.db.Rebind(fmt.Sprintf(`
+		SELECT 
+			SUM(settled) + SUM(inline) 
+		FROM 
+			bucket_bandwidth_rollups 
+		WHERE 
+			project_id = ? AND 
+			interval_start >= ? AND 
+			interval_start <= ? AND 
+			action IN (%d, %d, %d);
+	`, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR))
+
+	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before)
+
+	err = totalEgressRow.Scan(&totalEgress)
+
+	return totalEgress, err
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
@@ -310,6 +341,7 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
 
+	// TODO: should be optimized
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
 	var bucketUsageRollups []accounting.BucketUsageRollup
