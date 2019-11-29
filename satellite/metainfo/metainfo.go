@@ -363,9 +363,6 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
-			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-				mon.Meter(fmt.Sprintf("%s_%s", "download_failed_not_enough_pieces_uplink", req.GetSegment())).Mark(1) //locked
-			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits, PrivateKey: privateKey}, nil
@@ -2028,9 +2025,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
-			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-				monkit.Meter(fmt.Sprintf("%s_%s", "download_failed_not_enough_pieces_uplink", streamID.String())).Mark(1) //locked
-			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
