@@ -29,11 +29,11 @@
         <div class="usage-report-container__main-area">
             <div class="usage-report-container__main-area__info-area">
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, GBh</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, {{storageDataDimension}}*h</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{storage}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, GB</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, {{egressDataDimension}}</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{egress}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
@@ -66,6 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { Converter } from '@/utils/converter';
 import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -104,18 +105,24 @@ export default class UsageReport extends Vue {
         return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
-    // TODO: update bytes to GB
     public get storage(): string {
-        return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+        return Converter.formatBytes(this.$store.state.usageModule.projectUsage.storage);
     }
 
-    // TODO: update bytes to GB
     public get egress(): string {
-        return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+        return Converter.formatBytes(this.$store.state.usageModule.projectUsage.egress);
     }
 
     public get objectsCount(): string {
         return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
+    }
+
+    public get storageDataDimension(): string {
+        return Converter.getDataDimension(this.$store.state.usageModule.projectUsage.storage);
+    }
+
+    public get egressDataDimension(): string {
+        return Converter.getDataDimension(this.$store.state.usageModule.projectUsage.egress);
     }
 
     public async mounted(): Promise<void> {
