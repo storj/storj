@@ -74,13 +74,15 @@ export default class PasswordStrength extends Vue {
     @Prop({default: false})
     private readonly isShown: boolean;
 
+    private MINIMAL_PASSWORD_LENGTH: number = 6;
+
     public get isPasswordLongEnough(): boolean {
-        return this.passwordString.length >= 6;
+        return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
     }
 
     public get passwordStrength(): string {
-        if (this.passwordString.length < 6) {
-            return 'Use 6 or more characters';
+        if (this.passwordString.length < this.MINIMAL_PASSWORD_LENGTH) {
+            return `Use ${this.MINIMAL_PASSWORD_LENGTH} or more characters`;
         }
 
         const score = this.scorePassword();
