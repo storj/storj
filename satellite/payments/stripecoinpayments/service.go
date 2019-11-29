@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/memory"
 	"sync"
 	"time"
 
@@ -41,8 +43,7 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
-	// TODO: uncomment when coupons will be finished.
-	// CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
+	CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -120,113 +121,111 @@ func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UU
 	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
 }
 
-// TODO: uncomment when coupons will be ready.
 // updateCouponUsageLoop updates all daily coupon usage in a loop.
-//func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
-//	defer mon.Task()(&ctx)(&err)
-//
-//	const limit = 25
-//	before := time.Now()
-//
-//	// takes first coupon page
-//	couponPage, err := service.db.Coupons().ListPaged(ctx, 0, limit, before, payments.CouponActive)
-//	if err != nil {
-//		return Error.Wrap(err)
-//	}
-//
-//	// iterates through all coupons, takes daily project usage and create new coupon usage
-//	err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
-//	if err != nil {
-//		return Error.Wrap(err)
-//	}
-//
-//	// iterates by rest pages
-//	for couponPage.Next {
-//		if err = ctx.Err(); err != nil {
-//			return Error.Wrap(err)
-//		}
-//
-//		couponPage, err = service.db.Coupons().ListPaged(ctx, couponPage.NextOffset, limit, before, payments.CouponActive)
-//		if err != nil {
-//			return Error.Wrap(err)
-//		}
-//
-//		// iterates through all coupons, takes daily project usage and create new coupon usage
-//		err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
-//		if err != nil {
-//			return Error.Wrap(err)
-//		}
-//	}
-//
-//	return nil
-//}
+func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now()
+
+	// takes first coupon page
+	couponPage, err := service.db.Coupons().ListPaged(ctx, 0, limit, before, payments.CouponActive)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// iterates through all coupons, takes daily project usage and create new coupon usage
+	err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// iterates by rest pages
+	for couponPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		couponPage, err = service.db.Coupons().ListPaged(ctx, couponPage.NextOffset, limit, before, payments.CouponActive)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// iterates through all coupons, takes daily project usage and create new coupon usage
+		err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
 
 // createDailyCouponUsage iterates through all coupons, takes daily project usage and create new coupon usage.
-// TODO: it will works only for 1 coupon per project. Need rework in future.
-//func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
-//	defer mon.Task()(&ctx)(&err)
-//
-//	for _, coupon := range coupons {
-//		// check if coupon expired
-//		if coupon.Created.Add(coupon.Duration).After(time.Now().UTC()) {
-//			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
-//				return err
-//			}
-//
-//			continue
-//		}
-//
-//		since, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
-//		if err != nil {
-//			if !ErrNoCouponUsages.Has(err) {
-//				return err
-//			}
-//
-//			since = coupon.Created
-//		}
-//
-//		start, end := date.DayBoundary(since)
-//		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, start, end)
-//		if err != nil {
-//			return err
-//		}
-//
-//		// TODO: reuse this code fragment.
-//		egressPrice := usage.Egress * service.EgressPrice / int64(memory.TB)
-//		objectCountPrice := int64(usage.ObjectCount * float64(service.PerObjectPrice))
-//		storageGbHrsPrice := int64(usage.Storage*float64(service.TBhPrice)) / int64(memory.TB)
-//
-//		currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
-//
-//		// TODO: we should add caching for TotalUsage call
-//		alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
-//		if err != nil {
-//			return err
-//		}
-//		remaining := coupon.Amount - alreadyChargedAmount
-//
-//		// check if coupon is used
-//		if currentUsageAmount >= remaining {
-//			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed); err != nil {
-//				return err
-//			}
-//
-//			currentUsageAmount = remaining
-//		}
-//
-//		couponUsage := CouponUsage{
-//			End:      time.Now().UTC(),
-//			Amount:   currentUsageAmount,
-//			CouponID: coupon.ID,
-//		}
-//
-//		if err = service.db.Coupons().AddUsage(ctx, couponUsage); err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
+func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, coupon := range coupons {
+		// check if coupon expired
+		if coupon.Created.Add(coupon.Duration).After(time.Now().UTC()) {
+			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		since, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
+		if err != nil {
+			if !ErrNoCouponUsages.Has(err) {
+				return err
+			}
+
+			since = coupon.Created
+		}
+
+		start, end := date.DayBoundary(since)
+		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, start, end)
+		if err != nil {
+			return err
+		}
+
+		// TODO: reuse this code fragment.
+		egressPrice := usage.Egress * service.EgressPrice / int64(memory.TB)
+		objectCountPrice := int64(usage.ObjectCount * float64(service.PerObjectPrice))
+		storageGbHrsPrice := int64(usage.Storage*float64(service.TBhPrice)) / int64(memory.TB)
+
+		currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
+
+		// TODO: we should add caching for TotalUsage call
+		alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return err
+		}
+		remaining := coupon.Amount - alreadyChargedAmount
+
+		// check if coupon is used
+		if currentUsageAmount >= remaining {
+			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed); err != nil {
+				return err
+			}
+
+			currentUsageAmount = remaining
+		}
+
+		couponUsage := CouponUsage{
+			End:      time.Now().UTC(),
+			Amount:   currentUsageAmount,
+			CouponID: coupon.ID,
+		}
+
+		if err = service.db.Coupons().AddUsage(ctx, couponUsage); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // updateTransactionsLoop updates all pending transactions in a loop.
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
