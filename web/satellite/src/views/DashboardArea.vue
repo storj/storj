@@ -11,11 +11,13 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <VBanner
-                        v-if="isBannerShown"
-                        text="You have no payment method added."
-                        additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
-                    />
+                    <div class="dashboard-container__main-area__banner-area">
+                        <VBanner
+                                v-if="isBannerShown"
+                                text="You have no payment method added."
+                                additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
+                        />
+                    </div>
                     <div class="dashboard-container__main-area__content">
                         <router-view/>
                     </div>
@@ -33,7 +35,6 @@ import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -49,7 +50,6 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
@@ -207,27 +207,16 @@ export default class DashboardArea extends Vue {
             width: 100%;
             height: calc(100vh - 50px);
             overflow-y: auto;
-        }
-    }
+            display: flex;
+            flex-direction: column;
 
-    @media screen and (max-height: 900px) {
+            &__banner-area {
+                flex: 0 1 auto;
+            }
 
-        .dashboard-container__main-area__content {
-            height: 600px;
-        }
-    }
-
-    @media screen and (max-height: 700px) {
-
-        .dashboard-container__main-area__content {
-            height: 400px;
-        }
-    }
-
-    @media screen and (max-height: 500px) {
-
-        .dashboard-container__main-area__content {
-            height: 300px;
+            &__content {
+                flex: 1 1 auto;
+            }
         }
     }
 

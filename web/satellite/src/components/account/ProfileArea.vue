@@ -117,6 +117,7 @@ export default class ProfileArea extends Vue {
     .profile-container {
         position: relative;
         font-family: 'font_regular', sans-serif;
+        padding-bottom: 100px;
 
         &__title {
             font-family: 'font_bold', sans-serif;

@@ -72,6 +72,7 @@ export default class ReferralArea extends Vue {
         justify-content: center;
         align-items: center;
         height: 100%;
+        padding: 50px 0 100px 0;
 
         &__title-container {
             display: flex;

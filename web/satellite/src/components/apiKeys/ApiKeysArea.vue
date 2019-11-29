@@ -346,7 +346,6 @@ export default class ApiKeysArea extends Vue {
     .api-keys-area {
         position: relative;
         padding: 40px 65px 55px 64px;
-        height: 85vh;
         font-family: 'font_regular', sans-serif;
 
         &__title {
