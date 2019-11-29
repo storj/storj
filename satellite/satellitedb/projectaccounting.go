@@ -279,7 +279,6 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		bucketsTallies[bucket] = storageTallies
 	}
 
-
 	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
