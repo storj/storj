@@ -59,6 +59,7 @@ export default class PayoutArea extends Vue {
             &__label {
                 font-size: 14px;
                 color: #586c86;
+                user-select: none;
             }
 
             &__bold-text {

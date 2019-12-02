@@ -27,7 +27,7 @@ const {
     SET_PAGE_NUMBER,
 } = API_KEYS_MUTATIONS;
 
-class ApiKeysState {
+export class ApiKeysState {
     public cursor: ApiKeyCursor = new ApiKeyCursor();
     public page: ApiKeysPage = new ApiKeysPage();
     public selectedApiKeysIds: string[] = [];

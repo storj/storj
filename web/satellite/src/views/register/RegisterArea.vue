@@ -8,7 +8,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
-import VInfo from '@/components/common/VInfo.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import InfoIcon from '@/../static/images/info.svg';
@@ -17,19 +16,20 @@ import LogoIcon from '@/../static/images/Logo.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import { setUserId } from '@/utils/consoleLocalStorage';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import PasswordStrength from '@/views/register/passwordStrength/PasswordStrength.vue';
 
 @Component({
     components: {
         HeaderlessInput,
         RegistrationSuccessPopup,
-        VInfo,
         AuthIcon,
         LogoIcon,
         InfoIcon,
+        PasswordStrength,
     },
 })
 export default class RegisterArea extends Vue {
@@ -55,6 +55,8 @@ export default class RegisterArea extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    public isPasswordStrengthShown: boolean = false;
+
     async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
@@ -75,6 +77,14 @@ export default class RegisterArea extends Vue {
             this.user.partnerId = referralIds.partnerId;
             this.refUserId = referralIds.userId;
         }
+    }
+
+    public showPasswordStrength(): void {
+        this.isPasswordStrengthShown = true;
+    }
+
+    public hidePasswordStrength(): void {
+        this.isPasswordStrengthShown = false;
     }
 
     public async onCreateClick(): Promise<void> {
@@ -111,9 +121,6 @@ export default class RegisterArea extends Vue {
     public setFullName(value: string): void {
         this.user.fullName = value.trim();
         this.fullNameError = '';
-    }
-    public setShortName(value: string): void {
-        this.user.shortName = value.trim();
     }
     public setPassword(value: string): void {
         this.user.password = value.trim();
@@ -160,7 +167,7 @@ export default class RegisterArea extends Vue {
         try {
             this.userId = await this.auth.register(this.user, this.secret, this.refUserId);
 
-            setUserId(this.userId);
+            LocalData.setUserId(this.userId);
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);

@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
-	"storj.io/storj/internal/dbutil/crdbutil/crdbtest"
+
+	"storj.io/storj/private/dbutil/crdbutil/crdbtest"
 	"storj.io/storj/storage/testsuite"
 )
 

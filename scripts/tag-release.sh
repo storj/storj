@@ -34,7 +34,7 @@ fi
 TIMESTAMP=$(date +%s)
 COMMIT=$(git rev-parse HEAD)
 
-cat > ./internal/version/release.go <<EOF
+cat > ./private/version/release.go <<EOF
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -48,10 +48,10 @@ func init() {
 }
 EOF
 
-gofmt -w -s ./internal/version/release.go
-go install ./internal/version
+gofmt -w -s ./private/version/release.go
+go install ./private/version
 
-git add ./internal/version/release.go >/dev/null
+git add ./private/version/release.go >/dev/null
 git commit -m "release $VERSION" >/dev/null
 if git tag $VERSION; then
   echo successfully created tag $VERSION

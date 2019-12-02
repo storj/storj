@@ -56,10 +56,10 @@ func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMet
 // Store interface methods for streams to satisfy to be a store
 type typedStore interface {
 	Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (Meta, error)
-	Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (ranger.Ranger, Meta, error)
+	Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
-	List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 // streamStore is a store for streams. It implements typedStore as part of an ongoing migration
@@ -111,28 +111,21 @@ func (s *streamStore) Put(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return Meta{}, err
 	}
 
-	m, lastSegment, streamID, err := s.upload(ctx, path, pathCipher, data, metadata, expiration)
-	if err != nil {
-		s.cancelHandler(context.Background(), streamID, lastSegment, path, pathCipher)
-	}
-
-	return m, err
+	return s.upload(ctx, path, pathCipher, data, metadata, expiration)
 }
 
-func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, streamID storj.StreamID, err error) {
+// upload registers segments in metainfo and uploads them to storage nodes.
+//
+// If there is an error, it cleans up any uploaded segment before returning.
+func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (_ Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	var currentSegment int64
-	var streamSize int64
-	var objectMetadata []byte
-
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
-		return Meta{}, currentSegment, streamID, err
+		return Meta{}, err
 	}
 	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
-		return Meta{}, currentSegment, streamID, err
+		return Meta{}, err
 	}
 
 	beginObjectReq := &metainfo.BeginObjectParams{
@@ -141,48 +134,61 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		ExpiresAt:     expiration,
 	}
 
-	if err != nil {
-		return Meta{}, currentSegment, streamID, err
-	}
-
+	var (
+		committedSegments int64
+		streamID          storj.StreamID
+	)
 	defer func() {
+		if err != nil {
+			s.cancelHandler(context.Background(), streamID, committedSegments, path, pathCipher)
+			return
+		}
+
 		select {
 		case <-ctx.Done():
-			s.cancelHandler(context.Background(), streamID, currentSegment, path, pathCipher)
+			s.cancelHandler(context.Background(), streamID, committedSegments, path, pathCipher)
 		default:
 		}
 	}()
 
-	eofReader := NewEOFReader(data)
+	var (
+		currentSegment       int64
+		contentKey           storj.Key
+		prevSegmentCommitReq *metainfo.CommitSegmentParams
+		streamSize           int64
+		lastSegmentSize      int64
+		encryptedKey         []byte
+		keyNonce             storj.Nonce
+	)
 
-	var lastCommitSegmentReq *metainfo.CommitSegmentParams
+	eofReader := NewEOFReader(data)
 	for !eofReader.isEOF() && !eofReader.hasError() {
 		// generate random key for encrypting the segment's content
-		var contentKey storj.Key
-		_, err = rand.Read(contentKey[:])
+		_, err := rand.Read(contentKey[:])
 		if err != nil {
-			return Meta{}, currentSegment, streamID, err
+			return Meta{}, err
 		}
 
-		// Initialize the content nonce with the segment's index incremented by 1.
+		// Initialize the content nonce with the current total segment incremented
+		// by 1 because at this moment the next segment has not been already
+		// uploaded.
 		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 		// which is encrypted with the zero nonce.
-		var contentNonce storj.Nonce
-		_, err := encryption.Increment(&contentNonce, currentSegment+1)
+		contentNonce := storj.Nonce{}
+		_, err = encryption.Increment(&contentNonce, currentSegment+1)
 		if err != nil {
-			return Meta{}, currentSegment, streamID, err
+			return Meta{}, err
 		}
 
 		// generate random nonce for encrypting the content key
-		var keyNonce storj.Nonce
 		_, err = rand.Read(keyNonce[:])
 		if err != nil {
-			return Meta{}, currentSegment, streamID, err
+			return Meta{}, err
 		}
 
-		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, derivedKey, &keyNonce)
+		encryptedKey, err = encryption.EncryptKey(&contentKey, s.cipher, derivedKey, &keyNonce)
 		if err != nil {
-			return Meta{}, currentSegment, streamID, err
+			return Meta{}, err
 		}
 
 		sizeReader := NewSizeReader(eofReader)
@@ -191,7 +197,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		// If the data is larger than the inline threshold size, then it will be a remote segment
 		isRemote, err := peekReader.IsLargerThan(s.inlineThreshold)
 		if err != nil {
-			return Meta{}, currentSegment, streamID, err
+			return Meta{}, err
 		}
 
 		segmentEncryption := storj.SegmentEncryption{}
@@ -205,7 +211,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		if isRemote {
 			encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
 			if err != nil {
-				return Meta{}, currentSegment, streamID, err
+				return Meta{}, err
 			}
 
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
@@ -222,23 +228,28 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			if currentSegment == 0 {
 				responses, err = s.metainfo.Batch(ctx, beginObjectReq, beginSegment)
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 				objResponse, err := responses[0].BeginObject()
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 				streamID = objResponse.StreamID
 			} else {
 				beginSegment.StreamID = streamID
-				responses, err = s.metainfo.Batch(ctx, lastCommitSegmentReq, beginSegment)
+				responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, beginSegment)
+				if len(responses) > 0 {
+					// We increment because the first request has succeeded
+					committedSegments++
+				}
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 			}
+
 			segResponse, err := responses[1].BeginSegment()
 			if err != nil {
-				return Meta{}, currentSegment, streamID, err
+				return Meta{}, err
 			}
 			segmentID := segResponse.SegmentID
 			limits := segResponse.Limits
@@ -246,10 +257,10 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 			uploadResults, size, err := s.segments.Put(ctx, transformedReader, expiration, limits, piecePrivateKey)
 			if err != nil {
-				return Meta{}, currentSegment, streamID, err
+				return Meta{}, err
 			}
 
-			lastCommitSegmentReq = &metainfo.CommitSegmentParams{
+			prevSegmentCommitReq = &metainfo.CommitSegmentParams{
 				SegmentID:         segmentID,
 				SizeEncryptedData: size,
 				Encryption:        segmentEncryption,
@@ -258,11 +269,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		} else {
 			data, err := ioutil.ReadAll(peekReader)
 			if err != nil {
-				return Meta{}, currentSegment, streamID, err
+				return Meta{}, err
 			}
 			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
 			if err != nil {
-				return Meta{}, currentSegment, streamID, err
+				return Meta{}, err
 			}
 
 			makeInlineSegment := &metainfo.MakeInlineSegmentParams{
@@ -275,76 +286,86 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			if currentSegment == 0 {
 				responses, err := s.metainfo.Batch(ctx, beginObjectReq, makeInlineSegment)
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 				objResponse, err := responses[0].BeginObject()
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 				streamID = objResponse.StreamID
 			} else {
 				makeInlineSegment.StreamID = streamID
 				err = s.metainfo.MakeInlineSegment(ctx, *makeInlineSegment)
 				if err != nil {
-					return Meta{}, currentSegment, streamID, err
+					return Meta{}, err
 				}
 			}
+
+			committedSegments++
 		}
 
-		streamInfo, err := proto.Marshal(&pb.StreamInfo{
-			DeprecatedNumberOfSegments: currentSegment + 1,
-			SegmentsSize:               s.segmentSize,
-			LastSegmentSize:            sizeReader.Size(),
-			Metadata:                   metadata,
-		})
-		if err != nil {
-			return Meta{}, currentSegment, streamID, err
-		}
-
-		// encrypt metadata with the content encryption key and zero nonce
-		encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
-		if err != nil {
-			return Meta{}, currentSegment, streamID, err
-		}
-
-		streamMeta := pb.StreamMeta{
-			NumberOfSegments:    currentSegment + 1,
-			EncryptedStreamInfo: encryptedStreamInfo,
-			EncryptionType:      int32(s.cipher),
-			EncryptionBlockSize: int32(s.encBlockSize),
-		}
-
-		if s.cipher != storj.EncNull {
-			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-				EncryptedKey: encryptedKey,
-				KeyNonce:     keyNonce[:],
-			}
-		}
-
-		objectMetadata, err = proto.Marshal(&streamMeta)
-		if err != nil {
-			return Meta{}, currentSegment, streamID, err
-		}
-
+		lastSegmentSize = sizeReader.Size()
+		streamSize += lastSegmentSize
 		currentSegment++
-		streamSize += sizeReader.Size()
 	}
 
+	totalSegments := currentSegment
+
 	if eofReader.hasError() {
-		return Meta{}, currentSegment, streamID, eofReader.err
+		return Meta{}, eofReader.err
+	}
+
+	streamInfo, err := proto.Marshal(&pb.StreamInfo{
+		DeprecatedNumberOfSegments: totalSegments,
+		SegmentsSize:               s.segmentSize,
+		LastSegmentSize:            lastSegmentSize,
+		Metadata:                   metadata,
+	})
+	if err != nil {
+		return Meta{}, err
+	}
+
+	// encrypt metadata with the content encryption key and zero nonce
+	encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
+	if err != nil {
+		return Meta{}, err
+	}
+
+	streamMeta := pb.StreamMeta{
+		NumberOfSegments:    totalSegments,
+		EncryptedStreamInfo: encryptedStreamInfo,
+		EncryptionType:      int32(s.cipher),
+		EncryptionBlockSize: int32(s.encBlockSize),
+	}
+
+	if s.cipher != storj.EncNull {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: encryptedKey,
+			KeyNonce:     keyNonce[:],
+		}
+	}
+
+	objectMetadata, err := proto.Marshal(&streamMeta)
+	if err != nil {
+		return Meta{}, err
 	}
 
 	commitObject := metainfo.CommitObjectParams{
 		StreamID:          streamID,
 		EncryptedMetadata: objectMetadata,
 	}
-	if lastCommitSegmentReq != nil {
-		_, err = s.metainfo.Batch(ctx, lastCommitSegmentReq, &commitObject)
+	if prevSegmentCommitReq != nil {
+		var responses []metainfo.BatchResponse
+		responses, err = s.metainfo.Batch(ctx, prevSegmentCommitReq, &commitObject)
+		if len(responses) > 0 {
+			// We increment because the first request has succeeded
+			committedSegments++
+		}
 	} else {
 		err = s.metainfo.CommitObject(ctx, commitObject)
 	}
 	if err != nil {
-		return Meta{}, currentSegment, streamID, err
+		return Meta{}, err
 	}
 
 	resultMeta := Meta{
@@ -353,134 +374,80 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		Data:       metadata,
 	}
 
-	return resultMeta, currentSegment, streamID, nil
+	return resultMeta, nil
 }
 
 // Get returns a ranger that knows what the overall size is (from l/<path>)
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
-func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (rr ranger.Ranger, meta Meta, err error) {
+func (s *streamStore) Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	resps, err := s.metainfo.Batch(ctx,
-		&metainfo.GetObjectParams{
-			Bucket:        []byte(path.Bucket()),
-			EncryptedPath: []byte(encPath.Raw()),
+	info, limits, err := s.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+		StreamID: object.ID,
+		Position: storj.SegmentPosition{
+			Index: -1, // Request the last segment
 		},
-		&metainfo.DownloadSegmentParams{
-			Position: storj.SegmentPosition{
-				Index: -1, // Request the last segment
-			},
-		},
-	)
+	})
 	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	if len(resps) != 2 {
-		return nil, Meta{}, errs.New(
-			"metainfo.Batch request returned an unexpected number of responses. Want: 2, got: %d", len(resps),
-		)
-	}
-
-	var object storj.ObjectInfo
-	{
-		resp, err := resps[0].GetObject()
-		if err != nil {
-			return nil, Meta{}, err
-		}
-
-		object = resp.Info
-	}
-
-	var (
-		info   storj.SegmentDownloadInfo
-		limits []*pb.AddressedOrderLimit
-	)
-	{
-		resp, err := resps[1].DownloadSegment()
-		if err != nil {
-			return nil, Meta{}, err
-		}
-
-		info = resp.Info
-		limits = resp.Limits
+		return nil, err
 	}
 
 	lastSegmentRanger, err := s.segments.Ranger(ctx, info, limits, object.RedundancyScheme)
 	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	stream := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfo, &stream)
-	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	var rangers []ranger.Ranger
-	for i := int64(0); i < numberOfSegments(&stream, &streamMeta)-1; i++ {
+	for i := int64(0); i < object.SegmentCount-1; i++ {
 		var contentNonce storj.Nonce
 		_, err = encryption.Increment(&contentNonce, i+1)
 		if err != nil {
-			return nil, Meta{}, err
+			return nil, err
 		}
 
 		rangers = append(rangers, &lazySegmentRanger{
 			metainfo:      s.metainfo,
 			segments:      s.segments,
-			streamID:      object.StreamID,
+			streamID:      object.ID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
-			size:          stream.SegmentsSize,
+			size:          object.FixedSegmentSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
-			encBlockSize:  int(streamMeta.EncryptionBlockSize),
-			cipher:        storj.CipherSuite(streamMeta.EncryptionType),
+			encBlockSize:  int(object.EncryptionParameters.BlockSize),
+			cipher:        object.CipherSuite,
 		})
 	}
 
 	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, numberOfSegments(&stream, &streamMeta))
+	_, err = encryption.Increment(&contentNonce, object.SegmentCount)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
-	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 	decryptedLastSegmentRanger, err := decryptRanger(
 		ctx,
 		lastSegmentRanger,
-		stream.LastSegmentSize,
-		storj.CipherSuite(streamMeta.EncryptionType),
+		object.LastSegment.Size,
+		object.CipherSuite,
 		derivedKey,
-		encryptedKey,
-		keyNonce,
+		info.SegmentEncryption.EncryptedKey,
+		&info.SegmentEncryption.EncryptedKeyNonce,
 		&contentNonce,
-		int(streamMeta.EncryptionBlockSize),
+		int(object.EncryptionParameters.BlockSize),
 	)
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, err
 	}
 
 	rangers = append(rangers, decryptedLastSegmentRanger)
-	catRangers := ranger.Concat(rangers...)
-	meta = convertMeta(object.Modified, object.Expires, stream, streamMeta)
-	return catRangers, meta, nil
+	return ranger.Concat(rangers...), nil
 }
 
 // Meta implements Store.Meta
@@ -581,7 +548,7 @@ func pathForKey(raw string) paths.Unencrypted {
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
-func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (s *streamStore) List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO use flags with listing
@@ -610,9 +577,9 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
 	}
 
-	// We have to encrypt startAfter and endBefore but only if they don't contain a bucket.
-	// They contain a bucket if and only if the prefix has no bucket. This is why they are raw
-	// strings instead of a typed string: it's either a bucket or an unencrypted path component
+	// We have to encrypt startAfter but only if it doesn't contain a bucket.
+	// It contains a bucket if and only if the prefix has no bucket. This is why it is a raw
+	// string instead of a typed string: it's either a bucket or an unencrypted path component
 	// and that isn't known at compile time.
 	needsEncryption := prefix.Bucket() != ""
 	if needsEncryption {
@@ -771,7 +738,7 @@ func (s *streamStore) cancelHandler(ctx context.Context, streamID storj.StreamID
 	for i := int64(0); i < totalSegments; i++ {
 		err := s.segments.Delete(ctx, streamID, int32(i))
 		if err != nil {
-			zap.L().Warn("Failed deleting segment", zap.String("path", path.String()), zap.Int64("segmentIndex", i), zap.Error(err))
+			zap.L().Warn("Failed deleting segment", zap.Stringer("path", path), zap.Int64("Segment Index", i), zap.Error(err))
 			continue
 		}
 	}

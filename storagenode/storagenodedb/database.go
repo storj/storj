@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -15,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -79,10 +78,7 @@ type Config struct {
 type DB struct {
 	log *zap.Logger
 
-	pieces interface {
-		storage.Blobs
-		Close() error
-	}
+	pieces storage.Blobs
 
 	dbDirectory string
 
@@ -236,7 +232,6 @@ func (db *DB) openDatabase(dbName string) error {
 
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return nil
 }
 
@@ -877,6 +872,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						SELECT node_id, added_at, status
 						FROM _satellites_old`,
 					`DROP TABLE _satellites_old`,
+				},
+			},
+			{
+				DB:          db.pieceExpirationDB,
+				Description: "Add Trash column to pieceExpirationDB",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_expirations ADD COLUMN trash INTEGER NOT NULL DEFAULT 0`,
+					`CREATE INDEX idx_piece_expirations_trashed
+						ON piece_expirations(satellite_id, trash)
+						WHERE trash = 1`,
 				},
 			},
 		},

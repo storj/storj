@@ -6,8 +6,9 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
-import BillingHistory from '@/components/account/billing/BillingHistory.vue';
+import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
 import ProfileArea from '@/components/account/ProfileArea.vue';
+import ReferralArea from '@/components/account/referral/ReferralArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -16,12 +17,13 @@ import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
+import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import DashboardArea from '@/views/DashboardArea.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import LoginArea from '@/views/login/LoginArea.vue';
-import RegisterArea from '@/views/register/RegisterArea.vue';
+const DashboardArea = () => import('@/views/DashboardArea.vue');
+const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const LoginArea = () => import('@/views/login/LoginArea.vue');
+const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 
 Vue.use(Router);
 
@@ -46,10 +48,19 @@ export abstract class RouteConfig {
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static Referral = new NavigationLink('referral', 'Referral');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
+
+export const notProjectRelatedRoutes = [
+    RouteConfig.Login.name,
+    RouteConfig.Register.name,
+    RouteConfig.Billing.name,
+    RouteConfig.BillingHistory.name,
+    RouteConfig.Profile.name,
+];
 
 export const router = new Router({
     mode: 'history',
@@ -95,6 +106,11 @@ export const router = new Router({
                             path: RouteConfig.BillingHistory.path,
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
+                        },
+                        {
+                            path: RouteConfig.Referral.path,
+                            name: RouteConfig.Referral.name,
+                            component: ReferralArea,
                         },
                     ],
                 },
@@ -173,6 +189,23 @@ router.beforeEach((to, from, next) => {
     }
 
     next();
+});
+
+router.afterEach(({name}, from) => {
+    if (!name) {
+        return;
+    }
+
+    if (notProjectRelatedRoutes.includes(name)) {
+        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+
+        return;
+    }
+
+    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
+
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
 });
 
 /**

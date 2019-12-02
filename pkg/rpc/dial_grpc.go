@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !drpc
+// +build grpc
 
 package rpc
 
@@ -18,6 +18,12 @@ import (
 // dial performs the dialing to the grpc endpoint with tls.
 func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if d.DialTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.DialTimeout)
+		defer cancel()
+	}
 
 	creds := &captureStateCreds{TransportCredentials: credentials.NewTLS(tlsConfig)}
 	conn, err := grpc.DialContext(ctx, address,
@@ -44,6 +50,12 @@ func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config)
 // dialUnencrypted performs dialing to the grpc endpoint with no tls.
 func (d Dialer) dialUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if d.DialTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.DialTimeout)
+		defer cancel()
+	}
 
 	conn, err := grpc.DialContext(ctx, address,
 		grpc.WithInsecure(),

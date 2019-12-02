@@ -10,9 +10,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/version"
-	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -20,6 +17,9 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/version"
+	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -108,6 +108,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Checker.RepairOverride,
+			config.Repairer.DownloadTimeout,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)

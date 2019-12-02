@@ -9,14 +9,14 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/currency"
+	"storj.io/storj/private/currency"
 )
 
 var (
-	// MaxRedemptionErr is the error class used when an offer has reached its redemption capacity
-	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
-	// NoCurrentOfferErr is the error class used when no current offer is set
-	NoCurrentOfferErr = errs.Class("no current offer")
+	// ErrReachedMaxCapacity is the error class used when an offer has reached its redemption capacity.
+	ErrReachedMaxCapacity = errs.Class("offer redemption has reached its capacity")
+	// ErrOfferNotExist is the error class used when no current offer is set.
+	ErrOfferNotExist = errs.Class("no current offer")
 )
 
 // DB holds information about offer
@@ -83,13 +83,10 @@ const (
 type OfferStatus int
 
 const (
-
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
-
 	// Default is the status of an offer when there is no active offer.
 	Default
-
 	// Active is the status of an offer that is currently in use.
 	Active
 )
@@ -115,38 +112,14 @@ type Offer struct {
 	Type   OfferType
 }
 
-// IsEmpty evaluates whether or not an on offer is empty
-func (o Offer) IsEmpty() bool {
-	return o.Name == ""
+// IsEmpty evaluates whether or not an on offer is empty.
+func (offer Offer) IsEmpty() bool {
+	return offer.Name == ""
 }
 
-// GetActiveOffer returns an offer that is active based on its type
-func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
-	if len(offers) < 1 {
-		return nil, NoCurrentOfferErr.New("no active offers")
-	}
-	switch offerType {
-	case Partner:
-		if partnerID == "" {
-			return nil, errs.New("partner ID is empty")
-		}
-		partnerInfo, ok := LoadPartnerInfos()[partnerID]
-		if !ok {
-			return nil, NoMatchPartnerIDErr.New("no partnerInfo found")
-		}
-		for i := range offers {
-			if offers[i].Name == partnerInfo.Name {
-				offer = &offers[i]
-			}
-		}
-	default:
-		if len(offers) > 1 {
-			return nil, errs.New("multiple active offers found")
-		}
-		offer = &offers[0]
-	}
-
-	return offer, nil
+// IsZero returns whether it's equivalent to empty struct.
+func (offer Offer) IsZero() bool {
+	return offer == Offer{}
 }
 
 // IsDefault checks if a offer's status is default

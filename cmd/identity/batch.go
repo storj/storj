@@ -19,13 +19,13 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/cui"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/cui"
 )
 
 var (
@@ -41,7 +41,7 @@ var (
 	keyCfg struct {
 		// TODO: where is this used and should it be conistent with "latest" alias?
 		VersionNumber uint   `default:"0" help:"version of identity (0 is latest)"`
-		MinDifficulty int    `help:"minimum difficulty to output" default:"30"`
+		MinDifficulty int    `help:"minimum difficulty to output" default:"36"`
 		Concurrency   int    `help:"worker concurrency" default:"4"`
 		OutputDir     string `help:"output directory to place keys" default:"."`
 	}

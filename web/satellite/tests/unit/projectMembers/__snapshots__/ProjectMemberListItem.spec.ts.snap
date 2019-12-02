@@ -4,10 +4,10 @@ exports[`should render correctly 1`] = `
 <div class="user-container owner">
   <div class="user-container__base-info">
     <!---->
-    <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
+    <div class="user-container__base-info__avatar extra-margin" style="background: rgb(88, 185, 255);">
       <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
-    <div class="user-container__base-info__name-area">
+    <div title="testShortName" class="user-container__base-info__name-area">
       <p class="user-container__base-info__name-area__user-name">testShortName</p>
       <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
     </div>
@@ -21,10 +21,10 @@ exports[`should render correctly with item row highlighted 1`] = `
 <div class="user-container owner">
   <div class="user-container__base-info">
     <!---->
-    <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
+    <div class="user-container__base-info__avatar extra-margin" style="background: rgb(88, 185, 255);">
       <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
-    <div class="user-container__base-info__name-area">
+    <div title="testShortName" class="user-container__base-info__name-area">
       <p class="user-container__base-info__name-area__user-name">testShortName</p>
       <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
     </div>

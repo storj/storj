@@ -15,9 +15,9 @@ setup(){
         output=$2
 	    head -c $size </dev/urandom > $output
     }
-    random_bytes_file "2K"   "$TEST_FILES_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
-    random_bytes_file "5M"   "$TEST_FILES_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-    random_bytes_file "128M" "$TEST_FILES_DIR/multisegment-upload-testfile"   # create 128mb file of random bytes (remote)
+    random_bytes_file "2KiB"   "$TEST_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
+    random_bytes_file "5MiB"   "$TEST_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
+    random_bytes_file "12MiB"  "$TEST_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
 
     echo "setup test successfully"
 }

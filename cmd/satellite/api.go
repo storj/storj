@@ -8,9 +8,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
@@ -70,6 +70,12 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
+	}
+
+	err = db.CheckVersion()
+	if err != nil {
+		zap.S().Fatal("failed satellite database version check: ", err)
+		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
 	runError := peer.Run(ctx)

@@ -27,7 +27,7 @@ var (
 	}
 
 	revCfg struct {
-		RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)"`
+		RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6379?db=2&password=abc123)"`
 	}
 )
 
@@ -42,7 +42,6 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
-
 	revDB, err := revocation.NewDB(revCfg.RevocationDBURL)
 	if err != nil {
 		return err

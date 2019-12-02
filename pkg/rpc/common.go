@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/memory"
 )
 
 //go:generate go run gen.go ../pb drpc compat_drpc.go

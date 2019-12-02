@@ -3,6 +3,7 @@
 
 <template>
     <div class="profile-container">
+        <h1 class="profile-container__title">Account Settings</h1>
         <div class="profile-container__edit-profile no-margin" >
             <div class="profile-container__edit-profile__row">
                 <div class="profile-container__edit-profile__avatar">
@@ -36,7 +37,7 @@
                 <div class="profile-container__edit-profile__row">
                     <EmailIcon class="profile-container__secondary-container__img"/>
                     <div class="profile-container__secondary-container__email-container__text-container">
-                        <h2 class="profile-bold-text">{{user.email}}</h2>
+                        <h2 class="profile-bold-text email">{{user.email}}</h2>
                     </div>
                 </div>
             </div>
@@ -115,8 +116,16 @@ export default class ProfileArea extends Vue {
 <style scoped lang="scss">
     .profile-container {
         position: relative;
-        margin-top: 83px;
         font-family: 'font_regular', sans-serif;
+        user-select: none;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            color: #263549;
+            margin: 40px 0 25px 0;
+        }
 
         &__navigation {
             position: absolute;
@@ -253,6 +262,10 @@ export default class ProfileArea extends Vue {
         line-height: 21px;
     }
 
+    .email {
+        user-select: text;
+    }
+
     @media screen and (max-width: 1300px) {
 
         .profile-container {
@@ -288,8 +301,6 @@ export default class ProfileArea extends Vue {
             &__button-area {
                 margin-top: 20px;
             }
-
-            margin-top: 70px;
         }
     }
 

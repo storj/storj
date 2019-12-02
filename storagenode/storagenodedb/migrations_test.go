@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/dbutil/dbschema"
-	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
