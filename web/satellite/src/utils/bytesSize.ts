@@ -2,24 +2,26 @@
 // See LICENSE for copying information.
 
 enum Memory {
-    Kib = 1e3,
-    Mib = 1e6,
-    Gib = 1e9,
-    Tib = 1e12,
-    Pib = 1e15,
+    Bytes = 1e0,
+    KB = 1e3,
+    MB = 1e6,
+    GB = 1e9,
+    TB = 1e12,
+    PB = 1e15,
 }
 
 enum Dimensions {
-    Kib = 'KB',
-    Mib = 'MB',
-    Gib = 'GB',
-    Tib = 'TB',
-    Pib = 'PB',
+    Bytes = 'Bytes',
+    KB = 'KB',
+    MB = 'MB',
+    GB = 'GB',
+    TB = 'TB',
+    PB = 'PB',
 }
 
 export class Size {
-    private readonly bytes: number;
     private readonly precision: number = 4;
+    public readonly bytes: number;
     public readonly formattedBytes: string;
     public readonly label: Dimensions;
 
@@ -28,25 +30,29 @@ export class Size {
         this.bytes = bytes;
 
         switch (true) {
-            case _bytes < Memory.Mib:
-                this.formattedBytes = (bytes / Memory.Kib).toFixed(this.precision);
-                this.label = Dimensions.Kib;
+            case _bytes === 0:
+                this.formattedBytes = (bytes / Memory.Bytes).toFixed(this.precision);
+                this.label = Dimensions.Bytes;
                 break;
-            case _bytes < Memory.Gib:
-                this.formattedBytes = (bytes / Memory.Mib).toFixed(this.precision);
-                this.label = Dimensions.Mib;
+            case _bytes < Memory.MB:
+                this.formattedBytes = (bytes / Memory.KB).toFixed(this.precision);
+                this.label = Dimensions.KB;
                 break;
-            case _bytes < Memory.Tib:
-                this.formattedBytes = (bytes / Memory.Gib).toFixed(this.precision);
-                this.label = Dimensions.Gib;
+            case _bytes < Memory.GB:
+                this.formattedBytes = (bytes / Memory.MB).toFixed(this.precision);
+                this.label = Dimensions.MB;
                 break;
-            case _bytes < Memory.Pib:
-                this.formattedBytes = (bytes / Memory.Tib).toFixed(this.precision);
-                this.label = Dimensions.Tib;
+            case _bytes < Memory.TB:
+                this.formattedBytes = (bytes / Memory.GB).toFixed(this.precision);
+                this.label = Dimensions.GB;
+                break;
+            case _bytes < Memory.PB:
+                this.formattedBytes = (bytes / Memory.TB).toFixed(this.precision);
+                this.label = Dimensions.TB;
                 break;
             default:
-                this.formattedBytes = (bytes / Memory.Pib).toFixed(this.precision);
-                this.label = Dimensions.Pib;
+                this.formattedBytes = (bytes / Memory.PB).toFixed(this.precision);
+                this.label = Dimensions.PB;
         }
     }
 }
