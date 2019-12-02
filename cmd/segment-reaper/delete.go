@@ -81,7 +81,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 		segmentIndex := record[1]
 		bucketName := record[2]
 		encodedPath := record[3]
-		creationDateFromReport, err := time.Parse(time.RFC3339, record[4])
+		creationDateFromReport, err := time.Parse(time.RFC3339Nano, record[4])
 		if err != nil {
 			log.Error("error while parsing date", zap.Error(err))
 			continue
