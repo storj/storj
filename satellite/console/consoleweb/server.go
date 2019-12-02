@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 const (
@@ -69,6 +70,7 @@ type Config struct {
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
 }
 
 // Server represents console web server
@@ -77,9 +79,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
+	config           Config
+	service          *console.Service
+	mailService      *mailservice.Service
+	referralsService *referrals.Service
 
 	listener net.Listener
 	server   http.Server
@@ -99,14 +102,15 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:             logger,
-		config:          config,
-		listener:        listener,
-		service:         service,
-		mailService:     mailService,
-		stripePublicKey: stripePublicKey,
+		log:              logger,
+		config:           config,
+		listener:         listener,
+		service:          service,
+		mailService:      mailService,
+		referralsService: referralsService,
+		stripePublicKey:  stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -125,6 +129,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
+	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
+	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
+	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -207,10 +216,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
+		"connect-src 'self' api.segment.io",
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"img-src 'self' data: *.customer.io",
+		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
@@ -219,11 +229,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName   string
-		StripePublicKey string
+		SatelliteName      string
+		SegmentIOPublicKey string
+		StripePublicKey    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {

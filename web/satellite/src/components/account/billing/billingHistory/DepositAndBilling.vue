@@ -19,8 +19,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import BillingItem from '@/components/account/billing/depositAndBilling/BillingItem.vue';
-import SortingHeader from '@/components/account/billing/depositAndBilling/SortingHeader.vue';
+import BillingItem from '@/components/account/billing/billingHistory/BillingItem.vue';
+import SortingHeader from '@/components/account/billing/billingHistory/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { BillingHistoryItem } from '@/types/payments';
@@ -66,6 +66,7 @@ export default class DepositAndBilling extends Vue {
             &__title {
                 font-size: 32px;
                 line-height: 48px;
+                user-select: none;
             }
 
             .button {

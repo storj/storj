@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 
 const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -25,6 +25,7 @@ export const PAYMENTS_ACTIONS = {
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
     GET_BILLING_HISTORY: 'getBillingHistory',
+    MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
     GET_PROJECT_CHARGES: 'getProjectCharges',
 };
 
@@ -49,6 +50,7 @@ const {
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
     GET_BILLING_HISTORY,
+    MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_CHARGES,
 } = PAYMENTS_ACTIONS;
 
@@ -72,7 +74,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
         state: new PaymentsState(),
         mutations: {
             [SET_BALANCE](state: PaymentsState, balance: number): void {
-                state.balance = balance;
+                // we need -1 multiplication because negative balance from server is credits
+                state.balance = balance * -1;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;
@@ -156,6 +159,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 const billingHistory: BillingHistoryItem[] = await api.billingHistory();
 
                 commit(SET_BILLING_HISTORY, billingHistory);
+            },
+            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
+                return await api.makeTokenDeposit(amount);
             },
             [GET_PROJECT_CHARGES]: async function({commit}: any): Promise<void> {
                 const charges: ProjectCharge[] = await api.projectsCharges();

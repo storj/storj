@@ -50,7 +50,6 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 )
@@ -227,10 +226,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
+			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
 			if *pgtest.CrdbConnStr != "" {
-				db, err = satellitedb.New(log, *pgtest.CrdbConnStr)
+				db, err = satellitedbtest.NewCockroach(log.Named("db"), schema)
 			} else {
-				schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
 				db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
 			}
 		}

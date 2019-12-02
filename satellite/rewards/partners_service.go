@@ -10,6 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/private/useragent"
 )
 
 var (
@@ -100,9 +102,19 @@ func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offer
 	return offer, nil
 }
 
-// PartnerByName looks up partner by name.
-func (service *PartnersService) PartnerByName(ctx context.Context, name string) (PartnerInfo, error) {
+// ByName looks up partner by name.
+func (service *PartnersService) ByName(ctx context.Context, name string) (PartnerInfo, error) {
 	return service.db.ByName(ctx, name)
+}
+
+// ByUserAgent looks up partner by user agent.
+func (service *PartnersService) ByUserAgent(ctx context.Context, userAgentString string) (PartnerInfo, error) {
+	info, err := useragent.Parse(userAgentString)
+	if err != nil {
+		return PartnerInfo{}, ErrPartners.Wrap(err)
+	}
+
+	return service.db.ByName(ctx, info.Product.Name)
 }
 
 // All returns all partners.

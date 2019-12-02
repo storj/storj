@@ -70,6 +70,15 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateK
 	return Error.Wrap(err)
 }
 
+// DeletePiece deletes a piece.
+func (client *Client) DeletePiece(ctx context.Context, id storj.PieceID) (err error) {
+	defer mon.Task()(&ctx, id.String())(&err)
+	_, err = client.client.DeletePiece(ctx, &pb.PieceDeletePieceRequest{
+		PieceId: id,
+	})
+	return Error.Wrap(err)
+}
+
 // Retain uses a bloom filter to tell the piece store which pieces to keep.
 func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)

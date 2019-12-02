@@ -3,10 +3,10 @@
 
 <template>
     <div class="sort-header-container">
-        <div class="sort-header-container__item">
+        <div class="sort-header-container__item date">
             <p class="sort-header-container__item__name">Date</p>
         </div>
-        <div class="sort-header-container__item">
+        <div class="sort-header-container__item description">
             <p class="sort-header-container__item__name">Description</p>
         </div>
         <div class="sort-header-container__item status">
@@ -35,29 +35,34 @@ export default class SortingHeader extends Vue {}
 
         &__item {
             text-align: left;
-            width: 35%;
-            margin-right: 10px;
+            width: 20%;
 
             &__name {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 10px;
                 color: #afb7c1;
+                user-select: none;
             }
         }
     }
 
+    .description {
+        width: 31%;
+    }
+
     .status {
-        width: 15%;
+        width: 12%;
     }
 
     .amount {
-        width: 15%;
+        width: 27%;
         margin: 0;
     }
 
     .download {
         margin: 0;
         min-width: 130px;
+        width: 10%;
     }
 </style>

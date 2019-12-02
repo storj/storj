@@ -296,6 +296,7 @@ func (planet *Planet) Shutdown() error {
 		peer := &planet.peers[i]
 		errlist.Add(peer.Close())
 	}
+
 	for _, db := range planet.databases {
 		errlist.Add(db.Close())
 	}

@@ -11,7 +11,7 @@ import {
     Metric,
     Satellite,
     Satellites,
-    Stamp
+    Stamp,
 } from '@/storagenode/satellite';
 
 /**
@@ -53,7 +53,7 @@ export class SNOApi {
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
-                                        new Date(json.lastPinged), new Date(json.startedAt), json.version, json.upToDate);
+            new Date(json.lastPinged), new Date(json.startedAt), json.version, json.allowedVersion, json.upToDate);
     }
 
     /**

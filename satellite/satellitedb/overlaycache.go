@@ -1400,10 +1400,10 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$1, $2, $3, $4, $5,
 				$6, $7, $8, $9,
 				$10::bool::int, 1,
-				CASE WHEN $10 IS TRUE THEN $24::timestamptz
+				CASE WHEN $10::bool IS TRUE THEN $24::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $10 IS FALSE THEN $24::timestamptz
+				CASE WHEN $10::bool IS FALSE THEN $24::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$11, $12, $13, $14,
@@ -1421,20 +1421,20 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				free_disk=$9,
 				major=$18, minor=$19, patch=$20, hash=$21, timestamp=$22, release=$23,
 				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
-				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
+				uptime_reputation_alpha=$16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float,
+				uptime_reputation_beta=$16::float*nodes.uptime_reputation_beta + $17::float*(NOT $10)::bool::int::float,
 				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
-				last_contact_success = CASE WHEN $10 IS TRUE
+				last_contact_success = CASE WHEN $10::bool IS TRUE
 					THEN $24::timestamptz
 					ELSE nodes.last_contact_success
 				END,
-				last_contact_failure = CASE WHEN $10 IS FALSE
+				last_contact_failure = CASE WHEN $10::bool IS FALSE
 					THEN $24::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
 				-- this disqualified case statement resolves to: 
 				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
-				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
+				disqualified = CASE WHEN (($16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float) / (($16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float) + ($16::float*nodes.uptime_reputation_beta + $17::float*(NOT $10)::bool::int::float))) <= $15 AND nodes.disqualified IS NULL
 					THEN $24::timestamptz
 					ELSE nodes.disqualified
 				END;
