@@ -43,8 +43,6 @@ node('node') {
 
         // Set scheduled tasks log path
         bat 'setx scheduledTasksLog %TEMP%\\scheduledTasks.log'
-        // Create scheduled tasks log file
-        bat 'cmd /c type nil > %scheduledTasksLog%'
 
         // Store msiPath in environment variable
         bat 'for /d %%d in (release\\*) do setx msiPath %%d\\storagenode_windows_amd64.msi'
