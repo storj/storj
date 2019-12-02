@@ -194,7 +194,7 @@ func uninstall(ctx context.Context, logPath string) ([]byte, error) {
 	return exec.Command("msiexec", args...).CombinedOutput()
 }
 
-func startServices(ctx context.Context, names ...string) (err error) {
+func startServices(ctx context.Context) (err error) {
 	return controlServices(ctx, svc.Running, func(service *mgr.Service) error {
 		return service.Start()
 	})
