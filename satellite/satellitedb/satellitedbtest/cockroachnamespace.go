@@ -35,13 +35,17 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 		return nil, err
 	}
 
+	r := regexp.MustCompile(`\W`)
+	// this regex removes any non-alphanumeric character from the string
+	namespacedTestDB = r.ReplaceAllString(namespacedTestDB, "")
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(namespacedTestDB)))
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("new db:", namespacedTestDB)
 
 	// this regex matches substrings like this "/dbName?"
-	r := regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
+	r = regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
 	if !r.MatchString(source) {
 		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
 	}
@@ -80,6 +84,7 @@ type namespacedDB struct {
 // then we make a database connection to the parent db and delete the
 // namespaced database that was used for testing.
 func (db *namespacedDB) Close() error {
+	fmt.Println("closing namespacedDB:", db.namespace)
 	err := db.DB.Close()
 	if err != nil {
 		return err
@@ -87,6 +92,7 @@ func (db *namespacedDB) Close() error {
 
 	var dropErr error
 	if db.autoDrop {
+		fmt.Println("dropping namespacedDB:", db.namespace)
 		// connect to the parent db and delete the namespaced database used for the test
 		_, dropErr = db.parentRawConn.Exec(fmt.Sprintf("DROP DATABASE %s;", pq.QuoteIdentifier(db.namespace)))
 	}

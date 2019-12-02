@@ -76,6 +76,9 @@ func (db *DB) CreateSchema(schema string) error {
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
+// Source is
+func (db *DB) Source() string { return db.source }
+
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
 	return pgutil.DropSchema(db.db, schema)

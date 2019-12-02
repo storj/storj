@@ -219,6 +219,71 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
+	query := `
+		SELECT at_rest_total, start_time::date
+		FROM accounting_rollups
+		WHERE node_id = $1
+		AND $2 <= start_time AND start_time <= $3
+		UNION
+		SELECT SUM(data_total) AS at_rest_total, interval_end_time::date AS start_time
+				FROM storagenode_storage_tallies
+				WHERE node_id = $1
+				AND NOT EXISTS (SELECT 1 FROM (
+						SELECT at_rest_total, start_time
+						FROM accounting_rollups
+						WHERE node_id = $1
+						AND $2 <= start_time AND start_time <= $3
+				) r WHERE r.start_time::date = interval_end_time::date)
+				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
+				GROUP BY interval_end_time::date
+		ORDER BY start_time;
+	`
+
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
+		nodeID, start, end, accounting.LastRollup,
+	)
+
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var nodeStorageUsages []accounting.StorageNodeUsage
+	for rows.Next() {
+		var atRestTotal float64
+		var startTime dbutil.NullTime
+
+		err = rows.Scan(&atRestTotal, &startTime)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
+			NodeID:      nodeID,
+			StorageUsed: atRestTotal,
+			Timestamp:   startTime.Time,
+		})
+	}
+
+	return nodeStorageUsages, nil
+}
+
+// QueryStorageNodeUsageOld returns slice of StorageNodeUsage for given period
+func (db *StoragenodeAccounting) QueryStorageNodeUsageOld(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if lastRollup == nil {
+		return nil, nil
+	}
+
+	start, end = start.UTC(), end.UTC()
 	query := `WITH r AS (
 			SELECT at_rest_total, start_time
 			FROM accounting_rollups

@@ -24,7 +24,7 @@ func TestNewCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skip("Cockroachdb flag missing")
 	}
-	namespacedDBName := "namespaced/Test/DB"
+	namespacedDBName := "name#spaced/Test/DB"
 	testdb, err := satellitedbtest.NewCockroach(zap.L(), namespacedDBName)
 	require.NoError(t, err)
 

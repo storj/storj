@@ -5,6 +5,8 @@ package pgutil
 
 import (
 	"database/sql"
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/lib/pq"
@@ -19,6 +21,13 @@ import (
 type DB struct {
 	*sql.DB
 	Schema string
+}
+
+// DB2 is postgres database with schema
+type DB2 struct {
+	*sql.DB
+	parent    *sql.DB
+	namespace string
 }
 
 var (
@@ -44,11 +53,58 @@ func Open(connstr string, schemaPrefix string) (*DB, error) {
 	return &DB{db, schemaName}, err
 }
 
+// OpenCockroach opens a postgres database with a schema
+func OpenCockroach(connstr string, schemaPrefix string) (*DB2, error) {
+	db, err := sql.Open("postgres", connstr)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("loadsnaptshot OpenCockroach parent connstr:", connstr)
+
+	dbutil.Configure(db, mon)
+
+	schemaName := schemaPrefix + CreateRandomTestingSchemaName(8)
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(schemaName)))
+	if err != nil {
+		return nil, err
+	}
+
+	r := regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
+	if !r.MatchString(connstr) {
+		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", connstr)
+	}
+	testConnURL := r.ReplaceAllString(connstr, "/"+schemaName+"?")
+	testdb, err := sql.Open("postgres", testConnURL)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("loadsnaptshot OpenCockroach testdb connstr:", testConnURL)
+	return &DB2{
+		DB:        testdb,
+		parent:    db,
+		namespace: schemaName,
+	}, err
+}
+
 // Close closes the database and deletes the schema.
 func (db *DB) Close() error {
 	return errs.Combine(
 		DropSchema(db.DB, db.Schema),
 		db.DB.Close(),
+	)
+}
+
+// Close closes the database and deletes the schema.
+func (db *DB2) Close() error {
+	err := db.DB.Close()
+	if err != nil {
+		return err
+	}
+
+	_, err = db.parent.Exec(fmt.Sprintf("DROP DATABASE %s;", pq.QuoteIdentifier(db.namespace)))
+	return errs.Combine(
+		err,
+		db.parent.Close(),
 	)
 }
 
@@ -70,11 +126,13 @@ func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := Open(connstr, "load-schema")
+	// db, err := Open(connstr, "load-schema")
+	db, err := OpenCockroach(connstr, "loadschema")
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
+	// dbutil.Configure(db, mon)
 
 	_, err = db.Exec(script)
 	if err != nil {

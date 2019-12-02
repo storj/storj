@@ -52,19 +52,41 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 
 	// find constraints
 	err = func() error {
+		// TODO: its typically better to use explicit JOIN, however until cockroachdb releases
+		// support for `JOIN LATERAL` we need to use implicit JOIN syntax.
+		// ref: https://github.com/cockroachdb/cockroach/pull/40945
+		// This query is being left here commented out so that we can easily add it back in.
+
+		// rows, err := db.Query(`
+		// 	SELECT pg_class.relname,
+		// 		pg_constraint.conname,
+		// 		pg_constraint.contype,
+		// 		ARRAY_AGG(pg_attribute.attname ORDER BY u.attposition),
+		// 		pg_get_constraintdef(pg_constraint.oid)
+		// 	FROM pg_constraint
+		// 		JOIN LATERAL UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, attposition) ON TRUE
+		// 		JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
+		// 		JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
+		// 		JOIN pg_attribute ON (pg_attribute.attrelid = pg_class.oid AND pg_attribute.attnum = u.attnum)
+		// 	WHERE pg_namespace.nspname = CURRENT_SCHEMA
+		// 	GROUP BY pg_constraint.conname, pg_constraint.contype, pg_class.relname, pg_get_constraintdef(pg_constraint.oid);
+		// `)
 		rows, err := db.Query(`
-			SELECT  pg_class.relname      AS table_name,
-			        pg_constraint.conname AS constraint_name,
-					pg_constraint.contype AS constraint_type,
-					ARRAY_AGG(pg_attribute.attname ORDER BY u.attposition) AS columns,
-					pg_get_constraintdef(pg_constraint.oid)                AS definition
-			FROM pg_constraint pg_constraint
-					JOIN LATERAL UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, attposition) ON TRUE
-					JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
-					JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
-					JOIN pg_attribute ON (pg_attribute.attrelid = pg_class.oid AND pg_attribute.attnum = u.attnum)
+			SELECT pg_class.relname,
+				pg_constraint.conname,
+				pg_constraint.contype,
+				ARRAY_AGG(pg_attribute.attname ORDER BY u.attposition),
+				pg_get_constraintdef(pg_constraint.oid)
+			FROM pg_constraint, UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, attposition),
+				pg_class,
+				pg_namespace,
+				pg_attribute
 			WHERE pg_namespace.nspname = CURRENT_SCHEMA
-			GROUP BY constraint_name, constraint_type, table_name, definition
+				AND pg_class.oid = pg_constraint.conrelid
+				AND pg_namespace.oid = pg_class.relnamespace
+				AND pg_attribute.attrelid = pg_class.oid
+				AND pg_attribute.attnum = u.attnum
+			GROUP BY pg_constraint.conname, pg_constraint.contype, pg_class.relname, pg_get_constraintdef(pg_constraint.oid);
 		`)
 		if err != nil {
 			return err

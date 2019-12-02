@@ -4,14 +4,17 @@
 package satellitedb_test
 
 import (
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -85,10 +88,119 @@ func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 }
 
 const (
-	minBaseVersion = 0
-	maxBaseVersion = 4
+	minBaseVersion = 69
+	maxBaseVersion = 70
 )
 
+func TestMigrateCockroach(t *testing.T) {
+	if *pgtest.CrdbConnStr == "" {
+		t.Skip("Cockroachdb flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
+	}
+	fmt.Println("here 1")
+	snapshots, err := loadSnapshots(*pgtest.CrdbConnStr)
+	require.NoError(t, err)
+
+	for _, snapshot := range snapshots.List {
+		fmt.Println("here 2")
+		base := snapshot
+		// minBaseVersion to maxBaseVersion can be a starting point
+		if base.Version < minBaseVersion || maxBaseVersion < base.Version {
+			fmt.Println("base.Version:", base.Version)
+			fmt.Println("is less than minBaseVersion:", minBaseVersion)
+			fmt.Println("base.Version:", base.Version)
+			fmt.Println("is greater than maxBaseVersion:", maxBaseVersion)
+			continue
+		}
+
+		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
+			fmt.Println("here 4")
+			log := zaptest.NewLogger(t)
+			schemaName := "migratesatellite" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
+
+			// db, err := satellitedbtest.NewCockroach(log, schemaName)
+			source := *pgtest.CrdbConnStr
+			parentdb, err := sql.Open("postgres", source)
+			defer func() { require.NoError(t, parentdb.Close()) }()
+			require.NoError(t, err)
+			_, err = parentdb.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(schemaName)))
+			require.NoError(t, err)
+			r := regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
+			// if !r.MatchString(*pgtest.CrdbConnStr) {
+			// 	return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
+			// }
+			testConnURL := r.ReplaceAllString(source, "/"+schemaName+"?")
+			db, err := satellitedb.New(log, testConnURL)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, db.Close()) }()
+			fmt.Println("t.Run parentdb connstr:", source)
+			fmt.Println("t.Run testdb connstr:", testConnURL)
+			fmt.Println("t.Run testdb db:", db)
+
+			// we need raw database access unfortunately
+			rawdb := db.(*satellitedb.DB).TestDBAccess()
+			src := db.(*satellitedb.DB).Source()
+			fmt.Println("src:", src)
+
+			// insert the base data into postgres
+			fmt.Println(base.Script)
+			_, err = rawdb.Exec(base.Script)
+			require.NoError(t, err)
+
+			var finalSchema *dbschema.Schema
+
+			// get migration for this database
+			migrations := db.(*satellitedb.DB).PostgresMigration()
+			for i, step := range migrations.Steps {
+				fmt.Println("here 5")
+				// the schema is different when migration step is before the step, cannot test the layout
+				if step.Version < base.Version {
+					continue
+				}
+
+				tag := fmt.Sprintf("#%d - v%d", i, step.Version)
+
+				// run migration up to a specific version
+				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
+				require.NoError(t, err, tag)
+
+				// find the matching expected version
+				expected, ok := snapshots.FindVersion(step.Version)
+				require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
+
+				// insert data for new tables
+				if newdata := newData(expected); newdata != "" && step.Version > base.Version {
+					_, err = rawdb.Exec(newdata)
+					require.NoError(t, err, tag)
+				}
+
+				// load schema from database
+				currentSchema, err := pgutil.QuerySchema(rawdb)
+				require.NoError(t, err, tag)
+
+				// we don't care changes in versions table
+				currentSchema.DropTable("versions")
+
+				// load data from database
+				currentData, err := pgutil.QueryData(rawdb, currentSchema)
+				require.NoError(t, err, tag)
+
+				// verify schema and data
+				require.Equal(t, expected.Schema, currentSchema, tag)
+				require.Equal(t, expected.Data, currentData, tag)
+
+				// keep the last version around
+				finalSchema = currentSchema
+			}
+			fmt.Println("here 6")
+
+			// verify that we also match the dbx version
+			dbxschema, err := loadDBXSchema(*pgtest.ConnStr, rawdb.Schema())
+			require.Error(t, err)
+			fmt.Println("here 7")
+			require.Equal(t, dbxschema, finalSchema, "dbx")
+		})
+	}
+}
 func TestMigratePostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
@@ -173,7 +285,6 @@ func TestMigratePostgres(t *testing.T) {
 			// verify that we also match the dbx version
 			dbxschema, err := loadDBXSchema(*pgtest.ConnStr, rawdb.Schema())
 			require.NoError(t, err)
-
 			require.Equal(t, dbxschema, finalSchema, "dbx")
 		})
 	}
