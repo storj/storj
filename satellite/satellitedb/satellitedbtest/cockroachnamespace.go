@@ -26,7 +26,7 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 		return nil, err
 	}
 
-	driver, source, err := dbutil.SplitConnstr(*pgtest.CrdbConnStr)
+	driver, source, _, err := dbutil.SplitConnStr(*pgtest.CrdbConnStr)
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +48,11 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 	if !r.MatchString(source) {
 		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
 	}
-	testConnURL := r.ReplaceAllString(source, "/"+namespacedTestDB+"?")
+	testConnURL := r.ReplaceAllString(*pgtest.CrdbConnStr, "/"+namespacedTestDB+"?")
 	testDB, err := satellitedb.New(log, testConnURL)
 	if err != nil {
 		return nil, err
 	}
-
 	return &namespacedDB{
 		DB:            testDB,
 		parentRawConn: db,
@@ -100,4 +99,10 @@ func (db *namespacedDB) Close() error {
 // CreateTables creates table for the namespaced test database
 func (db *namespacedDB) CreateTables() error {
 	return db.DB.CreateTables()
+}
+
+// TestDBAccess for raw database access,
+// should not be used outside of migration tests.
+func (db *namespacedDB) TestDBAccess() *dbx.DB {
+	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
