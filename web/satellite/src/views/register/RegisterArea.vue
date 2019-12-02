@@ -37,6 +37,7 @@ export default class RegisterArea extends Vue {
 
     // tardigrade logic
     private secret: string = '';
+    private referralToken: string = '';
     private refUserId: string = '';
 
     private userId: string = '';
@@ -60,6 +61,10 @@ export default class RegisterArea extends Vue {
     async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
+        }
+
+        if (this.$route.query.referralToken) {
+            this.referralToken = this.$route.query.referralToken.toString();
         }
 
         const { ids = '' } = this.$route.params;
@@ -165,7 +170,9 @@ export default class RegisterArea extends Vue {
 
     private async createUser(): Promise<void> {
         try {
-            this.userId = await this.auth.register(this.user, this.secret, this.refUserId);
+            this.userId = this.referralToken ?
+                await this.auth.referralRegister(this.user, this.referralToken) :
+                await this.auth.register(this.user, this.secret, this.refUserId);
 
             LocalData.setUserId(this.userId);
 
