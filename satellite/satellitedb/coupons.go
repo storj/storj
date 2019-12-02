@@ -69,7 +69,7 @@ func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status p
 func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	dbxCoupons, err := coupons.db.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(
+	dbxCoupons, err := coupons.db.All_Coupon_By_UserId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(
 		ctx,
 		dbx.Coupon_UserId(userID[:]),
 	)

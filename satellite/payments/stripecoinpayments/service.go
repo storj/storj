@@ -43,7 +43,7 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
-	CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1d" releaseDefault:"1d"`
+	CouponUsageCycleInterval     time.Duration `help:"amount of time we wait before running next coupon usage update loop" devDefault:"1m" releaseDefault:"10m"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -125,6 +125,8 @@ func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UU
 func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	service.log.Error("Hey, bro, COUPON LOOP started!")
+
 	const limit = 25
 	before := time.Now()
 
@@ -197,6 +199,8 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 
 		currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
 
+		service.log.Error(fmt.Sprintf("Should be charged usage %d", currentUsageAmount))
+
 		// TODO: we should add caching for TotalUsage call
 		alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
@@ -218,6 +222,8 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 			Amount:   currentUsageAmount,
 			CouponID: coupon.ID,
 		}
+
+		service.log.Error(fmt.Sprintf("Charged from the coupon %d", currentUsageAmount))
 
 		if err = service.db.Coupons().AddUsage(ctx, couponUsage); err != nil {
 			return err

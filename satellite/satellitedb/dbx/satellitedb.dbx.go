@@ -9053,11 +9053,11 @@ func (obj *postgresImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx cont
 
 }
 
-func (obj *postgresImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+func (obj *postgresImpl) All_Coupon_By_UserId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coupon_user_id Coupon_UserId_Field) (
 	rows []*Coupon, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = 0 ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value())
@@ -11328,14 +11328,14 @@ func (rx *Rx) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 	return tx.All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx, coupon_status)
 }
 
-func (rx *Rx) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+func (rx *Rx) All_Coupon_By_UserId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coupon_user_id Coupon_UserId_Field) (
 	rows []*Coupon, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx, coupon_user_id)
+	return tx.All_Coupon_By_UserId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx, coupon_user_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -12842,7 +12842,7 @@ type Methods interface {
 		coupon_status Coupon_Status_Field) (
 		rows []*Coupon, err error)
 
-	All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	All_Coupon_By_UserId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coupon_user_id Coupon_UserId_Field) (
 		rows []*Coupon, err error)
 
