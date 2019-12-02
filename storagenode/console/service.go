@@ -120,8 +120,9 @@ type Dashboard struct {
 	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
 	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
-	Version  version.SemVer `json:"version"`
-	UpToDate bool           `json:"upToDate"`
+	Version        version.SemVer `json:"version"`
+	AllowedVersion version.SemVer `json:"allowedVersion"`
+	UpToDate       bool           `json:"upToDate"`
 
 	StartedAt time.Time `json:"startedAt"`
 }
@@ -134,10 +135,10 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
-	data.UpToDate = s.version.IsAllowed(ctx)
 	data.StartedAt = s.startedAt
 
 	data.LastPinged = s.pingStats.WhenLastPinged()
+	data.AllowedVersion, data.UpToDate = s.version.IsAllowed(ctx)
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {

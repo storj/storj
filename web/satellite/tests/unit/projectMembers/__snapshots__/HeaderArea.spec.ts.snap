@@ -11,7 +11,7 @@ exports[`Team HeaderArea renders correctly 1`] = `
   <div class="team-header-container__wrapper">
     <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <div class="header-default-state">
-        <vbutton-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
+        <vbutton-stub label="+ Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
       </div>
       <!---->
       <!---->
@@ -86,7 +86,7 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
   <div class="team-header-container__wrapper">
     <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <div class="header-default-state">
-        <vbutton-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
+        <vbutton-stub label="+ Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
       </div>
       <!---->
       <!---->

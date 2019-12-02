@@ -19,14 +19,14 @@
                     :on-item-click="onMemberClick"
                 />
             </div>
-            <VPagination
+        </div>
+        <VPagination
                 v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
                 :total-page-count="totalPageCount"
                 :on-page-click-callback="onPageClick"
-            />
-        </div>
+        />
         <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
             <EmptySearchResultIcon class="team-area__empty-search-result-area__image"/>
@@ -160,7 +160,7 @@ export default class ProjectMembersArea extends Vue {
 
 <style scoped lang="scss">
     .team-area {
-        padding: 40px 65px 55px 64px;
+        padding: 40px 65px 55px 65px;
         font-family: 'font_regular', sans-serif;
 
         &__header {
@@ -170,14 +170,12 @@ export default class ProjectMembersArea extends Vue {
         }
 
         &__container {
-            max-height: 84vh;
 
             &__content {
                 display: flex;
                 justify-content: space-between;
                 margin-bottom: 20px;
                 flex-direction: column;
-                height: 49.4vh;
             }
         }
 
@@ -202,26 +200,15 @@ export default class ProjectMembersArea extends Vue {
     }
 
     .pagination-area {
+        margin-top: 50px;
         margin-left: -25px;
+        padding-bottom: 50px;
     }
 
     @media screen and (max-width: 1024px) {
 
         .team-area {
             padding: 40px 40px 55px 40px;
-        }
-    }
-
-    @media screen and (max-height: 800px) {
-
-        .team-area {
-
-            &__container {
-
-                &__content {
-                    height: 41.5vh !important;
-                }
-            }
         }
     }
 </style>
