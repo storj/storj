@@ -36,7 +36,19 @@ type object struct {
 // name.
 type bucketsObjects map[string]map[storj.Path]*object
 
-func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) *observer {
+func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*observer, error) {
+	headers := []string{
+		"ProjectID",
+		"SegmentIndex",
+		"Bucket",
+		"EncodedEncryptedPath",
+		"CreationDate",
+	}
+	err := w.Write(headers)
+	if err != nil {
+		return nil, err
+	}
+
 	return &observer{
 		db:     db,
 		writer: w,
@@ -44,7 +56,7 @@ func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) *obs
 		to:     to,
 
 		objects: make(bucketsObjects),
-	}
+	}, nil
 }
 
 // observer metainfo.Loop observer for zombie reaper.

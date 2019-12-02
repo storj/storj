@@ -68,18 +68,6 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, writer.Error())
 	}()
 
-	headers := []string{
-		"ProjectID",
-		"SegmentIndex",
-		"Bucket",
-		"EncodedEncryptedPath",
-		"CreationDate",
-	}
-	err = writer.Write(headers)
-	if err != nil {
-		return err
-	}
-
 	var from, to *time.Time
 	if detectCfg.From != "" {
 		fromTime, err := time.Parse(time.RFC3339, detectCfg.From)
@@ -97,7 +85,10 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		to = &toTime
 	}
 
-	observer := newObserver(db, writer, from, to)
+	observer, err := newObserver(db, writer, from, to)
+	if err != nil {
+		return err
+	}
 
 	err = metainfo.IterateDatabase(ctx, db, observer)
 	if err != nil {
