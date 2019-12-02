@@ -49,12 +49,12 @@ node('node') {
         // Task reads msiPath from environment variable
         bat 'schtasks /run /tn "CI Installer Test Elevated"'
         // TODO: remove
-        bat 'cmd /c type %scheduledTaskLog%'
+        bat 'cmd /c type ^%scheduledTaskLog^%'
         // Print output and check for non-zero status
-        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %scheduledTaskLog%'
+        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go ^%scheduledTaskLog^%'
 
         // Cleanup
-        bat 'cmd /c del %scheduledTaskLog%'
+        bat 'cmd /c del ^%scheduledTaskLog^%'
 
         echo "Current build result: ${currentBuild.result}"
       }
