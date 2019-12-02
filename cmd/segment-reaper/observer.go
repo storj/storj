@@ -177,13 +177,14 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 			brokenObject := false
 			// expectedNumberOfSegments-1 because 'segments' doesn't contain last segment
 			if object.hasLastSegment {
-				if object.expectedNumberOfSegments == 0 {
+				switch {
+				case object.expectedNumberOfSegments == 0:
 					if !object.segments.IsSequence() {
 						brokenObject = true
 					}
-				} else if object.segments.Count() < int(object.expectedNumberOfSegments)-1 {
+				case object.segments.Count() < int(object.expectedNumberOfSegments)-1:
 					brokenObject = true
-				} else if object.segments.Count() > int(object.expectedNumberOfSegments)-1 {
+				case object.segments.Count() > int(object.expectedNumberOfSegments)-1:
 					// verify if initial sequence is valid
 					for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
 						has, err := object.segments.Has(index)
@@ -205,7 +206,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						}
 						brokenObject = true
 					}
-				} else if object.segments.Count() == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence() {
+				case object.segments.Count() == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
 					brokenObject = true
 				}
 
