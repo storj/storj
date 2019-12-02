@@ -253,15 +253,13 @@ export default class UsageReport extends Vue {
             flex-direction: row;
             align-items: center;
             justify-content: flex-start;
-            height: 56px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
-                font-size: 24px;
-                line-height: 29px;
-                color: #354049;
-                margin-block-start: 0.5em;
-                margin-block-end: 0.5em;
+                font-size: 32px;
+                line-height: 39px;
+                color: #263549;
+                margin: 0;
                 user-select: none;
             }
         }
