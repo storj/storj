@@ -5,6 +5,7 @@ package payments
 
 import (
 	"context"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -15,6 +16,9 @@ var ErrAccountNotSetup = errs.Class("payment account is not set up")
 
 // Accounts exposes all needed functionality to manage payment accounts.
 type Accounts interface {
+
+	AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error)
+
 	// Setup creates a payment account for the user.
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string) error

@@ -5,6 +5,7 @@ package mockpayments
 
 import (
 	"context"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -44,6 +45,14 @@ type storjTokens struct{}
 func Accounts() payments.Accounts {
 	return &accounts{}
 }
+
+// AddCoupon attaches a coupon for payment account.
+func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error) {
+	defer mon.Task()(&ctx, userID, amount, duration)(&err)
+
+	return nil
+}
+
 
 // CreditCards exposes all needed functionality to manage account credit cards.
 func (accounts *accounts) CreditCards() payments.CreditCards {

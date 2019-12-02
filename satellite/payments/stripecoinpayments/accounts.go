@@ -56,6 +56,22 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	return Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
 }
 
+// AddCoupon attaches a coupon for payment account.
+func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error) {
+	defer mon.Task()(&ctx, userID, amount, duration)(&err)
+
+	coupon := payments.Coupon{
+		UserID:      userID,
+		Status:      payments.CouponActive,
+		ProjectID:   projectID,
+		Amount:      amount,
+		Description: description,
+		Duration:    duration,
+	}
+
+	return Error.Wrap(accounts.service.db.Coupons().Insert(ctx, coupon))
+}
+
 // Balance returns an integer amount in cents that represents the current balance of payment account.
 func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, userID)(&err)

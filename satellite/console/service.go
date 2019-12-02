@@ -788,6 +788,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
+	err = s.accounts.AddCoupon(ctx, auth.User.ID, p.ID, 50000, time.Hour * 24, "descr")
+	if err != nil {
+		s.log.Error("add coupon test failed", zap.Error(err))
+	}
+
 	return p, nil
 }
 
