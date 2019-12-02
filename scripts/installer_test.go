@@ -118,10 +118,6 @@ func TestInstaller_Config(t *testing.T) {
 }
 
 func TestUpgrade_Config(t *testing.T) {
-	if *msiPathFlag == "" {
-		t.Fatal("no msi passed, use `go test ... -args -msi <msi path>`")
-	}
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
