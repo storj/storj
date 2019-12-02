@@ -21,7 +21,9 @@ const maxNumOfSegments = byte(64)
 
 // object represents object with segments.
 type object struct {
-	// TODO verify if we have more than 64 segments for object in network
+	// TODO verify if we have more than 65 segments for object in network.
+	// 65 because the observer tracks in the bitmask all the segments execept the
+	//  last one (the 'l' segment)
 	segments bitmask
 
 	expectedNumberOfSegments byte
