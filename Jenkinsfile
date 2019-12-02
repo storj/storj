@@ -42,7 +42,7 @@ node('node') {
         //     use `set ... && call <batch file>`:
 
         // Set scheduled tasks log path
-        bat 'setx scheduledTasksLog %TEMP%\\scheduledTasks.log'
+        bat 'setx scheduledTaskLog %TEMP%\\scheduledTask.log'
 
         // Store msiPath in environment variable
         bat 'for /d %%d in (release\\*) do setx msiPath %%d\\storagenode_windows_amd64.msi'
@@ -52,10 +52,10 @@ node('node') {
         // TODO: remove
         bat 'cmd /c type %scheduledTaskLog%'
         // Print output and check for non-zero status
-        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %scheduledTasksLog%'
+        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %scheduledTaskLog%'
 
         // Cleanup
-        bat 'cmd /c del %scheduledTasksLog%'
+        bat 'cmd /c del %scheduledTaskLog%'
 
         echo "Current build result: ${currentBuild.result}"
       }
