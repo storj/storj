@@ -30,7 +30,7 @@ var (
 )
 
 func cmdParse(cmd *cobra.Command, args []string) error {
-	file, err := os.Open(args[1])
+	file, err := os.Open(args[0])
 	if err != nil {
 		return errs.Wrap(err)
 	}
