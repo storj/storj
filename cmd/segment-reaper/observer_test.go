@@ -155,7 +155,48 @@ func TestObserver_processSegment(t *testing.T) {
 		assert.Equal(t, testdata.expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
 	})
 
-	t.Run("object with more than 64 segments", func(t *testing.T) {
+	t.Run("object with 65 segments", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		var (
+			bucketName  = "a bucket"
+			projectID   = testrand.UUID()
+			numSegments = 65
+			obsvr       = observer{
+				objects: make(bucketsObjects),
+			}
+			objPath, objSegmentsRefs = createNewObjectSegments(
+				t, ctx.Context, numSegments, &projectID, bucketName, false, false,
+			)
+		)
+
+		for _, objSeg := range objSegmentsRefs {
+			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
+			require.NoError(t, err)
+		}
+
+		// Assert observer internal state
+		assert.Equal(t, projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		assert.Equal(t, 1, len(obsvr.objects), "objects number")
+		if assert.Contains(t, obsvr.objects, bucketName, "bucket in objects map") {
+			if assert.Equal(t, 1, len(obsvr.objects[bucketName]), "objects in object map") {
+				if assert.Contains(t, obsvr.objects[bucketName], objPath, "path in bucket objects map") {
+					obj := obsvr.objects[bucketName][objPath]
+					assert.Zero(t, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
+					assert.True(t, obj.hasLastSegment, "Object.hasLastSegment")
+					assert.False(t, obj.skip, "Object.skip")
+				}
+			}
+		}
+
+		// Assert observer global stats
+		assert.Zero(t, obsvr.inlineSegments, "inlineSegments")
+		assert.Zero(t, obsvr.lastInlineSegments, "lastInlineSegments")
+		assert.Equal(t, numSegments, obsvr.remoteSegments, "remoteSegments")
+	})
+
+	t.Run("objects with at least one has more than 64 segments", func(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
