@@ -12,6 +12,7 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
+    private readonly REFERRAL_PATH: string = '/api/v0/referrals';
 
     /**
      * Used to resend an registration confirmation email
@@ -176,6 +177,36 @@ export class AuthHttpApi {
             shortName: user.shortName,
             email: user.email,
             partnerId: user.partnerId ? user.partnerId : '',
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body), false);
+        if (!response.ok) {
+            if (response.status === 400) {
+                throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+            }
+
+            throw new Error('can not register user');
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Used to register account by referral link
+     *
+     * @param user - stores user information
+     * @param referralToken - referral registration token
+     * @returns id of created user
+     * @throws Error
+     */
+    public async referralRegister(user: {fullName: string; shortName: string; email: string; password: string}, referralToken: string): Promise<string> {
+        const path = `${this.REFERRAL_PATH}/register`;
+        const body = {
+            referralToken,
+            password: user.password,
+            fullName: user.fullName,
+            shortName: user.shortName,
+            email: user.email,
         };
 
         const response = await this.http.post(path, JSON.stringify(body), false);
