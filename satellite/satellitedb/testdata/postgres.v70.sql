@@ -358,7 +358,7 @@ CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 
-CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id) WHERE credits_earned_in_cents=0;
+CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);
 
 INSERT INTO "accounting_rollups"("id", "node_id", "start_time", "put_total", "get_total", "get_audit_total", "get_repair_total", "put_repair_total", "at_rest_total") VALUES (1, E'\\367M\\177\\251]t/\\022\\256\\214\\265\\025\\224\\204:\\217\\212\\0102<\\321\\374\\020&\\271Qc\\325\\261\\354\\246\\233'::bytea, '2019-02-09 00:00:00+00', 1000, 2000, 3000, 4000, 0, 5000);
 
