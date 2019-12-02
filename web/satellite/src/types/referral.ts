@@ -21,6 +21,6 @@ export class ReferralLink {
     public url: string = '';
 
     constructor(token: string = '') {
-        this.url = `${location.host}/${token}`;
+        this.url = `${location.host}/register?referralToken=${token}`;
     }
 }
