@@ -148,6 +148,7 @@ export default class CardComponent extends Vue {
                 align-items: center;
                 justify-content: space-between;
                 width: auto;
+                min-width: 165px;
                 margin-left: 15px;
             }
 
@@ -194,5 +195,9 @@ export default class CardComponent extends Vue {
             cursor: pointer;
             position: relative;
         }
+    }
+
+    .discover-svg-path {
+        max-width: 80px;
     }
 </style>
