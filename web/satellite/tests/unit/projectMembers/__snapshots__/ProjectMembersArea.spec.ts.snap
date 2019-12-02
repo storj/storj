@@ -6,6 +6,7 @@ exports[`ProjectMembersArea.vue empty search result area render correctly 1`] = 
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
   <!---->
+  <!---->
   <div class="team-area__empty-search-result-area">
     <h1 class="team-area__empty-search-result-area__title">No results found</h1>
     <emptysearchresulticon-stub class="team-area__empty-search-result-area__image"></emptysearchresulticon-stub>
@@ -18,6 +19,7 @@ exports[`ProjectMembersArea.vue renders correctly 1`] = `
   <div class="team-area__header">
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
+  <!---->
   <!---->
   <div class="team-area__empty-search-result-area">
     <h1 class="team-area__empty-search-result-area__title">No results found</h1>
@@ -38,8 +40,8 @@ exports[`ProjectMembersArea.vue team area renders correctly 1`] = `
       this._init(options);
     }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
     </div>
-    <!---->
   </div>
+  <!---->
   <!---->
 </div>
 `;

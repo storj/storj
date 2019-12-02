@@ -19,7 +19,7 @@
                 <div class="header-default-state" v-if="isDefaultState">
                     <VButton
                         class="button"
-                        label="+Add"
+                        label="+ Add"
                         width="122px"
                         height="48px"
                         :on-press="onAddUsersClick"
@@ -210,6 +210,7 @@ export default class HeaderArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
+                color: #263549;
                 margin: 0;
                 user-select: none;
             }
