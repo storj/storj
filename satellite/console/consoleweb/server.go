@@ -70,6 +70,7 @@ type Config struct {
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
 }
 
 // Server represents console web server
@@ -215,10 +216,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
+		"connect-src 'self' api.segment.io",
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"img-src 'self' data: *.customer.io",
+		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
@@ -227,11 +229,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName   string
-		StripePublicKey string
+		SatelliteName      string
+		SegmentIOPublicKey string
+		StripePublicKey    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {

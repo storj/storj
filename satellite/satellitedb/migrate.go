@@ -481,6 +481,32 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects DROP COLUMN usage_limit;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add coupons and coupon_usage tables",
+				Version:     71,
+				Action: migrate.SQL{
+					`CREATE TABLE coupons (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						description text NOT NULL,
+						status integer NOT NULL,
+						duration bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( project_id )
+					);`,
+					`CREATE TABLE coupon_usages (
+						id bytea NOT NULL,
+						coupon_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						interval_end timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }
