@@ -368,6 +368,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
+			_ = currentReward
+			// NB: Uncomment this block when UserCredits().Create is cockroach compatible
 			// var refID *uuid.UUID
 			// if refUserID != "" {
 			// 	refID, err = uuid.Parse(refUserID)
