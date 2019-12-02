@@ -148,7 +148,7 @@ func (opi *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ *sql.Ro
 		WHERE
 			pd.bucket = $1:::BYTEA
 			AND pd.fullpath %s $2:::BYTEA
-			AND ($3:::BYTEA = ''::BYTEA OR pd.fullpath < $3:::BYTEA)
+			AND ($3:::BYTEA = '':::BYTEA OR pd.fullpath < $3:::BYTEA)
 		LIMIT $4
 	`, gt), []byte(opi.bucket), start, []byte(opi.largestKey), opi.batchSize)
 }
