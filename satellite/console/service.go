@@ -368,21 +368,21 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
-			var refID *uuid.UUID
-			if refUserID != "" {
-				refID, err = uuid.Parse(refUserID)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
-			if err != nil {
-				return err
-			}
-			err = tx.UserCredits().Create(ctx, *newCredit)
-			if err != nil {
-				return err
-			}
+			// var refID *uuid.UUID
+			// if refUserID != "" {
+			// 	refID, err = uuid.Parse(refUserID)
+			// 	if err != nil {
+			// 		return Error.Wrap(err)
+			// 	}
+			// }
+			// newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
+			// if err != nil {
+			// 	return err
+			// }
+			// err = tx.UserCredits().Create(ctx, *newCredit)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 
 		return nil

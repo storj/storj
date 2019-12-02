@@ -20,6 +20,7 @@ import (
 )
 
 func TestUserCredits(t *testing.T) {
+	t.Skip("Skip until usercredits.Create method is cockroach compatible")
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
