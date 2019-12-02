@@ -13,9 +13,9 @@
                 <div class="dashboard-container__main-area">
                     <div class="dashboard-container__main-area__banner-area">
                         <VBanner
-                                v-if="isBannerShown"
-                                text="You have no payment method added."
-                                additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
+                            v-if="isBannerShown"
+                            text="You have no payment method added."
+                            additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
                         />
                     </div>
                     <div class="dashboard-container__main-area__content">
