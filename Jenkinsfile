@@ -47,7 +47,7 @@ node('node') {
         // Store msiPath in environment variable
         bat 'for /d %%d in (release\\*) do setx msiPath %%d\\storagenode_windows_amd64.msi'
         // Task reads msiPath from environment variable
-        bat 'schtasks /run /tn "CI Installer Test"'
+        bat 'schtasks /run /tn "CI Installer Test Elevated"'
         // TODO: remove
         bat 'cmd /c type %scheduledTaskLog%'
         // Print output and check for non-zero status
