@@ -81,6 +81,7 @@ func (service *Service) Close() error {
 func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
 	service.lock.Lock()
 	defer service.lock.Unlock()
+
 	entry := service.limiter[id]
 	if email {
 		entry.Emails++
@@ -93,21 +94,32 @@ func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
 
 // CheckRPCLimit checks if hourly RPC limit've been reached.
 func (service *Service) CheckRPCLimit(id string) bool {
-	entry, ok := service.limiter[id]
-	return !(ok && entry.RPC < service.config.HourlyRPC)
+	var ok bool
+	var entry ClientSetting
 
+	if entry, ok = service.limiter[id]; !ok {
+		return false
+	}
+
+	return entry.RPC < service.config.HourlyRPC
 }
 
 // CheckEmailLimit checks if hourly email limit've been reached.
 func (service *Service) CheckEmailLimit(id string) bool {
-	entry, ok := service.limiter[id]
-	return !(ok && entry.Emails < service.config.HourlyEmails)
+	var ok bool
+	var entry ClientSetting
+
+	if entry, ok = service.limiter[id]; !ok {
+		return false
+	}
+
+	return entry.Emails < service.config.HourlyEmails
 }
 
 // ProcessNotification sends message to the specified set of nodes (ids).
-func (service *Service) ProcessNotification(message *pb.NotificationMessage) (err error) {
+func (service *Service) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var eSent, rSent = false, false
-	ctx := context.Background()
 
 	service.log.Debug("sending to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
 	if service.CheckRPCLimit(message.NodeId.String()) {
@@ -167,7 +179,7 @@ func (service *Service) sendBroadcastNotification(ctx context.Context, message s
 			Message:  []byte(message),
 		}
 
-		err := service.ProcessNotification(mess)
+		err := service.ProcessNotification(ctx, mess)
 		if err != nil {
 			failed = append(failed, node.Id.String())
 		}
