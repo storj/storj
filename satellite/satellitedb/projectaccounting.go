@@ -252,11 +252,9 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	bucketsTallies := make(map[string][]*accounting.BucketStorageTally)
 
-	var storageTalliesRows *sql.Rows = nil
-
 	for _, bucket := range bucketNames {
 		storageTallies := make([]*accounting.BucketStorageTally, 0)
-		storageTalliesRows, err = db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
+		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
@@ -273,10 +271,13 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			storageTallies = append(storageTallies, &tally)
 		}
 
+		err = storageTalliesRows.Close()
+		if err != nil {
+			return nil, err
+		}
+
 		bucketsTallies[bucket] = storageTallies
 	}
-
-	defer func() { err = errs.Combine(err, storageTalliesRows.Close()) }()
 
 	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
 	if err != nil {
@@ -310,7 +311,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
 	totalEgressQuery := db.db.Rebind(fmt.Sprintf(`
 		SELECT 
-			SUM(settled) + SUM(inline) 
+			COALESCE(SUM(settled) + SUM(inline), 0)  
 		FROM 
 			bucket_bandwidth_rollups 
 		WHERE 
