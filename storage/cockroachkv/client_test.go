@@ -3,7 +3,6 @@
 package cockroachkv
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -14,8 +13,6 @@ import (
 	"storj.io/storj/private/dbutil/crdbutil/crdbtest"
 	"storj.io/storj/storage/testsuite"
 )
-
-var ctx = context.Background() // test context
 
 func newTestCockroachDB(t testing.TB) (store *Client, cleanup func()) {
 	if *crdbtest.ConnStr == "" {
@@ -46,6 +43,7 @@ func TestUTF8(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer func() { _, _ = pgConn.Exec("DELETE FROM pathdata") }()
 
 	bucket := []byte{}
 	key := []byte("full/path/2")
