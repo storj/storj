@@ -6,15 +6,21 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"text/tabwriter"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/satellitedb"
@@ -96,5 +102,48 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 			fmt.Println("Generated report for nodes that are in the process of graceful exiting.")
 		}
 	}
+	return err
+}
+
+func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, receipt string) error {
+	signee := signing.SigneeFromPeerIdentity(identity.PeerIdentity())
+
+	bytes, err := hex.DecodeString(receipt)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// try to unmarshal as an ExitCompleted first
+	completed := &pb.ExitCompleted{}
+	err = proto.Unmarshal(bytes, completed)
+	if err != nil {
+		// if it is not a ExitCompleted, try ExitFailed
+		failed := &pb.ExitFailed{}
+		err = proto.Unmarshal(bytes, failed)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		err = signing.VerifyExitFailed(ctx, signee, failed)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		return writeVerificationMessage(false, failed.SatelliteId.String(), failed.NodeId.String(), failed.Failed)
+	}
+
+	err = signing.VerifyExitCompleted(ctx, signee, completed)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	return writeVerificationMessage(true, completed.SatelliteId.String(), completed.NodeId.String(), completed.Completed)
+}
+
+func writeVerificationMessage(succeeded bool, satelliteID string, snNodeID string, timestamp time.Time) (err error) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
+	fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
+	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snNodeID)
+	fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
+	err = w.Flush()
 	return err
 }
