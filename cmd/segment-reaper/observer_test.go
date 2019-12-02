@@ -567,18 +567,7 @@ func generateTestdataObjects(
 		)
 		testdata.objSegments = append(testdata.objSegments, objSegmentsProj...)
 
-		// TODO: use findOrCreate when cluster removal is merged
-		var expectedObj *object
-		bucketObjects, ok := testdata.expectedObjects[bucketName]
-		if !ok {
-			expectedObj = &object{}
-			testdata.expectedObjects[bucketName] = map[storj.Path]*object{
-				objPath: expectedObj,
-			}
-		} else {
-			expectedObj = &object{}
-			bucketObjects[objPath] = expectedObj
-		}
+		expectedObj := findOrCreate(bucketName, objPath, testdata.expectedObjects)
 
 		// only create segments mask if the number of segments is less or equal than
 		// maxNumOfSegments
