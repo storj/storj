@@ -97,6 +97,7 @@
       <RegistrySearch Id="ServiceCommand" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\storagenode" Name="ImagePath" Type="raw" />
     </Property>
     <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
+    <SetDirectory Action="SetStorageDir" Id="STORAGEDIR" Value='[ROOTDRIVE]\Storj' Sequence="first">ROOTDRIVE</SetDirectory>
     <SetDirectory Action="SetInstallFolder" Id="INSTALLFOLDER" Value="[STORJ_INSTALLDIR]" Sequence="execute">WIX_UPGRADE_DETECTED</SetDirectory>
 
     <UIRef Id="CustomInstallDir" />
