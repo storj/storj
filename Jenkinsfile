@@ -37,7 +37,27 @@ node('node') {
 
         unstash "storagenode-installer"
 
-        bat 'for /d %%d in (release\\*) do go test -race -v ./scripts/installer_test.go -args -msi %%d\\storagenode_windows_amd64.msi'
+        // NB: using environment variables like this only works
+        //     for non-concurrent builds. For concurrent builds
+        //     use `set ... && call <batch file>`:
+
+        // Set scheduled tasks log path
+        bat 'setx scheduledTasksLog %TEMP%\\scheduledTasks.log'
+        // Create scheduled tasks log file
+        bat 'cmd /c type nil > %scheduledTasksLog%'
+
+        // Store msiPath in environment variable
+        bat 'for /d %%d in (release\\*) do setx msiPath %%d\\storagenode_windows_amd64.msi'
+        // Task reads msiPath from environment variable
+//         bat 'schtasks /run /tn "CI Installer Test"'
+        bat 'schtasks /run /tn "Test"'
+        // TODO: remove
+        bat 'type %scheduledTasksLog%'
+        // Print output and check for non-zero status
+        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %scheduledTasksLog%'
+
+        // Cleanup
+        bat 'cmd /c del %scheduledTasksLog%'
 
         echo "Current build result: ${currentBuild.result}"
       }
