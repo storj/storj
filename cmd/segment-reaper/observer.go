@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -158,13 +159,12 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						brokenObject = true
 					}
 				} else if object.segments.Count() != int(object.expectedNumberOfSegments)-1 {
-					// TODO should we also check if its valid sequence
 					// expectedNumberOfSegments-1 because 'segments' doesn't contain last segment
 					brokenObject = true
 				}
 
 				if brokenObject {
-					err := obsvr.printSegment(ctx, "l", bucket, path, obsvr.writer)
+					err := obsvr.printSegment(ctx, "l", bucket, path)
 					if err != nil {
 						return err
 					}
@@ -177,10 +177,10 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 				for index := 0; index < maxNumOfSegments; index++ {
 					has, err := object.segments.Has(index)
 					if err != nil {
-						return nil
+						panic(err)
 					}
 					if has {
-						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path, obsvr.writer)
+						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path)
 						if err != nil {
 							return err
 						}
@@ -192,13 +192,13 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	return nil
 }
 
-func (obsvr *observer) printSegment(ctx context.Context, bucket string, segmentIndex string, path string, csvWriter *csv.Writer) error {
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex string, bucket string, path string) error {
 	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
 	if err != nil {
 		return err
 	}
 	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
-	err = csvWriter.Write([]string{
+	err = obsvr.writer.Write([]string{
 		obsvr.lastProjectID,
 		segmentIndex,
 		bucket,
@@ -212,7 +212,7 @@ func (obsvr *observer) printSegment(ctx context.Context, bucket string, segmentI
 	return nil
 }
 
-func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID string, bucket string, segmentIndex string, path string) (string, error) {
+func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID string, segmentIndex string, bucket string, path string) (string, error) {
 	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
 	pointerBytes, err := db.Get(ctx, key)
 	if err != nil {
@@ -224,7 +224,7 @@ func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID s
 	if err != nil {
 		return "", err
 	}
-	return pointer.CreationDate.String(), nil
+	return pointer.CreationDate.Format(time.RFC3339Nano), nil
 }
 
 // clearBucketsObjects clears up the buckets objects map for reusing it.
