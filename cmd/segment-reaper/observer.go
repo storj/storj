@@ -36,10 +36,12 @@ type object struct {
 // name.
 type bucketsObjects map[string]map[storj.Path]*object
 
-func newObserver(db metainfo.PointerDB, w *csv.Writer) *observer {
+func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) *observer {
 	return &observer{
 		db:     db,
 		writer: w,
+		from:   from,
+		to:     to,
 
 		objects: make(bucketsObjects),
 	}
@@ -49,6 +51,8 @@ func newObserver(db metainfo.PointerDB, w *csv.Writer) *observer {
 type observer struct {
 	db     metainfo.PointerDB
 	writer *csv.Writer
+	from   *time.Time
+	to     *time.Time
 
 	lastProjectID string
 
@@ -130,6 +134,12 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 	}
 
+	if obsvr.from != nil && obsvr.from.Before(pointer.CreationDate) {
+		object.skip = true
+	} else if obsvr.to != nil && obsvr.to.After(pointer.CreationDate) {
+		object.skip = true
+	}
+
 	// collect number of pointers for report
 	if pointer.Type == pb.Pointer_INLINE {
 		obsvr.inlineSegments++
@@ -192,7 +202,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	return nil
 }
 
-func (obsvr *observer) printSegment(ctx context.Context, segmentIndex string, bucket string, path string) error {
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex, bucket, path string) error {
 	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
 	if err != nil {
 		return err
@@ -212,7 +222,7 @@ func (obsvr *observer) printSegment(ctx context.Context, segmentIndex string, bu
 	return nil
 }
 
-func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID string, segmentIndex string, bucket string, path string) (string, error) {
+func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string) (string, error) {
 	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
 	pointerBytes, err := db.Get(ctx, key)
 	if err != nil {

@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/csv"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -79,7 +80,24 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	observer := newObserver(db, writer)
+	var from, to *time.Time
+	if detectCfg.From != "" {
+		fromTime, err := time.Parse(time.RFC3339, detectCfg.From)
+		if err != nil {
+			return err
+		}
+		from = &fromTime
+	}
+
+	if detectCfg.To != "" {
+		toTime, err := time.Parse(time.RFC3339, detectCfg.To)
+		if err != nil {
+			return err
+		}
+		to = &toTime
+	}
+
+	observer := newObserver(db, writer, from, to)
 
 	err = metainfo.IterateDatabase(ctx, db, observer)
 	if err != nil {
