@@ -138,12 +138,12 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 	return writeVerificationMessage(true, completed.SatelliteId.String(), completed.NodeId.String(), completed.Completed)
 }
 
-func writeVerificationMessage(succeeded bool, satelliteID string, snNodeID string, timestamp time.Time) (err error) {
+func writeVerificationMessage(succeeded bool, satelliteID string, snNodeID string, timestamp time.Time) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
 	fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
 	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snNodeID)
 	fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
-	err = w.Flush()
-	return err
+
+	return errs.Wrap(w.Flush())
 }
