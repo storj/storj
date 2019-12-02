@@ -18,7 +18,7 @@
                 <div class="copy-button" v-clipboard="link.url" @click="copyLink">Copy</div>
             </div>
         </div>
-        <div class="referral-container__not-available" v-if="!isAvailableLinks">
+        <div class="referral-container__not-available" v-else>
             <p class="referral-container__not-available__text">No available referral links. Try again later.</p>
             <NoLinksIcon />
         </div>
