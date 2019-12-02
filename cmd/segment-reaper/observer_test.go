@@ -569,11 +569,11 @@ func generateTestdataObjects(
 		projID                          = testrand.UUID()
 		withoutLastSegmentCount         = 0
 		withMoreThanMaxNumSegmentsCount = 0
-		numMaxSegments                  = 10
+		numMaxGeneratedSegments         = 10
 	)
 
 	if withMoreThanMaxNumSegments {
-		numMaxSegments = 100
+		numMaxGeneratedSegments = 100
 	}
 
 	testdata.projectID = &projID
@@ -582,10 +582,10 @@ func generateTestdataObjects(
 		var (
 			inline          = (rand.Int() % 2) == 0
 			withNumSegments = (rand.Int() % 2) == 0
-			numSegments     = rand.Intn(numMaxSegments) + 2
+			numSegments     = rand.Intn(numMaxGeneratedSegments) + 2
 		)
 
-		if numSegments > int(maxNumOfSegments) {
+		if numSegments > (int(maxNumOfSegments) + 1) {
 			withMoreThanMaxNumSegmentsCount++
 		}
 
@@ -611,8 +611,8 @@ func generateTestdataObjects(
 		expectedObj := findOrCreate(bucketName, objPath, testdata.expectedObjects)
 
 		// only create segments mask if the number of segments is less or equal than
-		// maxNumOfSegments
-		if numSegments <= int(maxNumOfSegments) {
+		// maxNumOfSegments + 1 because the last segment isn't in the bitmask
+		if numSegments <= (int(maxNumOfSegments) + 1) {
 			// segments mask doesn't contain the last segment, hence we move 1 bit more
 			expectedObj.segments = math.MaxUint64 >> (int(maxNumOfSegments) - numSegments + 1)
 			expectedObj.skip = false
