@@ -29,8 +29,8 @@ var (
 
 	detectCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"postgres://"`
-		From        string `help:"begin of date range for detecting zombie segments" default:""`
-		To          string `help:"end of date range for detecting zombie segments" default:""`
+		From        string `help:"begin of date range for detecting zombie segments (RFC3339)" default:""`
+		To          string `help:"end of date range for detecting zombie segments (RFC3339)" default:""`
 		File        string `help:"location of file with report" default:"zombie-segments.csv"`
 	}
 )
