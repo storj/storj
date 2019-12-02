@@ -111,7 +111,9 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 
 		if streamMeta.NumberOfSegments > 0 {
-			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
+			// We can support the size of the bitmask + 1 because the last segment
+			// ins't tracked in it.
+			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
 				object.skip = true
 				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
 			}
