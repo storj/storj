@@ -1293,6 +1293,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
+	endpoint.log.Info("Get Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1341,6 +1342,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
+	endpoint.log.Info("List Objects", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1394,6 +1396,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, err
 	}
 
+	endpoint.log.Info("Delete Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1499,6 +1502,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		RootPieceId:         rootPieceID,
 		CreationDate:        time.Now(),
 	})
+
+	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
@@ -1719,6 +1724,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("Make Inline Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
@@ -1769,6 +1776,8 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		Index:               req.Position.Index,
 		CreationDate:        time.Now(),
 	})
+
+	endpoint.log.Info("Delete Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1845,6 +1854,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.log.Info("List Segments", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
@@ -2014,6 +2025,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -2036,6 +2048,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				limits[i] = &pb.AddressedOrderLimit{}
 			}
 		}
+
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
