@@ -339,6 +339,16 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// ActiveLastWeek a set of nodes that were active for last 7 days.
+func (service *Service) ActiveLastWeek(ctx context.Context) (nodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	week := time.Hour * 168
+	criteria := &NodeCriteria{
+		OnlineWindow: week,
+	}
+	return service.db.Reliable(ctx, criteria)
+}
+
 // Reliable filters a set of nodes that are reliable, independent of new.
 func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)

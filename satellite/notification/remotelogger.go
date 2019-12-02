@@ -75,6 +75,6 @@ func (log *RemoteLogger) processNotification(message string, level pb.LogLevel) 
 
 	err = log.Service.ProcessNotification(msg)
 	if err != nil {
-		log.log.Error("failed to process notification", zap.Error(err))
+		log.log.Error("failed to process notification", zap.Error(Error.Wrap(err)))
 	}
 }

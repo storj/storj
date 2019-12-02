@@ -18,7 +18,7 @@ func NewEndpoint(service *Service) *Endpoint {
 
 // ProcessNotification process notification by rpc.
 func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (*pb.NotificationResponse, error) {
-	nodeIDs, err := endpoint.service.overlay.Reliable(ctx)
+	nodeIDs, err := endpoint.service.overlay.ActiveLastWeek(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.N
 	for i := range nodeIDs {
 		node, err := endpoint.service.overlay.Get(ctx, nodeIDs[i])
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		nodes = append(nodes, node.Node)

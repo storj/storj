@@ -22,12 +22,12 @@ func newClient(ctx context.Context, dialer rpc.Dialer, address string, id storj.
 	if !id.IsZero() {
 		conn, err = dialer.DialAddressID(ctx, address, id)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 	} else {
 		conn, err = dialer.DialAddressInsecureBestEffort(ctx, address)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 	}
 

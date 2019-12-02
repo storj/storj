@@ -93,18 +93,15 @@ func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
 
 // CheckRPCLimit checks if hourly RPC limit've been reached.
 func (service *Service) CheckRPCLimit(id string) bool {
-	if entry, ok := service.limiter[id]; ok && entry.RPC < service.config.HourlyRPC {
-		return false
-	}
-	return true
+	entry, ok := service.limiter[id]
+	return !(ok && entry.RPC < service.config.HourlyRPC)
+
 }
 
 // CheckEmailLimit checks if hourly email limit've been reached.
 func (service *Service) CheckEmailLimit(id string) bool {
-	if entry, ok := service.limiter[id]; ok && entry.Emails < service.config.HourlyEmails {
-		return false
-	}
-	return true
+	entry, ok := service.limiter[id]
+	return !(ok && entry.Emails < service.config.HourlyEmails)
 }
 
 // ProcessNotification sends message to the specified set of nodes (ids).
