@@ -66,7 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
-import { Converter } from '@/utils/converter';
+import { BytesSize } from '@/utils/bytesSize';
 import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -106,11 +106,11 @@ export default class UsageReport extends Vue {
     }
 
     public get storage(): string {
-        return Converter.formatBytes(this.$store.state.usageModule.projectUsage.storage);
+        return BytesSize.formatBytes(this.$store.state.usageModule.projectUsage.storage);
     }
 
     public get egress(): string {
-        return Converter.formatBytes(this.$store.state.usageModule.projectUsage.egress);
+        return BytesSize.formatBytes(this.$store.state.usageModule.projectUsage.egress);
     }
 
     public get objectsCount(): string {
@@ -118,11 +118,11 @@ export default class UsageReport extends Vue {
     }
 
     public get storageDataDimension(): string {
-        return Converter.getDataDimension(this.$store.state.usageModule.projectUsage.storage);
+        return BytesSize.getBytesDimension(this.$store.state.usageModule.projectUsage.storage);
     }
 
     public get egressDataDimension(): string {
-        return Converter.getDataDimension(this.$store.state.usageModule.projectUsage.egress);
+        return BytesSize.getBytesDimension(this.$store.state.usageModule.projectUsage.egress);
     }
 
     public async mounted(): Promise<void> {
