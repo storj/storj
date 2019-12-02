@@ -99,7 +99,6 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
-		dbx.Project_UsageLimit(0),
 		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)
@@ -126,7 +125,6 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 
 	updateFields := dbx.Project_Update_Fields{
 		Description: dbx.Project_Description(project.Description),
-		UsageLimit:  dbx.Project_UsageLimit(project.UsageLimit),
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,

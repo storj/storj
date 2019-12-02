@@ -1,5 +1,10 @@
 FROM golang:1.13.4
 
+# CockroachDB
+
+RUN wget -qO- https://binaries.cockroachdb.com/cockroach-v19.2.0.linux-amd64.tgz | tar  xvz
+RUN cp -i cockroach-v19.2.0.linux-amd64/cockroach /usr/local/bin/
+
 # Postgres
 
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -

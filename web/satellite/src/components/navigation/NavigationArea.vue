@@ -77,6 +77,7 @@ export default class NavigationArea extends Vue {
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Profile),
         RouteConfig.Account.with(RouteConfig.Billing),
+        RouteConfig.Account.with(RouteConfig.Referral),
     ];
 
     public onLogoClick(): void {

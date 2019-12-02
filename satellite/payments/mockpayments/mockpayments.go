@@ -82,6 +82,13 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 	return []payments.ProjectCharge{}, nil
 }
 
+// Coupons return list of all coupons of specified payment account.
+func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	return coupons, nil
+}
+
 // List returns a list of credit cards for a given payment account.
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -118,7 +125,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (_ []payme
 }
 
 // Deposit creates new deposit transaction.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	return nil, Error.Wrap(errs.New("can not make deposit"))

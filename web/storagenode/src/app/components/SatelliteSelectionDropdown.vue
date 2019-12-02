@@ -18,7 +18,7 @@
                     v-if="satellite.disqualified"
                     alt="disqualified image"
                 />
-                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.id}}</p>
+                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.url}}</p>
             </div>
         </div>
     </div>
