@@ -37,7 +37,7 @@
                 <div class="profile-container__edit-profile__row">
                     <EmailIcon class="profile-container__secondary-container__img"/>
                     <div class="profile-container__secondary-container__email-container__text-container">
-                        <h2 class="profile-bold-text">{{user.email}}</h2>
+                        <h2 class="profile-bold-text email">{{user.email}}</h2>
                     </div>
                 </div>
             </div>
@@ -118,11 +118,13 @@ export default class ProfileArea extends Vue {
         position: relative;
         font-family: 'font_regular', sans-serif;
         padding-bottom: 100px;
+        user-select: none;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
+            color: #263549;
             margin: 40px 0 25px 0;
         }
 
@@ -259,6 +261,10 @@ export default class ProfileArea extends Vue {
         color: #afb7c1;
         font-size: 16px;
         line-height: 21px;
+    }
+
+    .email {
+        user-select: text;
     }
 
     @media screen and (max-width: 1300px) {
