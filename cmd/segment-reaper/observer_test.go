@@ -11,7 +11,9 @@ import (
 	"math"
 	"math/bits"
 	"math/rand"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -25,6 +27,11 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage/teststore"
 )
+
+func TestMain(m *testing.M) {
+	rand.Seed(time.Now().UnixNano())
+	os.Exit(m.Run())
+}
 
 func TestObserver_processSegment(t *testing.T) {
 	t.Run("valid objects of different projects", func(t *testing.T) {
