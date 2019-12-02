@@ -12,9 +12,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"time"
 
+	"github.com/OneOfOne/xxhash"
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	badHandle         = ^uint64(0)
+	uint64Max         = ^uint64(0)
 	normalMode uint32 = 00777
 	fuseOK            = 0
 )
@@ -116,17 +116,17 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 }
 
 type storjFS struct {
-	ctx          context.Context
-	bucket       *libuplink.Bucket
-	createdFiles map[uint64]*storjFile
+	ctx     context.Context
+	bucket  *libuplink.Bucket
+	handles map[uint64]*storjFile
 	fuse.FileSystemBase
 }
 
 func newStorjFS(ctx context.Context, bucket *libuplink.Bucket) *storjFS {
 	return &storjFS{
-		ctx:          ctx,
-		bucket:       bucket,
-		createdFiles: make(map[uint64]*storjFile),
+		ctx:     ctx,
+		bucket:  bucket,
+		handles: make(map[uint64]*storjFile),
 	}
 }
 
@@ -141,9 +141,9 @@ func (sf *storjFS) Statfs(path string, stat *fuse.Statfs_t) (errc int) {
 		Blocks:  500000000,
 		Bfree:   400000000,
 		Bavail:  400000000,
-		Files:   100000,
-		Ffree:   100000,
-		Favail:  100000,
+		Files:   ^uint64(0),
+		Ffree:   ^uint64(0),
+		Favail:  ^uint64(0),
 		Fsid:    0,
 		Flag:    0,
 		Namemax: 256,
@@ -156,12 +156,12 @@ func (sf *storjFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) int {
 	//zap.S().Debug("GetAttr: ", path)
 
 	if path == "/" {
-		*stat = *sf.newStat(true, 0, 1)
+		*stat = *sf.newStat(true, 0, fh)
 		return fuseOK
 	}
 
 	// special case for just created files e.g. while coping into directory
-	// _, ok := sf.createdFiles[path]
+	// _, ok := sf.handles[path]
 	// if ok {
 	// 	//*stat = createdFile.GetAttr(stat)
 	// 	*stat = *sf.newStat(false, 0, fh)
@@ -213,8 +213,9 @@ func (sf *storjFS) Readdir(path string, fill func(path string, stat *fuse.Stat_t
 	fill(".", sf.newStat(true, 0, fh), 0)
 	fill("..", nil, 0)
 	err := sf.listObjects(sf.ctx, path, false, func(items []storj.Object) error {
+
 		for _, item := range items {
-			stat := sf.newStat(item.IsPrefix, 0, badHandle)
+			stat := sf.newStat(item.IsPrefix, 0, getHandle(item.Path))
 			if item.IsPrefix {
 				item.Path = item.Path[:len(item.Path)-1] //remove end slash
 			} else {
@@ -301,32 +302,30 @@ func (sf *storjFS) Rmdir(path string) int {
 // Open opens a file.
 // The flags are a combination of the fuse.O_* constants.
 func (sf *storjFS) Open(path string, flags int) (int, uint64) {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	fh := r.Uint64()
+	fh := getHandle(path)
 	zap.S().Debug("Open: ", path, " : ", fh)
 
 	object, err := sf.bucket.OpenObject(sf.ctx, path[1:])
 	if err != nil && !storj.ErrObjectNotFound.Has(err) {
-		return fuse.EIO, badHandle
+		return fuse.EIO, fh
 	}
 
 	file := newStorjFile(sf.ctx, path, sf.bucket, false, sf)
 	file.size = uint64(object.Meta.Size)
 
-	sf.createdFiles[fh] = file
+	sf.handles[fh] = file
 	return fuseOK, fh
 }
 
 // Create creates and opens a file.
 // The flags are a combination of the fuse.O_* constants.
 func (sf *storjFS) Create(path string, flags int, mode uint32) (int, uint64) {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	fh := r.Uint64()
+	fh := getHandle(path)
 	zap.S().Debug("Create: ", path, " : ", fh)
 
 	file := newStorjFile(sf.ctx, path, sf.bucket, true, sf)
-	sf.createdFiles[fh] = file
-	return fuseOK, badHandle
+	sf.handles[fh] = file
+	return fuseOK, fh
 }
 
 func (sf *storjFS) listObjects(ctx context.Context, path string, recursive bool, handler func([]storj.Object) error) error {
@@ -403,8 +402,14 @@ func newStorjFile(ctx context.Context, path string, bucket *libuplink.Bucket, cr
 	}
 }
 
+func getHandle(path string) uint64 {
+	h := xxhash.New64()
+	h.WriteString(path)
+	return h.Sum64()
+}
+
 func (sf *storjFS) getFile(fh uint64) *storjFile {
-	file, ok := sf.createdFiles[fh]
+	file, ok := sf.handles[fh]
 	if ok {
 		return file
 	}
@@ -522,20 +527,20 @@ func (f *storjFile) getWriter(off int64, fh uint64) (_ io.Writer, err error) {
 // Flush flushes cached file data.
 func (sf *storjFS) Flush(path string, fh uint64) int {
 	zap.S().Debug("Flush: ", path, " : ", fh)
-	f := sf.getFile(fh)
-	f.closeReader(fh)
-	f.closeWriter(fh)
+	// f := sf.getFile(fh)
+	// f.closeReader(fh)
+	// f.closeWriter(fh)
 	return fuseOK
 }
 
 // Release closes an open file.
 func (sf *storjFS) Release(path string, fh uint64) int {
 	zap.S().Debug("Release: ", path, " : ", fh)
-	f := sf.getFile(fh)
+	//f := sf.getFile(fh)
 	//if f != nil {
-	f.closeReader(fh)
-	f.closeWriter(fh)
-	delete(sf.createdFiles, fh)
+	// f.closeReader(fh)
+	// f.closeWriter(fh)
+	// delete(sf.handles, fh)
 	//}
 	return fuseOK
 }
@@ -557,7 +562,7 @@ func (f *storjFile) closeWriter(fh uint64) {
 			zap.S().Errorf("error closing writer: %v", closeErr)
 		}
 
-		//delete(f.fs.createdFiles, fh)
+		//delete(f.fs.handles, fh)
 		f.writer = nil
 	}
 }
