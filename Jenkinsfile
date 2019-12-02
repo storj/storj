@@ -50,7 +50,7 @@ node('node') {
 //         bat 'schtasks /run /tn "CI Installer Test"'
         bat 'schtasks /run /tn "Test"'
         // TODO: remove
-        bat 'type %scheduledTasksLog%'
+        bat 'cmd /c type %scheduledTaskLog%'
         // Print output and check for non-zero status
         bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %scheduledTasksLog%'
 
