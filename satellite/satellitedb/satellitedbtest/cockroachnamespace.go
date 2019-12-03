@@ -35,13 +35,16 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 		return nil, err
 	}
 
+	r := regexp.MustCompile(`\W`)
+	// this regex removes any non-alphanumeric character from the string
+	namespacedTestDB = r.ReplaceAllString(namespacedTestDB, "")
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(namespacedTestDB)))
 	if err != nil {
 		return nil, err
 	}
 
 	// this regex matches substrings like this "/dbName?"
-	r := regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
+	r = regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
 	if !r.MatchString(source) {
 		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
 	}
@@ -52,8 +55,8 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 	}
 
 	return &namespacedDB{
-		parentRawConn: db,
 		DB:            testDB,
+		parentRawConn: db,
 		namespace:     namespacedTestDB,
 		autoDrop:      true,
 	}, nil
