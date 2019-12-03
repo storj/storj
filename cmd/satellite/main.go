@@ -99,10 +99,10 @@ var (
 	}
 
 	verifyGracefulExitReceiptCmd = &cobra.Command{
-		Use:   "verify-exit-receipt [receipt]",
+		Use:   "verify-exit-receipt [storage node ID] [receipt]",
 		Short: "Verify a graceful exit receipt",
 		Long:  "Verify a graceful exit receipt is valid.",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdVerifyGracefulExitReceipt,
 	}
 
