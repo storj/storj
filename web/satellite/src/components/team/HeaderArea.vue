@@ -210,6 +210,7 @@ export default class HeaderArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
+                color: #263549;
                 margin: 0;
                 user-select: none;
             }
