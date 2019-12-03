@@ -124,25 +124,29 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 			return errs.Wrap(err)
 		}
 
-		err = signing.VerifyExitFailed(ctx, signee, failed)
-		if err != nil {
-			return errs.Wrap(err)
-		}
 		err = checkIDs(identity.PeerIdentity().ID, nodeID, failed.SatelliteId, failed.NodeId)
 		if err != nil {
 			return err
 		}
+
+		err = signing.VerifyExitFailed(ctx, signee, failed)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
 		return writeVerificationMessage(false, failed.SatelliteId, failed.NodeId, failed.Failed)
+	}
+
+	err = checkIDs(identity.PeerIdentity().ID, nodeID, completed.SatelliteId, completed.NodeId)
+	if err != nil {
+		return err
 	}
 
 	err = signing.VerifyExitCompleted(ctx, signee, completed)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	err = checkIDs(identity.PeerIdentity().ID, nodeID, completed.SatelliteId, completed.NodeId)
-	if err != nil {
-		return err
-	}
+
 	return writeVerificationMessage(true, completed.SatelliteId, completed.NodeId, completed.Completed)
 }
 
