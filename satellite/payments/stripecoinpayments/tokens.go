@@ -5,8 +5,6 @@ package stripecoinpayments
 
 import (
 	"context"
-	"math/big"
-	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -26,7 +24,7 @@ type storjTokens struct {
 // ETH wallet address where funds should be sent. There is one
 // hour limit to complete the transaction. Transaction is saved to DB with
 // reference to the user who made the deposit.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx, userID, amount)(&err)
 
 	customerID, err := tokens.service.db.Customers().GetCustomerID(ctx, userID)
@@ -39,11 +37,18 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
+	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencySTORJ, coinpayments.CurrencyUSD)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	tokenAmount := convertFromCents(rate, amount).SetPrec(payments.STORJTokenPrecision)
+
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
-			Amount:      *amount.BigFloat(),
-			CurrencyIn:  coinpayments.CurrencyLTCT,
-			CurrencyOut: coinpayments.CurrencyLTCT,
+			Amount:      *tokenAmount,
+			CurrencyIn:  coinpayments.CurrencySTORJ,
+			CurrencyOut: coinpayments.CurrencySTORJ,
 			BuyerEmail:  c.Email,
 		},
 	)
@@ -56,15 +61,19 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
+	if err = tokens.service.db.Transactions().LockRate(ctx, tx.ID, rate); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	cpTX, err := tokens.service.db.Transactions().Insert(ctx,
 		Transaction{
 			ID:        tx.ID,
 			AccountID: userID,
 			Address:   tx.Address,
 			Amount:    tx.Amount,
-			Received:  big.Float{},
 			Status:    coinpayments.StatusPending,
 			Key:       key,
+			Timeout:   tx.Timeout,
 		},
 	)
 	if err != nil {
@@ -73,11 +82,11 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 
 	return &payments.Transaction{
 		ID:        payments.TransactionID(tx.ID),
-		AccountID: userID,
 		Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
-		Received:  *payments.NewTokenAmount(),
+		Rate:      *rate,
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
+		Timeout:   tx.Timeout,
 		CreatedAt: cpTX.CreatedAt,
 	}, nil
 }
@@ -108,18 +117,23 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 			status = payments.TransactionStatus(tx.Status.String())
 		}
 
+		rate, err := tokens.service.db.Transactions().GetLockedRate(ctx, tx.ID)
+		if err != nil {
+			return nil, err
+		}
+
 		infos = append(infos,
 			payments.TransactionInfo{
-				ID:       []byte(tx.ID),
-				Amount:   *payments.TokenAmountFromBigFloat(&tx.Amount),
-				Received: *payments.TokenAmountFromBigFloat(&tx.Received),
-				Address:  tx.Address,
-				Status:   status,
-				Link:     link,
-				// CoinPayments deposit transaction expires in an hour after creation.
-				// TODO: decide if it's better to calculate expiration time during tx creation, or updating.
-				ExpiresAt: tx.CreatedAt.Add(time.Hour),
-				CreatedAt: tx.CreatedAt,
+				ID:            []byte(tx.ID),
+				Amount:        *payments.TokenAmountFromBigFloat(&tx.Amount),
+				Received:      *payments.TokenAmountFromBigFloat(&tx.Received),
+				AmountCents:   convertToCents(rate, &tx.Amount),
+				ReceivedCents: convertToCents(rate, &tx.Received),
+				Address:       tx.Address,
+				Status:        status,
+				Link:          link,
+				ExpiresAt:     tx.CreatedAt.Add(tx.Timeout),
+				CreatedAt:     tx.CreatedAt,
 			},
 		)
 	}

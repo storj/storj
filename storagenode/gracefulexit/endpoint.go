@@ -144,10 +144,11 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 
 		resp.Progress = append(resp.Progress,
 			&pb.ExitProgress{
-				DomainName:      domain,
-				NodeId:          progress.SatelliteID,
-				PercentComplete: percentCompleted,
-				Successful:      hasCompleted,
+				DomainName:        domain,
+				NodeId:            progress.SatelliteID,
+				PercentComplete:   percentCompleted,
+				Successful:        hasCompleted,
+				CompletionReceipt: progress.CompletionReceipt,
 			},
 		)
 	}

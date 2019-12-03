@@ -79,6 +79,12 @@ export default class ProjectSelectionDropdown extends Vue {
 </script>
 
 <style scoped lang="scss">
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin-top: 0;
+    }
+
     .project-selection-choice-container {
         position: absolute;
         top: 9vh;
@@ -92,7 +98,8 @@ export default class ProjectSelectionDropdown extends Vue {
 
     .project-selection-overflow-container {
         position: relative;
-        width: 226px;
+        min-width: 226px;
+        width: auto;
         overflow-y: auto;
         overflow-x: hidden;
         height: auto;
@@ -109,7 +116,7 @@ export default class ProjectSelectionDropdown extends Vue {
             padding-right: 20px;
 
             &__unselected {
-                margin-left: 20px;
+                margin: 12px 20px;
                 font-size: 14px;
                 line-height: 20px;
                 color: #354049;

@@ -48,7 +48,27 @@ CREATE TABLE coinpayments_transactions (
 	received bytea NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
+	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE coupons (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	status integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id )
+);
+CREATE TABLE coupon_usages (
+	id bytea NOT NULL,
+	coupon_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	interval_end timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
@@ -162,11 +182,17 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE project_limits (
+	project_id bytea NOT NULL,
+	usage_limit bigint NOT NULL,
+	limit_type integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, limit_type )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -225,6 +251,12 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
+);
+CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id text NOT NULL,
+	rate bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE users (
 	id bytea NOT NULL,

@@ -7,7 +7,6 @@ option go_package = "pb";
 
 package scope;
 
-import "gogo.proto";
 import "encryption_access.proto";
 
 message Scope {

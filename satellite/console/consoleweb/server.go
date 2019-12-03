@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 const (
@@ -62,12 +63,14 @@ type Config struct {
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
 }
 
 // Server represents console web server
@@ -76,12 +79,15 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
+	config           Config
+	service          *console.Service
+	mailService      *mailservice.Service
+	referralsService *referrals.Service
 
 	listener net.Listener
 	server   http.Server
+
+	stripePublicKey string
 
 	schema    graphql.Schema
 	templates struct {
@@ -96,13 +102,15 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:         logger,
-		config:      config,
-		listener:    listener,
-		service:     service,
-		mailService: mailService,
+		log:              logger,
+		config:           config,
+		listener:         listener,
+		service:          service,
+		mailService:      mailService,
+		referralsService: referralsService,
+		stripePublicKey:  stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -121,7 +129,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.HandleFunc("/satellite-name", server.satelliteNameHandler).Methods(http.MethodGet)
+
+	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
+	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
+	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
+	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -141,6 +153,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
+	paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
@@ -150,7 +163,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
-		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
+		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
@@ -203,20 +216,27 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"connect-src 'self' api.segment.io",
+		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
+		"img-src 'self' data: *.customer.io",
+		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName string
+		SatelliteName      string
+		SegmentIOPublicKey string
+		StripePublicKey    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
+	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
@@ -535,20 +555,6 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
-}
-
-// satelliteNameHandler retrieves satellite name.
-func (server *Server) satelliteNameHandler(w http.ResponseWriter, r *http.Request) {
-	var response struct {
-		SatelliteName string `json:"satelliteName"`
-	}
-
-	response.SatelliteName = server.config.SatelliteName
-
-	if err := json.NewEncoder(w).Encode(&response); err != nil {
-		server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
-		return
-	}
 }
 
 // initializeTemplates is used to initialize all templates

@@ -6,6 +6,7 @@ package filestore
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,7 +19,8 @@ var (
 	// Error is the default filestore error class
 	Error = errs.Class("filestore error")
 
-	mon = monkit.Package()
+	mon            = monkit.Package()
+	monFileInTrash = mon.Meter("open_file_in_trash") //locked
 
 	_ storage.Blobs = (*blobStore)(nil)
 )
@@ -87,7 +89,10 @@ func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref storage.B
 	return info, Error.Wrap(err)
 }
 
-// Delete deletes blobs with the specified ref
+// Delete deletes blobs with the specified ref.
+//
+// It doesn't return an error if the blob isn't found for any reason or it cannot
+// be deleted at this moment and it's delayed.
 func (store *blobStore) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.Delete(ctx, ref)
@@ -113,6 +118,16 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (err
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.RestoreTrash(ctx, namespace)
 	return Error.Wrap(err)
+}
+
+// // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur
+func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (keys [][]byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return keys, nil
 }
 
 // GarbageCollect tries to delete any files that haven't yet been deleted

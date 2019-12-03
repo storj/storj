@@ -64,7 +64,7 @@ type DB interface {
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
-	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, config NodeSelectionConfig) (err error)
+	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -236,8 +236,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
-	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow ||
-		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -419,9 +418,9 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.
-func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo) (err error) {
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateCheckIn(ctx, node, service.config.Node)
+	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 }
 
 // GetMissingPieces returns the list of offline nodes
