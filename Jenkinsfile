@@ -51,7 +51,7 @@ node('node') {
         // TODO: remove
         bat 'cmd /c type ^%scheduledTaskLog^%'
         // Print output and check for non-zero status
-        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go ^%scheduledTaskLog^%'
+        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %%scheduledTaskLog%%'
 
         // Cleanup
         bat 'cmd /c del ^%scheduledTaskLog^%'
