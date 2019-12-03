@@ -42,7 +42,7 @@ replace_in_file(){
     local src="$1"
     local dest="$2"
     local path=$3
-    sed -i "s#${src}#${dest}#g" "${path}"
+    sed -i '' "s#${src}#${dest}#g" "${path}"
 }
 
 setup_stage(){
@@ -118,6 +118,7 @@ for version in ${unique_versions}; do
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
     git fetch --tags
+    git worktree prune
     git worktree add -f ${dir} ${version}
     rm ${dir}/internal/version/release.go
     echo "Installing storj-sim for ${version} in ${dir}."
