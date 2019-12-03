@@ -4,6 +4,7 @@
 package encryption
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"io"
@@ -26,7 +27,8 @@ type Transformer interface {
 }
 
 type transformedReader struct {
-	r            io.ReadCloser
+	r            io.Reader
+	c            io.Closer
 	t            Transformer
 	blockNum     int64
 	inbuf        []byte
@@ -58,7 +60,8 @@ func (t *NoopTransformer) Transform(out, in []byte, blockNum int64) ([]byte, err
 func TransformReader(r io.ReadCloser, t Transformer,
 	startingBlockNum int64) io.ReadCloser {
 	return &transformedReader{
-		r:        r,
+		r:        bufio.NewReader(r),
+		c:        r,
 		t:        t,
 		blockNum: startingBlockNum,
 		inbuf:    make([]byte, t.InBlockSize()),
@@ -73,7 +76,8 @@ func TransformReader(r io.ReadCloser, t Transformer,
 func TransformReaderSize(r io.ReadCloser, t Transformer,
 	startingBlockNum int64, expectedSize int64) io.ReadCloser {
 	return &transformedReader{
-		r:            r,
+		r:            bufio.NewReader(r),
+		c:            r,
 		t:            t,
 		blockNum:     startingBlockNum,
 		inbuf:        make([]byte, t.InBlockSize()),
@@ -82,7 +86,7 @@ func TransformReaderSize(r io.ReadCloser, t Transformer,
 	}
 }
 
-func (t *transformedReader) Read(p []byte) (n int, err error) {
+func (t *transformedReader) read(p []byte) (n int, err error) {
 	if len(t.outbuf) == 0 {
 		// If there's no more buffered data left, let's fill the buffer with
 		// the next block
@@ -112,8 +116,20 @@ func (t *transformedReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
+func (t *transformedReader) Read(p []byte) (n int, err error) {
+	for len(p) > 0 {
+		chunk, err := t.read(p)
+		n += chunk
+		p = p[chunk:]
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
 func (t *transformedReader) Close() error {
-	return t.r.Close()
+	return t.c.Close()
 }
 
 type transformedRanger struct {
