@@ -162,6 +162,7 @@ func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string,
 		"/log", logPath,
 	}, baseArgs...), args...)
 
+	// TODO: fix ugly error message (maybe caused by msiexe's `/qn` flag?)
 	installOut, err := exec.Command("msiexec", args...).CombinedOutput()
 	if !assert.NoError(t, err) {
 		installLogData, err := ioutil.ReadFile(logPath)
