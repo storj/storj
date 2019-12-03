@@ -526,7 +526,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			invalidPieces = append(invalidPieces, invalidPiece{
 				NodeID:   piece.NodeId,
 				PieceNum: piece.PieceNum,
-				Reason:   "No order limit for validating the pice hash",
+				Reason:   "No order limit for validating the piece hash",
 			})
 			continue
 		}
