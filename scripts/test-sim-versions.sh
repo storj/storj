@@ -10,7 +10,7 @@ cleanup(){
     rm -rf "$TMP"
     echo "cleaned up test successfully"
 }
-#trap cleanup EXIT
+trap cleanup EXIT
 
 # TODO make sure the number of storagenode versions matches the number of sns from setup
 
@@ -112,13 +112,15 @@ if [ -z ${STORJ_SIM_POSTGRES} ]; then
 fi
 
 echo "Setting up environments for versions" ${unique_versions}
+
+# Get latest release tags and clean up git worktree
+git fetch --tags
+git worktree prune
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
     bin_dir=${dir}/bin
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
-    git fetch --tags
-    git worktree prune
     git worktree add -f ${dir} ${version}
     rm ${dir}/internal/version/release.go
     echo "Installing storj-sim for ${version} in ${dir}."
