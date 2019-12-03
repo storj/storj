@@ -228,12 +228,12 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		SELECT SUM(data_total) AS at_rest_total, interval_end_time::date AS start_time
 				FROM storagenode_storage_tallies
 				WHERE node_id = $1
-				AND NOT EXISTS (SELECT 1 FROM (
-						SELECT at_rest_total, start_time
-						FROM accounting_rollups
-						WHERE node_id = $1
-						AND $2 <= start_time AND start_time <= $3
-				) r WHERE r.start_time::date = interval_end_time::date)
+				AND NOT EXISTS (
+					SELECT 1 FROM accounting_rollups
+					WHERE node_id = $1
+					AND $2 <= start_time AND start_time <= $3
+					AND start_time::date = interval_end_time::date
+				)
 				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
 				GROUP BY interval_end_time::date
 		ORDER BY start_time;
