@@ -175,16 +175,38 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 			}
 
 			brokenObject := false
-			// expectedNumberOfSegments-1 because 'segments' doesn't contain last segment
 			if object.hasLastSegment {
+				includeLastSegment := true
+				segmentsCount := object.segments.Count()
+
+				// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
 				switch {
+				case segmentsCount == 0:
+					// skip this case to avoid additional computation
 				case object.expectedNumberOfSegments == 0:
-					if !object.segments.IsSequence() {
-						brokenObject = true
+					// verify if initial sequence is valid
+					lastSequenceIndex := 0
+					for ; lastSequenceIndex < maxNumOfSegments; lastSequenceIndex++ {
+						has, err := object.segments.Has(lastSequenceIndex)
+						if err != nil {
+							panic(err)
+						}
+						if !has {
+							break
+						}
 					}
-				case object.segments.Count() < int(object.expectedNumberOfSegments)-1:
+					// unset valid sequence and mark as broken but don't remove last segment
+					for index := 0; index < lastSequenceIndex; index++ {
+						err := object.segments.Unset(index)
+						if err != nil {
+							panic(err)
+						}
+					}
 					brokenObject = true
-				case object.segments.Count() > int(object.expectedNumberOfSegments)-1:
+					includeLastSegment = false
+				case segmentsCount < int(object.expectedNumberOfSegments)-1:
+					brokenObject = true
+				case segmentsCount > int(object.expectedNumberOfSegments)-1:
 					// verify if initial sequence is valid
 					for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
 						has, err := object.segments.Has(index)
@@ -193,6 +215,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						}
 						if !has {
 							brokenObject = true
+							break
 						}
 					}
 					if !brokenObject {
@@ -205,12 +228,13 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 							}
 						}
 						brokenObject = true
+						includeLastSegment = false
 					}
-				case object.segments.Count() == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+				case segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
 					brokenObject = true
 				}
 
-				if brokenObject {
+				if brokenObject && includeLastSegment {
 					err := obsvr.printSegment(ctx, "l", bucket, path)
 					if err != nil {
 						return err
