@@ -117,6 +117,7 @@ for version in ${unique_versions}; do
     bin_dir=${dir}/bin
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
+    git fetch --tags
     git worktree add -f ${dir} ${version}
     rm ${dir}/internal/version/release.go
     echo "Installing storj-sim for ${version} in ${dir}."
