@@ -62,7 +62,6 @@ func TestOffer_Database(t *testing.T) {
 		for i := range validOffers {
 			new, err := planet.Satellites[0].DB.Rewards().Create(ctx, &validOffers[i])
 			require.NoError(t, err)
-
 			all, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
 			require.Contains(t, all, *new)
