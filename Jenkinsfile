@@ -91,6 +91,16 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
+    if (env.BRANCH_NAME == 'master') {
+      slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
+
+      mail from: 'builds@storj.io',
+        replyTo: 'builds@storj.io',
+        to: 'builds@storj.io',
+        subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
+        body: "Project build log: ${env.BUILD_URL}"
+    }
+
     throw err
 
   }
