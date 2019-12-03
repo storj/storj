@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
@@ -307,7 +308,13 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 		zap.S().Fatal(err)
 	}
 
-	return verifyGracefulExitReceipt(ctx, identity, args[0])
+	// Check the receipt is not empty
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return errs.Combine(err, errs.New("Invalid node ID."))
+	}
+
+	return verifyGracefulExitReceipt(ctx, identity, nodeID, args[1])
 }
 
 func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {

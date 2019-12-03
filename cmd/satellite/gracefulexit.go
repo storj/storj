@@ -105,7 +105,7 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 	return err
 }
 
-func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, receipt string) error {
+func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, nodeID storj.NodeID, receipt string) error {
 	signee := signing.SigneeFromPeerIdentity(identity.PeerIdentity())
 
 	bytes, err := hex.DecodeString(receipt)
@@ -128,21 +128,39 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		return writeVerificationMessage(false, failed.SatelliteId.String(), failed.NodeId.String(), failed.Failed)
+		err = checkIDs(identity.PeerIdentity().ID, nodeID, failed.SatelliteId, failed.NodeId)
+		if err != nil {
+			return err
+		}
+		return writeVerificationMessage(false, failed.SatelliteId, failed.NodeId, failed.Failed)
 	}
 
 	err = signing.VerifyExitCompleted(ctx, signee, completed)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	return writeVerificationMessage(true, completed.SatelliteId.String(), completed.NodeId.String(), completed.Completed)
+	err = checkIDs(identity.PeerIdentity().ID, nodeID, completed.SatelliteId, completed.NodeId)
+	if err != nil {
+		return err
+	}
+	return writeVerificationMessage(true, completed.SatelliteId, completed.NodeId, completed.Completed)
 }
 
-func writeVerificationMessage(succeeded bool, satelliteID string, snNodeID string, timestamp time.Time) error {
+func checkIDs(satelliteID storj.NodeID, providedSNID storj.NodeID, receiptSatelliteID storj.NodeID, receiptSNID storj.NodeID) error {
+	if satelliteID != receiptSatelliteID {
+		return errs.New("satellite ID (%v) does not match receipt satellite ID (%v).", satelliteID, receiptSatelliteID)
+	}
+	if providedSNID != receiptSNID {
+		return errs.New("provided storage node ID (%v) does not match receipt node ID (%v).", providedSNID, receiptSNID)
+	}
+	return nil
+}
+
+func writeVerificationMessage(succeeded bool, satelliteID storj.NodeID, snID storj.NodeID, timestamp time.Time) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
 	fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
-	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snNodeID)
+	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snID)
 	fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
 
 	return errs.Wrap(w.Flush())
