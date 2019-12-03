@@ -386,10 +386,10 @@ func cmdNotification(cmd *cobra.Command, args []string) (err error) {
 		parsedLogLevel = pb.LogLevel_INFO
 	case "WARN":
 		parsedLogLevel = pb.LogLevel_WARN
-	case "DEBUG":
-		parsedLogLevel = pb.LogLevel_DEBUG
-	default:
+	case "ERROR":
 		parsedLogLevel = pb.LogLevel_ERROR
+	default:
+		parsedLogLevel = pb.LogLevel_DEBUG
 	}
 
 	address := runCfg.Server.PrivateAddress
