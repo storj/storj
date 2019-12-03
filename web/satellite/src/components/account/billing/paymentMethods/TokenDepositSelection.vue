@@ -4,7 +4,7 @@
 <template>
     <div>
         <div class="selected-container" v-if="!isCustomAmount">
-            <div id="paymentSelectButton" class="selected-container__label-container" @click="toggleSelection">
+            <div id="paymentSelectButton" class="selected-container__label-container" @click="open">
                 <p class="selected-container__label-container__label">{{current.label}}</p>
                 <div class="selected-container__label-container__svg">
                     <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -12,7 +12,12 @@
                     </svg>
                 </div>
             </div>
-            <div id="paymentSelect" class="options-container" v-if="isSelectionShown">
+            <div
+                id="paymentSelect"
+                class="options-container"
+                v-if="isSelectionShown"
+                v-click-outside="close"
+            >
                 <div
                     class="options-container__item"
                     v-for="option in paymentOptions"
@@ -77,10 +82,17 @@ export default class TokenDepositSelection extends Vue {
     }
 
     /**
-     * toggleSelection toggles token amount selection
+     * opens token amount selection
      */
-    public toggleSelection(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION);
+    public open(): void {
+        setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, true), 0);
+    }
+
+    /**
+     * closes token amount selection
+     */
+    public close(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, false);
     }
 
     /**
@@ -95,6 +107,7 @@ export default class TokenDepositSelection extends Vue {
      */
     public toggleCustomAmount(): void {
         this.isCustomAmount = !this.isCustomAmount;
+        this.open();
 
         if (this.isCustomAmount) {
             this.$emit('onChangeTokenValue', 0);
@@ -111,7 +124,7 @@ export default class TokenDepositSelection extends Vue {
     public select(option: PaymentAmountOption): void {
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
-        this.toggleSelection();
+        this.close();
     }
 }
 </script>
