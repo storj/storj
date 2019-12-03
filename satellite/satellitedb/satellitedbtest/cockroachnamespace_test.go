@@ -24,19 +24,16 @@ func TestNewCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skip("Cockroachdb flag missing")
 	}
-	namespacedDBName := "namespaced/Test/DB"
+	namespacedDBName := "name#spaced/Test/DB"
 	testdb, err := satellitedbtest.NewCockroach(zap.L(), namespacedDBName)
 	require.NoError(t, err)
 
 	// assert new test db exists
 	driver, source, err := dbutil.SplitConnstr(*pgtest.CrdbConnStr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	db, err := dbx.Open(driver, source)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
 	var exists *bool
@@ -45,9 +42,7 @@ func TestNewCockroach(t *testing.T) {
 		);`, namespacedDBName,
 	)
 	err = row.Scan(&exists)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.True(t, *exists)
 
 	err = testdb.Close()
@@ -59,8 +54,6 @@ func TestNewCockroach(t *testing.T) {
 		);`, namespacedDBName,
 	)
 	err = row.Scan(&exists)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	assert.False(t, *exists)
 }
