@@ -202,6 +202,9 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 							panic(err)
 						}
 					}
+					// in this case we always mark object as broken because if
+					// there was valid sequence we are removing it from bitmask and leave only
+					// zombie segments
 					brokenObject = true
 					includeLastSegment = false
 				case segmentsCount < int(object.expectedNumberOfSegments)-1:
