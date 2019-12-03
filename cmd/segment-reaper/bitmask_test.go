@@ -265,20 +265,29 @@ func TestBitmask(t *testing.T) {
 	t.Run("Unset", func(t *testing.T) {
 		t.Run("ok", func(t *testing.T) {
 			var (
-				expectedIdx = rand.Intn(64)
-				mask        bitmask
+				expectedUnsetIdx = rand.Intn(32)
+				expectedSetIdx   = rand.Intn(32) + 32
+				mask             bitmask
 			)
 
-			err := mask.Set(expectedIdx)
+			err := mask.Set(expectedUnsetIdx)
 			require.NoError(t, err)
-			has, err := mask.Has(expectedIdx)
+			has, err := mask.Has(expectedUnsetIdx)
 			require.NoError(t, err)
 			require.True(t, has)
-			err = mask.Unset(expectedIdx)
+
+			err = mask.Set(expectedSetIdx)
 			require.NoError(t, err)
-			has, err = mask.Has(expectedIdx)
+
+			err = mask.Unset(expectedUnsetIdx)
+			require.NoError(t, err)
+			has, err = mask.Has(expectedUnsetIdx)
 			require.NoError(t, err)
 			require.False(t, has)
+
+			has, err = mask.Has(expectedSetIdx)
+			require.NoError(t, err)
+			require.True(t, has)
 		})
 
 		t.Run("error: negative index", func(t *testing.T) {
