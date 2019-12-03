@@ -338,7 +338,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			config.MinDownloadTimeout,
 		)
 
-		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
+		peer.Audit.Reporter = audit.NewReporter(peer.Log.Named("audit:reporter"),
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			config.MaxRetriesStatDB,

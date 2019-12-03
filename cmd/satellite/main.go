@@ -392,14 +392,13 @@ func cmdNotification(cmd *cobra.Command, args []string) (err error) {
 		parsedLogLevel = pb.LogLevel_ERROR
 	}
 
-	address := runCfg.Server.Address
+	address := runCfg.Server.PrivateAddress
 	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
-		return errs.New("failed to perform dialing to the drpc endpoint.")
+		return err
 	}
 
 	client := conn.NotificationClient()
-
 	notificationMessage := pb.NotificationMessage{
 		Loglevel: parsedLogLevel,
 		Message:  message,
@@ -407,7 +406,7 @@ func cmdNotification(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = client.ProcessNotification(ctx, &notificationMessage)
 	if err != nil {
-		return errs.New("network error.")
+		return err
 	}
 
 	return nil
