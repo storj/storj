@@ -308,7 +308,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 		zap.S().Fatal(err)
 	}
 
-	// Check the receipt is not empty
+	// Check the node ID is valid
 	nodeID, err := storj.NodeIDFromString(args[0])
 	if err != nil {
 		return errs.Combine(err, errs.New("Invalid node ID."))
