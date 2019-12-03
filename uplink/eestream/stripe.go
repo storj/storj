@@ -174,6 +174,9 @@ func (r *StripeReader) combineErrs(num int64) error {
 	}
 	errstrings := make([]string, 0, len(r.errmap))
 	for i, err := range r.errmap {
+		if infectious.NotEnoughShares.Contains(err) {
+			mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
+		}
 		errstrings = append(errstrings, fmt.Sprintf("\nerror retrieving piece %02d: %v", i, err))
 	}
 	sort.Strings(errstrings)
