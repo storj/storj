@@ -11,7 +11,16 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <router-view/>
+                    <div class="dashboard-container__main-area__banner-area">
+                        <VBanner
+                            v-if="isBannerShown"
+                            text="You have no payment method added."
+                            additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
+                        />
+                    </div>
+                    <div class="dashboard-container__main-area__content">
+                        <router-view/>
+                    </div>
                 </div>
             </div>
         </div>
@@ -21,11 +30,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import VBanner from '@/components/common/VBanner.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -41,7 +50,6 @@ import {
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
@@ -55,6 +63,7 @@ const {
     components: {
         NavigationArea,
         DashboardHeader,
+        VBanner,
     },
 })
 export default class DashboardArea extends Vue {
@@ -113,6 +122,7 @@ export default class DashboardArea extends Vue {
         }
 
         const selectedProjectId: string | null = LocalData.getSelectedProjectId();
+
         if (selectedProjectId) {
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
         } else {
@@ -148,6 +158,10 @@ export default class DashboardArea extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
@@ -156,13 +170,13 @@ export default class DashboardArea extends Vue {
      * This method checks if current route is available when user has no created projects
      */
     private isRouteAccessibleWithoutProject(): boolean {
-        const awailableRoutes = [
+        const availableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
             RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
         ];
 
-        return awailableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
+        return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
     }
 }
 </script>
@@ -191,7 +205,18 @@ export default class DashboardArea extends Vue {
         &__main-area {
             position: relative;
             width: 100%;
-            height: 100%;
+            height: calc(100vh - 50px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+
+            &__banner-area {
+                flex: 0 1 auto;
+            }
+
+            &__content {
+                flex: 1 1 auto;
+            }
         }
     }
 

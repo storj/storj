@@ -99,9 +99,21 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	service.sending.Add(1)
 	go func() {
 		defer service.sending.Done()
+
 		err := service.SendRendered(ctx, to, msg)
+
+		var recipients []string
+		for _, recipient := range to {
+			recipients = append(recipients, recipient.String())
+		}
+
 		if err != nil {
-			service.log.Error(err.Error())
+			service.log.Error("fail sending email",
+				zap.Strings("recipients", recipients),
+				zap.Error(err))
+		} else {
+			service.log.Info("email sent successfully",
+				zap.Strings("recipients", recipients))
 		}
 	}()
 }
@@ -135,22 +147,5 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		},
 	}
 
-	err = service.sender.SendEmail(ctx, m)
-
-	// log error
-	var recipients []string
-	for _, recipient := range to {
-		recipients = append(recipients, recipient.String())
-	}
-
-	if err != nil {
-		service.log.Error("fail sending email",
-			zap.Strings("recipients", recipients),
-			zap.Error(err))
-	} else {
-		service.log.Info("email sent successfully",
-			zap.Strings("recipients", recipients))
-	}
-
-	return err
+	return service.sender.SendEmail(ctx, m)
 }
