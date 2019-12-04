@@ -10,10 +10,12 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/private/memory"
 )
+
+var mon = monkit.Package()
 
 const (
 	// AverageDaysInMonth is how many days in a month
@@ -28,18 +30,18 @@ var (
 	ErrProjectUsage = errs.Class("project usage error")
 )
 
-// ProjectUsage defines project usage
+// Service is handling project usage related logic.
 //
 // architecture: Service
-type ProjectUsage struct {
+type Service struct {
 	projectAccountingDB ProjectAccounting
-	liveAccounting      live.Service
+	liveAccounting      Cache
 	maxAlphaUsage       memory.Size
 }
 
-// NewProjectUsage created new instance of project usage service
-func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *ProjectUsage {
-	return &ProjectUsage{
+// NewService created new instance of project usage service.
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, maxAlphaUsage memory.Size) *Service {
+	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		maxAlphaUsage:       maxAlphaUsage,
@@ -50,7 +52,7 @@ func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
@@ -59,7 +61,7 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
+		projectLimit, err := usage.projectAccountingDB.GetProjectBandwidthLimit(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
 		}
@@ -89,16 +91,16 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 // for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
+func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
-	var inlineTotal, remoteTotal int64
+	var totalUsed int64
 	limit = usage.maxAlphaUsage
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
+		projectLimit, err := usage.projectAccountingDB.GetProjectStorageLimit(ctx, projectID)
 		if projectLimit > 0 {
 			limit = projectLimit
 		}
@@ -106,7 +108,7 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	})
 	group.Go(func() error {
 		var err error
-		inlineTotal, remoteTotal, err = usage.getProjectStorageTotals(ctx, projectID)
+		totalUsed, err = usage.getProjectStorageTotals(ctx, projectID)
 		return err
 	})
 	err = group.Wait()
@@ -115,31 +117,31 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	}
 
 	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if inlineTotal+remoteTotal >= maxUsage {
+	if totalUsed >= maxUsage {
 		return true, limit, nil
 	}
 
 	return false, limit, nil
 }
 
-func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
+func (usage *Service) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	rtInline, rtRemote, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+	cachedTotal, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+	return lastCountInline + lastCountRemote + cachedTotal, nil
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
 }

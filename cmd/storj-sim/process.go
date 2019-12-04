@@ -19,8 +19,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/processgroup"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/processgroup"
+	"storj.io/storj/private/sync2"
 )
 
 // Processes contains list of processes
@@ -82,7 +82,18 @@ type Info struct {
 	Directory  string
 	ID         string
 	Pid        int
-	Extra      []string
+	Extra      []EnvVar
+}
+
+// EnvVar represents an environment variable like Key=Value
+type EnvVar struct {
+	Key   string
+	Value string
+}
+
+// AddExtra appends an extra environment variable to the process info.
+func (info *Info) AddExtra(key, value string) {
+	info.Extra = append(info.Extra, EnvVar{Key: key, Value: value})
 }
 
 // Env returns process flags
@@ -116,7 +127,7 @@ func (info *Info) Env() []string {
 		env = append(env, name+"_PID="+strconv.Itoa(info.Pid))
 	}
 	for _, extra := range info.Extra {
-		env = append(env, name+"_"+extra)
+		env = append(env, name+"_"+strings.ToUpper(extra.Key)+"="+extra.Value)
 	}
 	return env
 }
@@ -168,6 +179,11 @@ func (process *Process) WaitForStart(dependency *Process) {
 	process.Wait = append(process.Wait, &dependency.Status.Started)
 }
 
+// WaitForExited ensures that process will wait on dependency before starting.
+func (process *Process) WaitForExited(dependency *Process) {
+	process.Wait = append(process.Wait, &dependency.Status.Exited)
+}
+
 // Exec runs the process using the arguments for a given command
 func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	// ensure that we always release all status fences
@@ -176,7 +192,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	// wait for dependencies to start
 	for _, fence := range process.Wait {
-		fence.Wait()
+		if !fence.Wait(ctx) {
+			return ctx.Err()
+		}
 	}
 
 	// in case we have an explicit delay then sleep
@@ -198,6 +216,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	localExecutable := filepath.Join(process.Directory, executable)
 	if _, err := os.Lstat(localExecutable); !os.IsNotExist(err) {
 		executable = localExecutable
+	}
+
+	if _, ok := process.Arguments[command]; !ok {
+		fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
+		return
 	}
 
 	cmd := exec.CommandContext(ctx, executable, process.Arguments[command]...)

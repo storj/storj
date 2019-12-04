@@ -12,34 +12,19 @@ export class Dashboard {
         public diskSpace: DiskSpaceInfo,
         public bandwidth: BandwidthInfo,
         public lastPinged: Date,
-        public version: Version,
+        public startedAt: Date,
+        public version: string,
+        public allowedVersion: string,
         public isUpToDate: boolean) {}
 }
 
 /**
- * Version represents a semantic version
- */
-export class Version {
-    public constructor(
-        public major: number,
-        public minor: number,
-        public patch: number) {}
-
-    /**
-     * Converts version numbers to string type
-     * @returns version - string of version value
-     */
-    public toString(): string {
-        return `v${this.major}.${this.minor}.${this.patch}`;
-    }
-}
-
-/**
- * SatelliteInfo encapsulates satellite ID and disqualification
+ * SatelliteInfo encapsulates satellite ID, URL and disqualification
  */
 export class SatelliteInfo {
     public constructor(
         public id: string,
+        public url: string,
         public disqualified: Date | null,
     ) {}
 }

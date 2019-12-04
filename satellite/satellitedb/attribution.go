@@ -6,11 +6,8 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
-	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -47,7 +44,7 @@ const (
 					-- If there are more than 1 records within the hour, only the latest will be considered
 					SELECT 
 						va.partner_id, 
-						%v as hours, 
+						date_trunc('hour', bst.interval_start) as hours,
 						bst.project_id, 
 						bst.bucket_name, 
 						MAX(bst.interval_start) as max_interval 
@@ -109,9 +106,6 @@ const (
 		o.project_id, 
 		o.bucket_name;
 	`
-	// DB specific date/time truncations
-	slHour = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
-	pqHour = "date_trunc('hour', bst.interval_start)"
 )
 
 type attributionDB struct {
@@ -156,17 +150,7 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-	switch t := keys.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		query = fmt.Sprintf(valueAttrQuery, slHour)
-	case *pq.Driver:
-		query = fmt.Sprintf(valueAttrQuery, pqHour)
-	default:
-		return nil, Error.New("Unsupported database %t", t)
-	}
-
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
+	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

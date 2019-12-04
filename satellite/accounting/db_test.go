@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -52,9 +53,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		const (
-			days = 30
-		)
+		const days = 30
 
 		now := time.Now().UTC()
 
@@ -62,10 +61,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		startDate := now.Add(time.Hour * 24 * -days)
 
 		var nodes storj.NodeIDList
-		nodes = append(nodes, nodeID)
-		nodes = append(nodes, testrand.NodeID())
-		nodes = append(nodes, testrand.NodeID())
-		nodes = append(nodes, testrand.NodeID())
+		nodes = append(nodes, nodeID, testrand.NodeID(), testrand.NodeID(), testrand.NodeID())
 
 		rollups, tallies, lastDate := makeRollupsAndStorageNodeStorageTallies(nodes, startDate, days)
 
@@ -97,21 +93,21 @@ func TestStorageNodeUsage(t *testing.T) {
 			// check usage from rollups
 			for _, usage := range nodeStorageUsages[:len(nodeStorageUsages)-1] {
 				assert.Equal(t, nodeID, usage.NodeID)
-				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+				dateRollup, ok := rollups[usage.Timestamp.UTC()]
+				if assert.True(t, ok) {
+					nodeRollup, ok := dateRollup[nodeID]
+					if assert.True(t, ok) {
+						assert.Equal(t, nodeRollup.AtRestTotal, usage.StorageUsed)
+					}
+				}
 			}
 
 			// check last usage that calculated from tallies
 			lastUsage := nodeStorageUsages[len(nodeStorageUsages)-1]
 
-			assert.Equal(t,
-				nodeID,
-				lastUsage.NodeID)
-			assert.Equal(t,
-				lastRollup[nodeID].StartTime,
-				lastUsage.Timestamp.UTC())
-			assert.Equal(t,
-				lastRollup[nodeID].AtRestTotal,
-				lastUsage.StorageUsed)
+			assert.Equal(t, nodeID, lastUsage.NodeID)
+			assert.Equal(t, lastRollup[nodeID].StartTime, lastUsage.Timestamp.UTC())
+			assert.Equal(t, lastRollup[nodeID].AtRestTotal, lastUsage.StorageUsed)
 		})
 
 		t.Run("usage entirely from rollups", func(t *testing.T) {
@@ -131,8 +127,54 @@ func TestStorageNodeUsage(t *testing.T) {
 
 			for _, usage := range nodeStorageUsages {
 				assert.Equal(t, nodeID, usage.NodeID)
-				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+				dateRollup, ok := rollups[usage.Timestamp.UTC()]
+				if assert.True(t, ok) {
+					nodeRollup, ok := dateRollup[nodeID]
+					if assert.True(t, ok) {
+						assert.Equal(t, nodeRollup.AtRestTotal, usage.StorageUsed)
+					}
+				}
 			}
+		})
+	})
+}
+
+func TestProjectLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		projectID := testrand.UUID()
+
+		err := db.ProjectAccounting().UpdateProjectStorageLimit(ctx, projectID, 1)
+		require.NoError(t, err)
+
+		err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectID, 2)
+		require.NoError(t, err)
+
+		t.Run("get", func(t *testing.T) {
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(1), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(2), bandwidthLimit)
+		})
+
+		t.Run("update", func(t *testing.T) {
+			err := db.ProjectAccounting().UpdateProjectStorageLimit(ctx, projectID, 3)
+			require.NoError(t, err)
+			err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectID, 4)
+			require.NoError(t, err)
+
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(3), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(4), bandwidthLimit)
 		})
 	})
 }
@@ -199,6 +241,5 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 		}
 	}
 
-	return rollups, tallies,
-		time.Date(start.Year(), start.Month(), start.Day()+days-1, 0, 0, 0, 0, start.Location())
+	return rollups, tallies, time.Date(start.Year(), start.Month(), start.Day()+days-1, 0, 0, 0, 0, start.Location())
 }

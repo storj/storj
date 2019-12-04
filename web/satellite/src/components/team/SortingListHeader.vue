@@ -6,20 +6,23 @@
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
             <p class="sort-header-container__name-container__title">Name</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.NAME"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByName"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
             <p class="sort-header-container__added-container__title">Added</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.CREATED_AT"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByDate"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
             <p class="sort-header-container__email-container__title">Email</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.EMAIL"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByEmail"
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>
@@ -46,7 +49,7 @@ export default class SortingListHeader extends Vue {
     public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
     public sortDirection: SortDirection = SortDirection.ASCENDING;
 
-    public get getSortDirection() {
+    public get getSortDirection(): SortDirection {
         if (this.sortDirection === SortDirection.DESCENDING) {
             return SortDirection.ASCENDING;
         }
@@ -54,8 +57,16 @@ export default class SortingListHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy() {
-        return this.sortBy;
+    public get areProjectMembersSortedByName(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.NAME;
+    }
+
+    public get areProjectMembersSortedByDate(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.CREATED_AT;
+    }
+
+    public get areProjectMembersSortedByEmail(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.EMAIL;
     }
 
     public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
@@ -86,16 +97,17 @@ export default class SortingListHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
+        user-select: none;
 
         &__name-container,
         &__added-container,
         &__email-container {
 
             &__title {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: #2A2A32;
+                color: #2a2a32;
                 margin: 0;
             }
         }

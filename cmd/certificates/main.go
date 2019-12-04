@@ -10,10 +10,10 @@ import (
 
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -93,7 +93,7 @@ func main() {
 	defaultConfDir := fpath.ApplicationDir("storj", "cert-signing")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "certificates")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(authCmd)

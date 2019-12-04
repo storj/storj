@@ -6,16 +6,15 @@ package storagenode
 import (
 	"context"
 	"net"
+	"net/http"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -23,13 +22,18 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -38,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -65,6 +70,7 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
+	Satellites() satellites.DB
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -74,7 +80,7 @@ type Config struct {
 	Server server.Config
 
 	Contact  contact.Config
-	Kademlia kademlia.Config
+	Operator OperatorConfig
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -87,14 +93,16 @@ type Config struct {
 
 	Console consoleserver.Config
 
-	Version version.Config
+	Version checker.Config
 
 	Bandwidth bandwidth.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
 func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+	return config.Operator.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
@@ -110,16 +118,15 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *version.Service
+	Version *checker.Service
 
 	// services and endpoints
-	// TODO: similar grouping to satellite.Peer
+	// TODO: similar grouping to satellite.Core
 
 	Contact struct {
 		Service   *contact.Service
 		Chore     *contact.Chore
 		Endpoint  *contact.Endpoint
-		KEndpoint *contact.KademliaEndpoint
 		PingStats *contact.PingStats
 	}
 
@@ -127,6 +134,7 @@ type Peer struct {
 		// TODO: lift things outside of it to organize better
 		Trust         *trust.Pool
 		Store         *pieces.Store
+		TrashChore    *pieces.TrashChore
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
@@ -150,6 +158,11 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
+	GracefulExit struct {
+		Endpoint *gracefulexit.Endpoint
+		Chore    *gracefulexit.Chore
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -164,12 +177,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
@@ -215,20 +227,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
-				Email:  config.Kademlia.Operator.Email,
-				Wallet: config.Kademlia.Operator.Wallet,
+				Email:  config.Operator.Email,
+				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"), peer.Contact.Service, peer.Storage2.Trust)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup storage
@@ -239,6 +248,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),
 			peer.DB.PieceSpaceUsedDB(),
+		)
+
+		peer.Storage2.TrashChore = pieces.NewTrashChore(
+			log.Named("pieces:trashchore"),
+			24*time.Hour,   // choreInterval: how often to run the chore
+			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
 		)
 
 		peer.Storage2.CacheService = pieces.NewService(
@@ -272,6 +289,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
+			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
@@ -294,7 +312,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
-		dialer.RequestTimeout = config.Storage2.Orders.SenderRequestTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
@@ -330,7 +347,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
-			config.Kademlia.Operator.Wallet,
+			config.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
@@ -347,9 +364,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		assets := consoleassets.FileSystem
+		if config.Console.StaticDir != "" {
+			// a specific directory has been configured. use it
+			assets = http.Dir(config.Console.StaticDir)
+		}
+
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
+			assets,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
@@ -370,6 +393,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
 	}
 
+	{ // setup graceful exit service
+		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+			peer.Storage2.BlobsCache,
+		)
+		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+
+		peer.GracefulExit.Chore = gracefulexit.NewChore(
+			peer.Log.Named("gracefulexit:chore"),
+			config.GracefulExit,
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
+			peer.DB.Satellites(),
+		)
+	}
+
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
@@ -387,6 +430,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
 	})
 	group.Go(func() error {
@@ -396,15 +442,14 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
-
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.TrashChore.Run(ctx))
+	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
 	})
@@ -425,6 +470,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -440,11 +489,17 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
+	}
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
+	}
+	if peer.Storage2.TrashChore != nil {
+		errlist.Add(peer.Storage2.TrashChore.Close())
 	}
 	if peer.Storage2.RetainService != nil {
 		errlist.Add(peer.Storage2.RetainService.Close())

@@ -2,11 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="notificationArea" class="notification-container" v-if="notifications.length > 0" >
+    <div id="notificationArea" class="notification-container" v-if="doNotificationsExist">
         <NotificationItem
             v-for="notification in notifications"
             :notification="notification"
-            :key="notification.id" />
+            :key="notification.id"
+        />
     </div>
 </template>
 
@@ -25,6 +26,10 @@ import { DelayedNotification } from '@/types/DelayedNotification';
 export default class NotificationArea extends Vue {
     public get notifications(): DelayedNotification[] {
         return this.$store.state.notificationsModule.notificationQueue;
+    }
+
+    public get doNotificationsExist(): boolean {
+        return this.notifications.length > 0;
     }
 }
 </script>

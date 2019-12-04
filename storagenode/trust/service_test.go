@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestGetSignee(t *testing.T) {
@@ -26,9 +26,6 @@ func TestGetSignee(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
-
-	// make sure nodes are refreshed in db
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	trust := planet.StorageNodes[0].Storage2.Trust
 

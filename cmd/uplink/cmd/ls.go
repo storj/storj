@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -55,7 +55,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 
 		if src.IsLocal() {
-			return fmt.Errorf("No bucket specified, use format sj://bucket/")
+			return fmt.Errorf("no bucket specified, use format sj://bucket/")
 		}
 
 		bucket, err := project.OpenBucket(ctx, src.Bucket(), scope.EncryptionAccess)

@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 )
 
@@ -39,7 +39,7 @@ func TestReportPendingAudits(t *testing.T) {
 		overlay := satellite.Overlay.Service
 		containment := satellite.DB.Containment()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, &report)
+		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
@@ -66,7 +66,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
-		failed, err := audits.Reporter.RecordAudits(ctx, &report)
+		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
 		require.NoError(t, err)
 		require.Zero(t, failed)
 

@@ -6,8 +6,8 @@ package testdata
 import (
 	"fmt"
 
-	"storj.io/storj/internal/dbutil/dbschema"
-	"storj.io/storj/internal/dbutil/sqliteutil"
+	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/dbutil/sqliteutil"
 )
 
 // States is the global variable that stores all the states for testing
@@ -37,6 +37,9 @@ var States = MultiDBStates{
 		&v21,
 		&v22,
 		&v23,
+		&v24,
+		&v25,
+		&v26,
 	},
 }
 

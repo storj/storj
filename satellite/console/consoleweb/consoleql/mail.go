@@ -12,12 +12,20 @@ const (
 	CancelPasswordRecoveryPath = "cancelPasswordRecoveryPath"
 	// SignInPath is key for sign in server route
 	SignInPath = "signInPath"
+	// LetUsKnowURL is key to store let us know URL
+	LetUsKnowURL = "letUsKnowURL"
+	// ContactInfoURL is a key to store contact info URL
+	ContactInfoURL = "contactInfoURL"
+	// TermsAndConditionsURL is a key to store terms and conditions URL
+	TermsAndConditionsURL = "termsAndConditionsURL"
 )
 
 // AccountActivationEmail is mailservice template with activation data
 type AccountActivationEmail struct {
-	Origin         string
-	ActivationLink string
+	Origin                string
+	ActivationLink        string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
 }
 
 // Template returns email template name
@@ -32,6 +40,9 @@ type ForgotPasswordEmail struct {
 	UserName                   string
 	ResetLink                  string
 	CancelPasswordRecoveryLink string
+	LetUsKnowURL               string
+	ContactInfoURL             string
+	TermsAndConditionsURL      string
 }
 
 // Template returns email template name
@@ -42,10 +53,13 @@ func (*ForgotPasswordEmail) Subject() string { return "Password recovery request
 
 // ProjectInvitationEmail is mailservice template for project invitation email
 type ProjectInvitationEmail struct {
-	Origin      string
-	UserName    string
-	ProjectName string
-	SignInLink  string
+	Origin                string
+	UserName              string
+	ProjectName           string
+	SignInLink            string
+	LetUsKnowURL          string
+	ContactInfoURL        string
+	TermsAndConditionsURL string
 }
 
 // Template returns email template name

@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/testcontext"
 )
 
 func TestEndpoint_Run_httpSuccess(t *testing.T) {
@@ -25,7 +25,10 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	require.NotNil(t, listener)
 
 	log := zaptest.NewLogger(t)
-	service := NewService(log, newTestAuthDB(t, ctx))
+	authDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authDB.Close)
+
+	service := NewService(log, authDB)
 	endpoint := NewEndpoint(log, service, listener)
 	require.NotNil(t, endpoint)
 
@@ -68,7 +71,10 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 	require.NotNil(t, listener)
 
 	log := zaptest.NewLogger(t)
-	service := NewService(log, newTestAuthDB(t, ctx))
+	authDB := newTestAuthDB(t, ctx)
+	defer ctx.Check(authDB.Close)
+
+	service := NewService(log, authDB)
 	endpoint := NewEndpoint(log, service, listener)
 	require.NotNil(t, endpoint)
 

@@ -1,0 +1,89 @@
+pipeline {
+    agent {
+        dockerfile {
+            filename 'Dockerfile.jenkins'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            label 'main'
+        }
+    }
+    options {
+          timeout(time: 26, unit: 'MINUTES')
+    }
+    environment {
+        GOFLAGS = '-tags=drpc'
+    }
+    stages {
+        stage('Build') {
+            steps {
+                checkout scm
+
+                sh 'mkdir -p .build'
+
+                // make a backup of the mod file in case, for later linting
+                sh 'cp go.mod .build/go.mod.orig'
+
+                // download dependencies
+                sh 'go mod download'
+
+                sh 'go env'
+
+                sh 'make -j3 build-packages'
+                sh 'make install-sim'
+
+                sh 'service postgresql start'
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Test') {
+                    environment {
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorjdrpc?sslmode=disable'
+                    }
+                    steps {
+                        sh 'go env'
+                        sh 'psql -U postgres -c \'create database teststorjdrpc;\''
+                        sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
+                        sh 'go test -parallel 4 -p 6 -vet=off -timeout 20m -json -race ./... 2>&1 | tee .build/testsdrpc.json | go run ./scripts/xunit.go -out .build/testsdrpc.xml'
+                        sh 'go run scripts/check-clean-directory.go'
+                    }
+                    post {
+                        always {
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/testsdrpc.json'
+                            junit '.build/testsdrpc.xml'
+                        }
+                    }
+                }
+
+                stage('Sanity Check') {
+                    steps {
+                        sh 'go test -run TestRPCBuild -v ./pkg/rpc'
+                    }
+                }
+
+                stage('Integration') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorjdrpc2?sslmode=disable'
+                    }
+                    steps {
+                        sh 'go env'
+                        sh 'echo which-storj-sim $(which storj-sim)'
+                        sh 'psql -U postgres -c \'create database teststorjdrpc2;\''
+                        sh 'make test-sim'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
+            deleteDir()
+        }
+    }
+}

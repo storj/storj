@@ -10,14 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -292,105 +291,11 @@ func TestRandomizedSelection(t *testing.T) {
 	})
 }
 
-func TestIsVetted(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditCount = 1
-				config.Overlay.Node.UptimeCount = 1
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var err error
-		satellitePeer := planet.Satellites[0]
-		satellitePeer.Audit.Chore.Loop.Pause()
-		satellitePeer.Audit.Worker.Loop.Pause()
-		satellitePeer.Repair.Checker.Loop.Pause()
-		service := satellitePeer.Overlay.Service
-
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[0].ID(),
-			IsUp:         true,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[1].ID(),
-			IsUp:         true,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
-		require.NoError(t, err)
-		require.True(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
-		require.NoError(t, err)
-		require.True(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[2].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-
-		// test dq-ing for bad uptime
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[0].ID(),
-			IsUp:         false,
-			AuditSuccess: true,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 0,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		// test dq-ing for bad audit
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[1].ID(),
-			IsUp:         true,
-			AuditSuccess: false,
-			AuditLambda:  0,
-			AuditWeight:  1,
-			AuditDQ:      0.5,
-			UptimeLambda: 1,
-			UptimeWeight: 1,
-			UptimeDQ:     0.5,
-		})
-		require.NoError(t, err)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[0].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-
-		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
-		require.NoError(t, err)
-		require.False(t, reputable)
-	})
-}
-
 func TestNodeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
-		planet.Satellites[0].Discovery.Service.Refresh.Pause()
 
 		node, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
@@ -469,6 +374,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Contained:    false,
 			Disqualified: nil,
 			PieceCount:   0,
+			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: 0.99,
@@ -484,7 +390,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
 		startOfTest := time.Now().UTC()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -492,13 +398,14 @@ func TestUpdateCheckIn(t *testing.T) {
 		actualNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.True(t, actualNode.Reputation.LastContactSuccess.After(startOfTest))
-		require.True(t, actualNode.Reputation.LastContactFailure.Equal(time.Time{}.UTC()))
+		require.True(t, actualNode.Reputation.LastContactFailure.UTC().Equal(time.Time{}.UTC()))
 
 		// we need to overwrite the times so that the deep equal considers them the same
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
-		require.Equal(t, actualNode, expectedNode)
+		expectedNode.CreatedAt = actualNode.CreatedAt
+		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
 		startOfUpdateTest := time.Now().UTC()
@@ -521,7 +428,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), config)
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -553,7 +460,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), config)
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)

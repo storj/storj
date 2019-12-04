@@ -12,23 +12,6 @@ import "google/protobuf/timestamp.proto";
 
 package inspector;
 
-service KadInspector {
-  // CountNodes returns the number of nodes in the routing table
-  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // PingNode sends a PING RPC to a node and returns its availability
-  rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
-  // LookupNode triggers a Kademlia FindNode and returns the response
-  rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
-  // NodeInfo sends a PING RPC to a node and returns its local info
-  rpc NodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
-  // FindNear returns limit number of IDs "near" the Start ID
-  rpc FindNear(FindNearRequest) returns (FindNearResponse);
-  // DumpNodes returns all the nodes in the node database
-  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-  // GetBucketList returns all the buckets with all their nodes
-  rpc GetBucketList(GetBucketListRequest) returns (GetBucketListResponse);
-}
-
 service OverlayInspector {
   // CountNodes returns the number of nodes in the cache
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
@@ -54,7 +37,6 @@ service HealthInspector {
   // SegmentHealth will return stats about the health of a segment
   rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
 }
-
 
 // ListSegments
 message ListIrreparableSegmentsRequest {
@@ -82,82 +64,6 @@ message CountNodesResponse {
 message CountNodesRequest {
 }
 
-message GetBucketListRequest {
-}
-
-message GetBucketListResponse {
-	message Bucket {
-	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-	  repeated node.Node routing_nodes = 2;
-	  repeated node.Node cached_nodes = 3;
-	}
-	repeated Bucket buckets = 1;
-}
-
-// GetBuckets
-message GetBucketsRequest {
-}
-
-message GetBucketsResponse {
-  int64 total = 1;
-  repeated bytes ids = 2 [(gogoproto.customtype) = "NodeID"];
-}
-
-// GetBucket
-message GetBucketRequest {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-message GetBucketResponse {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  repeated node.Node nodes = 2;
-}
-
-message BucketList {
-  repeated node.Node nodes = 1;
-}
-// PingNode
-message PingNodeRequest {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  string address = 2;
-}
-
-message PingNodeResponse {
-  bool ok = 1;
-}
-
-message LookupNodeRequest {
-  string id = 1;
-  string address = 2;
-}
-
-message LookupNodeResponse {
-  node.Node node = 1;
-  node.NodeMetadata meta = 2;
-}
-
-message NodeInfoRequest {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  node.NodeAddress address = 2;
-}
-
-message NodeInfoResponse {
-  node.NodeType type = 1;
-  node.NodeOperator operator = 2;
-  node.NodeCapacity capacity = 3;
-  node.NodeVersion version = 4;
-}
-
-message FindNearRequest {
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  int64 limit = 3;
-}
-
-message FindNearResponse {
-  repeated node.Node nodes = 2;
-}
-
 message DumpNodesRequest {}
 
 message DumpNodesResponse {
@@ -181,7 +87,7 @@ message DashboardRequest {
 message DashboardResponse {
   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   int64 node_connections = 2;
-  string bootstrap_address = 3;
+  string bootstrap_address = 3 [deprecated=true];
   string internal_address = 4;
   string external_address = 5;
   string dashboard_address = 6;

@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink"
 )
 
@@ -28,8 +28,6 @@ func TestInspectorStats(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
-
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	var availableBandwidth int64
 	var availableSpace int64
@@ -130,7 +128,6 @@ func TestInspectorDashboard(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
-			assert.NotEmpty(t, response.LastPingFromAddress)
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)

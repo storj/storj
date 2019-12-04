@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -15,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -26,6 +25,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -47,6 +47,23 @@ type SQLDB interface {
 	GetDB() *sql.DB
 }
 
+// withTx is a helper method which executes callback in transaction scope
+func withTx(ctx context.Context, db *sql.DB, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+	return cb(tx)
+}
+
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
@@ -61,10 +78,7 @@ type Config struct {
 type DB struct {
 	log *zap.Logger
 
-	pieces interface {
-		storage.Blobs
-		Close() error
-	}
+	pieces storage.Blobs
 
 	dbDirectory string
 
@@ -218,7 +232,6 @@ func (db *DB) openDatabase(dbName string) error {
 
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return nil
 }
 
@@ -304,6 +317,11 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
+}
+
+// Satellites returns the instance of the Satellites database.
+func (db *DB) Satellites() satellites.DB {
+	return db.satellitesDB
 }
 
 // RawDatabases are required for testing purposes
@@ -675,7 +693,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					)`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						timestamp TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, timestamp)
 					)`,
@@ -735,7 +753,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DROP TABLE storage_usage`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, interval_start)
 					)`,
@@ -748,7 +766,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE TABLE satellites (
 						node_id BLOB NOT NULL,
-						address TEXT NOT NUll,
+						address TEXT NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
@@ -766,8 +784,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.deprecatedInfoDB,
-				Description: "Split into multiple sqlite databases",
+				Description: "Vacuum info db",
 				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					_, err := db.deprecatedInfoDB.GetDB().Exec("VACUUM;")
+					return err
+				}),
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Split into multiple sqlite databases",
+				Version:     23,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
@@ -804,7 +831,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			{
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
-				Version:     23,
+				Version:     24,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
@@ -828,6 +855,35 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 
 					return nil
 				}),
+			},
+			{
+				DB:          db.satellitesDB,
+				Description: "Remove address from satellites table",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER TABLE satellites RENAME TO _satellites_old`,
+					`CREATE TABLE satellites (
+						node_id BLOB NOT NULL,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					)`,
+					`INSERT INTO satellites (node_id, added_at, status)
+						SELECT node_id, added_at, status
+						FROM _satellites_old`,
+					`DROP TABLE _satellites_old`,
+				},
+			},
+			{
+				DB:          db.pieceExpirationDB,
+				Description: "Add Trash column to pieceExpirationDB",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_expirations ADD COLUMN trash INTEGER NOT NULL DEFAULT 0`,
+					`CREATE INDEX idx_piece_expirations_trashed
+						ON piece_expirations(satellite_id, trash)
+						WHERE trash = 1`,
+				},
 			},
 		},
 	}

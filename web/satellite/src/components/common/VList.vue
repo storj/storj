@@ -4,13 +4,14 @@
 <template>
     <div class="item-component">
         <component
-            v-for="item in dataSet"
+            v-for="(item, key) in dataSet"
             class="item-component__item"
             :is="itemComponent"
             :item-data="item"
             @click.native="onItemClick(item)"
             :class="{ selected: item.isSelected }"
-            :key="item.name"/>
+            :key="key"
+        />
     </div>
 </template>
 
@@ -35,7 +36,7 @@ export default class VList extends Vue {
         width: 100%;
 
         &__item {
-             width: 100%;
+            width: 100%;
         }
     }
 </style>

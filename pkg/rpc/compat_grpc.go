@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build !drpc
+// +build grpc
 
 package rpc
 
@@ -27,20 +27,17 @@ type (
 	// IrreparableInspectorClient is an alias to the grpc client interface
 	IrreparableInspectorClient = pb.IrreparableInspectorClient
 
-	// KadInspectorClient is an alias to the grpc client interface
-	KadInspectorClient = pb.KadInspectorClient
-
 	// MetainfoClient is an alias to the grpc client interface
 	MetainfoClient = pb.MetainfoClient
 
 	// NodeClient is an alias to the grpc client interface
 	NodeClient = pb.NodeClient
 
+	// NodeGracefulExitClient is an alias to the grpc client interface
+	NodeGracefulExitClient = pb.NodeGracefulExitClient
+
 	// NodeStatsClient is an alias to the grpc client interface
 	NodeStatsClient = pb.NodeStatsClient
-
-	// NodesClient is an alias to the grpc client interface
-	NodesClient = pb.NodesClient
 
 	// OrdersClient is an alias to the grpc client interface
 	OrdersClient = pb.OrdersClient
@@ -48,11 +45,20 @@ type (
 	// OverlayInspectorClient is an alias to the grpc client interface
 	OverlayInspectorClient = pb.OverlayInspectorClient
 
+	// PaymentsClient is an alias to the grpc client interface
+	PaymentsClient = pb.PaymentsClient
+
 	// PieceStoreInspectorClient is an alias to the grpc client interface
 	PieceStoreInspectorClient = pb.PieceStoreInspectorClient
 
 	// PiecestoreClient is an alias to the grpc client interface
 	PiecestoreClient = pb.PiecestoreClient
+
+	// ReferralManagerClient is an alias to the grpc client interface
+	ReferralManagerClient = pb.ReferralManagerClient
+
+	// SatelliteGracefulExitClient is an alias to the grpc client interface
+	SatelliteGracefulExitClient = pb.SatelliteGracefulExitClient
 
 	// VouchersClient is an alias to the grpc client interface
 	VouchersClient = pb.VouchersClient
@@ -98,16 +104,6 @@ func (c *Conn) IrreparableInspectorClient() IrreparableInspectorClient {
 	return NewIrreparableInspectorClient(c.raw)
 }
 
-// NewKadInspectorClient returns the grpc version of a KadInspectorClient
-func NewKadInspectorClient(rc *RawConn) KadInspectorClient {
-	return pb.NewKadInspectorClient(rc)
-}
-
-// KadInspectorClient returns a KadInspectorClient for this connection
-func (c *Conn) KadInspectorClient() KadInspectorClient {
-	return NewKadInspectorClient(c.raw)
-}
-
 // NewMetainfoClient returns the grpc version of a MetainfoClient
 func NewMetainfoClient(rc *RawConn) MetainfoClient {
 	return pb.NewMetainfoClient(rc)
@@ -128,6 +124,16 @@ func (c *Conn) NodeClient() NodeClient {
 	return NewNodeClient(c.raw)
 }
 
+// NewNodeGracefulExitClient returns the grpc version of a NodeGracefulExitClient
+func NewNodeGracefulExitClient(rc *RawConn) NodeGracefulExitClient {
+	return pb.NewNodeGracefulExitClient(rc)
+}
+
+// NodeGracefulExitClient returns a NodeGracefulExitClient for this connection
+func (c *Conn) NodeGracefulExitClient() NodeGracefulExitClient {
+	return NewNodeGracefulExitClient(c.raw)
+}
+
 // NewNodeStatsClient returns the grpc version of a NodeStatsClient
 func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 	return pb.NewNodeStatsClient(rc)
@@ -136,16 +142,6 @@ func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 // NodeStatsClient returns a NodeStatsClient for this connection
 func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
-}
-
-// NewNodesClient returns the grpc version of a NodesClient
-func NewNodesClient(rc *RawConn) NodesClient {
-	return pb.NewNodesClient(rc)
-}
-
-// NodesClient returns a NodesClient for this connection
-func (c *Conn) NodesClient() NodesClient {
-	return NewNodesClient(c.raw)
 }
 
 // NewOrdersClient returns the grpc version of a OrdersClient
@@ -168,6 +164,16 @@ func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
 }
 
+// NewPaymentsClient returns the grpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
+}
+
 // NewPieceStoreInspectorClient returns the grpc version of a PieceStoreInspectorClient
 func NewPieceStoreInspectorClient(rc *RawConn) PieceStoreInspectorClient {
 	return pb.NewPieceStoreInspectorClient(rc)
@@ -186,6 +192,26 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewReferralManagerClient returns the grpc version of a ReferralManagerClient
+func NewReferralManagerClient(rc *RawConn) ReferralManagerClient {
+	return pb.NewReferralManagerClient(rc)
+}
+
+// ReferralManagerClient returns a ReferralManagerClient for this connection
+func (c *Conn) ReferralManagerClient() ReferralManagerClient {
+	return NewReferralManagerClient(c.raw)
+}
+
+// NewSatelliteGracefulExitClient returns the grpc version of a SatelliteGracefulExitClient
+func NewSatelliteGracefulExitClient(rc *RawConn) SatelliteGracefulExitClient {
+	return pb.NewSatelliteGracefulExitClient(rc)
+}
+
+// SatelliteGracefulExitClient returns a SatelliteGracefulExitClient for this connection
+func (c *Conn) SatelliteGracefulExitClient() SatelliteGracefulExitClient {
+	return NewSatelliteGracefulExitClient(c.raw)
 }
 
 // NewVouchersClient returns the grpc version of a VouchersClient

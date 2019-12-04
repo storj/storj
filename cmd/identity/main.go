@@ -15,8 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -25,6 +23,9 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 )
 
 const (
@@ -55,7 +56,7 @@ var (
 
 	//nolint
 	config struct {
-		Difficulty     uint64 `default:"30" help:"minimum difficulty for identity generation"`
+		Difficulty     uint64 `default:"36" help:"minimum difficulty for identity generation"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
@@ -63,7 +64,7 @@ var (
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 
-		Version version.Config
+		Version checker.Config
 	}
 
 	identityDir, configDir string
@@ -90,7 +91,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err := checker.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err = checker.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {
-		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
+		return err
 	}
 
 	signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)

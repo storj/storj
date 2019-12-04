@@ -8,6 +8,7 @@ import (
 
 	"github.com/graphql-go/graphql"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
 
@@ -25,8 +26,6 @@ const (
 	BucketUsageType = "bucketUsage"
 	// BucketUsagePageType is a field name for bucket usage page
 	BucketUsagePageType = "bucketUsagePage"
-	// PaymentMethodType is a field name for payment method
-	PaymentMethodType = "paymentMethod"
 	// ProjectMembersPageType is a field name for project members page
 	ProjectMembersPageType = "projectMembersPage"
 	// ProjectMembersCursorInputType is a graphql type name for project members
@@ -35,6 +34,8 @@ const (
 	APIKeysPageType = "apiKeysPage"
 	// APIKeysCursorInputType is a graphql type name for api keys
 	APIKeysCursorInputType = "apiKeysCursor"
+	// FieldOwnerID is a field name for "ownerId"
+	FieldOwnerID = "ownerId"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -49,8 +50,6 @@ const (
 	FieldUsage = "usage"
 	// FieldBucketUsages is a field name for bucket usages
 	FieldBucketUsages = "bucketUsages"
-	// FieldPaymentMethods is a field name for payments methods
-	FieldPaymentMethods = "paymentMethods"
 	// FieldStorage is a field name for storage total
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total
@@ -65,14 +64,6 @@ const (
 	FieldTotalCount = "totalCount"
 	// FieldProjectMembers is a field name for project members
 	FieldProjectMembers = "projectMembers"
-	// FieldCardBrand is a field name for credit card brand
-	FieldCardBrand = "brand"
-	// FieldCardLastFour is a field name for credit card last four digits
-	FieldCardLastFour = "lastFour"
-	// FieldCardToken is a field name for credit card token
-	FieldCardToken = "cardToken"
-	// FieldIsDefault is a field name for default payment method
-	FieldIsDefault = "isDefault"
 	// CursorArg is an argument name for cursor
 	CursorArg = "cursor"
 	// PageArg ia an argument name for page number
@@ -102,6 +93,9 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.String,
 			},
 			FieldName: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldOwnerID: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldDescription: &graphql.Field{
@@ -242,35 +236,6 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					return page, nil
 				},
 			},
-			FieldPaymentMethods: &graphql.Field{
-				Type: graphql.NewList(types.paymentMethod),
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					project, _ := p.Source.(*console.Project)
-
-					paymentMethods, err := service.GetProjectPaymentMethods(p.Context, project.ID)
-					if err != nil {
-						return nil, HandleError(err)
-					}
-
-					var projectPaymentMethods []projectPayment
-					for _, paymentMethod := range paymentMethods {
-						projectPaymentMethod := projectPayment{
-							ID:         paymentMethod.ID.String(),
-							LastFour:   paymentMethod.Card.LastFour,
-							AddedAt:    paymentMethod.CreatedAt,
-							CardBrand:  paymentMethod.Card.Brand,
-							ExpMonth:   paymentMethod.Card.ExpirationMonth,
-							ExpYear:    paymentMethod.Card.ExpirationYear,
-							HolderName: paymentMethod.Card.Name,
-							IsDefault:  paymentMethod.IsDefault,
-						}
-
-						projectPaymentMethods = append(projectPaymentMethods, projectPaymentMethod)
-					}
-
-					return projectPaymentMethods, nil
-				},
-			},
 		},
 	})
 }
@@ -389,61 +354,6 @@ func graphqlProjectUsage() *graphql.Object {
 	})
 }
 
-const (
-	// FieldExpirationYear is field name for expiration year
-	FieldExpirationYear = "expYear"
-	// FieldExpirationMonth is field name for expiration month
-	FieldExpirationMonth = "expMonth"
-	// FieldHolderName is field name for holder name
-	FieldHolderName = "holderName"
-	// FieldAddedAt is field name for added at date
-	FieldAddedAt = "addedAt"
-)
-
-// graphqlPaymentMethod creates invoice payment method graphql type
-func graphqlPaymentMethod() *graphql.Object {
-	return graphql.NewObject(graphql.ObjectConfig{
-		Name: PaymentMethodType,
-		Fields: graphql.Fields{
-			FieldID: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldExpirationYear: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldExpirationMonth: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldCardBrand: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldCardLastFour: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldHolderName: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldAddedAt: &graphql.Field{
-				Type: graphql.DateTime,
-			},
-			FieldIsDefault: &graphql.Field{
-				Type: graphql.Boolean,
-			},
-		},
-	})
-}
-
-type projectPayment struct {
-	ID         string
-	ExpYear    int64
-	ExpMonth   int64
-	CardBrand  string
-	LastFour   string
-	HolderName string
-	AddedAt    time.Time
-	IsDefault  bool
-}
-
 // fromMapProjectInfo creates console.ProjectInfo from input args
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
@@ -453,7 +363,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 }
 
 // fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
-func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.BucketUsageCursor) {
+func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 

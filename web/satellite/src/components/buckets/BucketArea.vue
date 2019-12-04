@@ -3,40 +3,39 @@
 
 <template>
     <div>
-        <NoBucketArea v-if="!totalCount && !search" />
+        <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p class="buckets-header__title">Buckets</p>
                 <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
-                    :search="fetch"/>
+                    :search="fetch"
+                />
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="10" fill="#2683FF"/>
-                        <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
-                    </svg>
+                    <NotificationIcon/>
                     <p class="buckets-notification__text">Usage will appear within an hour of activity.</p>
                 </div>
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader />
+                <SortingHeader/>
                 <VList
                     :data-set="buckets"
                     :item-component="itemComponent"
-                    :on-item-click="doNothing"/>
+                    :on-item-click="doNothing"
+                />
                 <VPagination
-                    v-if="totalPageCount > 1"
+                    v-if="isPaginationShown"
                     :total-page-count="totalPageCount"
-                    :on-page-click-callback="onPageClick" />
+                    :on-page-click-callback="onPageClick"
+                />
             </div>
-            <EmptyState
-                class="empty-container"
-                v-if="!totalPageCount && search"
-                main-title="Nothing found :("
-                :image-source="emptyImage" />
+            <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
+                <h1 class="empty-search-result-area__title">No results found</h1>
+                <EmptySearchIcon class="empty-search-result-area__image"/>
+            </div>
         </div>
     </div>
 </template>
@@ -47,37 +46,44 @@ import { Component, Vue } from 'vue-property-decorator';
 import BucketItem from '@/components/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/buckets/SortingHeader.vue';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
+import EmptySearchIcon from '@/../static/images/buckets/emptySearch.svg';
+import NotificationIcon from '@/../static/images/buckets/notification.svg';
+
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 const {
     FETCH,
     SET_SEARCH,
+    CLEAR,
 } = BUCKET_ACTIONS;
 
 @Component({
     components: {
-        EmptyState,
         SortingHeader,
         BucketItem,
         NoBucketArea,
         VHeader,
         VPagination,
         VList,
+        NotificationIcon,
+        EmptySearchIcon,
     },
 })
 export default class BucketArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
-    public mounted(): void {
-        this.$store.dispatch(FETCH, 1);
+    public async mounted(): Promise<void> {
+        await this.$store.dispatch(FETCH, 1);
+    }
+
+    public async beforeDestroy(): Promise<void> {
+        await this.$store.dispatch(SET_SEARCH, '');
     }
 
     public doNothing(): void {
@@ -104,13 +110,25 @@ export default class BucketArea extends Vue {
         return this.$store.getters.cursor.search;
     }
 
+    public get isNoBucketAreaShown(): boolean {
+        return !this.totalCount && !this.search;
+    }
+
+    public get isPaginationShown(): boolean {
+        return this.totalPageCount > 1;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return !!(!this.totalPageCount && this.search);
+    }
+
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
 
         try {
             await this.$store.dispatch(FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
         }
     }
 
@@ -118,7 +136,7 @@ export default class BucketArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, page);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
         }
     }
 }
@@ -127,25 +145,26 @@ export default class BucketArea extends Vue {
 <style scoped lang="scss">
     .buckets-header {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        padding: 40px 60px 20px 60px;
-        
+        padding: 32px 65px 20px 65px;
+
         &__title {
-            font-family: 'font_bold';
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
-            color: #384B65;
+            color: #263549;
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
+            user-select: none;
         }
     }
 
     .header-container.buckets-header-component {
         height: 55px !important;
     }
-    
+
     .buckets-container,
     .buckets-notification-container {
         padding: 0 60px 0 60px;
@@ -158,17 +177,36 @@ export default class BucketArea extends Vue {
         padding: 16px 32px;
         align-items: center;
         border-radius: 12px;
-        background-color: #D0E3FE;
+        background-color: #d0e3fe;
         margin-bottom: 25px;
 
         &__text {
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             margin-left: 26px;
         }
     }
 
+    .empty-search-result-area {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            margin-top: 104px;
+        }
+
+        &__image {
+            margin-top: 40px;
+        }
+    }
+
     @media screen and (max-width: 1024px) {
+
         .buckets-header {
             padding: 40px 40px 20px 40px;
         }
@@ -180,38 +218,36 @@ export default class BucketArea extends Vue {
     }
 
     @media screen and (max-height: 880px) {
+
         .buckets-overflow {
             overflow-y: scroll;
             height: 750px;
         }
-        
-        .empty-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
     }
 
     @media screen and (max-height: 853px) {
+
         .buckets-overflow {
             height: 700px;
         }
     }
 
     @media screen and (max-height: 805px) {
+
         .buckets-overflow {
             height: 630px;
         }
     }
 
     @media screen and (max-height: 740px) {
+
         .buckets-overflow {
             height: 600px;
         }
     }
-    
+
     @media screen and (max-height: 700px) {
+
         .buckets-overflow {
             height: 570px;
         }

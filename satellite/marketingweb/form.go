@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/schema"
 
-	"storj.io/storj/internal/currency"
+	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/rewards"
 )
 

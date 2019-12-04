@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that apikeys implements console.APIKeys.
+var _ console.APIKeys = (*apikeys)(nil)
+
 // apikeys is an implementation of satellite.APIKeys
 type apikeys struct {
 	methods dbx.Methods
@@ -45,13 +48,13 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		SELECT COUNT(*)
 		FROM api_keys ak
 		WHERE ak.project_id = ?
-		AND ak.name LIKE ?
+		AND lower(ak.name) LIKE ?
 	`)
 
 	countRow := keys.db.QueryRowContext(ctx,
 		countQuery,
 		projectID[:],
-		search)
+		strings.ToLower(search))
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
@@ -68,7 +71,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at 
 		FROM api_keys ak
 		WHERE ak.project_id = ?
-		AND ak.name LIKE ?
+		AND lower(ak.name) LIKE ?
 		ORDER BY ` + sanitizedAPIKeyOrderColumnName(cursor.Order) + `
 		` + sanitizeOrderDirectionName(page.OrderDirection) + `
 		LIMIT ? OFFSET ?`)
@@ -76,7 +79,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	rows, err := keys.db.QueryContext(ctx,
 		repoundQuery,
 		projectID[:],
-		search,
+		strings.ToLower(search),
 		page.Limit,
 		page.Offset)
 
@@ -144,6 +147,19 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbKey, err := keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
+	if err != nil {
+		return nil, err
+	}
+
+	return fromDBXAPIKey(ctx, dbKey)
+}
+
+// GetByNameAndProjectID implements satellite.APIKeys
+func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbKey, err := keys.methods.Get_ApiKey_By_Name_And_ProjectId(ctx,
+		dbx.ApiKey_Name(name),
+		dbx.ApiKey_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}

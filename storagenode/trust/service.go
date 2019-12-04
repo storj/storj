@@ -17,7 +17,7 @@ import (
 )
 
 // Error is the default error class
-var Error = errs.Class("trust:")
+var Error = errs.Class("trust")
 
 var mon = monkit.Package()
 

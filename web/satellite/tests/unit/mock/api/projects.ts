@@ -4,13 +4,13 @@
 import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
 
 /**
- * Mock for CreditsApi
+ * Mock for ProjectsApi
  */
 export class ProjectsApiMock implements ProjectsApi {
-    private mockProject: Project;
+    private mockProjects: Project[];
 
-    public setMockProject(mockCredits: Project): void {
-        this.mockProject = mockCredits;
+    public setMockProjects(mockProjects: Project[]): void {
+        this.mockProjects = mockProjects;
     }
 
     create(createProjectModel: CreateProjectModel): Promise<Project> {
@@ -22,10 +22,7 @@ export class ProjectsApiMock implements ProjectsApi {
     }
 
     get(): Promise<Project[]> {
-        const result = Array<Project>();
-        result.push(this.mockProject);
-
-        return Promise.resolve(result);
+        return Promise.resolve(this.mockProjects);
     }
 
     update(projectId: string, description: string): Promise<void> {

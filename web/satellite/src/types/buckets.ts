@@ -33,6 +33,14 @@ export class Bucket {
         this.since = since;
         this.before = before;
     }
+
+    public formattedBucketName(): string {
+        if (this.bucketName.length < 12) {
+            return this.bucketName;
+        }
+
+        return this.bucketName.slice(0, 12) + '...';
+    }
 }
 
 /**

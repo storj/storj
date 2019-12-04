@@ -37,7 +37,7 @@ case $1 in
 		done
 		echo "done"
 		echo -n "generating alpha identities"
-		for dir in ${basepath}/{bootstrap/*,satellite/*,storagenode/*,gateway/*}; do
+		for dir in ${basepath}/{satellite/*,storagenode/*,gateway/*}; do
 			echo -n "."
 			_ca_basepath=$(rand_ca_basepath)
 			_ca_cert=${dir}/ca-alpha.cert

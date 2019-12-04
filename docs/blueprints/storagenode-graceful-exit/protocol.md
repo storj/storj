@@ -24,7 +24,9 @@ The storage node has a Graceful Exit service, which ensures that the process is 
 
 The `worker` polls the satellite, requesting pieces to transfer. The satellite will initiate a Graceful Exit if not already initiated. When first initiated, the satellite will start gathering pieces for the exiting node and return `NotReady`. The satellite will continue to return `NotReady` until the piece gathering process has completed.
 
-The `worker` should continue to poll the satellite at a configurable interval until it returns pieces to transfer.  
+The `worker` should continue to poll the satellite at a configurable interval until it returns pieces to transfer.
+
+The satellite should return pieces to transfer from the transfer queue if piece durability <= optimal. If durability > optimal, we remove the exiting node from the segment / pointer.
 
 The storage node should concurrently transfer pieces returned by the satellite. The storage node should send a `TransferSucceeded` message as pieces are successfuly transfered. The Storage node should send a `TransferFailed`, with reason, on failure.
 

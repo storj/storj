@@ -1,17 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build drpc
+// +build !grpc
 
 package rpc
 
 import (
-	"storj.io/drpc/drpcconn"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
 // RawConn is a type alias to a drpc client connection
-type RawConn = drpcconn.Conn
+type RawConn = rpcpool.Conn
 
 type (
 	// CertificatesClient is an alias to the drpc client interface
@@ -26,20 +26,17 @@ type (
 	// IrreparableInspectorClient is an alias to the drpc client interface
 	IrreparableInspectorClient = pb.DRPCIrreparableInspectorClient
 
-	// KadInspectorClient is an alias to the drpc client interface
-	KadInspectorClient = pb.DRPCKadInspectorClient
-
 	// MetainfoClient is an alias to the drpc client interface
 	MetainfoClient = pb.DRPCMetainfoClient
 
 	// NodeClient is an alias to the drpc client interface
 	NodeClient = pb.DRPCNodeClient
 
+	// NodeGracefulExitClient is an alias to the drpc client interface
+	NodeGracefulExitClient = pb.DRPCNodeGracefulExitClient
+
 	// NodeStatsClient is an alias to the drpc client interface
 	NodeStatsClient = pb.DRPCNodeStatsClient
-
-	// NodesClient is an alias to the drpc client interface
-	NodesClient = pb.DRPCNodesClient
 
 	// OrdersClient is an alias to the drpc client interface
 	OrdersClient = pb.DRPCOrdersClient
@@ -47,11 +44,20 @@ type (
 	// OverlayInspectorClient is an alias to the drpc client interface
 	OverlayInspectorClient = pb.DRPCOverlayInspectorClient
 
+	// PaymentsClient is an alias to the drpc client interface
+	PaymentsClient = pb.DRPCPaymentsClient
+
 	// PieceStoreInspectorClient is an alias to the drpc client interface
 	PieceStoreInspectorClient = pb.DRPCPieceStoreInspectorClient
 
 	// PiecestoreClient is an alias to the drpc client interface
 	PiecestoreClient = pb.DRPCPiecestoreClient
+
+	// ReferralManagerClient is an alias to the drpc client interface
+	ReferralManagerClient = pb.DRPCReferralManagerClient
+
+	// SatelliteGracefulExitClient is an alias to the drpc client interface
+	SatelliteGracefulExitClient = pb.DRPCSatelliteGracefulExitClient
 
 	// VouchersClient is an alias to the drpc client interface
 	VouchersClient = pb.DRPCVouchersClient
@@ -97,16 +103,6 @@ func (c *Conn) IrreparableInspectorClient() IrreparableInspectorClient {
 	return NewIrreparableInspectorClient(c.raw)
 }
 
-// NewKadInspectorClient returns the drpc version of a KadInspectorClient
-func NewKadInspectorClient(rc *RawConn) KadInspectorClient {
-	return pb.NewDRPCKadInspectorClient(rc)
-}
-
-// KadInspectorClient returns a KadInspectorClient for this connection
-func (c *Conn) KadInspectorClient() KadInspectorClient {
-	return NewKadInspectorClient(c.raw)
-}
-
 // NewMetainfoClient returns the drpc version of a MetainfoClient
 func NewMetainfoClient(rc *RawConn) MetainfoClient {
 	return pb.NewDRPCMetainfoClient(rc)
@@ -127,6 +123,16 @@ func (c *Conn) NodeClient() NodeClient {
 	return NewNodeClient(c.raw)
 }
 
+// NewNodeGracefulExitClient returns the drpc version of a NodeGracefulExitClient
+func NewNodeGracefulExitClient(rc *RawConn) NodeGracefulExitClient {
+	return pb.NewDRPCNodeGracefulExitClient(rc)
+}
+
+// NodeGracefulExitClient returns a NodeGracefulExitClient for this connection
+func (c *Conn) NodeGracefulExitClient() NodeGracefulExitClient {
+	return NewNodeGracefulExitClient(c.raw)
+}
+
 // NewNodeStatsClient returns the drpc version of a NodeStatsClient
 func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 	return pb.NewDRPCNodeStatsClient(rc)
@@ -135,16 +141,6 @@ func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 // NodeStatsClient returns a NodeStatsClient for this connection
 func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
-}
-
-// NewNodesClient returns the drpc version of a NodesClient
-func NewNodesClient(rc *RawConn) NodesClient {
-	return pb.NewDRPCNodesClient(rc)
-}
-
-// NodesClient returns a NodesClient for this connection
-func (c *Conn) NodesClient() NodesClient {
-	return NewNodesClient(c.raw)
 }
 
 // NewOrdersClient returns the drpc version of a OrdersClient
@@ -167,6 +163,16 @@ func (c *Conn) OverlayInspectorClient() OverlayInspectorClient {
 	return NewOverlayInspectorClient(c.raw)
 }
 
+// NewPaymentsClient returns the drpc version of a PaymentsClient
+func NewPaymentsClient(rc *RawConn) PaymentsClient {
+	return pb.NewDRPCPaymentsClient(rc)
+}
+
+// PaymentsClient returns a PaymentsClient for this connection
+func (c *Conn) PaymentsClient() PaymentsClient {
+	return NewPaymentsClient(c.raw)
+}
+
 // NewPieceStoreInspectorClient returns the drpc version of a PieceStoreInspectorClient
 func NewPieceStoreInspectorClient(rc *RawConn) PieceStoreInspectorClient {
 	return pb.NewDRPCPieceStoreInspectorClient(rc)
@@ -185,6 +191,26 @@ func NewPiecestoreClient(rc *RawConn) PiecestoreClient {
 // PiecestoreClient returns a PiecestoreClient for this connection
 func (c *Conn) PiecestoreClient() PiecestoreClient {
 	return NewPiecestoreClient(c.raw)
+}
+
+// NewReferralManagerClient returns the drpc version of a ReferralManagerClient
+func NewReferralManagerClient(rc *RawConn) ReferralManagerClient {
+	return pb.NewDRPCReferralManagerClient(rc)
+}
+
+// ReferralManagerClient returns a ReferralManagerClient for this connection
+func (c *Conn) ReferralManagerClient() ReferralManagerClient {
+	return NewReferralManagerClient(c.raw)
+}
+
+// NewSatelliteGracefulExitClient returns the drpc version of a SatelliteGracefulExitClient
+func NewSatelliteGracefulExitClient(rc *RawConn) SatelliteGracefulExitClient {
+	return pb.NewDRPCSatelliteGracefulExitClient(rc)
+}
+
+// SatelliteGracefulExitClient returns a SatelliteGracefulExitClient for this connection
+func (c *Conn) SatelliteGracefulExitClient() SatelliteGracefulExitClient {
+	return NewSatelliteGracefulExitClient(c.raw)
 }
 
 // NewVouchersClient returns the drpc version of a VouchersClient

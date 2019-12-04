@@ -59,27 +59,10 @@ export default class VCheckbox extends Vue {
         border-radius: 4px;
     }
 
-    .container:hover .checkmark-input ~ .checkmark {
-        background-color: #ccc;
-    }
-
-    .container .checkmark-input:checked ~ .checkmark {
-        border: 2px solid #2196F3;
-        background-color: #2196F3;
-    }
-
     .checkmark:after {
-        content: "";
+        content: '';
         position: absolute;
         display: none;
-    }
-
-    .checkmark.error {
-        border-color: red;
-    }
-
-    .container .checkmark-input:checked ~ .checkmark:after {
-        display: block;
     }
 
     .container .checkmark:after {
@@ -92,5 +75,22 @@ export default class VCheckbox extends Vue {
         -webkit-transform: rotate(45deg);
         -ms-transform: rotate(45deg);
         transform: rotate(45deg);
+    }
+
+    .container:hover .checkmark-input ~ .checkmark {
+        background-color: #ccc;
+    }
+
+    .container .checkmark-input:checked ~ .checkmark {
+        border: 2px solid #2196f3;
+        background-color: #2196f3;
+    }
+
+    .checkmark.error {
+        border-color: red;
+    }
+
+    .container .checkmark-input:checked ~ .checkmark:after {
+        display: block;
     }
 </style>

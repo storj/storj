@@ -20,6 +20,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AllocatedStorageConfig.wxs" />
+    <Compile Include="StorjValidateUpgradeDlg.wxs" />
+    <Compile Include="StorjWelcomeDlg.wxs" />
     <Compile Include="ValidationError.wxs" />
     <Compile Include="InstallDirConfig.wxs" />
     <Compile Include="CustomInstallDir.wxs" />
@@ -32,6 +34,10 @@
     <Compile Include="Product.wxs" />
   </ItemGroup>
   <ItemGroup>
+    <WixExtension Include="WixUtilExtension">
+      <HintPath>$(WixExtDir)\WixUtilExtension.dll</HintPath>
+      <Name>WixUtilExtension</Name>
+    </WixExtension>
     <WixExtension Include="WixFirewallExtension">
       <HintPath>$(WixExtDir)\WixFirewallExtension.dll</HintPath>
       <Name>WixFirewallExtension</Name>

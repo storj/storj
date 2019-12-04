@@ -252,649 +252,6 @@ func (m *CountNodesRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CountNodesRequest proto.InternalMessageInfo
 
-type GetBucketListRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketListRequest) Reset()         { *m = GetBucketListRequest{} }
-func (m *GetBucketListRequest) String() string { return proto.CompactTextString(m) }
-func (*GetBucketListRequest) ProtoMessage()    {}
-func (*GetBucketListRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{5}
-}
-func (m *GetBucketListRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketListRequest.Unmarshal(m, b)
-}
-func (m *GetBucketListRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketListRequest.Marshal(b, m, deterministic)
-}
-func (m *GetBucketListRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketListRequest.Merge(m, src)
-}
-func (m *GetBucketListRequest) XXX_Size() int {
-	return xxx_messageInfo_GetBucketListRequest.Size(m)
-}
-func (m *GetBucketListRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketListRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketListRequest proto.InternalMessageInfo
-
-type GetBucketListResponse struct {
-	Buckets              []*GetBucketListResponse_Bucket `protobuf:"bytes,1,rep,name=buckets,proto3" json:"buckets,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
-	XXX_unrecognized     []byte                          `json:"-"`
-	XXX_sizecache        int32                           `json:"-"`
-}
-
-func (m *GetBucketListResponse) Reset()         { *m = GetBucketListResponse{} }
-func (m *GetBucketListResponse) String() string { return proto.CompactTextString(m) }
-func (*GetBucketListResponse) ProtoMessage()    {}
-func (*GetBucketListResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{6}
-}
-func (m *GetBucketListResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketListResponse.Unmarshal(m, b)
-}
-func (m *GetBucketListResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketListResponse.Marshal(b, m, deterministic)
-}
-func (m *GetBucketListResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketListResponse.Merge(m, src)
-}
-func (m *GetBucketListResponse) XXX_Size() int {
-	return xxx_messageInfo_GetBucketListResponse.Size(m)
-}
-func (m *GetBucketListResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketListResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketListResponse proto.InternalMessageInfo
-
-func (m *GetBucketListResponse) GetBuckets() []*GetBucketListResponse_Bucket {
-	if m != nil {
-		return m.Buckets
-	}
-	return nil
-}
-
-type GetBucketListResponse_Bucket struct {
-	BucketId             NodeID   `protobuf:"bytes,1,opt,name=bucket_id,json=bucketId,proto3,customtype=NodeID" json:"bucket_id"`
-	RoutingNodes         []*Node  `protobuf:"bytes,2,rep,name=routing_nodes,json=routingNodes,proto3" json:"routing_nodes,omitempty"`
-	CachedNodes          []*Node  `protobuf:"bytes,3,rep,name=cached_nodes,json=cachedNodes,proto3" json:"cached_nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketListResponse_Bucket) Reset()         { *m = GetBucketListResponse_Bucket{} }
-func (m *GetBucketListResponse_Bucket) String() string { return proto.CompactTextString(m) }
-func (*GetBucketListResponse_Bucket) ProtoMessage()    {}
-func (*GetBucketListResponse_Bucket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{6, 0}
-}
-func (m *GetBucketListResponse_Bucket) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketListResponse_Bucket.Unmarshal(m, b)
-}
-func (m *GetBucketListResponse_Bucket) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketListResponse_Bucket.Marshal(b, m, deterministic)
-}
-func (m *GetBucketListResponse_Bucket) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketListResponse_Bucket.Merge(m, src)
-}
-func (m *GetBucketListResponse_Bucket) XXX_Size() int {
-	return xxx_messageInfo_GetBucketListResponse_Bucket.Size(m)
-}
-func (m *GetBucketListResponse_Bucket) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketListResponse_Bucket.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketListResponse_Bucket proto.InternalMessageInfo
-
-func (m *GetBucketListResponse_Bucket) GetRoutingNodes() []*Node {
-	if m != nil {
-		return m.RoutingNodes
-	}
-	return nil
-}
-
-func (m *GetBucketListResponse_Bucket) GetCachedNodes() []*Node {
-	if m != nil {
-		return m.CachedNodes
-	}
-	return nil
-}
-
-// GetBuckets
-type GetBucketsRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketsRequest) Reset()         { *m = GetBucketsRequest{} }
-func (m *GetBucketsRequest) String() string { return proto.CompactTextString(m) }
-func (*GetBucketsRequest) ProtoMessage()    {}
-func (*GetBucketsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{7}
-}
-func (m *GetBucketsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketsRequest.Unmarshal(m, b)
-}
-func (m *GetBucketsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketsRequest.Marshal(b, m, deterministic)
-}
-func (m *GetBucketsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketsRequest.Merge(m, src)
-}
-func (m *GetBucketsRequest) XXX_Size() int {
-	return xxx_messageInfo_GetBucketsRequest.Size(m)
-}
-func (m *GetBucketsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketsRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketsRequest proto.InternalMessageInfo
-
-type GetBucketsResponse struct {
-	Total                int64    `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Ids                  []NodeID `protobuf:"bytes,2,rep,name=ids,proto3,customtype=NodeID" json:"ids,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketsResponse) Reset()         { *m = GetBucketsResponse{} }
-func (m *GetBucketsResponse) String() string { return proto.CompactTextString(m) }
-func (*GetBucketsResponse) ProtoMessage()    {}
-func (*GetBucketsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{8}
-}
-func (m *GetBucketsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketsResponse.Unmarshal(m, b)
-}
-func (m *GetBucketsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketsResponse.Marshal(b, m, deterministic)
-}
-func (m *GetBucketsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketsResponse.Merge(m, src)
-}
-func (m *GetBucketsResponse) XXX_Size() int {
-	return xxx_messageInfo_GetBucketsResponse.Size(m)
-}
-func (m *GetBucketsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketsResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketsResponse proto.InternalMessageInfo
-
-func (m *GetBucketsResponse) GetTotal() int64 {
-	if m != nil {
-		return m.Total
-	}
-	return 0
-}
-
-// GetBucket
-type GetBucketRequest struct {
-	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketRequest) Reset()         { *m = GetBucketRequest{} }
-func (m *GetBucketRequest) String() string { return proto.CompactTextString(m) }
-func (*GetBucketRequest) ProtoMessage()    {}
-func (*GetBucketRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{9}
-}
-func (m *GetBucketRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketRequest.Unmarshal(m, b)
-}
-func (m *GetBucketRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketRequest.Marshal(b, m, deterministic)
-}
-func (m *GetBucketRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketRequest.Merge(m, src)
-}
-func (m *GetBucketRequest) XXX_Size() int {
-	return xxx_messageInfo_GetBucketRequest.Size(m)
-}
-func (m *GetBucketRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketRequest proto.InternalMessageInfo
-
-type GetBucketResponse struct {
-	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetBucketResponse) Reset()         { *m = GetBucketResponse{} }
-func (m *GetBucketResponse) String() string { return proto.CompactTextString(m) }
-func (*GetBucketResponse) ProtoMessage()    {}
-func (*GetBucketResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{10}
-}
-func (m *GetBucketResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetBucketResponse.Unmarshal(m, b)
-}
-func (m *GetBucketResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetBucketResponse.Marshal(b, m, deterministic)
-}
-func (m *GetBucketResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBucketResponse.Merge(m, src)
-}
-func (m *GetBucketResponse) XXX_Size() int {
-	return xxx_messageInfo_GetBucketResponse.Size(m)
-}
-func (m *GetBucketResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetBucketResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetBucketResponse proto.InternalMessageInfo
-
-func (m *GetBucketResponse) GetNodes() []*Node {
-	if m != nil {
-		return m.Nodes
-	}
-	return nil
-}
-
-type BucketList struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *BucketList) Reset()         { *m = BucketList{} }
-func (m *BucketList) String() string { return proto.CompactTextString(m) }
-func (*BucketList) ProtoMessage()    {}
-func (*BucketList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{11}
-}
-func (m *BucketList) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_BucketList.Unmarshal(m, b)
-}
-func (m *BucketList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_BucketList.Marshal(b, m, deterministic)
-}
-func (m *BucketList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BucketList.Merge(m, src)
-}
-func (m *BucketList) XXX_Size() int {
-	return xxx_messageInfo_BucketList.Size(m)
-}
-func (m *BucketList) XXX_DiscardUnknown() {
-	xxx_messageInfo_BucketList.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_BucketList proto.InternalMessageInfo
-
-func (m *BucketList) GetNodes() []*Node {
-	if m != nil {
-		return m.Nodes
-	}
-	return nil
-}
-
-// PingNode
-type PingNodeRequest struct {
-	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Address              string   `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *PingNodeRequest) Reset()         { *m = PingNodeRequest{} }
-func (m *PingNodeRequest) String() string { return proto.CompactTextString(m) }
-func (*PingNodeRequest) ProtoMessage()    {}
-func (*PingNodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{12}
-}
-func (m *PingNodeRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PingNodeRequest.Unmarshal(m, b)
-}
-func (m *PingNodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PingNodeRequest.Marshal(b, m, deterministic)
-}
-func (m *PingNodeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingNodeRequest.Merge(m, src)
-}
-func (m *PingNodeRequest) XXX_Size() int {
-	return xxx_messageInfo_PingNodeRequest.Size(m)
-}
-func (m *PingNodeRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingNodeRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PingNodeRequest proto.InternalMessageInfo
-
-func (m *PingNodeRequest) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type PingNodeResponse struct {
-	Ok                   bool     `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *PingNodeResponse) Reset()         { *m = PingNodeResponse{} }
-func (m *PingNodeResponse) String() string { return proto.CompactTextString(m) }
-func (*PingNodeResponse) ProtoMessage()    {}
-func (*PingNodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{13}
-}
-func (m *PingNodeResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PingNodeResponse.Unmarshal(m, b)
-}
-func (m *PingNodeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PingNodeResponse.Marshal(b, m, deterministic)
-}
-func (m *PingNodeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingNodeResponse.Merge(m, src)
-}
-func (m *PingNodeResponse) XXX_Size() int {
-	return xxx_messageInfo_PingNodeResponse.Size(m)
-}
-func (m *PingNodeResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingNodeResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PingNodeResponse proto.InternalMessageInfo
-
-func (m *PingNodeResponse) GetOk() bool {
-	if m != nil {
-		return m.Ok
-	}
-	return false
-}
-
-type LookupNodeRequest struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Address              string   `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *LookupNodeRequest) Reset()         { *m = LookupNodeRequest{} }
-func (m *LookupNodeRequest) String() string { return proto.CompactTextString(m) }
-func (*LookupNodeRequest) ProtoMessage()    {}
-func (*LookupNodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{14}
-}
-func (m *LookupNodeRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupNodeRequest.Unmarshal(m, b)
-}
-func (m *LookupNodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupNodeRequest.Marshal(b, m, deterministic)
-}
-func (m *LookupNodeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupNodeRequest.Merge(m, src)
-}
-func (m *LookupNodeRequest) XXX_Size() int {
-	return xxx_messageInfo_LookupNodeRequest.Size(m)
-}
-func (m *LookupNodeRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupNodeRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupNodeRequest proto.InternalMessageInfo
-
-func (m *LookupNodeRequest) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
-}
-
-func (m *LookupNodeRequest) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type LookupNodeResponse struct {
-	Node                 *Node         `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
-	Meta                 *NodeMetadata `protobuf:"bytes,2,opt,name=meta,proto3" json:"meta,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *LookupNodeResponse) Reset()         { *m = LookupNodeResponse{} }
-func (m *LookupNodeResponse) String() string { return proto.CompactTextString(m) }
-func (*LookupNodeResponse) ProtoMessage()    {}
-func (*LookupNodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{15}
-}
-func (m *LookupNodeResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LookupNodeResponse.Unmarshal(m, b)
-}
-func (m *LookupNodeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LookupNodeResponse.Marshal(b, m, deterministic)
-}
-func (m *LookupNodeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LookupNodeResponse.Merge(m, src)
-}
-func (m *LookupNodeResponse) XXX_Size() int {
-	return xxx_messageInfo_LookupNodeResponse.Size(m)
-}
-func (m *LookupNodeResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_LookupNodeResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LookupNodeResponse proto.InternalMessageInfo
-
-func (m *LookupNodeResponse) GetNode() *Node {
-	if m != nil {
-		return m.Node
-	}
-	return nil
-}
-
-func (m *LookupNodeResponse) GetMeta() *NodeMetadata {
-	if m != nil {
-		return m.Meta
-	}
-	return nil
-}
-
-type NodeInfoRequest struct {
-	Id                   NodeID       `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Address              *NodeAddress `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
-}
-
-func (m *NodeInfoRequest) Reset()         { *m = NodeInfoRequest{} }
-func (m *NodeInfoRequest) String() string { return proto.CompactTextString(m) }
-func (*NodeInfoRequest) ProtoMessage()    {}
-func (*NodeInfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{16}
-}
-func (m *NodeInfoRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_NodeInfoRequest.Unmarshal(m, b)
-}
-func (m *NodeInfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_NodeInfoRequest.Marshal(b, m, deterministic)
-}
-func (m *NodeInfoRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeInfoRequest.Merge(m, src)
-}
-func (m *NodeInfoRequest) XXX_Size() int {
-	return xxx_messageInfo_NodeInfoRequest.Size(m)
-}
-func (m *NodeInfoRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_NodeInfoRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_NodeInfoRequest proto.InternalMessageInfo
-
-func (m *NodeInfoRequest) GetAddress() *NodeAddress {
-	if m != nil {
-		return m.Address
-	}
-	return nil
-}
-
-type NodeInfoResponse struct {
-	Type                 NodeType      `protobuf:"varint,1,opt,name=type,proto3,enum=node.NodeType" json:"type,omitempty"`
-	Operator             *NodeOperator `protobuf:"bytes,2,opt,name=operator,proto3" json:"operator,omitempty"`
-	Capacity             *NodeCapacity `protobuf:"bytes,3,opt,name=capacity,proto3" json:"capacity,omitempty"`
-	Version              *NodeVersion  `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *NodeInfoResponse) Reset()         { *m = NodeInfoResponse{} }
-func (m *NodeInfoResponse) String() string { return proto.CompactTextString(m) }
-func (*NodeInfoResponse) ProtoMessage()    {}
-func (*NodeInfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{17}
-}
-func (m *NodeInfoResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_NodeInfoResponse.Unmarshal(m, b)
-}
-func (m *NodeInfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_NodeInfoResponse.Marshal(b, m, deterministic)
-}
-func (m *NodeInfoResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeInfoResponse.Merge(m, src)
-}
-func (m *NodeInfoResponse) XXX_Size() int {
-	return xxx_messageInfo_NodeInfoResponse.Size(m)
-}
-func (m *NodeInfoResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_NodeInfoResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_NodeInfoResponse proto.InternalMessageInfo
-
-func (m *NodeInfoResponse) GetType() NodeType {
-	if m != nil {
-		return m.Type
-	}
-	return NodeType_INVALID
-}
-
-func (m *NodeInfoResponse) GetOperator() *NodeOperator {
-	if m != nil {
-		return m.Operator
-	}
-	return nil
-}
-
-func (m *NodeInfoResponse) GetCapacity() *NodeCapacity {
-	if m != nil {
-		return m.Capacity
-	}
-	return nil
-}
-
-func (m *NodeInfoResponse) GetVersion() *NodeVersion {
-	if m != nil {
-		return m.Version
-	}
-	return nil
-}
-
-type FindNearRequest struct {
-	Id                   NodeID   `protobuf:"bytes,1,opt,name=id,proto3,customtype=NodeID" json:"id"`
-	Start                NodeID   `protobuf:"bytes,2,opt,name=start,proto3,customtype=NodeID" json:"start"`
-	Limit                int64    `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *FindNearRequest) Reset()         { *m = FindNearRequest{} }
-func (m *FindNearRequest) String() string { return proto.CompactTextString(m) }
-func (*FindNearRequest) ProtoMessage()    {}
-func (*FindNearRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{18}
-}
-func (m *FindNearRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindNearRequest.Unmarshal(m, b)
-}
-func (m *FindNearRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindNearRequest.Marshal(b, m, deterministic)
-}
-func (m *FindNearRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindNearRequest.Merge(m, src)
-}
-func (m *FindNearRequest) XXX_Size() int {
-	return xxx_messageInfo_FindNearRequest.Size(m)
-}
-func (m *FindNearRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindNearRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FindNearRequest proto.InternalMessageInfo
-
-func (m *FindNearRequest) GetLimit() int64 {
-	if m != nil {
-		return m.Limit
-	}
-	return 0
-}
-
-type FindNearResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *FindNearResponse) Reset()         { *m = FindNearResponse{} }
-func (m *FindNearResponse) String() string { return proto.CompactTextString(m) }
-func (*FindNearResponse) ProtoMessage()    {}
-func (*FindNearResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{19}
-}
-func (m *FindNearResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindNearResponse.Unmarshal(m, b)
-}
-func (m *FindNearResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindNearResponse.Marshal(b, m, deterministic)
-}
-func (m *FindNearResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindNearResponse.Merge(m, src)
-}
-func (m *FindNearResponse) XXX_Size() int {
-	return xxx_messageInfo_FindNearResponse.Size(m)
-}
-func (m *FindNearResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindNearResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FindNearResponse proto.InternalMessageInfo
-
-func (m *FindNearResponse) GetNodes() []*Node {
-	if m != nil {
-		return m.Nodes
-	}
-	return nil
-}
-
 type DumpNodesRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -905,7 +262,7 @@ func (m *DumpNodesRequest) Reset()         { *m = DumpNodesRequest{} }
 func (m *DumpNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*DumpNodesRequest) ProtoMessage()    {}
 func (*DumpNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{20}
+	return fileDescriptor_a07d9034b2dd9d26, []int{5}
 }
 func (m *DumpNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DumpNodesRequest.Unmarshal(m, b)
@@ -936,7 +293,7 @@ func (m *DumpNodesResponse) Reset()         { *m = DumpNodesResponse{} }
 func (m *DumpNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*DumpNodesResponse) ProtoMessage()    {}
 func (*DumpNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{21}
+	return fileDescriptor_a07d9034b2dd9d26, []int{6}
 }
 func (m *DumpNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DumpNodesResponse.Unmarshal(m, b)
@@ -973,7 +330,7 @@ func (m *StatsRequest) Reset()         { *m = StatsRequest{} }
 func (m *StatsRequest) String() string { return proto.CompactTextString(m) }
 func (*StatsRequest) ProtoMessage()    {}
 func (*StatsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{22}
+	return fileDescriptor_a07d9034b2dd9d26, []int{7}
 }
 func (m *StatsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatsRequest.Unmarshal(m, b)
@@ -1009,7 +366,7 @@ func (m *StatSummaryResponse) Reset()         { *m = StatSummaryResponse{} }
 func (m *StatSummaryResponse) String() string { return proto.CompactTextString(m) }
 func (*StatSummaryResponse) ProtoMessage()    {}
 func (*StatSummaryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{23}
+	return fileDescriptor_a07d9034b2dd9d26, []int{8}
 }
 func (m *StatSummaryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatSummaryResponse.Unmarshal(m, b)
@@ -1081,7 +438,7 @@ func (m *DashboardRequest) Reset()         { *m = DashboardRequest{} }
 func (m *DashboardRequest) String() string { return proto.CompactTextString(m) }
 func (*DashboardRequest) ProtoMessage()    {}
 func (*DashboardRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{24}
+	return fileDescriptor_a07d9034b2dd9d26, []int{9}
 }
 func (m *DashboardRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DashboardRequest.Unmarshal(m, b)
@@ -1104,7 +461,7 @@ var xxx_messageInfo_DashboardRequest proto.InternalMessageInfo
 type DashboardResponse struct {
 	NodeId               NodeID               `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
 	NodeConnections      int64                `protobuf:"varint,2,opt,name=node_connections,json=nodeConnections,proto3" json:"node_connections,omitempty"`
-	BootstrapAddress     string               `protobuf:"bytes,3,opt,name=bootstrap_address,json=bootstrapAddress,proto3" json:"bootstrap_address,omitempty"`
+	BootstrapAddress     string               `protobuf:"bytes,3,opt,name=bootstrap_address,json=bootstrapAddress,proto3" json:"bootstrap_address,omitempty"` // Deprecated: Do not use.
 	InternalAddress      string               `protobuf:"bytes,4,opt,name=internal_address,json=internalAddress,proto3" json:"internal_address,omitempty"`
 	ExternalAddress      string               `protobuf:"bytes,5,opt,name=external_address,json=externalAddress,proto3" json:"external_address,omitempty"`
 	DashboardAddress     string               `protobuf:"bytes,6,opt,name=dashboard_address,json=dashboardAddress,proto3" json:"dashboard_address,omitempty"`
@@ -1123,7 +480,7 @@ func (m *DashboardResponse) Reset()         { *m = DashboardResponse{} }
 func (m *DashboardResponse) String() string { return proto.CompactTextString(m) }
 func (*DashboardResponse) ProtoMessage()    {}
 func (*DashboardResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{25}
+	return fileDescriptor_a07d9034b2dd9d26, []int{10}
 }
 func (m *DashboardResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DashboardResponse.Unmarshal(m, b)
@@ -1150,6 +507,7 @@ func (m *DashboardResponse) GetNodeConnections() int64 {
 	return 0
 }
 
+// Deprecated: Do not use.
 func (m *DashboardResponse) GetBootstrapAddress() string {
 	if m != nil {
 		return m.BootstrapAddress
@@ -1227,7 +585,7 @@ func (m *SegmentHealthRequest) Reset()         { *m = SegmentHealthRequest{} }
 func (m *SegmentHealthRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentHealthRequest) ProtoMessage()    {}
 func (*SegmentHealthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{26}
+	return fileDescriptor_a07d9034b2dd9d26, []int{11}
 }
 func (m *SegmentHealthRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentHealthRequest.Unmarshal(m, b)
@@ -1289,7 +647,7 @@ func (m *SegmentHealth) Reset()         { *m = SegmentHealth{} }
 func (m *SegmentHealth) String() string { return proto.CompactTextString(m) }
 func (*SegmentHealth) ProtoMessage()    {}
 func (*SegmentHealth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{27}
+	return fileDescriptor_a07d9034b2dd9d26, []int{12}
 }
 func (m *SegmentHealth) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentHealth.Unmarshal(m, b)
@@ -1328,7 +686,7 @@ func (m *SegmentHealthResponse) Reset()         { *m = SegmentHealthResponse{} }
 func (m *SegmentHealthResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentHealthResponse) ProtoMessage()    {}
 func (*SegmentHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{28}
+	return fileDescriptor_a07d9034b2dd9d26, []int{13}
 }
 func (m *SegmentHealthResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentHealthResponse.Unmarshal(m, b)
@@ -1378,7 +736,7 @@ func (m *ObjectHealthRequest) Reset()         { *m = ObjectHealthRequest{} }
 func (m *ObjectHealthRequest) String() string { return proto.CompactTextString(m) }
 func (*ObjectHealthRequest) ProtoMessage()    {}
 func (*ObjectHealthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{29}
+	return fileDescriptor_a07d9034b2dd9d26, []int{14}
 }
 func (m *ObjectHealthRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ObjectHealthRequest.Unmarshal(m, b)
@@ -1452,7 +810,7 @@ func (m *ObjectHealthResponse) Reset()         { *m = ObjectHealthResponse{} }
 func (m *ObjectHealthResponse) String() string { return proto.CompactTextString(m) }
 func (*ObjectHealthResponse) ProtoMessage()    {}
 func (*ObjectHealthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a07d9034b2dd9d26, []int{30}
+	return fileDescriptor_a07d9034b2dd9d26, []int{15}
 }
 func (m *ObjectHealthResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ObjectHealthResponse.Unmarshal(m, b)
@@ -1492,22 +850,6 @@ func init() {
 	proto.RegisterType((*ListIrreparableSegmentsResponse)(nil), "inspector.ListIrreparableSegmentsResponse")
 	proto.RegisterType((*CountNodesResponse)(nil), "inspector.CountNodesResponse")
 	proto.RegisterType((*CountNodesRequest)(nil), "inspector.CountNodesRequest")
-	proto.RegisterType((*GetBucketListRequest)(nil), "inspector.GetBucketListRequest")
-	proto.RegisterType((*GetBucketListResponse)(nil), "inspector.GetBucketListResponse")
-	proto.RegisterType((*GetBucketListResponse_Bucket)(nil), "inspector.GetBucketListResponse.Bucket")
-	proto.RegisterType((*GetBucketsRequest)(nil), "inspector.GetBucketsRequest")
-	proto.RegisterType((*GetBucketsResponse)(nil), "inspector.GetBucketsResponse")
-	proto.RegisterType((*GetBucketRequest)(nil), "inspector.GetBucketRequest")
-	proto.RegisterType((*GetBucketResponse)(nil), "inspector.GetBucketResponse")
-	proto.RegisterType((*BucketList)(nil), "inspector.BucketList")
-	proto.RegisterType((*PingNodeRequest)(nil), "inspector.PingNodeRequest")
-	proto.RegisterType((*PingNodeResponse)(nil), "inspector.PingNodeResponse")
-	proto.RegisterType((*LookupNodeRequest)(nil), "inspector.LookupNodeRequest")
-	proto.RegisterType((*LookupNodeResponse)(nil), "inspector.LookupNodeResponse")
-	proto.RegisterType((*NodeInfoRequest)(nil), "inspector.NodeInfoRequest")
-	proto.RegisterType((*NodeInfoResponse)(nil), "inspector.NodeInfoResponse")
-	proto.RegisterType((*FindNearRequest)(nil), "inspector.FindNearRequest")
-	proto.RegisterType((*FindNearResponse)(nil), "inspector.FindNearResponse")
 	proto.RegisterType((*DumpNodesRequest)(nil), "inspector.DumpNodesRequest")
 	proto.RegisterType((*DumpNodesResponse)(nil), "inspector.DumpNodesResponse")
 	proto.RegisterType((*StatsRequest)(nil), "inspector.StatsRequest")
@@ -1524,414 +866,86 @@ func init() {
 func init() { proto.RegisterFile("inspector.proto", fileDescriptor_a07d9034b2dd9d26) }
 
 var fileDescriptor_a07d9034b2dd9d26 = []byte{
-	// 1728 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x58, 0x4b, 0x73, 0x23, 0x49,
-	0x11, 0x76, 0xeb, 0x65, 0x29, 0x25, 0xeb, 0x51, 0xf6, 0xce, 0x0a, 0xed, 0x8c, 0x65, 0x9a, 0xc7,
-	0x78, 0xd7, 0x20, 0x2f, 0xda, 0xd9, 0xc3, 0x06, 0xc1, 0xc1, 0xb2, 0x77, 0x76, 0x14, 0x3b, 0xcc,
-	0x78, 0xda, 0x03, 0x07, 0x62, 0x82, 0x8e, 0x92, 0xaa, 0x2c, 0x35, 0x96, 0xba, 0x7a, 0xba, 0x4b,
-	0xc3, 0xe8, 0x0f, 0x10, 0x70, 0x82, 0x0b, 0x07, 0xce, 0x04, 0xff, 0x80, 0x13, 0x57, 0x2e, 0xfc,
-	0x06, 0x0e, 0xc3, 0x0d, 0xee, 0xdc, 0x88, 0xe0, 0x40, 0xd4, 0xa3, 0xab, 0xbb, 0xf5, 0xc0, 0x26,
-	0x80, 0x9b, 0x3a, 0xf3, 0xcb, 0xac, 0xaf, 0xb2, 0x1e, 0xf9, 0x95, 0xa0, 0xe1, 0xf9, 0x51, 0x40,
-	0xc7, 0x9c, 0x85, 0xbd, 0x20, 0x64, 0x9c, 0xa1, 0x8a, 0x31, 0x74, 0x60, 0xc2, 0x26, 0x4c, 0x99,
-	0x3b, 0xe0, 0x33, 0x42, 0xf5, 0xef, 0x46, 0xc0, 0x3c, 0x9f, 0xd3, 0x90, 0x8c, 0xb4, 0xe1, 0x70,
-	0xc2, 0xd8, 0x64, 0x46, 0x4f, 0xe5, 0xd7, 0x68, 0x71, 0x7d, 0x4a, 0x16, 0x21, 0xe6, 0x1e, 0xf3,
-	0xb5, 0xbf, 0xbb, 0xea, 0xe7, 0xde, 0x9c, 0x46, 0x1c, 0xcf, 0x03, 0x05, 0xb0, 0x6f, 0xe0, 0xf0,
-	0xa9, 0x17, 0xf1, 0x61, 0x18, 0xd2, 0x00, 0x87, 0x78, 0x34, 0xa3, 0x57, 0x74, 0x32, 0xa7, 0x3e,
-	0x8f, 0x1c, 0xfa, 0x7a, 0x41, 0x23, 0x8e, 0x0e, 0xa0, 0x38, 0xf3, 0xe6, 0x1e, 0x6f, 0x5b, 0x47,
-	0xd6, 0x71, 0xd1, 0x51, 0x1f, 0xe8, 0x13, 0xb8, 0x37, 0xc3, 0x11, 0x77, 0x23, 0x4a, 0x7d, 0x37,
-	0x52, 0x21, 0x6e, 0x80, 0xf9, 0xb4, 0x9d, 0x3b, 0xb2, 0x8e, 0x6b, 0xce, 0xbe, 0xf0, 0x5e, 0x51,
-	0xea, 0xeb, 0x74, 0x97, 0x98, 0x4f, 0xed, 0xbf, 0x5a, 0x80, 0xd6, 0x47, 0x42, 0x08, 0x0a, 0x32,
-	0xd2, 0x92, 0x91, 0xf2, 0x37, 0xfa, 0x0c, 0xea, 0x71, 0x56, 0x42, 0x39, 0xf6, 0x66, 0x32, 0x6f,
-	0xb5, 0x8f, 0x7a, 0x49, 0x09, 0x2e, 0xd5, 0x2f, 0x67, 0x4f, 0x23, 0x2f, 0x24, 0x10, 0x75, 0xa1,
-	0x3a, 0x63, 0x11, 0x77, 0x03, 0x8f, 0x8e, 0x69, 0xd4, 0xce, 0x4b, 0xda, 0x20, 0x4c, 0x97, 0xd2,
-	0x82, 0x7a, 0x20, 0xd9, 0xb9, 0x82, 0x88, 0x17, 0xba, 0x98, 0x73, 0x3a, 0x0f, 0x78, 0xbb, 0x70,
-	0x64, 0x1d, 0xe7, 0x9d, 0x96, 0x70, 0x39, 0xd2, 0x73, 0xa6, 0x1c, 0xe8, 0x63, 0x38, 0xc8, 0x42,
-	0xdd, 0x31, 0x5b, 0xf8, 0xbc, 0x5d, 0x94, 0x01, 0x28, 0x4c, 0x83, 0xcf, 0x85, 0xc7, 0x7e, 0x05,
-	0xdd, 0xad, 0x55, 0x8d, 0x02, 0xe6, 0x47, 0x14, 0x7d, 0x06, 0x65, 0x4d, 0x3b, 0x6a, 0x5b, 0x47,
-	0xf9, 0xe3, 0x6a, 0xff, 0x41, 0x2f, 0xd9, 0x11, 0xeb, 0x91, 0x8e, 0x81, 0xdb, 0x1f, 0x01, 0x92,
-	0xc3, 0x3c, 0x63, 0x84, 0x26, 0x09, 0x0f, 0xa0, 0xa8, 0x68, 0x59, 0x92, 0x96, 0xfa, 0xb0, 0xf7,
-	0xa1, 0x95, 0xc6, 0xca, 0x25, 0xb5, 0xef, 0xc1, 0xc1, 0x17, 0x94, 0x0f, 0x16, 0xe3, 0x1b, 0xca,
-	0x05, 0xcf, 0xd8, 0xfe, 0x77, 0x0b, 0xde, 0x5b, 0x71, 0xe8, 0xe4, 0x67, 0xb0, 0x3b, 0x92, 0xd6,
-	0x98, 0xec, 0xc3, 0x14, 0xd9, 0x8d, 0x21, 0x3d, 0x65, 0x72, 0xe2, 0xb8, 0xce, 0xaf, 0x2d, 0x28,
-	0x29, 0x1b, 0x3a, 0x81, 0x8a, 0xb2, 0xba, 0x1e, 0x51, 0xab, 0x3e, 0xa8, 0xff, 0xe9, 0x5d, 0x77,
-	0xe7, 0xcf, 0xef, 0xba, 0x25, 0x41, 0x74, 0x78, 0xe1, 0x94, 0x15, 0x60, 0x48, 0xd0, 0x29, 0xec,
-	0x85, 0x6c, 0xc1, 0x3d, 0x7f, 0xe2, 0x8a, 0x93, 0x10, 0xb5, 0x73, 0x92, 0x00, 0xf4, 0xe4, 0xb9,
-	0x10, 0x70, 0xa7, 0xa6, 0x01, 0x72, 0x92, 0xe8, 0xdb, 0x50, 0x1b, 0xe3, 0xf1, 0x94, 0x12, 0x8d,
-	0xcf, 0xaf, 0xe1, 0xab, 0xca, 0x2f, 0xe1, 0xa2, 0x42, 0x66, 0x02, 0xa6, 0x42, 0x4f, 0x00, 0xa5,
-	0x8d, 0x49, 0x89, 0x39, 0xe3, 0x78, 0x16, 0x97, 0x58, 0x7e, 0xa0, 0xfb, 0x90, 0xf7, 0x88, 0xa2,
-	0x55, 0x1b, 0x40, 0x6a, 0x0e, 0xc2, 0x6c, 0xf7, 0xa1, 0x69, 0x32, 0xc5, 0x47, 0xea, 0x10, 0x72,
-	0x5b, 0x27, 0x9e, 0xf3, 0x88, 0xfd, 0x83, 0x14, 0x25, 0x33, 0xf8, 0x2d, 0x41, 0xe8, 0x08, 0x8a,
-	0xdb, 0xea, 0xa3, 0x1c, 0x76, 0x0f, 0x20, 0x59, 0xa7, 0x04, 0x6f, 0x6d, 0xc3, 0x7f, 0x09, 0x8d,
-	0x4b, 0x5d, 0xd5, 0x3b, 0x32, 0x47, 0x6d, 0xd8, 0xc5, 0x84, 0x84, 0x34, 0x8a, 0xe4, 0x79, 0xad,
-	0x38, 0xf1, 0xa7, 0x6d, 0x43, 0x33, 0x49, 0xa6, 0xa7, 0x54, 0x87, 0x1c, 0xbb, 0x91, 0xd9, 0xca,
-	0x4e, 0x8e, 0xdd, 0xd8, 0xdf, 0x83, 0xd6, 0x53, 0xc6, 0x6e, 0x16, 0x41, 0x7a, 0xc8, 0xba, 0x19,
-	0xb2, 0x72, 0xcb, 0x10, 0xaf, 0x00, 0xa5, 0xc3, 0x4d, 0xdd, 0x0a, 0x62, 0x3a, 0x32, 0x43, 0x76,
-	0x9a, 0xd2, 0x8e, 0xbe, 0x09, 0x85, 0x39, 0xe5, 0xd8, 0xdc, 0x2f, 0xc6, 0xff, 0x7d, 0xca, 0x31,
-	0xc1, 0x1c, 0x3b, 0xd2, 0x6f, 0xff, 0x18, 0x1a, 0x72, 0xa2, 0xfe, 0x35, 0xbb, 0x6b, 0x35, 0x4e,
-	0xb2, 0x54, 0xab, 0xfd, 0x56, 0x92, 0xfd, 0x4c, 0x39, 0x12, 0xf6, 0x7f, 0xb4, 0xa0, 0x99, 0x0c,
-	0xa0, 0xc9, 0xdb, 0x50, 0xe0, 0xcb, 0x40, 0x91, 0xaf, 0xf7, 0xeb, 0x49, 0xf8, 0xcb, 0x65, 0x40,
-	0x1d, 0xe9, 0x43, 0x3d, 0x28, 0xb3, 0x80, 0x86, 0x98, 0xb3, 0x70, 0x7d, 0x12, 0xcf, 0xb5, 0xc7,
-	0x31, 0x18, 0x81, 0x1f, 0xe3, 0x00, 0x8f, 0x3d, 0xbe, 0x94, 0x97, 0x63, 0x06, 0x7f, 0xae, 0x3d,
-	0x8e, 0xc1, 0x88, 0x59, 0xbc, 0xa1, 0x61, 0xe4, 0x31, 0x5f, 0x5e, 0x91, 0x99, 0x59, 0xfc, 0x50,
-	0x39, 0x9c, 0x18, 0x61, 0xcf, 0xa1, 0xf1, 0xd8, 0xf3, 0xc9, 0x33, 0x8a, 0xc3, 0xbb, 0x56, 0xe9,
-	0xeb, 0x50, 0x8c, 0x38, 0x0e, 0xb9, 0xea, 0x1c, 0x6b, 0x10, 0xe5, 0x4c, 0xda, 0x50, 0x5e, 0x9d,
-	0x3d, 0xf9, 0x61, 0x3f, 0x82, 0x66, 0x32, 0x9c, 0xae, 0xd9, 0xed, 0x07, 0x01, 0x41, 0xf3, 0x62,
-	0x31, 0x0f, 0x32, 0x77, 0xe2, 0xa7, 0xd0, 0x4a, 0xd9, 0x56, 0x53, 0x6d, 0x3d, 0x23, 0x75, 0xa8,
-	0x5d, 0x71, 0x9c, 0x5c, 0x1c, 0xff, 0xb0, 0x60, 0x5f, 0x18, 0xae, 0x16, 0xf3, 0x39, 0x0e, 0x97,
-	0x26, 0xd3, 0x03, 0x80, 0x45, 0x44, 0x89, 0x1b, 0x05, 0x78, 0x4c, 0xf5, 0xfd, 0x51, 0x11, 0x96,
-	0x2b, 0x61, 0x40, 0x0f, 0xa1, 0x81, 0xdf, 0x60, 0x6f, 0x26, 0x2e, 0x7c, 0x8d, 0xc9, 0x49, 0x4c,
-	0xdd, 0x98, 0x15, 0xf0, 0xab, 0x50, 0x93, 0x79, 0x3c, 0x7f, 0x22, 0xf7, 0x95, 0xaa, 0x46, 0x55,
-	0xd8, 0x86, 0xca, 0x24, 0xfa, 0x9f, 0x84, 0x50, 0x85, 0x50, 0x6d, 0x4d, 0x8e, 0xfe, 0xb9, 0x02,
-	0x7c, 0x03, 0xea, 0x12, 0x30, 0xc2, 0x3e, 0xf9, 0xa9, 0x47, 0xf8, 0x54, 0x77, 0xb2, 0x3d, 0x61,
-	0x1d, 0xc4, 0x46, 0x74, 0x0a, 0xfb, 0x09, 0xa7, 0x04, 0x5b, 0x52, 0x5d, 0xcf, 0xb8, 0x4c, 0x80,
-	0x2c, 0x2b, 0x8e, 0xa6, 0x23, 0x86, 0x43, 0x12, 0xd7, 0xe3, 0x9f, 0x05, 0x68, 0xa5, 0x8c, 0xba,
-	0x1a, 0x0f, 0x61, 0x57, 0x94, 0x6f, 0xfb, 0xf5, 0x5f, 0x12, 0xee, 0x21, 0x41, 0x1f, 0x42, 0x53,
-	0x02, 0xc7, 0xcc, 0xf7, 0xe9, 0x58, 0x08, 0x9b, 0x48, 0x17, 0xa6, 0x21, 0xec, 0xe7, 0x89, 0x19,
-	0x9d, 0x40, 0x6b, 0xc4, 0x18, 0x8f, 0x78, 0x88, 0x03, 0x37, 0x3e, 0x76, 0x79, 0x79, 0x43, 0x34,
-	0x8d, 0x43, 0x9f, 0x3a, 0x91, 0x57, 0x6a, 0x07, 0x1f, 0xcf, 0x0c, 0xb6, 0x20, 0xb1, 0x8d, 0xd8,
-	0x9e, 0x82, 0xd2, 0xb7, 0x2b, 0xd0, 0xa2, 0x82, 0xc6, 0xf6, 0x18, 0x7a, 0x02, 0x2d, 0x12, 0xcf,
-	0xd5, 0x60, 0x4b, 0x8a, 0x82, 0x71, 0xc4, 0xe0, 0x47, 0x72, 0xdb, 0xf3, 0xa8, 0xbd, 0x2b, 0x0f,
-	0xd5, 0x61, 0xaa, 0xa1, 0x6e, 0xd8, 0x40, 0x8e, 0x02, 0xa3, 0xef, 0x40, 0x69, 0x11, 0x08, 0x11,
-	0xd7, 0x2e, 0xcb, 0xb0, 0xaf, 0xf4, 0x94, 0xc2, 0xeb, 0xc5, 0x0a, 0xaf, 0x77, 0xa1, 0x15, 0xa0,
-	0xa3, 0x81, 0xe8, 0x73, 0xa8, 0x4a, 0xb9, 0x13, 0x78, 0xfe, 0x84, 0x92, 0x76, 0x45, 0xc6, 0x75,
-	0xd6, 0xe2, 0x5e, 0xc6, 0xca, 0x70, 0x50, 0x16, 0x8b, 0xf1, 0xab, 0xbf, 0x74, 0x2d, 0x07, 0x44,
-	0xe0, 0xa5, 0x8c, 0x43, 0x5f, 0x40, 0x4d, 0xa6, 0x79, 0xbd, 0xa0, 0xa1, 0x47, 0x49, 0x1b, 0xfe,
-	0x83, 0x3c, 0x92, 0xc0, 0x0b, 0x15, 0x88, 0x3e, 0x85, 0x96, 0xe1, 0xe3, 0x5e, 0x87, 0x6c, 0x2e,
-	0xb6, 0x41, 0x55, 0x6e, 0x83, 0x74, 0xf7, 0xac, 0xc7, 0x63, 0x3f, 0x0e, 0xd9, 0x7c, 0x48, 0x8c,
-	0xe2, 0x4c, 0xc2, 0xe2, 0x0a, 0xd7, 0x64, 0x85, 0xf7, 0xd3, 0x78, 0x5d, 0x64, 0xfb, 0x37, 0x16,
-	0x1c, 0x68, 0x01, 0xf5, 0x84, 0xe2, 0x19, 0x9f, 0xc6, 0x97, 0xd2, 0x3d, 0x28, 0x29, 0x85, 0xa1,
-	0x55, 0xa7, 0xfe, 0x12, 0x67, 0x83, 0xfa, 0xe3, 0x70, 0x19, 0x70, 0x4a, 0xd2, 0x7a, 0x76, 0xcf,
-	0x58, 0x85, 0x92, 0x45, 0x5f, 0x83, 0x58, 0x74, 0xba, 0x9e, 0x4f, 0xe8, 0x5b, 0x7d, 0x0e, 0x6b,
-	0xda, 0x38, 0x14, 0x36, 0x71, 0xe6, 0x83, 0x90, 0xfd, 0x84, 0x8e, 0xa5, 0xce, 0x29, 0xc8, 0x3c,
-	0x15, 0x6d, 0x19, 0x12, 0xfb, 0xf7, 0x16, 0xec, 0x65, 0xb8, 0xa1, 0x13, 0xa8, 0x4e, 0xe5, 0xaf,
-	0xa5, 0x2b, 0x14, 0x85, 0xb5, 0xa6, 0x28, 0x40, 0xbb, 0x87, 0x24, 0x12, 0xba, 0x68, 0xe1, 0xa7,
-	0xe1, 0xeb, 0x02, 0xa4, 0x66, 0x00, 0x22, 0xe0, 0x04, 0xaa, 0xec, 0xfa, 0x7a, 0xe6, 0xf9, 0x54,
-	0xc2, 0xf3, 0xeb, 0xd9, 0xb5, 0x5b, 0x80, 0xdb, 0xb0, 0xab, 0xe7, 0xa2, 0x89, 0xc7, 0x9f, 0xf6,
-	0xcf, 0x2c, 0x78, 0x6f, 0xa5, 0xa4, 0xfa, 0x54, 0x7f, 0x0c, 0x25, 0x35, 0x9c, 0xee, 0xb5, 0xed,
-	0xf4, 0x96, 0xce, 0x44, 0x68, 0x1c, 0xfa, 0x2e, 0x40, 0x48, 0xc9, 0xc2, 0x27, 0xd8, 0x1f, 0x2f,
-	0x75, 0xf3, 0xfa, 0x20, 0xa5, 0xf0, 0x1d, 0xe3, 0xbc, 0x1a, 0x4f, 0xe9, 0x9c, 0x3a, 0x29, 0xb8,
-	0xfd, 0x37, 0x0b, 0xf6, 0x9f, 0x8f, 0x44, 0x31, 0xb3, 0x4b, 0xbb, 0xbe, 0x84, 0xd6, 0xa6, 0x25,
-	0x4c, 0x76, 0x40, 0x2e, 0xb3, 0x03, 0xb2, 0xab, 0x96, 0x5f, 0x59, 0x35, 0xf1, 0x78, 0x90, 0x0d,
-	0xc9, 0xc5, 0xd7, 0x9c, 0x86, 0x6e, 0xba, 0x48, 0x79, 0xa7, 0x25, 0x5d, 0x67, 0xc2, 0x13, 0x3f,
-	0x6e, 0xbe, 0x05, 0x88, 0xfa, 0xc4, 0x1d, 0xd1, 0x6b, 0x16, 0x52, 0x03, 0x57, 0x17, 0x6e, 0x93,
-	0xfa, 0x64, 0x20, 0x1d, 0x31, 0xda, 0x74, 0xb9, 0x52, 0xea, 0xb1, 0x65, 0xff, 0xc2, 0x82, 0x83,
-	0xec, 0x4c, 0x75, 0xc5, 0x1f, 0xad, 0x3d, 0x22, 0xb6, 0xd7, 0xdc, 0x20, 0xff, 0xab, 0xaa, 0xf7,
-	0x7f, 0x59, 0x80, 0xda, 0x97, 0x98, 0x0c, 0xe3, 0x51, 0xd0, 0x10, 0x20, 0x79, 0x61, 0xa0, 0xfb,
-	0xa9, 0xf1, 0xd7, 0x1e, 0x1e, 0x9d, 0x07, 0x5b, 0xbc, 0x7a, 0x3a, 0xe7, 0x50, 0x8e, 0x35, 0x22,
-	0xea, 0xa4, 0xa0, 0x2b, 0x2a, 0xb4, 0xf3, 0xc1, 0x46, 0x9f, 0x4e, 0x32, 0x04, 0x48, 0x54, 0x60,
-	0x86, 0xcf, 0x9a, 0xb6, 0xcc, 0xf0, 0xd9, 0x20, 0x1d, 0xcf, 0xa1, 0x1c, 0x2b, 0xb2, 0x0c, 0x9f,
-	0x15, 0x1d, 0x98, 0xe1, 0xb3, 0x26, 0xe1, 0xce, 0xa1, 0x1c, 0x4b, 0x94, 0x4c, 0x92, 0x15, 0x99,
-	0x94, 0x49, 0xb2, 0xa6, 0x69, 0x1e, 0x43, 0xc5, 0xa8, 0x13, 0x94, 0x46, 0xae, 0xea, 0x98, 0xce,
-	0xfd, 0xcd, 0x4e, 0x9d, 0xc7, 0x81, 0xbd, 0xcc, 0x6b, 0x0d, 0x75, 0xb7, 0xbf, 0xe3, 0x54, 0xbe,
-	0xa3, 0xdb, 0x1e, 0x7a, 0xfd, 0xdf, 0x59, 0xd0, 0x7c, 0xfe, 0x86, 0x86, 0x33, 0xbc, 0xfc, 0xbf,
-	0xec, 0x8a, 0xff, 0xd1, 0xdc, 0xfb, 0xbf, 0xb5, 0x60, 0x5f, 0xfe, 0x03, 0x70, 0xc5, 0x59, 0x48,
-	0x13, 0xaa, 0x03, 0x28, 0x4a, 0x09, 0x87, 0xde, 0x5f, 0x69, 0xc1, 0x26, 0xef, 0x2d, 0xbd, 0xd9,
-	0xde, 0x41, 0x4f, 0xa0, 0x62, 0x54, 0x4e, 0x96, 0xe3, 0x8a, 0x20, 0xca, 0x72, 0x5c, 0x15, 0x46,
-	0xf6, 0x4e, 0xff, 0xe7, 0x16, 0x1c, 0xa4, 0x5e, 0xff, 0x09, 0xcd, 0x00, 0xde, 0xdf, 0xf2, 0x9f,
-	0x02, 0xfa, 0x30, 0xbd, 0x8d, 0xff, 0xed, 0xbf, 0x39, 0x9d, 0x8f, 0xee, 0x02, 0xd5, 0x05, 0xfb,
-	0x83, 0x05, 0x0d, 0x75, 0x79, 0x24, 0x2c, 0x5e, 0x40, 0x2d, 0x7d, 0x13, 0xa1, 0x74, 0x69, 0x36,
-	0x5c, 0xc6, 0x9d, 0xee, 0x56, 0xbf, 0xa9, 0xdd, 0xcb, 0xd5, 0x36, 0xd8, 0xdd, 0x7a, 0x87, 0x6d,
-	0xd8, 0x93, 0x1b, 0x5b, 0x91, 0xbd, 0x33, 0x28, 0xfc, 0x28, 0x17, 0x8c, 0x46, 0x25, 0x29, 0x4b,
-	0x3e, 0xf9, 0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0x55, 0xd5, 0x03, 0xf3, 0x6d, 0x13, 0x00, 0x00,
-}
-
-type DRPCKadInspectorClient interface {
-	DRPCConn() drpc.Conn
-
-	// CountNodes returns the number of nodes in the routing table
-	CountNodes(ctx context.Context, in *CountNodesRequest) (*CountNodesResponse, error)
-	// PingNode sends a PING RPC to a node and returns its availability
-	PingNode(ctx context.Context, in *PingNodeRequest) (*PingNodeResponse, error)
-	// LookupNode triggers a Kademlia FindNode and returns the response
-	LookupNode(ctx context.Context, in *LookupNodeRequest) (*LookupNodeResponse, error)
-	// NodeInfo sends a PING RPC to a node and returns its local info
-	NodeInfo(ctx context.Context, in *NodeInfoRequest) (*NodeInfoResponse, error)
-	// FindNear returns limit number of IDs "near" the Start ID
-	FindNear(ctx context.Context, in *FindNearRequest) (*FindNearResponse, error)
-	// DumpNodes returns all the nodes in the node database
-	DumpNodes(ctx context.Context, in *DumpNodesRequest) (*DumpNodesResponse, error)
-	// GetBucketList returns all the buckets with all their nodes
-	GetBucketList(ctx context.Context, in *GetBucketListRequest) (*GetBucketListResponse, error)
-}
-
-type drpcKadInspectorClient struct {
-	cc drpc.Conn
-}
-
-func NewDRPCKadInspectorClient(cc drpc.Conn) DRPCKadInspectorClient {
-	return &drpcKadInspectorClient{cc}
-}
-
-func (c *drpcKadInspectorClient) DRPCConn() drpc.Conn { return c.cc }
-
-func (c *drpcKadInspectorClient) CountNodes(ctx context.Context, in *CountNodesRequest) (*CountNodesResponse, error) {
-	out := new(CountNodesResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/CountNodes", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) PingNode(ctx context.Context, in *PingNodeRequest) (*PingNodeResponse, error) {
-	out := new(PingNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/PingNode", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) LookupNode(ctx context.Context, in *LookupNodeRequest) (*LookupNodeResponse, error) {
-	out := new(LookupNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/LookupNode", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) NodeInfo(ctx context.Context, in *NodeInfoRequest) (*NodeInfoResponse, error) {
-	out := new(NodeInfoResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/NodeInfo", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) FindNear(ctx context.Context, in *FindNearRequest) (*FindNearResponse, error) {
-	out := new(FindNearResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/FindNear", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) DumpNodes(ctx context.Context, in *DumpNodesRequest) (*DumpNodesResponse, error) {
-	out := new(DumpNodesResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/DumpNodes", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcKadInspectorClient) GetBucketList(ctx context.Context, in *GetBucketListRequest) (*GetBucketListResponse, error) {
-	out := new(GetBucketListResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/GetBucketList", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-type DRPCKadInspectorServer interface {
-	// CountNodes returns the number of nodes in the routing table
-	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
-	// PingNode sends a PING RPC to a node and returns its availability
-	PingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
-	// LookupNode triggers a Kademlia FindNode and returns the response
-	LookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
-	// NodeInfo sends a PING RPC to a node and returns its local info
-	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoResponse, error)
-	// FindNear returns limit number of IDs "near" the Start ID
-	FindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
-	// DumpNodes returns all the nodes in the node database
-	DumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
-	// GetBucketList returns all the buckets with all their nodes
-	GetBucketList(context.Context, *GetBucketListRequest) (*GetBucketListResponse, error)
-}
-
-type DRPCKadInspectorDescription struct{}
-
-func (DRPCKadInspectorDescription) NumMethods() int { return 7 }
-
-func (DRPCKadInspectorDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
-	switch n {
-	case 0:
-		return "/inspector.KadInspector/CountNodes",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					CountNodes(
-						ctx,
-						in1.(*CountNodesRequest),
-					)
-			}, DRPCKadInspectorServer.CountNodes, true
-	case 1:
-		return "/inspector.KadInspector/PingNode",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					PingNode(
-						ctx,
-						in1.(*PingNodeRequest),
-					)
-			}, DRPCKadInspectorServer.PingNode, true
-	case 2:
-		return "/inspector.KadInspector/LookupNode",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					LookupNode(
-						ctx,
-						in1.(*LookupNodeRequest),
-					)
-			}, DRPCKadInspectorServer.LookupNode, true
-	case 3:
-		return "/inspector.KadInspector/NodeInfo",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					NodeInfo(
-						ctx,
-						in1.(*NodeInfoRequest),
-					)
-			}, DRPCKadInspectorServer.NodeInfo, true
-	case 4:
-		return "/inspector.KadInspector/FindNear",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					FindNear(
-						ctx,
-						in1.(*FindNearRequest),
-					)
-			}, DRPCKadInspectorServer.FindNear, true
-	case 5:
-		return "/inspector.KadInspector/DumpNodes",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					DumpNodes(
-						ctx,
-						in1.(*DumpNodesRequest),
-					)
-			}, DRPCKadInspectorServer.DumpNodes, true
-	case 6:
-		return "/inspector.KadInspector/GetBucketList",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCKadInspectorServer).
-					GetBucketList(
-						ctx,
-						in1.(*GetBucketListRequest),
-					)
-			}, DRPCKadInspectorServer.GetBucketList, true
-	default:
-		return "", nil, nil, false
-	}
-}
-
-func DRPCRegisterKadInspector(srv drpc.Server, impl DRPCKadInspectorServer) {
-	srv.Register(impl, DRPCKadInspectorDescription{})
-}
-
-type DRPCKadInspector_CountNodesStream interface {
-	drpc.Stream
-	SendAndClose(*CountNodesResponse) error
-}
-
-type drpcKadInspectorCountNodesStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorCountNodesStream) SendAndClose(m *CountNodesResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_PingNodeStream interface {
-	drpc.Stream
-	SendAndClose(*PingNodeResponse) error
-}
-
-type drpcKadInspectorPingNodeStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorPingNodeStream) SendAndClose(m *PingNodeResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_LookupNodeStream interface {
-	drpc.Stream
-	SendAndClose(*LookupNodeResponse) error
-}
-
-type drpcKadInspectorLookupNodeStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorLookupNodeStream) SendAndClose(m *LookupNodeResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_NodeInfoStream interface {
-	drpc.Stream
-	SendAndClose(*NodeInfoResponse) error
-}
-
-type drpcKadInspectorNodeInfoStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorNodeInfoStream) SendAndClose(m *NodeInfoResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_FindNearStream interface {
-	drpc.Stream
-	SendAndClose(*FindNearResponse) error
-}
-
-type drpcKadInspectorFindNearStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorFindNearStream) SendAndClose(m *FindNearResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_DumpNodesStream interface {
-	drpc.Stream
-	SendAndClose(*DumpNodesResponse) error
-}
-
-type drpcKadInspectorDumpNodesStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorDumpNodesStream) SendAndClose(m *DumpNodesResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCKadInspector_GetBucketListStream interface {
-	drpc.Stream
-	SendAndClose(*GetBucketListResponse) error
-}
-
-type drpcKadInspectorGetBucketListStream struct {
-	drpc.Stream
-}
-
-func (x *drpcKadInspectorGetBucketListStream) SendAndClose(m *GetBucketListResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
+	// 1253 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0x4d, 0x93, 0xdb, 0x44,
+	0x13, 0x8e, 0xd6, 0x6b, 0x27, 0x6e, 0x7b, 0x3f, 0x3c, 0xde, 0x37, 0xd1, 0xeb, 0x7c, 0xd8, 0x88,
+	0xa2, 0xb2, 0x49, 0x28, 0x6f, 0x70, 0x92, 0x43, 0x8a, 0xd3, 0x3a, 0x9b, 0x10, 0x57, 0x51, 0x64,
+	0x23, 0xe7, 0x44, 0x51, 0xa5, 0x1a, 0x7b, 0xc6, 0xb6, 0x88, 0xad, 0x51, 0x46, 0xa3, 0x90, 0xbd,
+	0x71, 0xa2, 0xe0, 0xc6, 0x95, 0x33, 0xc5, 0x3f, 0xe0, 0xc4, 0x2f, 0xe0, 0x37, 0x70, 0x08, 0x37,
+	0xf8, 0x0d, 0xdc, 0xa8, 0xf9, 0xd0, 0x48, 0xb6, 0xd7, 0x7c, 0x14, 0x37, 0xe9, 0xe9, 0xa7, 0x5b,
+	0xad, 0xa7, 0x7b, 0xba, 0x07, 0xf6, 0xc2, 0x28, 0x89, 0xe9, 0x58, 0x30, 0xde, 0x8d, 0x39, 0x13,
+	0x0c, 0x55, 0x2d, 0xd0, 0x82, 0x29, 0x9b, 0x32, 0x0d, 0xb7, 0x20, 0x62, 0x84, 0x9a, 0xe7, 0xbd,
+	0x98, 0x85, 0x91, 0xa0, 0x9c, 0x8c, 0x0c, 0x70, 0x63, 0xca, 0xd8, 0x74, 0x4e, 0x8f, 0xd4, 0xdb,
+	0x28, 0x9d, 0x1c, 0x91, 0x94, 0x63, 0x11, 0xb2, 0xc8, 0xd8, 0xdb, 0xab, 0x76, 0x11, 0x2e, 0x68,
+	0x22, 0xf0, 0x22, 0xd6, 0x04, 0xef, 0x25, 0xdc, 0xf8, 0x38, 0x4c, 0xc4, 0x80, 0x73, 0x1a, 0x63,
+	0x8e, 0x47, 0x73, 0x3a, 0xa4, 0xd3, 0x05, 0x8d, 0x44, 0xe2, 0xd3, 0x57, 0x29, 0x4d, 0x04, 0x3a,
+	0x80, 0xf2, 0x3c, 0x5c, 0x84, 0xc2, 0x75, 0x3a, 0xce, 0x61, 0xd9, 0xd7, 0x2f, 0xe8, 0x1e, 0x5c,
+	0x9e, 0xe3, 0x44, 0x04, 0x09, 0xa5, 0x51, 0x90, 0x68, 0x97, 0x20, 0xc6, 0x62, 0xe6, 0x6e, 0x75,
+	0x9c, 0xc3, 0xba, 0xdf, 0x94, 0xd6, 0x21, 0xa5, 0x91, 0x09, 0x77, 0x8a, 0xc5, 0xcc, 0xfb, 0xcd,
+	0x01, 0xb4, 0xfe, 0x25, 0x84, 0x60, 0x5b, 0x79, 0x3a, 0xca, 0x53, 0x3d, 0xa3, 0x87, 0xb0, 0x9b,
+	0x45, 0x25, 0x54, 0xe0, 0x70, 0xae, 0xe2, 0xd6, 0x7a, 0xa8, 0x9b, 0x4b, 0x70, 0xaa, 0x9f, 0xfc,
+	0x1d, 0xc3, 0x3c, 0x51, 0x44, 0xd4, 0x86, 0xda, 0x9c, 0x25, 0x22, 0x88, 0x43, 0x3a, 0xa6, 0x89,
+	0x5b, 0x52, 0x69, 0x83, 0x84, 0x4e, 0x15, 0x82, 0xba, 0xa0, 0xb2, 0x0b, 0x64, 0x22, 0x21, 0x0f,
+	0xb0, 0x10, 0x74, 0x11, 0x0b, 0x77, 0xbb, 0xe3, 0x1c, 0x96, 0xfc, 0x86, 0x34, 0xf9, 0xca, 0x72,
+	0xac, 0x0d, 0xe8, 0x2e, 0x1c, 0x2c, 0x53, 0x83, 0x31, 0x4b, 0x23, 0xe1, 0x96, 0x95, 0x03, 0xe2,
+	0x45, 0xf2, 0x23, 0x69, 0xf1, 0x3e, 0x83, 0xf6, 0x46, 0x55, 0x93, 0x98, 0x45, 0x09, 0x45, 0x0f,
+	0xe1, 0x92, 0x49, 0x3b, 0x71, 0x9d, 0x4e, 0xe9, 0xb0, 0xd6, 0xbb, 0xde, 0xcd, 0x3b, 0x62, 0xdd,
+	0xd3, 0xb7, 0x74, 0xef, 0x36, 0x20, 0xf5, 0x99, 0x4f, 0x18, 0xa1, 0x79, 0xc0, 0x03, 0x28, 0xeb,
+	0xb4, 0x1c, 0x95, 0x96, 0x7e, 0xf1, 0x9a, 0xd0, 0x28, 0x72, 0x55, 0x49, 0x3d, 0x04, 0xfb, 0x27,
+	0xe9, 0x22, 0x5e, 0xc2, 0x1e, 0x40, 0xa3, 0x80, 0x99, 0x98, 0x1d, 0x28, 0xcb, 0xee, 0xcb, 0x32,
+	0x84, 0xae, 0xea, 0x45, 0xc9, 0xf1, 0xb5, 0xc1, 0xdb, 0x85, 0xfa, 0x50, 0x60, 0xdb, 0x2d, 0xde,
+	0x1f, 0x0e, 0x34, 0x25, 0x30, 0x4c, 0x17, 0x0b, 0xcc, 0xcf, 0x6c, 0xa4, 0xeb, 0x00, 0x69, 0x42,
+	0x49, 0x90, 0xc4, 0x78, 0x4c, 0x4d, 0x8a, 0x55, 0x89, 0x0c, 0x25, 0x80, 0x6e, 0xc2, 0x1e, 0x7e,
+	0x8d, 0xc3, 0xb9, 0xfc, 0x61, 0xc3, 0xd9, 0x52, 0x9c, 0x5d, 0x0b, 0x6b, 0xe2, 0x3b, 0x50, 0x57,
+	0x71, 0xc2, 0x68, 0xca, 0x69, 0xa2, 0xab, 0x5b, 0xf2, 0x6b, 0x12, 0x1b, 0x68, 0x48, 0xd6, 0x5f,
+	0x51, 0xa8, 0x66, 0xe8, 0xb2, 0xaa, 0xaf, 0x3f, 0xd6, 0x84, 0xf7, 0x60, 0x57, 0x11, 0x46, 0x38,
+	0x22, 0x5f, 0x84, 0x44, 0xcc, 0x4c, 0x25, 0x77, 0x24, 0xda, 0xcf, 0x40, 0x74, 0x04, 0xcd, 0x3c,
+	0xa7, 0x9c, 0x5b, 0xd1, 0x55, 0xb7, 0x26, 0xeb, 0xa0, 0x64, 0xc5, 0xc9, 0x6c, 0xc4, 0x30, 0x27,
+	0x99, 0x1e, 0x5f, 0x96, 0xa1, 0x51, 0x00, 0x8d, 0x1a, 0x37, 0xe1, 0xa2, 0x94, 0x2f, 0x08, 0x89,
+	0x6e, 0xfa, 0xfe, 0xee, 0xcf, 0x6f, 0xdb, 0x17, 0x7e, 0x79, 0xdb, 0xae, 0x48, 0x6d, 0x07, 0x27,
+	0x7e, 0x45, 0x9a, 0x07, 0x04, 0xdd, 0x82, 0x7d, 0x45, 0x1c, 0xb3, 0x28, 0xa2, 0x63, 0x79, 0xb0,
+	0x13, 0x23, 0xcc, 0x9e, 0xc4, 0x1f, 0xe5, 0x30, 0x3a, 0x82, 0xc6, 0x88, 0x31, 0x91, 0x08, 0x8e,
+	0xe3, 0x00, 0x13, 0x62, 0xe5, 0xa9, 0xf6, 0xb7, 0x5c, 0xc7, 0xdf, 0xb7, 0xc6, 0x63, 0x6d, 0x93,
+	0xb1, 0xd5, 0xf9, 0x89, 0xf0, 0xdc, 0xf2, 0xa5, 0x58, 0x55, 0x7f, 0x2f, 0xc3, 0x0b, 0x54, 0xfa,
+	0x66, 0x85, 0x5a, 0xd6, 0xd4, 0x0c, 0xcf, 0xa8, 0x77, 0xa0, 0x41, 0xb2, 0xff, 0xb5, 0xdc, 0x8a,
+	0xe2, 0xee, 0x5b, 0x43, 0x46, 0xbe, 0x0f, 0xe5, 0x44, 0x76, 0x8f, 0x7b, 0x51, 0x1d, 0xee, 0x1b,
+	0x85, 0x13, 0x70, 0x4e, 0x13, 0xf9, 0x9a, 0x8c, 0x3e, 0x80, 0x4a, 0x1a, 0xcb, 0x41, 0xe6, 0x5e,
+	0x52, 0x6e, 0xff, 0xef, 0xea, 0x29, 0xd7, 0xcd, 0xa6, 0x5c, 0xf7, 0xc4, 0x4c, 0x41, 0xdf, 0x10,
+	0xd1, 0x63, 0xa8, 0xa9, 0x23, 0x1f, 0x87, 0xd1, 0x94, 0x12, 0xb7, 0xaa, 0xfc, 0x5a, 0x6b, 0x7e,
+	0x2f, 0xb2, 0xe9, 0xd8, 0xbf, 0x24, 0x0b, 0xf2, 0xed, 0xaf, 0x6d, 0xc7, 0x07, 0xe9, 0x78, 0xaa,
+	0xfc, 0xd0, 0x47, 0x50, 0x57, 0x61, 0x5e, 0xa5, 0x94, 0x87, 0x94, 0xb8, 0xf0, 0x2f, 0xe2, 0xa8,
+	0x04, 0x9e, 0x6b, 0x47, 0xf4, 0x00, 0x1a, 0x36, 0x9f, 0x60, 0xc2, 0xd9, 0x42, 0xb6, 0x42, 0x4d,
+	0xb5, 0x02, 0x14, 0xda, 0x60, 0x37, 0xfb, 0xf6, 0x13, 0xce, 0x16, 0x03, 0x62, 0xa7, 0x6e, 0xee,
+	0x96, 0x29, 0x5c, 0x57, 0x0a, 0x37, 0x8b, 0x7c, 0x23, 0xb2, 0xf7, 0x9d, 0x03, 0x07, 0x66, 0x88,
+	0x3c, 0xa5, 0x78, 0x2e, 0x66, 0xd9, 0x64, 0xbf, 0x0c, 0x95, 0x51, 0x3a, 0x7e, 0x49, 0x85, 0x99,
+	0xbc, 0xe6, 0x4d, 0x9e, 0x0f, 0x1a, 0x8d, 0xf9, 0x59, 0x2c, 0x28, 0x29, 0xce, 0xf4, 0x1d, 0x8b,
+	0xca, 0x69, 0x8e, 0xde, 0x85, 0x6c, 0xf0, 0x06, 0x61, 0x44, 0xe8, 0x1b, 0x73, 0x16, 0xeb, 0x06,
+	0x1c, 0x48, 0x4c, 0x9e, 0xfb, 0x98, 0xb3, 0xcf, 0xe9, 0x58, 0xc8, 0x3f, 0xdc, 0x56, 0x71, 0xaa,
+	0x06, 0x19, 0x10, 0xef, 0x47, 0x07, 0x76, 0x96, 0x72, 0x43, 0x77, 0xa0, 0x36, 0x53, 0x4f, 0x67,
+	0x41, 0x48, 0xf4, 0xe0, 0x59, 0xd6, 0x04, 0x8c, 0x79, 0x40, 0x64, 0xcf, 0xef, 0xa4, 0x51, 0x91,
+	0xbe, 0xb5, 0x46, 0xaf, 0x5b, 0x82, 0x74, 0xb8, 0x03, 0x35, 0x36, 0x99, 0xcc, 0xc3, 0x88, 0x2a,
+	0x7a, 0x69, 0x3d, 0xba, 0x31, 0x4b, 0xb2, 0x0b, 0x17, 0xcd, 0xbf, 0x98, 0xc4, 0xb3, 0x57, 0xef,
+	0x2b, 0x07, 0xfe, 0xb7, 0x22, 0xa9, 0x39, 0xd9, 0x77, 0xa1, 0xa2, 0x3f, 0xa7, 0x34, 0xad, 0xf5,
+	0xdc, 0x62, 0x4b, 0x2f, 0x79, 0x18, 0x1e, 0xfa, 0x10, 0x80, 0x53, 0x92, 0x46, 0x04, 0x47, 0xe3,
+	0x33, 0xb3, 0xe5, 0xae, 0x16, 0xb6, 0x9c, 0x6f, 0x8d, 0xc3, 0xf1, 0x8c, 0x2e, 0xa8, 0x5f, 0xa0,
+	0x7b, 0xbf, 0x3b, 0xd0, 0x7c, 0x36, 0x92, 0x62, 0x2e, 0x97, 0x76, 0xbd, 0x84, 0xce, 0x79, 0x25,
+	0xcc, 0x3b, 0x60, 0x6b, 0xa9, 0x03, 0x96, 0xab, 0x56, 0x5a, 0xa9, 0x9a, 0x5c, 0xa0, 0x89, 0xc0,
+	0x5c, 0x04, 0x78, 0x22, 0x28, 0x0f, 0x8a, 0x22, 0x95, 0xfc, 0x86, 0x32, 0x1d, 0x4b, 0x4b, 0xb6,
+	0xe0, 0xdf, 0x07, 0x44, 0x23, 0x12, 0x8c, 0xe8, 0x84, 0x71, 0x6a, 0xe9, 0x7a, 0xe8, 0xee, 0xd3,
+	0x88, 0xf4, 0x95, 0x21, 0x63, 0xdb, 0x0b, 0x47, 0xa5, 0x70, 0xe1, 0xf0, 0xbe, 0x71, 0xe0, 0x60,
+	0xf9, 0x4f, 0x8d, 0xe2, 0xf7, 0xd7, 0x16, 0xe9, 0x66, 0xcd, 0x2d, 0xf3, 0x3f, 0xa9, 0xde, 0xfb,
+	0xc1, 0x81, 0xfd, 0x67, 0xaf, 0x29, 0x9f, 0xe3, 0xb3, 0x41, 0xf6, 0x25, 0x34, 0x00, 0xc8, 0x37,
+	0x2d, 0xba, 0x56, 0xc8, 0x61, 0x6d, 0x01, 0xb7, 0xae, 0x6f, 0xb0, 0x9a, 0x5f, 0x7a, 0x02, 0x55,
+	0xbb, 0x8b, 0xd1, 0xd5, 0x02, 0x77, 0x75, 0x6b, 0xb7, 0xae, 0x9d, 0x6f, 0xd4, 0x71, 0x7a, 0xdf,
+	0x3b, 0xd0, 0x54, 0x77, 0x9e, 0xa1, 0x60, 0x9c, 0xe6, 0xa9, 0xf6, 0xa1, 0xac, 0x96, 0x36, 0xba,
+	0xb2, 0x32, 0x70, 0x6d, 0xdc, 0xbf, 0x99, 0xc4, 0xde, 0x05, 0xf4, 0x14, 0xaa, 0x76, 0xaf, 0x2d,
+	0xe7, 0xb8, 0xb2, 0x02, 0x97, 0x73, 0x5c, 0x5d, 0x85, 0xde, 0x85, 0xde, 0xd7, 0x0e, 0x1c, 0x14,
+	0xee, 0x3b, 0x79, 0x9a, 0x31, 0x5c, 0xd9, 0x70, 0x8b, 0x42, 0xb7, 0x0a, 0x31, 0xff, 0xfa, 0xfe,
+	0xda, 0xba, 0xfd, 0x4f, 0xa8, 0x46, 0xb0, 0x9f, 0x1c, 0xd8, 0xd3, 0xad, 0x92, 0x67, 0xf1, 0x1c,
+	0xea, 0xc5, 0xbe, 0x43, 0x45, 0x69, 0xce, 0x39, 0x7a, 0xad, 0xf6, 0x46, 0xbb, 0xd5, 0xee, 0xc5,
+	0xea, 0xd0, 0x6b, 0x6f, 0xec, 0x58, 0x13, 0xb4, 0xb3, 0x99, 0x90, 0x45, 0xed, 0x6f, 0x7f, 0xba,
+	0x15, 0x8f, 0x46, 0x15, 0xb5, 0x84, 0xee, 0xfd, 0x19, 0x00, 0x00, 0xff, 0xff, 0x43, 0xa8, 0x95,
+	0x12, 0x5f, 0x0c, 0x00, 0x00,
 }
 
 type DRPCOverlayInspectorClient interface {
@@ -2339,282 +1353,6 @@ var _ grpc.ClientConn
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
-
-// KadInspectorClient is the client API for KadInspector service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type KadInspectorClient interface {
-	// CountNodes returns the number of nodes in the routing table
-	CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error)
-	// PingNode sends a PING RPC to a node and returns its availability
-	PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error)
-	// LookupNode triggers a Kademlia FindNode and returns the response
-	LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error)
-	// NodeInfo sends a PING RPC to a node and returns its local info
-	NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoResponse, error)
-	// FindNear returns limit number of IDs "near" the Start ID
-	FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error)
-	// DumpNodes returns all the nodes in the node database
-	DumpNodes(ctx context.Context, in *DumpNodesRequest, opts ...grpc.CallOption) (*DumpNodesResponse, error)
-	// GetBucketList returns all the buckets with all their nodes
-	GetBucketList(ctx context.Context, in *GetBucketListRequest, opts ...grpc.CallOption) (*GetBucketListResponse, error)
-}
-
-type kadInspectorClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewKadInspectorClient(cc *grpc.ClientConn) KadInspectorClient {
-	return &kadInspectorClient{cc}
-}
-
-func (c *kadInspectorClient) CountNodes(ctx context.Context, in *CountNodesRequest, opts ...grpc.CallOption) (*CountNodesResponse, error) {
-	out := new(CountNodesResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/CountNodes", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error) {
-	out := new(PingNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/PingNode", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) LookupNode(ctx context.Context, in *LookupNodeRequest, opts ...grpc.CallOption) (*LookupNodeResponse, error) {
-	out := new(LookupNodeResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/LookupNode", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) NodeInfo(ctx context.Context, in *NodeInfoRequest, opts ...grpc.CallOption) (*NodeInfoResponse, error) {
-	out := new(NodeInfoResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/NodeInfo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) FindNear(ctx context.Context, in *FindNearRequest, opts ...grpc.CallOption) (*FindNearResponse, error) {
-	out := new(FindNearResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/FindNear", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) DumpNodes(ctx context.Context, in *DumpNodesRequest, opts ...grpc.CallOption) (*DumpNodesResponse, error) {
-	out := new(DumpNodesResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/DumpNodes", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *kadInspectorClient) GetBucketList(ctx context.Context, in *GetBucketListRequest, opts ...grpc.CallOption) (*GetBucketListResponse, error) {
-	out := new(GetBucketListResponse)
-	err := c.cc.Invoke(ctx, "/inspector.KadInspector/GetBucketList", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// KadInspectorServer is the server API for KadInspector service.
-type KadInspectorServer interface {
-	// CountNodes returns the number of nodes in the routing table
-	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
-	// PingNode sends a PING RPC to a node and returns its availability
-	PingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
-	// LookupNode triggers a Kademlia FindNode and returns the response
-	LookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
-	// NodeInfo sends a PING RPC to a node and returns its local info
-	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoResponse, error)
-	// FindNear returns limit number of IDs "near" the Start ID
-	FindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
-	// DumpNodes returns all the nodes in the node database
-	DumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
-	// GetBucketList returns all the buckets with all their nodes
-	GetBucketList(context.Context, *GetBucketListRequest) (*GetBucketListResponse, error)
-}
-
-func RegisterKadInspectorServer(s *grpc.Server, srv KadInspectorServer) {
-	s.RegisterService(&_KadInspector_serviceDesc, srv)
-}
-
-func _KadInspector_CountNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CountNodesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).CountNodes(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/CountNodes",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).CountNodes(ctx, req.(*CountNodesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_PingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingNodeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).PingNode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/PingNode",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).PingNode(ctx, req.(*PingNodeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_LookupNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupNodeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).LookupNode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/LookupNode",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).LookupNode(ctx, req.(*LookupNodeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_NodeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeInfoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).NodeInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/NodeInfo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).NodeInfo(ctx, req.(*NodeInfoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_FindNear_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindNearRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).FindNear(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/FindNear",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).FindNear(ctx, req.(*FindNearRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_DumpNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DumpNodesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).DumpNodes(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/DumpNodes",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).DumpNodes(ctx, req.(*DumpNodesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _KadInspector_GetBucketList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBucketListRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(KadInspectorServer).GetBucketList(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/inspector.KadInspector/GetBucketList",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KadInspectorServer).GetBucketList(ctx, req.(*GetBucketListRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _KadInspector_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "inspector.KadInspector",
-	HandlerType: (*KadInspectorServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "CountNodes",
-			Handler:    _KadInspector_CountNodes_Handler,
-		},
-		{
-			MethodName: "PingNode",
-			Handler:    _KadInspector_PingNode_Handler,
-		},
-		{
-			MethodName: "LookupNode",
-			Handler:    _KadInspector_LookupNode_Handler,
-		},
-		{
-			MethodName: "NodeInfo",
-			Handler:    _KadInspector_NodeInfo_Handler,
-		},
-		{
-			MethodName: "FindNear",
-			Handler:    _KadInspector_FindNear_Handler,
-		},
-		{
-			MethodName: "DumpNodes",
-			Handler:    _KadInspector_DumpNodes_Handler,
-		},
-		{
-			MethodName: "GetBucketList",
-			Handler:    _KadInspector_GetBucketList_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "inspector.proto",
-}
 
 // OverlayInspectorClient is the client API for OverlayInspector service.
 //

@@ -8,23 +8,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testblobs"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testblobs"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/uplink"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -381,6 +386,56 @@ func TestVerifierHappyPath(t *testing.T) {
 	})
 }
 
+func TestVerifierExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		// set pointer's expiration date to be already expired
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		oldPointerBytes, err := proto.Marshal(pointer)
+		require.NoError(t, err)
+		newPointer := &pb.Pointer{}
+		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		require.NoError(t, err)
+		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointerBytes, err := proto.Marshal(newPointer)
+		require.NoError(t, err)
+		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.Error(t, err)
+		require.True(t, audit.ErrSegmentExpired.Has(err))
+
+		// Verify should delete the expired segment
+		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		require.Error(t, err)
+		require.Nil(t, pointer)
+
+		assert.Len(t, report.Successes, 0)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
 func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -458,6 +513,66 @@ func TestVerifierMissingPiece(t *testing.T) {
 		assert.Len(t, report.Fails, 1)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+// TestVerifierMissingPieceHashesNotVerified tests that if piece hashes were not verified for a pointer,
+// a node that fails an audit for that pointer does not get marked as failing an audit, but is removed from
+// the pointer.
+func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		// update pointer to have PieceHashesVerified false
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, path)
+		require.NoError(t, err)
+		pointer.PieceHashesVerified = false
+		err = satellite.Metainfo.Service.Put(ctx, path, pointer)
+		require.NoError(t, err)
+
+		// delete the piece from the first node
+		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
+		piece := pointer.GetRemote().GetRemotePieces()[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, report.Successes, origNumPieces-1)
+		// expect no failed audit
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
+
+		// expect that bad node is no longer in the pointer
+		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
+		for _, p := range pointer.GetRemote().GetRemotePieces() {
+			assert.NotEqual(t, p.NodeId, piece.NodeId)
+		}
 	})
 }
 
@@ -635,5 +750,125 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		for _, newPiece := range pointerAgain.GetRemote().GetRemotePieces() {
 			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
 		}
+	})
+}
+
+// TestVerifierSlowDownload checks that a node that times out while sending data to the
+// audit service gets put into containment mode
+func TestVerifierSlowDownload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
+				config.Audit.MinBytesPerSecond = 100 * memory.KiB
+				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		slowNode := pointer.Remote.RemotePieces[0].NodeId
+		for _, node := range planet.StorageNodes {
+			if node.ID() == slowNode {
+				slowNodeDB := node.DB.(*testblobs.SlowDB)
+				// make downloads on storage node slower than the timeout on the satellite for downloading shares
+				delay := 1 * time.Second
+				slowNodeDB.SetLatency(delay)
+				break
+			}
+		}
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 3)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 1)
+		require.Len(t, report.Unknown, 0)
+		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+	})
+}
+
+// TestVerifierUnknownError checks that a node that returns an unknown error in response to an audit request
+// does not get marked as successful, failed, or contained
+func TestVerifierUnknownError(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		badNode := pointer.Remote.RemotePieces[0].NodeId
+		for _, node := range planet.StorageNodes {
+			if node.ID() == badNode {
+				badNodeDB := node.DB.(*testblobs.BadDB)
+				// return an error when the verifier attempts to download from this node
+				badNodeDB.SetError(errs.New("unknown error"))
+				break
+			}
+		}
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 3)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.Unknown, 1)
+		require.Equal(t, report.Unknown[0], badNode)
 	})
 }

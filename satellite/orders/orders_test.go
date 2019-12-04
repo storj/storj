@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -290,7 +290,7 @@ func BenchmarkOrders(b *testing.B) {
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
 
-	counts := []int{50, 100, 250, 500, 999} //sqlite limit of 999
+	counts := []int{50, 100, 250, 500, 1000}
 	for _, c := range counts {
 		c := c
 		satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {

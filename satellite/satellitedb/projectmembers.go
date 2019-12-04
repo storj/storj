@@ -14,6 +14,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that projectMembers implements console.ProjectMembers.
+var _ console.ProjectMembers = (*projectMembers)(nil)
+
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
 type projectMembers struct {
 	methods dbx.Methods
@@ -205,7 +208,7 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	case 2:
 		return "u.email"
 	case 3:
-		return "u.created_at"
+		return "pm.created_at"
 	default:
 		return "u.full_name"
 	}

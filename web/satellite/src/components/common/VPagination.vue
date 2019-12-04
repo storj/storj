@@ -5,27 +5,26 @@
     <div class="pagination-container">
         <div class="pagination-container__pages">
             <div class="pagination-container__button" @click="prevPage">
-                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path class="pagination-svg-path" d="M2.80077e-07 4.26316L6 0L6 9L2.80077e-07 4.26316Z" fill="#354049"/>
-                </svg>
+                <PaginationLeftIcon class="pagination-container__button__image"/>
             </div>
             <div class="pagination-container__items">
                 <PagesBlock
                     :pages="firstBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected"
+                />
                 <span class="pages-divider" v-if="isFirstDotsShown">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected"
+                />
                 <span class="pages-divider" v-if="isSecondDotsShown">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected"
+                />
             </div>
             <div class="pagination-container__button" @click="nextPage">
-                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path class="pagination-svg-path" d="M6 4.73684L0 9L1.20219e-06 -9.53674e-07L6 4.73684Z" fill="#354049"/>
-                </svg>
+                <PaginationRightIcon class="pagination-container__button__image"/>
             </div>
         </div>
     </div>
@@ -36,12 +35,16 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
+import PaginationLeftIcon from '@/../static/images/common/paginationLeft.svg';
+import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
+
 import { Page } from '@/types/pagination';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
     components: {
         PagesBlock,
+        PaginationLeftIcon,
+        PaginationRightIcon,
     },
 })
 export default class VPagination extends Vue {
@@ -251,7 +254,7 @@ export default class VPagination extends Vue {
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: 1px solid #AFB7C1;
+            border: 1px solid #afb7c1;
             border-radius: 6px;
             width: 30px;
             height: 30px;

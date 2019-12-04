@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { datesDiffInMinutes } from '@/app/utils/date';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
-import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
+import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Stamp } from '@/storagenode/satellite';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',
@@ -27,7 +28,7 @@ const {
     GET_NODE_INFO,
 } = NODE_ACTIONS;
 
-const statusThreshHoldMinutes = 10;
+const statusThreshHoldMinutes = 120;
 const snoAPI = new SNOApi();
 
 const allSatellites = {
@@ -40,7 +41,10 @@ export const node = {
         info: {
             id: '',
             status: StatusOffline,
+            lastPinged: new Date(),
+            startedAt: new Date(),
             version: '',
+            allowedVersion: '',
             wallet: '',
             isLastVersion: false
         },
@@ -60,9 +64,13 @@ export const node = {
         disqualifiedSatellites: new Array<SatelliteInfo>(),
         selectedSatellite: allSatellites,
         bandwidthChartData: new Array<BandwidthUsed>(),
+        egressChartData: new Array<EgressUsed>(),
+        ingressChartData: new Array<IngressUsed>(),
         storageChartData: new Array<Stamp>(),
         storageSummary: 0,
         bandwidthSummary: 0,
+        egressSummary: 0,
+        ingressSummary: 0,
         checks: {
             uptime: 0,
             audit: 0,
@@ -73,6 +81,7 @@ export const node = {
             state.info.id = nodeInfo.nodeID;
             state.info.isLastVersion = nodeInfo.isUpToDate;
             state.info.version = nodeInfo.version;
+            state.info.allowedVersion = nodeInfo.allowedVersion;
             state.info.wallet = nodeInfo.wallet;
             state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
             state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
@@ -89,7 +98,10 @@ export const node = {
 
             state.info.status = StatusOffline;
 
-            if (getDateDiffMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
+            state.info.startedAt = nodeInfo.startedAt;
+            state.info.lastPinged = nodeInfo.lastPinged;
+
+            if (datesDiffInMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
                 state.info.status = StatusOnline;
             }
         },
@@ -120,8 +132,12 @@ export const node = {
             }
 
             state.bandwidthChartData = satelliteInfo.bandwidthDaily;
+            state.egressChartData = satelliteInfo.egressDaily;
+            state.ingressChartData = satelliteInfo.ingressDaily;
             state.storageChartData = satelliteInfo.storageDaily;
             state.bandwidthSummary = satelliteInfo.bandwidthSummary;
+            state.egressSummary = satelliteInfo.egressSummary;
+            state.ingressSummary = satelliteInfo.ingressSummary;
             state.storageSummary = satelliteInfo.storageSummary;
         },
     },
@@ -150,15 +166,4 @@ function calculateSuccessRatio(successCount: number, totalCount: number) : numbe
     }
 
     return successCount / totalCount * 100;
-}
-
-/**
- * returns difference between two dates in minutes
- * @param d1 - holds first date
- * @param d2 - holds second date
- */
-function getDateDiffMinutes(d1: Date, d2: Date): number {
-    const diff = d1.getTime() - d2.getTime();
-
-    return Math.floor(diff / 1000 / 60);
 }

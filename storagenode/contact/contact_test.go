@@ -5,15 +5,14 @@ package contact_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/storagenode"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
@@ -31,13 +30,15 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		firstPing, _, _ := pingStats.WhenLastPinged()
+		firstPing := pingStats.WhenLastPinged()
+
+		time.Sleep(time.Second) //HACKFIX: windows has large time granularity
 
 		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		secondPing, _, _ := pingStats.WhenLastPinged()
+		secondPing := pingStats.WhenLastPinged()
 
 		require.True(t, secondPing.After(firstPing))
 	})
@@ -50,11 +51,9 @@ func TestNodeInfoUpdated(t *testing.T) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0]
 
-		node.Contact.Chore.Loop.Pause()
-
+		node.Contact.Chore.Pause(ctx)
 		oldInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
-
 		oldCapacity := oldInfo.Capacity
 
 		newCapacity := pb.NodeCapacity{
@@ -62,10 +61,9 @@ func TestNodeInfoUpdated(t *testing.T) {
 			FreeDisk:      0,
 		}
 		require.NotEqual(t, oldCapacity, newCapacity)
-
 		node.Contact.Service.UpdateSelf(&newCapacity)
 
-		node.Contact.Chore.Loop.TriggerWait()
+		node.Contact.Chore.TriggerWait(ctx)
 
 		newInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
@@ -78,46 +76,17 @@ func TestNodeInfoUpdated(t *testing.T) {
 	})
 }
 
-func TestRequestInfoEndpointTrustedSatellite(t *testing.T) {
+func TestLocalAndUpdateSelf(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
-
-		// Satellite Trusted
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
-		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
-
-		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
-		require.NotNil(t, resp)
-		require.NoError(t, err)
-		require.Equal(t, nodeDossier.Type, resp.Type)
-		require.Equal(t, &nodeDossier.Operator, resp.Operator)
-		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
-		require.Equal(t, nodeDossier.Version.GetVersion(), resp.Version.GetVersion())
-	})
-}
-
-func TestRequestInfoEndpointUntrustedSatellite(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage.WhitelistedSatellites = nil
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
-
-		// Satellite Untrusted
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
-		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
-
-		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
-		require.Nil(t, resp)
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		node := planet.StorageNodes[0]
+		var group errgroup.Group
+		group.Go(func() error {
+			_ = node.Contact.Service.Local()
+			return nil
+		})
+		node.Contact.Service.UpdateSelf(&pb.NodeCapacity{})
+		_ = group.Wait()
 	})
 }

@@ -57,7 +57,7 @@ func run(command, root string) error {
 		}
 		return install(
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
-			"storj.io/drpc/cmd/protoc-gen-drpc@v0.0.3",
+			"storj.io/drpc/cmd/protoc-gen-drpc@v0.0.6",
 			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
 		)
 

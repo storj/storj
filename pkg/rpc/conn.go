@@ -11,15 +11,12 @@ import (
 
 // Conn is a wrapper around a drpc client connection.
 type Conn struct {
-	raw   *RawConn
 	state tls.ConnectionState
+	raw   *RawConn
 }
 
 // Close closes the connection.
 func (c *Conn) Close() error { return c.raw.Close() }
-
-// RawConn returns the underlying connection.
-func (c *Conn) RawConn() *RawConn { return c.raw }
 
 // ConnectionState returns the tls connection state.
 func (c *Conn) ConnectionState() tls.ConnectionState { return c.state }

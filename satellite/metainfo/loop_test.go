@@ -16,12 +16,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -222,7 +222,7 @@ func TestLoopCancel(t *testing.T) {
 		// create a new metainfo loop
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
-		}, satellite.Metainfo.Service)
+		}, satellite.Metainfo.Database)
 
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)

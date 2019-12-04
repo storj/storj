@@ -15,7 +15,8 @@
     "strictPropertyInitialization": false,
     "types": [
       "webpack-env",
-      "jest"
+      "jest",
+      "segment-analytics"
     ],
     "paths": {
       "@/*": [
@@ -33,12 +34,11 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "src/types/svg.d.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx"
   ],
   "exclude": [
-    "node_modules",
-    // TODO: temporary file
-    "src/components/project/DatePicker.vue"
+    "node_modules"
   ]
 }

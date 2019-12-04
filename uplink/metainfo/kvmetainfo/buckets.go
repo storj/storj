@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 )
 
 // CreateBucket creates a new bucket
@@ -60,7 +61,17 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	}
 
 	info.Name = bucketName
-	newBucket, err := db.buckets.Create(ctx, *info)
+
+	// uuid MarshalJSON implementation always returns err == nil
+	partnerID, _ := info.PartnerID.MarshalJSON()
+	newBucket, err := db.metainfo.CreateBucket(ctx, metainfo.CreateBucketParams{
+		Name:                        []byte(info.Name),
+		PathCipher:                  info.PathCipher,
+		PartnerID:                   partnerID,
+		DefaultSegmentsSize:         info.DefaultSegmentsSize,
+		DefaultRedundancyScheme:     info.DefaultRedundancyScheme,
+		DefaultEncryptionParameters: info.DefaultEncryptionParameters,
+	})
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
@@ -91,8 +102,9 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 	if bucketName == "" {
 		return storj.ErrNoBucket.New("")
 	}
-
-	err = db.buckets.Delete(ctx, bucketName)
+	err = db.metainfo.DeleteBucket(ctx, metainfo.DeleteBucketParams{
+		Name: []byte(bucketName),
+	})
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrBucketNotFound.Wrap(err)
@@ -111,7 +123,9 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (_ storj.Bu
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	bucket, err := db.buckets.Get(ctx, bucketName)
+	bucket, err := db.metainfo.GetBucket(ctx, metainfo.GetBucketParams{
+		Name: []byte(bucketName),
+	})
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
@@ -122,7 +136,10 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (_ storj.Bu
 // ListBuckets lists buckets
 func (db *Project) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bucketList, err := db.buckets.List(ctx, listOpts)
+
+	bucketList, err := db.metainfo.ListBuckets(ctx, metainfo.ListBucketsParams{
+		ListOpts: listOpts,
+	})
 	if err != nil {
 		return storj.BucketList{}, storj.ErrBucket.Wrap(err)
 	}

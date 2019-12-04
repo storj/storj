@@ -9,28 +9,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 )
 
 func TestMonitor(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-
-		var freeBandwidth int64
+		var freeBandwidthInit int64
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.Pause()
 
-			info, err := satellite.Contact.Service.FetchInfo(ctx, storageNode.Local().Node)
-			require.NoError(t, err)
-
 			// assume that all storage nodes have the same initial values
-			freeBandwidth = info.Capacity.FreeBandwidth
+			freeBandwidthInit = storageNode.Local().Capacity.FreeBandwidth
 		}
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
@@ -42,13 +37,11 @@ func TestMonitor(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.TriggerWait()
 
-			info, err := satellite.Contact.Service.FetchInfo(ctx, storageNode.Local().Node)
-			require.NoError(t, err)
-
+			freeBandwidthNew := storageNode.Local().Capacity.FreeBandwidth
 			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
 			require.NoError(t, err)
 			if stats.UsedSpace > 0 {
-				assert.Equal(t, freeBandwidth-stats.UsedBandwidth, info.Capacity.FreeBandwidth)
+				assert.Equal(t, freeBandwidthInit-stats.UsedBandwidth, freeBandwidthNew)
 				nodeAssertions++
 			}
 		}

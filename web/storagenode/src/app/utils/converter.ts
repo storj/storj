@@ -4,6 +4,8 @@
 export const KB = 1e3;
 export const MB = 1e6;
 export const GB = 1e9;
+export const TB = 1e12;
+export const PB = 1e15;
 
 /**
  * Used to format amount from bytes to more compact unit
@@ -22,7 +24,11 @@ export function formatBytes(bytes): string {
             return `${(bytes / KB).toFixed(decimals)}KB`;
         case _bytes < GB:
             return `${(bytes / MB).toFixed(decimals)}MB`;
-        default:
+        case _bytes < TB:
             return `${(bytes / GB).toFixed(decimals)}GB`;
+        case _bytes < PB:
+            return `${(bytes / TB).toFixed(decimals)}TB`;
+        default:
+            return `${(bytes / PB).toFixed(decimals)}PB`;
     }
 }

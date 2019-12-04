@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 )
 
 // Error is the default audit errs class.
@@ -22,7 +22,7 @@ var Error = errs.Class("audit error")
 type Config struct {
 	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
-	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5m0s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
 	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m"`
@@ -95,13 +95,15 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, path)
 			if err != nil {
-				worker.log.Error("audit failed", zap.Error(err))
+				worker.log.Error("audit failed", zap.Binary("Segment", []byte(path)), zap.Error(err))
 			}
 		})
 	}
 }
 
-func (worker *Worker) work(ctx context.Context, path storj.Path) error {
+func (worker *Worker) work(ctx context.Context, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var errlist errs.Group
 
 	// First, attempt to reverify nodes for this segment that are in containment mode.
@@ -111,26 +113,27 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// Skip all reverified nodes in the next Verify step.
 	skip := make(map[storj.NodeID]bool)
-	if report != nil {
-		for _, nodeID := range report.Successes {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Offlines {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Fails {
-			skip[nodeID] = true
-		}
-		for _, pending := range report.PendingAudits {
-			skip[pending.NodeID] = true
-		}
+	for _, nodeID := range report.Successes {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Offlines {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Fails {
+		skip[nodeID] = true
+	}
+	for _, pending := range report.PendingAudits {
+		skip[pending.NodeID] = true
+	}
+	for _, nodeID := range report.Unknown {
+		skip[nodeID] = true
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.
@@ -140,7 +143,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report, path)
 	if err != nil {
 		errlist.Add(err)
 	}

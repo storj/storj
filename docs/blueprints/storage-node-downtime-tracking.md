@@ -213,7 +213,7 @@ Data Science could use this approach to more nicely calculate statistics however
     1. Implement [_estimating offline time_ part](#estimating-offline-time)<sup>1</sup>.
 
     <sup>1</sup> These subtasks can be done in parallel.
-1. Wire the new chore to the `satellite.Peer`.
+1. Wire the new chore to the `satellite.Core`.
 1. Remove the implementation of the current uptime disqualification.
   - `satellite/satellitedb.Overlaycache.UpdateUptime`: Remove update disqualified field due to lower uptime reputation.
    - `satellite/satellitedb.Overlaycache.populateUpdateNodeStats`: Remove update disqualified field due to lower uptime reputation.
@@ -226,6 +226,7 @@ Data Science could use this approach to more nicely calculate statistics however
 
 ## Open issues
 
+* The design needs to account for potential satellite or DNS outages to ensure that we do not unfairly disqualify nodes if the satellite cannot be contacted.
 * The design indefinitely checks offline storage nodes until they are disqualified.
 * The implementation requires coordination with the team working in [Kademlia removal blueprint](kademlia-removal.md) for the "ping" functionality.
 * The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.
