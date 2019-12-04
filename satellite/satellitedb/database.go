@@ -31,15 +31,16 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
-	log    *zap.Logger
-	db     *dbx.DB
-	driver string
-	source string
+	log            *zap.Logger
+	db             *dbx.DB
+	driver         string
+	implementation dbutil.Implementation
+	source         string
 }
 
 // New creates instance of database supports postgres
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
-	driver, source, err := dbutil.SplitConnstr(databaseURL)
+	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 	dbutil.Configure(db.DB, mon)
 
-	core := &DB{log: log, db: db, driver: driver, source: source}
+	core := &DB{log: log, db: db, driver: driver, source: source, implementation: implementation}
 	return core, nil
 }
 
