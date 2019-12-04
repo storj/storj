@@ -41,8 +41,8 @@ func (mask *bitmask) Unset(index int) error {
 		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
 	}
 
-	bit := ^(uint64(1) << index)
-	*mask = bitmask(uint64(*mask) & bit)
+	bit := uint64(1) << index
+	*mask = bitmask(uint64(*mask) ^ bit)
 	return nil
 }
 

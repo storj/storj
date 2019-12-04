@@ -146,9 +146,9 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 	}
 
-	if obsvr.from != nil && obsvr.from.Before(pointer.CreationDate) {
+	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
 		object.skip = true
-	} else if obsvr.to != nil && obsvr.to.After(pointer.CreationDate) {
+	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
 		object.skip = true
 	}
 
