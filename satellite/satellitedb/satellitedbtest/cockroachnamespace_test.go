@@ -30,7 +30,7 @@ func TestNewCockroach(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert new test db exists
-	driver, source, err := dbutil.SplitConnstr(*pgtest.CrdbConnStr)
+	driver, source, _, err := dbutil.SplitConnStr(*pgtest.CrdbConnStr)
 	require.NoError(t, err)
 
 	db, err := dbx.Open(driver, source)

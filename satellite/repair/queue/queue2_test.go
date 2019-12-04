@@ -83,7 +83,7 @@ func TestOrder(t *testing.T) {
 				{olderRepairPath, time.Now().Add(-3 * time.Hour)},
 			}
 			for _, item := range updateList {
-				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = timezone('utc', ?) WHERE path = ?`), item.attempted, item.path)
+				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? AT TIME ZONE 'UTC' WHERE path = ?`), item.attempted, item.path)
 				if err != nil {
 					return err
 				}
