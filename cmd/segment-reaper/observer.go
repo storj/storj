@@ -175,14 +175,16 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 			}
 
 			brokenObject := false
-			if object.hasLastSegment {
+			if !object.hasLastSegment {
+				brokenObject = true
+			} else {
 				includeLastSegment := true
 				segmentsCount := object.segments.Count()
 
 				// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
 				switch {
-				case segmentsCount == 0:
-					// skip this case to avoid additional computation
+				// this case is only for old style pointers with encrypted number of segments
+				// value 0 means that we don't know how much segments object should have
 				case object.expectedNumberOfSegments == 0:
 					// verify if initial sequence is valid
 					lastSequenceIndex := 0
@@ -243,8 +245,6 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						return err
 					}
 				}
-			} else {
-				brokenObject = true
 			}
 
 			if brokenObject {
