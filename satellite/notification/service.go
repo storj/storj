@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
@@ -19,35 +20,32 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-type ClientSetting struct {
-	Emails    int
-	RPC       int
-	lastReset time.Time
-}
+var (
+	// Error is the default error class for notification package.
+	Error = errs.Class("notification")
+
+	mon = monkit.Package()
+)
 
 // Service is the notification service between storage nodes and satellites.
 // architecture: Service
 type Service struct {
 	log     *zap.Logger
-	config  Config
 	dialer  rpc.Dialer
 	overlay *overlay.Service
 	mailer  *mailservice.Service
 
-	loop    *sync2.Cycle
-	lock    *sync.Mutex
-	limiter map[string]ClientSetting
+	loop *sync2.Cycle
+	lock *sync.Mutex
 }
 
 // NewService creates a new notification service.
-func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay *overlay.Service, mail *mailservice.Service) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, overlay *overlay.Service, mail *mailservice.Service) *Service {
 	return &Service{
 		log:     log,
-		config:  config,
 		dialer:  dialer,
 		overlay: overlay,
 		mailer:  mail,
-		limiter: map[string]ClientSetting{},
 		lock:    &sync.Mutex{},
 	}
 }
@@ -57,17 +55,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Debug("Starting Rate Limiter")
 	service.loop = sync2.NewCycle(1 * time.Hour)
 
-	err = service.loop.Run(ctx, service.resetLimiter)
+	err = service.loop.Run(ctx, nil)
 	return err
-}
-
-// resetLimiter resets the Usage every hour.
-func (service *Service) resetLimiter(ctx context.Context) error {
-	service.lock.Lock()
-	defer service.lock.Unlock()
-	//Clear map
-	service.limiter = map[string]ClientSetting{}
-	return nil
 }
 
 // Close closes the resources
@@ -78,66 +67,21 @@ func (service *Service) Close() error {
 	return nil
 }
 
-func (service *Service) IncrementLimiter(id string, email bool, rpc bool) {
-	service.lock.Lock()
-	defer service.lock.Unlock()
-
-	entry := service.limiter[id]
-	if email {
-		entry.Emails++
-	}
-	if rpc {
-		entry.RPC++
-	}
-	service.limiter[id] = entry
-}
-
-// CheckRPCLimit checks if hourly RPC limit've been reached.
-func (service *Service) CheckRPCLimit(id string) bool {
-	var ok bool
-	var entry ClientSetting
-
-	if entry, ok = service.limiter[id]; !ok {
-		return false
-	}
-
-	return entry.RPC < service.config.HourlyRPC
-}
-
-// CheckEmailLimit checks if hourly email limit've been reached.
-func (service *Service) CheckEmailLimit(id string) bool {
-	var ok bool
-	var entry ClientSetting
-
-	if entry, ok = service.limiter[id]; !ok {
-		return false
-	}
-
-	return entry.Emails < service.config.HourlyEmails
-}
-
 // ProcessNotification sends message to the specified set of nodes (ids).
 func (service *Service) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var eSent, rSent = false, false
 
 	service.log.Debug("sending to node", zap.String("address", message.Address), zap.String("message", string(message.Message)))
-	if service.CheckRPCLimit(message.NodeId.String()) {
-		_, err = service.processNotificationRPC(ctx, message)
-		if err != nil {
-			return err
-		}
-		rSent = true
-	}
-	if service.CheckEmailLimit(message.NodeId.String()) {
-		err = service.processNotificationEmail(ctx, message)
-		if err != nil {
-			return err
-		}
-		eSent = true
+	_, err = service.processNotificationRPC(ctx, message)
+	if err != nil {
+		return err
 	}
 
-	service.IncrementLimiter(message.NodeId.String(), eSent, rSent)
+	err = service.processNotificationEmail(ctx, message)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

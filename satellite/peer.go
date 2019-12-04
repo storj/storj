@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/notification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -122,8 +121,6 @@ type Config struct {
 	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
-
-	Notification notification.Config
 
 	Metrics metrics.Config
 }
