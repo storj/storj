@@ -153,7 +153,7 @@ func install(t *testing.T, ctx *testcontext.Context, msiPath, installDir string,
 	t.Logf("installing from %s\n", msiPath)
 	logPath := ctx.File("log", "install.log")
 
-	baseArgs := msiBaseArgs
+	baseArgs := append(msiBaseArgs, "STORJ_MIN_STORAGE=1GB")
 	if installDir != "" {
 		baseArgs = append(baseArgs, "INSTALLFOLDER="+installDir)
 	}
