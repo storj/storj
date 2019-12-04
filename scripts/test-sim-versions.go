@@ -23,7 +23,7 @@ type VersionsTest struct {
 
 type Stage struct {
 	SatelliteVersion    string   `yaml:"sat_version"`
-	UplinkVersion       string   `yaml:"uplink_version"`
+	UplinkVersions      []string `yaml:"uplink_versions"`
 	StoragenodeVersions []string `yaml:"storagenode_versions"`
 }
 
@@ -61,15 +61,17 @@ func run() error {
 }
 
 func runTest(test *VersionsTest, scriptFile string) error {
-	stage1SNVersions := formatSNVersions(test.Stage1.StoragenodeVersions)
-	stage2SNVersions := formatSNVersions(test.Stage2.StoragenodeVersions)
-	cmd := exec.Command(scriptFile, test.Stage1.SatelliteVersion, test.Stage1.UplinkVersion, stage1SNVersions, test.Stage2.SatelliteVersion, test.Stage2.UplinkVersion, stage2SNVersions)
+	stage1SNVersions := formatMultipleVersions(test.Stage1.StoragenodeVersions)
+	stage2SNVersions := formatMultipleVersions(test.Stage2.StoragenodeVersions)
+	stage1UplinkVersions := formatMultipleVersions(test.Stage1.UplinkVersions)
+	stage2UplinkVersions := formatMultipleVersions(test.Stage2.UplinkVersions)
+	cmd := exec.Command(scriptFile, test.Stage1.SatelliteVersion, stage1UplinkVersions, stage1SNVersions, test.Stage2.SatelliteVersion, stage2UplinkVersions, stage2SNVersions)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func formatSNVersions(snvs []string) string {
+func formatMultipleVersions(snvs []string) string {
 	var s string
 	for i, snv := range snvs {
 		space := " "

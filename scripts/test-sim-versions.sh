@@ -15,17 +15,17 @@ trap cleanup EXIT
 # TODO make sure the number of storagenode versions matches the number of sns from setup
 
 stage1_sat_version="$1"
-stage1_uplink_version="$2"
+stage1_uplink_versions="$2"
 stage1_storagenode_versions="$3"
 stage2_sat_version="$4"
-stage2_uplink_version="$5"
+stage2_uplink_versions="$5"
 stage2_storagenode_versions="$6"
 
 echo "stage1_sat_version" $stage1_sat_version
-echo "stage1_uplink_version" $stage1_uplink_version
+echo "stage1_uplink_versions" $stage1_uplink_versions
 echo "stage1_storagenode_versions" $stage1_storagenode_versions
 echo "stage2_sat_version" $stage2_sat_version
-echo "stage2_uplink_version" $stage2_uplink_version
+echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
 
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -49,11 +49,11 @@ setup_stage(){
     local test_dir=$1
     local sat_version=$2
     local stage_sn_versions=$3
-    local stage_ul_version=$4
+    local stage_ui_versions=$4
 
     echo "Satellite version: ${sat_version}"
     echo "Storagenode versions: ${stage_sn_versions}"
-    echo "Uplink version: ${stage_ul_version}"
+    echo "Uplink version: ${stage_ui_versions}"
 
     local src_sat_version_dir=$(version_dir ${sat_version})
 
@@ -101,7 +101,7 @@ setup_stage(){
 }
 
 # Set up each environment
-unique_versions=$(find_unique_versions "$stage1_sat_version" "$stage1_uplink_version" "$stage1_storagenode_versions" "$stage2_sat_version" "$stage2_uplink_version" "$stage2_storagenode_versions")
+unique_versions=$(find_unique_versions "$stage1_sat_version" "$stage1_uplink_versions" "$stage1_storagenode_versions" "$stage2_sat_version" "$stage2_uplink_versions" "$stage2_storagenode_versions")
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
@@ -141,13 +141,13 @@ done
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
-setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "${stage1_uplink_version}"
+setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "${stage1_uplink_versions}"
 
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "upload"
 
 echo -e "\nSetting up stage 2 in ${test_dir}"
-setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "${stage2_uplink_version}"
+setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "${stage2_uplink_versions}"
 
 echo -e "\nRunning stage 2."
 PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "download"
