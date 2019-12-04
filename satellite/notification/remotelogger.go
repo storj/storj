@@ -16,6 +16,7 @@ import (
 
 var _ sap.Logger = (*RemoteLogger)(nil)
 
+// RemoteLogger logger that sends log to specific storageNode.
 type RemoteLogger struct {
 	zap.Logger
 	target storj.NodeID

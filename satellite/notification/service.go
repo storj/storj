@@ -59,7 +59,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return err
 }
 
-// Close closes the resources
+// Close closes the resources.
 func (service *Service) Close() error {
 	service.loop.Stop()
 	service.loop.Close()
@@ -109,7 +109,7 @@ func (service *Service) processNotificationEmail(ctx context.Context, message *p
 	return nil
 }
 
-//
+//sendBroadcastNotification process notification to list of specific nodes.
 func (service *Service) sendBroadcastNotification(ctx context.Context, message string, ids []pb.Node) {
 	var sentCount int
 	var failed []string

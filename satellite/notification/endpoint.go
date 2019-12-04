@@ -9,17 +9,19 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// Endpoint implements the notification service Endpoints.
 type Endpoint struct {
 	service *Service
 }
 
+// NewEndpoint returns a new notification service endpoint.
 func NewEndpoint(service *Service) *Endpoint {
 	return &Endpoint{
 		service: service,
 	}
 }
 
-// ProcessNotification process notification by rpc.
+// ProcessNotification process notifications to specific list on nodes.
 func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.NotificationMessage) (*pb.NotificationResponse, error) {
 	nodeIDs, err := endpoint.service.overlay.ActiveLastWeek(ctx)
 	if err != nil {
