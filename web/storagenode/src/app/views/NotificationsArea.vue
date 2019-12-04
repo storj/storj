@@ -9,16 +9,22 @@
             </router-link>
             <p class="notifications-container__header__text">Notifications</p>
         </div>
+        <div class="notifications-container__content-area">
+            <SNONotification />
+        </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import SNONotification from '@/app/components/notifications/SNONotification.vue';
+
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 @Component ({
     components: {
+        SNONotification,
         BackArrowIcon,
     },
 })
@@ -54,6 +60,14 @@ export default class NotificationsArea extends Vue {
                 margin-left: 29px;
                 text-align: center;
             }
+        }
+
+        &__content-area {
+            width: 100%;
+            height: auto;
+            max-height: 62vh;
+            background-color: #fff;
+            border-radius: 12px;
         }
     }
 </style>
