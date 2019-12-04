@@ -38,7 +38,7 @@ type (
 	// NodeStatsClient is an alias to the drpc client interface
 	NodeStatsClient = pb.DRPCNodeStatsClient
 
-	// Notification is an alias to the drpc client interface
+	// NotificationClient is an alias to the drpc client interface
 	NotificationClient = pb.DRPCNotificationClient
 
 	// OrdersClient is an alias to the drpc client interface
