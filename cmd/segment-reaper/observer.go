@@ -92,7 +92,7 @@ func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, poi
 
 func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	if obsvr.lastProjectID != "" && obsvr.lastProjectID != path.ProjectIDString {
-		err := obsvr.analyzeProject(ctx)
+		err := obsvr.analyzeProject(ctx, obsvr.printSegment)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
-func (obsvr *observer) analyzeProject(ctx context.Context) error {
+func (obsvr *observer) analyzeProject(ctx context.Context, processZombieSegment func(ctx context.Context, projectID, segmentIndex, bucket, path string) error) error {
 	for bucket, objects := range obsvr.objects {
 		for path, object := range objects {
 			if object.skip {
@@ -238,7 +238,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 				}
 
 				if brokenObject && includeLastSegment {
-					err := obsvr.printSegment(ctx, "l", bucket, path)
+					err := processZombieSegment(ctx, obsvr.lastProjectID, "l", bucket, path)
 					if err != nil {
 						return err
 					}
@@ -254,7 +254,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 						panic(err)
 					}
 					if has {
-						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path)
+						err := processZombieSegment(ctx, obsvr.lastProjectID, "s"+strconv.Itoa(index), bucket, path)
 						if err != nil {
 							return err
 						}
@@ -266,14 +266,14 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	return nil
 }
 
-func (obsvr *observer) printSegment(ctx context.Context, segmentIndex, bucket, path string) error {
-	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
+func (obsvr *observer) printSegment(ctx context.Context, projectID, segmentIndex, bucket, path string) error {
+	creationDate, err := pointerCreationDate(ctx, obsvr.db, projectID, segmentIndex, bucket, path)
 	if err != nil {
 		return err
 	}
 	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
 	err = obsvr.writer.Write([]string{
-		obsvr.lastProjectID,
+		projectID,
 		segmentIndex,
 		bucket,
 		encodedPath,
