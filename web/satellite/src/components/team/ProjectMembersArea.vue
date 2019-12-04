@@ -160,7 +160,7 @@ export default class ProjectMembersArea extends Vue {
 
 <style scoped lang="scss">
     .team-area {
-        padding: 40px 65px 55px 64px;
+        padding: 40px 65px 55px 65px;
         font-family: 'font_regular', sans-serif;
 
         &__header {
