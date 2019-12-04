@@ -46,22 +46,15 @@ func cmdParse(cmd *cobra.Command, args []string) error {
 	scanner.Split(scanExit)
 	for scanner.Scan() {
 		pairs := strings.Split(scanner.Text(), exitStr)
+		line := strings.Trim(pairs[0], " \t\n")
+		if line != "" {
+			log.Println(line)
+		}
 		if len(pairs) != 2 {
-			line := pairs[0]
-			if line != "" {
-				log.Println(line)
-			}
 			return errs.New("no exit status logged")
 		}
-		for i, line := range pairs {
-			line = strings.Trim(line, " \t\n")
-			if (i % 2) == 0 {
-				log.Println(line)
-			} else {
-				if line != "0" {
-					return errs.New("non-zero exit: %s", line)
-				}
-			}
+		if pairs[1] != "0" {
+			return errs.New("non-zero exit: %s", line)
 		}
 	}
 	return nil
@@ -71,6 +64,7 @@ func waitForTaskReady(taskName string) error {
 	args := []string{
 		"/c", "schtasks", "/query", "/fo", "list", "/tn", taskName,
 	}
+	// TODO: maybe move duration to a flag and/or receive ctx
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	var notReady = false
 	for {
