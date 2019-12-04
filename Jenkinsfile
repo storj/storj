@@ -35,26 +35,23 @@ node('node') {
       node('windows') {
         checkout scm
 
-//         unstash "storagenode-installer"
+        unstash "storagenode-installer"
 
         // NB: using environment variables like this only works
         //     for non-concurrent builds. For concurrent builds
         //     use `set ... && call <batch file>`:
 
         // Set scheduled tasks log path
-        bat 'setx scheduledTaskLog %TEMP%\\scheduledTask.log'
+        bat 'setx taskLog %TEMP%\\task.log'
+        // Create empty task log
+        bat 'copy nul %%taskLog%%'
 
         // Store msiPath in environment variable
-        bat 'for /d %%d in (release\\*) do setx msiPath %%d\\storagenode_windows_amd64.msi'
+        bat 'for /d %%d in (release\\*) do setx msiPath %cd%\\%%d\\storagenode_windows_amd64.msi'
         // Task reads msiPath from environment variable
-        bat 'schtasks /run /tn "CI Installer Test Elevated"'
-        // TODO: remove
-        bat 'cmd /c type %%scheduledTaskLog%%'
+        bat 'schtasks /run /tn ci-installer-test'
         // Print output and check for non-zero status
-        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go %%scheduledTaskLog%%'
-
-        // Cleanup
-        bat 'cmd /c del %%scheduledTaskLog%%'
+        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go ci-installer-test %%taskLog%%'
 
         echo "Current build result: ${currentBuild.result}"
       }
