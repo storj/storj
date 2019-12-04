@@ -118,6 +118,8 @@ func TestInstaller_Config(t *testing.T) {
 }
 
 func TestUpgrade_Config(t *testing.T) {
+	t.Skipf("upgrade test requires binaries to have greater version than \"old release\"")
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
