@@ -6,15 +6,21 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"text/tabwriter"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/satellitedb"
@@ -97,4 +103,69 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		}
 	}
 	return err
+}
+
+func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdentity, nodeID storj.NodeID, receipt string) error {
+	signee := signing.SigneeFromPeerIdentity(identity.PeerIdentity())
+
+	bytes, err := hex.DecodeString(receipt)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// try to unmarshal as an ExitCompleted first
+	completed := &pb.ExitCompleted{}
+	err = proto.Unmarshal(bytes, completed)
+	if err != nil {
+		// if it is not a ExitCompleted, try ExitFailed
+		failed := &pb.ExitFailed{}
+		err = proto.Unmarshal(bytes, failed)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		err = checkIDs(identity.PeerIdentity().ID, nodeID, failed.SatelliteId, failed.NodeId)
+		if err != nil {
+			return err
+		}
+
+		err = signing.VerifyExitFailed(ctx, signee, failed)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		return writeVerificationMessage(false, failed.SatelliteId, failed.NodeId, failed.Failed)
+	}
+
+	err = checkIDs(identity.PeerIdentity().ID, nodeID, completed.SatelliteId, completed.NodeId)
+	if err != nil {
+		return err
+	}
+
+	err = signing.VerifyExitCompleted(ctx, signee, completed)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return writeVerificationMessage(true, completed.SatelliteId, completed.NodeId, completed.Completed)
+}
+
+func checkIDs(satelliteID storj.NodeID, providedSNID storj.NodeID, receiptSatelliteID storj.NodeID, receiptSNID storj.NodeID) error {
+	if satelliteID != receiptSatelliteID {
+		return errs.New("satellite ID (%v) does not match receipt satellite ID (%v).", satelliteID, receiptSatelliteID)
+	}
+	if providedSNID != receiptSNID {
+		return errs.New("provided storage node ID (%v) does not match receipt node ID (%v).", providedSNID, receiptSNID)
+	}
+	return nil
+}
+
+func writeVerificationMessage(succeeded bool, satelliteID storj.NodeID, snID storj.NodeID, timestamp time.Time) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
+	fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
+	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snID)
+	fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
+
+	return errs.Wrap(w.Flush())
 }
