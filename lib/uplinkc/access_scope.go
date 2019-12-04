@@ -21,7 +21,7 @@ func parse_scope(val *C.char, cerr **C.char) C.ScopeRef {
 		return C.ScopeRef{}
 	}
 
-	return C.ScopeRef{universe.Add(scope)}
+	return C.ScopeRef{_handle: universe.Add(scope)}
 }
 
 //export serialize_scope
