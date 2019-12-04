@@ -4,6 +4,7 @@
 package satellitedbtest_test
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,10 +37,14 @@ func TestNewCockroach(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
+	// NewCockroach removes all non-alphanumeric characters from the name. We need it to match.
+	r := regexp.MustCompile(`\W`)
+	formattedName := r.ReplaceAllString(namespacedDBName, "")
+
 	var exists *bool
 	row := db.QueryRow(`SELECT EXISTS (
 			SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1)
-		);`, namespacedDBName,
+		);`, formattedName,
 	)
 	err = row.Scan(&exists)
 	require.NoError(t, err)
@@ -51,7 +56,7 @@ func TestNewCockroach(t *testing.T) {
 	// assert new test db was deleted
 	row = db.QueryRow(`SELECT EXISTS (
 			SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower($1)
-		);`, namespacedDBName,
+		);`, formattedName,
 	)
 	err = row.Scan(&exists)
 	require.NoError(t, err)
