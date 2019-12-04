@@ -9,9 +9,12 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -21,8 +24,8 @@ const exitStr = "EXIT"
 
 var (
 	parseCmd = &cobra.Command{
-		Use:  "parse <scheduled task output path>",
-		Args: cobra.ExactArgs(1),
+		Use:  "parse <task name> <scheduled task output path>",
+		Args: cobra.ExactArgs(2),
 		RunE: cmdParse,
 	}
 
@@ -30,7 +33,11 @@ var (
 )
 
 func cmdParse(cmd *cobra.Command, args []string) error {
-	file, err := os.Open(args[0])
+	if err := waitForTaskReady(args[0]); err != nil {
+		return errs.Wrap(err)
+	}
+
+	file, err := os.Open(args[1])
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -39,6 +46,13 @@ func cmdParse(cmd *cobra.Command, args []string) error {
 	scanner.Split(scanExit)
 	for scanner.Scan() {
 		pairs := strings.Split(scanner.Text(), exitStr)
+		if len(pairs) != 2 {
+			line := pairs[0]
+			if line != "" {
+				log.Println(line)
+			}
+			return errs.New("no exit status logged")
+		}
 		for i, line := range pairs {
 			line = strings.Trim(line, " \t\n")
 			if (i % 2) == 0 {
@@ -51,6 +65,56 @@ func cmdParse(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func waitForTaskReady(taskName string) error {
+	args := []string{
+		"/c", "schtasks", "/query", "/fo", "list", "/tn", taskName,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	var notReady = false
+	for {
+		if err := ctx.Err(); err != nil {
+			if err == context.DeadlineExceeded {
+				return nil
+			}
+			return err
+		}
+
+		var status string
+		out, err := exec.Command("cmd", args...).CombinedOutput()
+		if err != nil {
+			return errs.New(string(out))
+		}
+
+		scanner := bufio.NewScanner(bytes.NewBuffer(out))
+		for scanner.Scan() {
+			line := scanner.Text()
+			line = strings.Trim(line, " \t\n")
+
+			if strings.HasPrefix(line, "Status:") {
+				pair := strings.Split(line, ":")
+				status = strings.Trim(pair[1], " \t\n")
+				break
+			}
+		}
+
+		switch status {
+		case "":
+			return errs.New("no task status found in output:\n%s", out)
+		case "Ready":
+			if notReady {
+				cancel()
+				return nil
+			}
+		default:
+			if !notReady {
+				notReady = true
+			}
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func scanExit(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -74,6 +138,7 @@ func scanExit(data []byte, atEOF bool) (advance int, token []byte, err error) {
 func main() {
 	err := parseCmd.Execute()
 	if err != nil {
+		// TODO: remove unwanted usage info
 		log.Fatal(errs.Wrap(err))
 	}
 }
