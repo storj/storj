@@ -45,6 +45,8 @@ export default class SNONotification extends Vue {
             justify-items: center;
             width: 6px;
             height: 6px;
+            min-width: 6px;
+            min-height: 6px;
             margin-right: 11px;
 
             &__circle {
@@ -62,6 +64,8 @@ export default class SNONotification extends Vue {
             background-color: #f3f4f9;
             width: 40px;
             height: 40px;
+            min-width: 40px;
+            min-height: 40px;
             margin-right: 17px;
         }
 
@@ -76,7 +80,8 @@ export default class SNONotification extends Vue {
         }
 
         &__date-container {
-            width: 100px;
+            margin-left: 20px;
+            min-width: 60px;
 
             &__date {
                 font-family: 'font_regular', sans-serif;

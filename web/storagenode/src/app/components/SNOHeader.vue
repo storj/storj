@@ -18,17 +18,24 @@
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
                 </div>
-                <div class="header__content-holder__right-area__bell-area">
+                <div class="header__content-holder__right-area__bell-area" @click.stop="openNotificationPopup">
                     <BellIcon />
                     <span class="header__content-holder__right-area__bell-area__new-circle"></span>
                 </div>
             </div>
+            <NotificationsPopup
+                v-if="isNotificationPopupShown"
+                class="header__content-holder__right-area__bell-area__popup"
+                v-click-outside="closeNotificationPopup"
+            />
         </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
 
 import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
@@ -43,13 +50,22 @@ const {
 
 @Component({
     components: {
+        NotificationsPopup,
         StorjIcon,
         RefreshIcon,
         BellIcon,
     },
 })
 export default class SNOHeader extends Vue {
-    public notificationsPath: string = RouteConfig.Notifications.path;
+    public isNotificationPopupShown: boolean = false;
+
+    public openNotificationPopup(): void {
+        this.isNotificationPopupShown = true;
+    }
+
+    public closeNotificationPopup(): void {
+        this.isNotificationPopupShown = false;
+    }
 
     public async onRefresh(): Promise<void> {
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
@@ -82,6 +98,7 @@ export default class SNOHeader extends Vue {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
 
             &__logo-area {
                 display: flex;
@@ -150,6 +167,13 @@ export default class SNOHeader extends Vue {
                         height: 6px;
                         border-radius: 50%;
                         background-color: #eb001b;
+                    }
+
+                    &__popup {
+                        position: absolute;
+                        top: 105px;
+                        right: 0;
+                        z-index: 100;
                     }
                 }
             }
