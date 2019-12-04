@@ -12,6 +12,7 @@ import (
 
 var _ sap.Logger = (*Logger)(nil)
 
+// Logger software that send specific data to nodes.
 type Logger struct {
 	zap.Logger
 	*Service
@@ -28,6 +29,7 @@ func (log *Logger) Named(s string) sap.Logger {
 	return &Logger{*log.log.Named(s), log.Service}
 }
 
+// Remote created remote logger to send notifications to specific Node by ID.
 func (log *Logger) Remote(target storj.NodeID) sap.Logger {
 	return &RemoteLogger{target: target, Service: log.Service, Logger: log.Logger}
 }

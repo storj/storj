@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Logger sap logger interface for notification service.
 type Logger interface {
 	Named(s string) Logger
 	Remote(target storj.NodeID) Logger

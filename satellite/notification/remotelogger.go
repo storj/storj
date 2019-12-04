@@ -23,6 +23,7 @@ type RemoteLogger struct {
 	*Service
 }
 
+// Remote returns remote logger to send notifications to specific Node by ID.
 func (log *RemoteLogger) Remote(target storj.NodeID) sap.Logger {
 	return log
 }
@@ -45,7 +46,7 @@ func (log *RemoteLogger) Info(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_INFO)
 }
 
-// warn sends a DebugLevel message to specified set of nodes. The message includes any fields passed
+// Warn sends a DebugLevel message to specified set of nodes. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (log *RemoteLogger) Warn(message string, fields ...zapcore.Field) {
 	log.processNotification(message, pb.LogLevel_WARN)
