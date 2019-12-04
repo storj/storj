@@ -6,11 +6,13 @@ import Router from 'vue-router';
 
 import { NavigationLink } from '@/app/types/navigation';
 import DashboardArea from '@/app/views/DashboardArea.vue';
+import NotificationsArea from '@/app/views/NotificationsArea.vue';
 
 Vue.use(Router);
 
 export abstract class RouteConfig {
     public static Root = new NavigationLink('', 'Root');
+    public static Notifications = new NavigationLink('/notifications', 'Notifications');
 }
 
 const router = new Router({
@@ -20,6 +22,11 @@ const router = new Router({
             path: RouteConfig.Root.path,
             name: RouteConfig.Root.name,
             component: DashboardArea
+        },
+        {
+            path: RouteConfig.Notifications.path,
+            name: RouteConfig.Notifications.name,
+            component: NotificationsArea
         },
     ]
 });
