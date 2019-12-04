@@ -41,15 +41,10 @@ node('node') {
         //     for non-concurrent builds. For concurrent builds
         //     use `set ... && call <batch file>`:
 
-        // Create empty task log
-        bat 'cmd /c copy nul %taskLog%'
-
-        // Store msiPath in environment variable
-        bat 'for /d %%d in (release\\*) do setx msiPath %cd%\\%%d\\storagenode_windows_amd64.msi'
-        // Task reads msiPath from environment variable
-        bat 'schtasks /run /tn ci-installer-test'
-        // Print output and check for non-zero status
-        bat 'cmd /c go run ./scripts/parse-scheduled-task-output.go ci-installer-test %taskLog%'
+        bat label: 'Create empty task log', script: 'cmd /c copy nul %taskLog%'
+        bat label: 'Set msiPath environment variable', script: 'for /d %%d in (release\\*) do setx msiPath %cd%\\%%d\\storagenode_windows_amd64.msi'
+        bat label: 'Run installer test task', script: 'schtasks /run /tn ci-installer-test'
+        bat label: 'Wait for task to finish...', script: 'cmd /c go run ./scripts/parse-scheduled-task-output.go ci-installer-test %taskLog%'
 
         echo "Current build result: ${currentBuild.result}"
       }
