@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -122,13 +123,22 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				zap.Stringer("Satellite ID", worker.satelliteID),
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
-			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitFailed, msg.ExitFailed.GetExitFailureSignature())
+			exitFailedBytes, err := proto.Marshal(msg.ExitFailed)
+			if err != nil {
+				worker.log.Error("failed to marshal exit failed message.")
+			}
+			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitFailed, exitFailedBytes)
 			return errs.Wrap(err)
 
 		case *pb.SatelliteMessage_ExitCompleted:
 			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteID))
 
-			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitSucceeded, msg.ExitCompleted.GetExitCompleteSignature())
+			exitCompletedBytes, err := proto.Marshal(msg.ExitCompleted)
+			if err != nil {
+				worker.log.Error("failed to marshal exit completed message.")
+			}
+
+			err = worker.satelliteDB.CompleteGracefulExit(ctx, worker.satelliteID, time.Now(), satellites.ExitSucceeded, exitCompletedBytes)
 			if err != nil {
 				return errs.Wrap(err)
 			}
