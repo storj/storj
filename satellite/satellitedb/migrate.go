@@ -4,8 +4,12 @@
 package satellitedb
 
 import (
+	"fmt"
+
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 )
@@ -19,8 +23,13 @@ var (
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
-	switch db.driver {
-	case "postgres":
+	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
+	// will need to create any schemas specified in the search path, and cockroach
+	// will need to create the database it was told to connect to. These things should
+	// not really be here, and instead should be assumed to exist.
+	// This is tracked in jira ticket #3338.
+	switch db.implementation {
+	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
 			return errs.New("error parsing schema: %+v", err)
@@ -32,6 +41,22 @@ func (db *DB) CreateTables() error {
 				return errs.New("error creating schema: %+v", err)
 			}
 		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.db.QueryRow(`SELECT current_database();`).Scan(&dbName); err != nil {
+			return errs.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.db.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+			pq.QuoteIdentifier(dbName)))
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
@@ -47,6 +72,7 @@ func (db *DB) CreateTables() error {
 		}
 
 		return migration.Run(db.log.Named("migrate"))
+
 	default:
 		return migrate.Create("database", db.db)
 	}
@@ -54,10 +80,11 @@ func (db *DB) CreateTables() error {
 
 // CheckVersion confirms the database is at the desired version
 func (db *DB) CheckVersion() error {
-	switch db.driver {
-	case "postgres":
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		return migration.ValidateVersions(db.log)
+
 	default:
 		return nil
 	}
