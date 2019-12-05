@@ -29,11 +29,11 @@
         <div class="usage-report-container__main-area">
             <div class="usage-report-container__main-area__info-area">
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, GBh</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, {{storageDataDimension}}*h</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{storage}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, GB</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, {{egressDataDimension}}</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{egress}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
@@ -104,18 +104,24 @@ export default class UsageReport extends Vue {
         return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
-    // TODO: update bytes to GB
     public get storage(): string {
-        return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+        return this.$store.state.usageModule.projectUsage.storage.formattedBytes;
     }
 
-    // TODO: update bytes to GB
     public get egress(): string {
-        return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+        return this.$store.state.usageModule.projectUsage.egress.formattedBytes;
     }
 
     public get objectsCount(): string {
         return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
+    }
+
+    public get storageDataDimension(): string {
+        return this.$store.state.usageModule.projectUsage.storage.label;
+    }
+
+    public get egressDataDimension(): string {
+        return this.$store.state.usageModule.projectUsage.egress.label;
     }
 
     public async mounted(): Promise<void> {
