@@ -95,7 +95,6 @@ if [[ "$command" == "upload" ]]; then
 fi
 
 if [[ "$command" == "download" ]]; then
-    setup
     existing_bucket_name_suffixes=$3
 
     for suffix in ${existing_bucket_name_suffixes}; do
@@ -108,7 +107,7 @@ if [[ "$command" == "download" ]]; then
         echo "download folder name: ${download_dst_dir}"
         uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
         uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-         uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+        uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
 
         if cmp "${original_dst_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
         then
@@ -134,15 +133,10 @@ if [[ "$command" == "download" ]]; then
             exit 1
         fi
     done
-
-    # rm "${stage2_dst_dir}/small-upload-testfile"
-    # rm "${stage2_dst_dir}/big-upload-testfile"
-    # rm "${stage2_dst_dir}/multisegment-upload-testfile"
 fi
 
 if [[ "$command" == "cleanup" ]]; then
     uplink_versions=$3
-    setup
     for ul_version in ${uplink_versions}; do
         bucket_name=${bucket}-${ul_version}
         uplink --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/small-upload-testfile"
