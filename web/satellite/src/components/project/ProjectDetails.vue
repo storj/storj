@@ -49,6 +49,9 @@
                     </div>
                 </div>
             </div>
+            <div class="project-details-info-container">
+                <ProjectLimitsArea />
+            </div>
         </div>
     </div>
 </template>
@@ -60,6 +63,7 @@ import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
+import ProjectLimitsArea from '@/components/project/ProjectLimitsArea.vue';
 
 import EditIcon from '@/../static/images/project/edit.svg';
 
@@ -76,6 +80,7 @@ import { LocalData } from '@/utils/localData';
         EmptyState,
         DeleteProjectPopup,
         EditIcon,
+        ProjectLimitsArea,
     },
 })
 export default class ProjectDetailsArea extends Vue {
