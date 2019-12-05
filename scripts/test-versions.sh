@@ -30,9 +30,9 @@ echo "which storj-sim: $(which storj-sim)"
 
 echo -e "\nConfig directory for uplink:"
 echo "${main_cfg_dir}/gateway/0"
-echo "which uplink: $(which uplink_${uplink_version})"
+echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
-shasum $(which uplink_${uplink_version})
+shasum $(which uplink)
 # uplink version --config-dir "${main_cfg_dir}/gateway/0/"
 
 echo -e "\nConfig directory for satellite:"
@@ -56,15 +56,15 @@ if [[ "$command" == "upload" ]]; then
     setup
     bucket_name=${bucket}-${uplink_version}
 
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" mb "sj://$bucket_name/"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" mb "sj://$bucket_name/"
 
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/small-upload-testfile" "sj://$bucket_name/"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/big-upload-testfile" "sj://$bucket_name/"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$bucket_name/"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/small-upload-testfile" "sj://$bucket_name/"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/big-upload-testfile" "sj://$bucket_name/"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$bucket_name/"
 
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/small-upload-testfile" "${stage1_dst_dir}"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/big-upload-testfile" "${stage1_dst_dir}"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${stage1_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/small-upload-testfile" "${stage1_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/big-upload-testfile" "${stage1_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${stage1_dst_dir}"
 
     if cmp "${test_files_dir}/small-upload-testfile" "${stage1_dst_dir}/small-upload-testfile"
     then
@@ -105,9 +105,9 @@ if [[ "$command" == "download" ]]; then
     download_dst_dir=${stage2_dst_dir}/${name}
     mkdir -p "$download_dst_dir"
 
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-    uplink_${uplink_version} --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
 
     if cmp "${test_files_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
     then
@@ -144,10 +144,10 @@ if [[ "$command" == "cleanup" ]]; then
     for ul_version in ${uplink_versions}; do
     setup
     bucket_name=${bucket}-${ul_version}
-    uplink_${ul_version} --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/small-upload-testfile"
-    uplink_${ul_version} --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/big-upload-testfile"
-    uplink_${ul_version} --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/multisegment-upload-testfile"
-    uplink_${ul_version} --config-dir "${main_cfg_dir}/gateway/0" rb "sj://$bucket_name"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/small-upload-testfile"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/big-upload-testfile"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" rm "sj://$bucket_name/multisegment-upload-testfile"
+    uplink --config-dir "${main_cfg_dir}/gateway/0" rb "sj://$bucket_name"
 done
 fi
 

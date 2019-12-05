@@ -49,11 +49,9 @@ setup_stage(){
     local test_dir=$1
     local sat_version=$2
     local stage_sn_versions=$3
-    local stage_ul_versions=$4
 
     echo "Satellite version: ${sat_version}"
     echo "Storagenode versions: ${stage_sn_versions}"
-    echo "Uplink version: ${stage_ul_versions}"
 
     local src_sat_version_dir=$(version_dir ${sat_version})
 
@@ -86,11 +84,9 @@ setup_stage(){
         let counter+=1
     done
 
-    for ul_version in ${stage_ul_versions}; do
+#    for ul_version in ${stage_ul_versions}; do
         # use desired uplink binary and config
-        local src_ul_version_dir=$(version_dir ${ul_version})
-        cp -r ${src_ul_version_dir}/bin/uplink_${ul_version} $test_dir/bin/unlink_${ul_version}
-    done
+ #   done
     # PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
     # PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
 
@@ -127,7 +123,6 @@ for version in ${unique_versions}; do
     rm ${dir}/internal/version/release.go
     echo "Installing storj-sim for ${version} in ${dir}."
     GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
-    mv ${bin_dir}/uplink ${bin_dir}/uplink_${version}
     echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
     PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
 
@@ -135,7 +130,7 @@ for version in ${unique_versions}; do
     echo "Binary shasums:"
     shasum ${bin_dir}/satellite
     shasum ${bin_dir}/storagenode
-    shasum ${bin_dir}/uplink_${version}
+    shasum ${bin_dir}/uplink
 done
 
 # Use stage 1 satellite version as the starting state. Create a cp of that
@@ -145,16 +140,22 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "${stage1_uplink_versions}"
+setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
 for ul_version in ${stage1_uplink_versions}; do
+    echo "Uplink version: ${ul_version}"
+    src_ul_version_dir=$(version_dir ${ul_version})
+    ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
     PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "upload" "${ul_version}"
 done
 
 
 echo -e "\nSetting up stage 2 in ${test_dir}"
-setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "${stage2_uplink_versions}"
+setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}"
 echo -e "\nRunning stage 2."
 for ul_version in ${stage2_uplink_versions}; do
+    echo "Uplink version: ${ul_version}"
+    src_ul_version_dir=$(version_dir ${ul_version})
+    ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
     PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "download" "${ul_version}" "${stage1_uplink_versions}"
 done
 
