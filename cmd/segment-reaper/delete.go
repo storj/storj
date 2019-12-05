@@ -24,6 +24,8 @@ import (
 )
 
 var (
+	errKnown = errs.Class("known delete error")
+
 	deleteCmd = &cobra.Command{
 		Use:   "delete input_file.csv [flags]",
 		Short: "Deletes zombie segments from DB",
@@ -68,6 +70,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 	csvReader.ReuseRecord = true
 
 	segmentsDeleted := 0
+	segmentsErrored := 0
 	segmentsSkipped := 0
 	for {
 		record, err := csvReader.Read()
@@ -100,8 +103,12 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 
 		err = deleteSegment(ctx, db, path, creationDateFromReport, deleteCfg.DryRun)
 		if err != nil {
+			if errKnown.Has(err) {
+				segmentsSkipped++
+			} else {
+				segmentsErrored++
+			}
 			log.Error("error while deleting segment", zap.String("path", rawPath), zap.Error(err))
-			segmentsSkipped++
 			continue
 		}
 
@@ -109,7 +116,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 		segmentsDeleted++
 	}
 
-	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped))
+	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped), zap.Int("errored", segmentsSkipped))
 
 	return nil
 }
@@ -129,7 +136,7 @@ func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, crea
 	// check if pointer has been replaced
 	if !pointer.GetCreationDate().Equal(creationDate) {
 		// pointer has been replaced since detection, do not delete it.
-		return errs.New("segment won't be deleted, create date mismatch: %s -> %s", pointer.GetCreationDate(), creationDate)
+		return errKnown.New("segment won't be deleted, create date mismatch: %s -> %s", pointer.GetCreationDate(), creationDate)
 	}
 
 	if !dryRun {
@@ -137,7 +144,7 @@ func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, crea
 		err = db.CompareAndSwap(ctx, []byte(path), pointerBytes, nil)
 		if storage.ErrValueChanged.Has(err) {
 			// race detected while deleting the pointer, do not try deleting it again.
-			return errs.New("segment won't be deleted, race detected while deleting the pointer")
+			return errKnown.New("segment won't be deleted, race detected while deleting the pointer")
 		}
 		if err != nil {
 			return err
