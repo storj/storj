@@ -61,6 +61,32 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 	}, nil
 }
 
+func CreateCockroach(dbURL string, namespacedTestDB string) (string, error) {
+	driver, source, _, err := dbutil.SplitConnStr(dbURL)
+	if err != nil {
+		return "", err
+	}
+	db, err := dbx.Open(driver, source)
+	if err != nil {
+		return "", err
+	}
+
+	// this regex removes any non-alphanumeric character from the string
+	r := regexp.MustCompile(`\W`)
+	namespacedTestDB = r.ReplaceAllString(namespacedTestDB, "")
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(namespacedTestDB)))
+	if err != nil {
+		return "", err
+	}
+
+	// this regex matches substrings like this "/dbName?"
+	r = regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
+	if !r.MatchString(source) {
+		return "", errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
+	}
+	return r.ReplaceAllString(dbURL, "/"+namespacedTestDB+"?"), err
+}
+
 // CockroachDefined returns an error when no database connection string is provided
 func CockroachDefined() error {
 	if *pgtest.CrdbConnStr == "" {

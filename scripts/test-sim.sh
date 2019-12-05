@@ -18,13 +18,19 @@ export STORJ_NETWORK_DIR=$TMP
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+STORJ_SIM_COCKROACH=${STORJ_SIM_COCKROACH:-""}
 
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
-if [ -z ${STORJ_SIM_POSTGRES} ]; then
+if [ -z ${STORJ_SIM_POSTGRES} && -z ${STORJ_SIM_COCKROACH} ]; then
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network setup
-else
+elif [ -n ${STORJ_SIM_POSTGRES} && -n ${STORJ_SIM_COCKROACH} ]; then
+	echo "both STORJ_SIM_POSTGRES and STORJ_SIM_COCKROACH are set, but only one at a time should be"
+	exit 1
+elif [ -n ${STORJ_SIM_POSTGRES} }; then
 	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+elif [ -n ${STORJ_SIM_COCKROACH} }; then
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --cockroach=$STORJ_SIM_COCKROACH setup
 fi
 
 # explicitly set all the satellites and storagenodes to use mixed grpc and drpc

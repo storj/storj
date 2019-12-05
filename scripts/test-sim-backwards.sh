@@ -38,14 +38,20 @@ GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+STORJ_SIM_COCKROACH=${STORJ_SIM_COCKROACH:-""}
 
-if [ -z ${STORJ_SIM_POSTGRES} ]; then
-    echo "Postgres is required for the satellite DB. Exiting."
+if [ -z ${STORJ_SIM_POSTGRES} && -z ${STORJ_SIM_COCKROACH} ]; then
+    echo "Postgres or cockroachdb is required for the satellite DB. Exiting."
     exit 1
+elif [ -n ${STORJ_SIM_POSTGRES} && -n ${STORJ_SIM_COCKROACH} ]; then
+	echo "both STORJ_SIM_POSTGRES and STORJ_SIM_COCKROACH are set, but only one at a time should be"
+	exit 1
+elif [ -n ${STORJ_SIM_POSTGRES} }; then
+    PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+elif [ -n ${STORJ_SIM_COCKROACH} }; then
+    PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --cockroach=$STORJ_SIM_COCKROACH setup
 fi
 
-# setup the network
-PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 

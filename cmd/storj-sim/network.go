@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/processgroup"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 const (
@@ -84,8 +85,8 @@ func networkExec(flags *Flags, args []string, command string) error {
 	defer cancel()
 
 	if command == "setup" {
-		if flags.Postgres == "" {
-			return errors.New("postgres connection URL is required for running storj-sim. Example: `storj-sim network setup --postgres=<connection URL>`.\nSee docs for more details https://github.com/storj/docs/blob/master/Test-network.md#running-tests-with-postgres")
+		if flags.Postgres == "" && flags.Cockroach == "" {
+			return errors.New("postgres or cockroachdb connection URL is required for running storj-sim. Example: `storj-sim network setup --postgres=<connection URL>`.\nSee docs for more details https://github.com/storj/docs/blob/master/Test-network.md#running-tests-with-postgres")
 		}
 
 		identities, err := identitySetup(processes)
@@ -337,10 +338,27 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {"api"},
 		})
 
+		if flags.Postgres != "" && flags.Cockroach != "" {
+			return nil, errors.New("both flags.Postgres and flags.Cockroach are set, only one should be")
+		}
 		if flags.Postgres != "" {
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
 				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
 				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+			)
+		}
+		if flags.Cockroach != "" {
+			sadb, err := satellitedbtest.CreateCockroach(flags.Cockroach, fmt.Sprintf("satellite%d", i))
+			if err != nil {
+				return nil, err
+			}
+			pointerdb, err := satellitedbtest.CreateCockroach(flags.Cockroach, fmt.Sprintf("satellite%dmeta", i))
+			if err != nil {
+				return nil, err
+			}
+			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
+				"--database", sadb,
+				"--metainfo.database-url", pointerdb,
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
