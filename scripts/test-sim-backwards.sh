@@ -39,7 +39,7 @@ GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
-if [ -z ${STORJ_SIM_POSTGRES} ]; then
+if [ -z ${STORJ_SIM_SATELLITEDB} ]; then
     echo "Postgres is required for the satellite DB. Exiting."
     exit 1
 fi
