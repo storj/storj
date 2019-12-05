@@ -7,16 +7,15 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"net/url"
-	"path"
 
 	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/cockroachkv/schema"
 )
 
 const defaultBatchSize = 128
@@ -27,62 +26,35 @@ var (
 
 // Client is the entrypoint into a cockroachkv data store
 type Client struct {
-	URL  string
-	conn *sql.DB
-}
-
-func modifyURL(dbURL string) (modifiedURL string, databaseName string, err error) {
-	u, err := url.Parse(dbURL)
-	if err != nil {
-		return "", "", err
-	}
-	u.Scheme = "postgres"
-
-	q := u.Query()
-	if schema := q.Get("search_path"); schema != "" {
-		u.Path = path.Join(u.Path, schema)
-		q.Del("search_path")
-		u.RawQuery = q.Encode()
-	}
-
-	return u.String(), u.Path[1:], nil
+	db *sql.DB
 }
 
 // New instantiates a new postgreskv client given db URL
 func New(dbURL string) (*Client, error) {
-	modifiedURL, _, err := modifyURL(dbURL)
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := sql.Open("postgres", modifiedURL)
+	dbutil.Configure(db, mon)
+
+	err = schema.PrepareDB(db)
 	if err != nil {
 		return nil, err
 	}
 
-	dbutil.Configure(conn, mon)
+	return NewWith(db), nil
+}
 
-	// TODO: Need to bring this back but sourcing CockroachDB compatible schema.
-	// err = schema.PrepareDB(pgConn, dbURL)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return &Client{
-		URL:  modifiedURL,
-		conn: conn,
-	}, nil
+// NewWith instantiates a new postgreskv client given db.
+func NewWith(db *sql.DB) *Client {
+	return &Client{db: db}
 }
 
 // Close closes the client
 func (client *Client) Close() error {
-	return client.conn.Close()
+	return client.db.Close()
 }
-
-// TODO: Need to bring this back but sourcing CockroachDB compatible schema.
-// DropSchema drops the schema.
-// func (client *Client) DropSchema(schema string) error {
-// 	return pgutil.DropSchema(client.pgConn, schema)
-// }
 
 // Put sets the value for the provided key.
 func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
@@ -98,7 +70,7 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 			ON CONFLICT (fullpath) DO UPDATE SET metadata = EXCLUDED.metadata
 	`
 
-	_, err = client.conn.Exec(q, []byte(key), []byte(value))
+	_, err = client.db.Exec(q, []byte(key), []byte(value))
 	return Error.Wrap(err)
 }
 
@@ -111,7 +83,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	}
 
 	q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA"
-	row := client.conn.QueryRow(q, []byte(key))
+	row := client.db.QueryRow(q, []byte(key))
 
 	var val []byte
 	err = row.Scan(&val)
@@ -139,7 +111,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 			ON (pd.fullpath = pk.request)
 		ORDER BY pk.ord
 	`
-	rows, err := client.conn.Query(q, pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.db.Query(q, pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -166,7 +138,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	}
 
 	q := "DELETE FROM pathdata WHERE fullpath = $1:::BYTEA"
-	result, err := client.conn.Exec(q, []byte(key))
+	result, err := client.db.Exec(q, []byte(key))
 	if err != nil {
 		return err
 	}
@@ -211,7 +183,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 	if oldValue == nil && newValue == nil {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA"
-		row := client.conn.QueryRow(q, []byte(key))
+		row := client.db.QueryRow(q, []byte(key))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -231,7 +203,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 			ON CONFLICT DO NOTHING
 			RETURNING 1
 		`
-		row := client.conn.QueryRow(q, []byte(key), []byte(newValue))
+		row := client.db.QueryRow(q, []byte(key), []byte(newValue))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -241,7 +213,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return Error.Wrap(err)
 	}
 
-	return crdb.ExecuteTx(ctx, client.conn, nil, func(txn *sql.Tx) error {
+	return crdb.ExecuteTx(ctx, client.db, nil, func(txn *sql.Tx) error {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA;"
 		row := txn.QueryRowContext(ctx, q, []byte(key))
 

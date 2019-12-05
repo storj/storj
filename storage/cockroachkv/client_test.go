@@ -7,22 +7,29 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/storage/cockroachkv/schema"
 	"storj.io/storj/storage/testsuite"
 )
 
 func newTestCockroachDB(t testing.TB) (store *Client, cleanup func()) {
 	if *pgtest.CrdbConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
+		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
 	}
 
-	crdb, err := New(*pgtest.CrdbConnStr)
+	tdb, err := cockroachutil.OpenUnique(*pgtest.CrdbConnStr, "test-schema")
 	if err != nil {
 		t.Fatalf("init: %+v", err)
 	}
 
-	return crdb, func() {
-		if err := crdb.Close(); err != nil {
+	err = schema.PrepareDB(tdb.DB)
+	if err != nil {
+		t.Fatalf("init: %+v", err)
+	}
+
+	return NewWith(tdb.DB), func() {
+		if err := tdb.Close(); err != nil {
 			t.Fatalf("failed to close db: %v", err)
 		}
 	}
