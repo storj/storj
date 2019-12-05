@@ -19,6 +19,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
+const lastSegment = int(-1)
+
 // object represents object with segments.
 type object struct {
 	// TODO verify if we have more than 64 segments for object in network
@@ -174,107 +176,85 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 				continue
 			}
 
-			brokenObject := false
-			if !object.hasLastSegment {
-				brokenObject = true
-			} else {
-				includeLastSegment := true
-				segmentsCount := object.segments.Count()
-
-				// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
-				switch {
-				// this case is only for old style pointers with encrypted number of segments
-				// value 0 means that we don't know how much segments object should have
-				case object.expectedNumberOfSegments == 0:
-					// verify if initial sequence is valid
-					lastSequenceIndex := 0
-					for ; lastSequenceIndex < maxNumOfSegments; lastSequenceIndex++ {
-						has, err := object.segments.Has(lastSequenceIndex)
-						if err != nil {
-							panic(err)
-						}
-						if !has {
-							break
-						}
-					}
-					// unset valid sequence and mark as broken but don't remove last segment
-					for index := 0; index < lastSequenceIndex; index++ {
-						err := object.segments.Unset(index)
-						if err != nil {
-							panic(err)
-						}
-					}
-					// in this case we always mark object as broken because if
-					// there was valid sequence we are removing it from bitmask and leave only
-					// zombie segments
-					brokenObject = true
-					includeLastSegment = false
-				case segmentsCount < int(object.expectedNumberOfSegments)-1:
-					brokenObject = true
-				case segmentsCount > int(object.expectedNumberOfSegments)-1:
-					// verify if initial sequence is valid
-					for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
-						has, err := object.segments.Has(index)
-						if err != nil {
-							panic(err)
-						}
-						if !has {
-							brokenObject = true
-							break
-						}
-					}
-					if !brokenObject {
-						// if initial sequence is valid then remove it from object and
-						// mark rest of segments as broken
-						for index := 0; index < int(object.expectedNumberOfSegments)-1; index++ {
-							err := object.segments.Unset(index)
-							if err != nil {
-								panic(err)
-							}
-						}
-						brokenObject = true
-						includeLastSegment = false
-					}
-				case segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
-					brokenObject = true
-				}
-
-				if brokenObject && includeLastSegment {
-					err := obsvr.printSegment(ctx, "l", bucket, path)
-					if err != nil {
-						return err
-					}
-				}
+			zombieSegments, err := obsvr.findZombieSegments(object)
+			if err != nil {
+				return err
 			}
 
-			if brokenObject {
-				for index := 0; index < maxNumOfSegments; index++ {
-					has, err := object.segments.Has(index)
-					if err != nil {
-						panic(err)
-					}
-					if has {
-						err := obsvr.printSegment(ctx, "s"+strconv.Itoa(index), bucket, path)
-						if err != nil {
-							return err
-						}
-					}
-				}
+			for _, segmentIndex := range zombieSegments {
+				obsvr.printSegment(ctx, segmentIndex, bucket, path)
 			}
 		}
 	}
 	return nil
 }
 
-func (obsvr *observer) printSegment(ctx context.Context, segmentIndex, bucket, path string) error {
-	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndex, bucket, path)
+func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
+	zombieSegments := make([]int, 0)
+
+	if !object.hasLastSegment {
+		zombieSegments = append(zombieSegments, allSegments(object)...)
+	} else {
+		segmentsCount := object.segments.Count()
+
+		// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
+		switch {
+		// this case is only for old style pointers with encrypted number of segments
+		// value 0 means that we don't know how much segments object should have
+		case object.expectedNumberOfSegments == 0:
+			sequenceLength := firstSequenceLength(object.segments)
+
+			for index := sequenceLength; index < maxNumOfSegments; index++ {
+				has, err := object.segments.Has(index)
+				if err != nil {
+					panic(err)
+				}
+				if has {
+					zombieSegments = append(zombieSegments, index)
+				}
+			}
+		case segmentsCount > int(object.expectedNumberOfSegments)-1:
+			sequenceLength := firstSequenceLength(object.segments)
+
+			if sequenceLength == int(object.expectedNumberOfSegments-1) {
+				for index := sequenceLength; index < maxNumOfSegments; index++ {
+					has, err := object.segments.Has(index)
+					if err != nil {
+						panic(err)
+					}
+					if has {
+						zombieSegments = append(zombieSegments, index)
+					}
+				}
+			} else {
+				zombieSegments = append(zombieSegments, allSegments(object)...)
+				zombieSegments = append(zombieSegments, lastSegment)
+			}
+		case segmentsCount < int(object.expectedNumberOfSegments)-1,
+			segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+			zombieSegments = append(zombieSegments, allSegments(object)...)
+			zombieSegments = append(zombieSegments, lastSegment)
+		}
+	}
+
+	return zombieSegments, nil
+}
+
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket, path string) error {
+	var segmentIndexStr string
+	if segmentIndex == lastSegment {
+		segmentIndexStr = "l"
+	} else {
+		segmentIndexStr = "s" + strconv.Itoa(segmentIndex)
+	}
+	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndexStr, bucket, path)
 	if err != nil {
 		return err
 	}
 	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
 	err = obsvr.writer.Write([]string{
 		obsvr.lastProjectID,
-		segmentIndex,
+		segmentIndexStr,
 		bucket,
 		encodedPath,
 		creationDate,
@@ -325,4 +305,31 @@ func findOrCreate(bucketName string, path string, buckets bucketsObjects) *objec
 	}
 
 	return obj
+}
+
+func firstSequenceLength(segments bitmask) int {
+	for index := 0; index < maxNumOfSegments; index++ {
+		has, err := segments.Has(index)
+		if err != nil {
+			panic(err)
+		}
+		if !has {
+			return index
+		}
+	}
+	return 0
+}
+
+func allSegments(object *object) []int {
+	segments := make([]int, 0)
+	for index := 0; index < maxNumOfSegments; index++ {
+		has, err := object.segments.Has(index)
+		if err != nil {
+			panic(err)
+		}
+		if has {
+			segments = append(segments, index)
+		}
+	}
+	return segments
 }
