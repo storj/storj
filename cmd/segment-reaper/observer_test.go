@@ -4,12 +4,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"math"
-	"math/bits"
 	"math/rand"
 	"os"
 	"testing"
@@ -21,11 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storage/teststore"
 )
 
 func TestMain(m *testing.M) {
@@ -288,158 +283,6 @@ func TestObserver_processSegment(t *testing.T) {
 		assert.Equal(t, testdata.expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
 		assert.Equal(t, testdata.expectedInlineSegments, obsvr.lastInlineSegments, "lastInlineSegments")
 		assert.Equal(t, testdata.expectedRemoteSegments, obsvr.remoteSegments, "remoteSegments")
-	})
-}
-
-func TestObsever_analyzeProject(t *testing.T) {
-	t.Run("object without last segment", func(t *testing.T) {
-		var bucketsObjs bucketsObjects
-		{ // Generate an objects without last segment
-			const (
-				bucketName = "analyzeBucket"
-				objPath    = storj.Path("analyzePath")
-			)
-			var segments bitmask
-			{
-				numSegments := rand.Intn(62) + 1
-				segments = math.MaxUint64 >> numSegments
-			}
-
-			bucketsObjs = bucketsObjects{
-				bucketName: map[storj.Path]*object{
-					objPath: {
-						segments:       segments,
-						hasLastSegment: false,
-					},
-				},
-			}
-		}
-
-		var (
-			buf   = &bytes.Buffer{}
-			obsvr = observer{
-				db:      teststore.New(),
-				writer:  csv.NewWriter(buf),
-				objects: bucketsObjs,
-			}
-		)
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		err := obsvr.analyzeProject(ctx.Context)
-		require.NoError(t, err)
-
-		// TODO: Add assertions for buf content
-	})
-
-	t.Run("object with non sequenced segments", func(t *testing.T) {
-		var bucketsObjs bucketsObjects
-		{ // Generate an objects without last segment
-			const (
-				bucketName = "analyzeBucket"
-				objPath    = storj.Path("analyzePath")
-			)
-			var segments bitmask
-			{ // Calculate a unaligned number of segments
-				unaligned := rand.Uint64()
-				for {
-					trailingZeros := bits.TrailingZeros64(unaligned)
-					leadingZeros := bits.LeadingZeros64(unaligned)
-
-					if (trailingZeros + leadingZeros) == 64 {
-						continue
-					}
-
-					ones := bits.OnesCount64(unaligned)
-					if (trailingZeros + leadingZeros + ones) == 64 {
-						continue
-					}
-
-					segments = bitmask(unaligned)
-					break
-				}
-			}
-
-			bucketsObjs = bucketsObjects{
-				bucketName: map[storj.Path]*object{
-					objPath: {
-						segments:       segments,
-						hasLastSegment: true,
-					},
-				},
-			}
-		}
-
-		var (
-			buf   = &bytes.Buffer{}
-			obsvr = observer{
-				db:      teststore.New(),
-				writer:  csv.NewWriter(buf),
-				objects: bucketsObjs,
-			}
-		)
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		err := obsvr.analyzeProject(ctx.Context)
-		require.NoError(t, err)
-
-		// TODO: Add assertions for buf content
-	})
-
-	t.Run("object with unencrypted segments with different stored number", func(t *testing.T) {
-		var bucketsObjs bucketsObjects
-		{ // Generate an object
-			const (
-				bucketName = "analyzeBucket"
-				objPath    = storj.Path("analyzePath")
-			)
-			var (
-				segments           bitmask
-				invalidNumSegments byte
-			)
-			{
-				numSegments := rand.Intn(62) + 1
-				segments = math.MaxUint64 >> numSegments
-
-				for {
-					numSeg := rand.Intn(65)
-					if numSeg != numSegments {
-						invalidNumSegments = byte(numSeg)
-						break
-					}
-				}
-			}
-
-			bucketsObjs = bucketsObjects{
-				bucketName: map[storj.Path]*object{
-					objPath: {
-						segments:                 segments,
-						expectedNumberOfSegments: invalidNumSegments,
-						hasLastSegment:           false,
-					},
-				},
-			}
-		}
-
-		var (
-			buf   = &bytes.Buffer{}
-			obsvr = observer{
-				db:      teststore.New(),
-				writer:  csv.NewWriter(buf),
-				objects: bucketsObjs,
-			}
-		)
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		err := obsvr.analyzeProject(ctx.Context)
-		require.NoError(t, err)
-
-		// TODO: Add assertions for buf content
 	})
 }
 
