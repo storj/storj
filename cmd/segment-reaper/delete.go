@@ -64,6 +64,8 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	csvReader := csv.NewReader(inputFile)
+	csvReader.FieldsPerRecord = 5
+	csvReader.ReuseRecord = true
 
 	segmentsDeleted := 0
 	segmentsSkipped := 0
