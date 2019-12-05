@@ -272,6 +272,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 		TokenAmount string    `json:"tokenAmount"`
 		Rate        string    `json:"rate"`
 		Status      string    `json:"status"`
+		Link        string    `json:"link"`
 		ExpiresAt   time.Time `json:"expires"`
 	}
 
@@ -280,6 +281,7 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	responseData.TokenAmount = tx.Amount.String()
 	responseData.Rate = tx.Rate.Text('f', 8)
 	responseData.Status = tx.Status.String()
+	responseData.Link = tx.Link
 	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
 
 	err = json.NewEncoder(w).Encode(responseData)
