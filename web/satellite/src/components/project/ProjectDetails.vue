@@ -155,7 +155,6 @@ export default class ProjectDetailsArea extends Vue {
     .project-details {
         position: relative;
         overflow: hidden;
-        height: 85vh;
         font-family: 'font_regular', sans-serif;
 
         &__title {

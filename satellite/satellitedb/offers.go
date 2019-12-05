@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/currency"
@@ -82,6 +83,9 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 		if inviteeCreditDurationDays.Valid {
 			o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
 		}
+		o.ExpiresAt = o.ExpiresAt.UTC()
+		o.CreatedAt = o.CreatedAt.UTC()
+
 		results = append(results, o)
 	}
 
@@ -93,7 +97,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 
 // Create inserts a new offer into the db
 func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.Offer, error) {
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 	if o.ExpiresAt.Before(currentTime) {
 		return nil, offerErr.New("expiration time: %v can't be before: %v", o.ExpiresAt, currentTime)
 	}
@@ -102,53 +106,66 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
 	}
 
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return nil, offerErr.Wrap(err)
-	}
+	var id int64
 
-	// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
-	switch o.Type {
-	case rewards.Partner:
+	err := crdb.ExecuteTx(ctx, db.db.DB, nil, func(tx *sql.Tx) error {
+		// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
+		switch o.Type {
+		case rewards.Partner:
+			statement := `
+				UPDATE offers SET status=?, expires_at=?
+				WHERE status=? AND type=? AND expires_at>? AND name=?;`
+			_, err := tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime, o.Name)
+			if err != nil {
+				return offerErr.Wrap(err)
+			}
+
+		default:
+			statement := `
+				UPDATE offers SET status=?, expires_at=?
+				WHERE status=? AND type=? AND expires_at>?;`
+			_, err := tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime)
+			if err != nil {
+				return offerErr.Wrap(err)
+			}
+		}
 		statement := `
-			UPDATE offers SET status=?, expires_at=?
-			WHERE status=? AND type=? AND expires_at>? AND name=?;`
-		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime, o.Name)
+			INSERT INTO offers (name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, 
+				invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type)
+					VALUES (?::TEXT, ?::TEXT, ?::INT, ?::INT, ?::INT, ?::INT, ?::INT, ?::timestamptz, ?::timestamptz, ?::INT, ?::INT)
+						RETURNING id;
+		`
+		row := tx.QueryRowContext(ctx, db.db.Rebind(statement),
+			o.Name,
+			o.Description,
+			o.AwardCredit.Cents(),
+			o.InviteeCredit.Cents(),
+			o.AwardCreditDurationDays,
+			o.InviteeCreditDurationDays,
+			o.RedeemableCap,
+			o.ExpiresAt,
+			currentTime,
+			o.Status,
+			o.Type,
+		)
 
-	default:
-		statement := `
-			UPDATE offers SET status=?, expires_at=?
-			WHERE status=? AND type=? AND expires_at>?;`
-		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime)
-	}
-	if err != nil {
-		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
-	}
+		return row.Scan(&id)
+	})
 
-	offerDbx, err := tx.Create_Offer(ctx,
-		dbx.Offer_Name(o.Name),
-		dbx.Offer_Description(o.Description),
-		dbx.Offer_AwardCreditInCents(o.AwardCredit.Cents()),
-		dbx.Offer_InviteeCreditInCents(o.InviteeCredit.Cents()),
-		dbx.Offer_ExpiresAt(o.ExpiresAt),
-		dbx.Offer_Status(int(o.Status)),
-		dbx.Offer_Type(int(o.Type)),
-		dbx.Offer_Create_Fields{
-			AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
-			InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
-			RedeemableCap:             dbx.Offer_RedeemableCap(o.RedeemableCap),
-		},
-	)
-	if err != nil {
-		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	newOffer, err := convertDBOffer(offerDbx)
-	if err != nil {
-		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	return newOffer, offerErr.Wrap(tx.Commit())
+	return &rewards.Offer{
+		ID:                        int(id),
+		Name:                      o.Name,
+		Description:               o.Description,
+		AwardCredit:               o.AwardCredit,
+		InviteeCredit:             o.InviteeCredit,
+		AwardCreditDurationDays:   o.AwardCreditDurationDays,
+		InviteeCreditDurationDays: o.InviteeCreditDurationDays,
+		RedeemableCap:             o.RedeemableCap,
+		ExpiresAt:                 o.ExpiresAt,
+		CreatedAt:                 currentTime,
+		Status:                    o.Status,
+		Type:                      o.Type,
+	}, offerErr.Wrap(err)
 }
 
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
@@ -201,10 +218,10 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
 		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
 		RedeemableCap:             redeemableCap,
-		ExpiresAt:                 offerDbx.ExpiresAt,
+		ExpiresAt:                 offerDbx.ExpiresAt.UTC(),
 		AwardCreditDurationDays:   awardCreditDurationDays,
 		InviteeCreditDurationDays: inviteeCreditDurationDays,
-		CreatedAt:                 offerDbx.CreatedAt,
+		CreatedAt:                 offerDbx.CreatedAt.UTC(),
 		Status:                    rewards.OfferStatus(offerDbx.Status),
 		Type:                      rewards.OfferType(offerDbx.Type),
 	}
