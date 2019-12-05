@@ -86,7 +86,7 @@ func CreateMasterDB(t *testing.T, category string, index int, dbInfo Database) (
 	case "Postgres":
 		db, err = NewPostgres(log.Named("db"), schema)
 	case "Cockroach":
-		db, err = NewCockroach(log.Named("db"), schema)
+		db, err = NewSatelliteCockroach(log.Named("db"), schema)
 	default:
 		db, err = satellitedb.New(log.Named("db"), dbInfo.URL)
 	}

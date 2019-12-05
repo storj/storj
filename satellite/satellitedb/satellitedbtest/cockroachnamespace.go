@@ -18,10 +18,10 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// NewCockroach creates a new satellite.DB that is used for testing. We create a new database with a
+// NewSatelliteCockroach creates a new satellite.DB that is used for testing. We create a new database with a
 // unique name so that there aren't conflicts when we run tests (since we may run the tests in parallel).
 // Postgres supports schemas for namespacing, but cockroachdb doesn't, so instead we use a different database for each test.
-func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error) {
+func NewSatelliteCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error) {
 	if err := CockroachDefined(); err != nil {
 		return nil, err
 	}
@@ -35,20 +35,10 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 		return nil, err
 	}
 
-	r := regexp.MustCompile(`\W`)
-	// this regex removes any non-alphanumeric character from the string
-	namespacedTestDB = r.ReplaceAllString(namespacedTestDB, "")
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", pq.QuoteIdentifier(namespacedTestDB)))
+	testConnURL, err := CreateNamespacedCockroachDB(*pgtest.CrdbConnStr, namespacedTestDB)
 	if err != nil {
 		return nil, err
 	}
-
-	// this regex matches substrings like this "/dbName?"
-	r = regexp.MustCompile("[/][a-zA-Z0-9]+[?]")
-	if !r.MatchString(source) {
-		return nil, errs.New("expecting db url format to contain a substring like '/dbName?', but got %s", source)
-	}
-	testConnURL := r.ReplaceAllString(*pgtest.CrdbConnStr, "/"+namespacedTestDB+"?")
 	testDB, err := satellitedb.New(log, testConnURL)
 	if err != nil {
 		return nil, err
@@ -61,7 +51,8 @@ func NewCockroach(log *zap.Logger, namespacedTestDB string) (satellite.DB, error
 	}, nil
 }
 
-func CreateCockroach(dbURL string, namespacedTestDB string) (string, error) {
+// CreateNamespacedCockroachDB creates a new namespaced database name for cockroach db to use.
+func CreateNamespacedCockroachDB(dbURL string, namespacedTestDB string) (string, error) {
 	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return "", err

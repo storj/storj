@@ -63,7 +63,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
-	rootCmd.PersistentFlags().StringVarP(&flags.Cockroach, "cockraochdb", "", os.Getenv("STORJ_SIM_COCKROACH"), "connection string for cockroach (defaults to STORJ_SIM_COCKROACH)")
+	rootCmd.PersistentFlags().StringVarP(&flags.Cockroach, "cockroachdb", "", os.Getenv("STORJ_SIM_COCKROACH"), "connection string for cockroach (defaults to STORJ_SIM_COCKROACH)")
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
 
