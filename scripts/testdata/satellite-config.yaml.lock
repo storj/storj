@@ -49,6 +49,9 @@
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# allow domains to embed the satellite in a frame, space separated
+# console.frame-ancestors: tardigrade.io
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
@@ -57,6 +60,9 @@
 
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
+
+# used to initialize segment.io at web satellite console
+# console.segment-io-public-key: ""
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
@@ -355,6 +361,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of time we wait before running next conversion rates update loop
 # payments.stripe-coin-payments.conversion-rates-cycle-interval: 10m0s
 
+# stripe API public key
+# payments.stripe-coin-payments.stripe-public-key: ""
+
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
@@ -363,6 +372,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price in cents user should pay for storing each TB per hour
 # payments.tbh-price: 0
+
+# referrals.referral-manager-url: ""
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
@@ -380,7 +391,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 10m0s
+# repairer.timeout: 5m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false

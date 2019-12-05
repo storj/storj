@@ -989,6 +989,11 @@
                 "id": 4,
                 "name": "successful",
                 "type": "bool"
+              },
+              {
+                "id": 5,
+                "name": "completion_receipt",
+                "type": "bytes"
               }
             ]
           },
@@ -1865,6 +1870,11 @@
               {
                 "id": 1,
                 "name": "api_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "user_agent",
                 "type": "bytes"
               }
             ]
@@ -5561,6 +5571,29 @@
             "name": "PieceDeleteResponse"
           },
           {
+            "name": "PieceDeletePieceRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "PieceDeletePieceResponse"
+          },
+          {
             "name": "RetainRequest",
             "fields": [
               {
@@ -5587,6 +5620,12 @@
           },
           {
             "name": "RetainResponse"
+          },
+          {
+            "name": "RestoreTrashRequest"
+          },
+          {
+            "name": "RestoreTrashResponse"
           },
           {
             "name": "PieceHeader",
@@ -5655,12 +5694,28 @@
               {
                 "name": "Delete",
                 "in_type": "PieceDeleteRequest",
-                "out_type": "PieceDeleteResponse"
+                "out_type": "PieceDeleteResponse",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "name": "DeletePiece",
+                "in_type": "PieceDeletePieceRequest",
+                "out_type": "PieceDeletePieceResponse"
               },
               {
                 "name": "Retain",
                 "in_type": "RetainRequest",
                 "out_type": "RetainResponse"
+              },
+              {
+                "name": "RestoreTrash",
+                "in_type": "RestoreTrashRequest",
+                "out_type": "RestoreTrashResponse"
               }
             ]
           }
@@ -5973,33 +6028,12 @@
             "fields": [
               {
                 "id": 1,
-                "name": "user_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "GetTokensResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
-                "type": "bytes",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "ReserveTokenRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
+                "name": "owner_user_id",
                 "type": "bytes"
               },
               {
                 "id": 2,
-                "name": "redeeming_satellite_id",
+                "name": "owner_satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -6015,7 +6049,15 @@
             ]
           },
           {
-            "name": "ReserveTokenResponse"
+            "name": "GetTokensResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "token_secrets",
+                "type": "bytes",
+                "is_repeated": true
+              }
+            ]
           },
           {
             "name": "RedeemTokenRequest",
@@ -6027,8 +6069,23 @@
               },
               {
                 "id": 2,
-                "name": "user_id",
+                "name": "redeem_user_id",
                 "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "redeem_satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -6044,11 +6101,6 @@
                 "name": "GetTokens",
                 "in_type": "GetTokensRequest",
                 "out_type": "GetTokensResponse"
-              },
-              {
-                "name": "ReserveToken",
-                "in_type": "ReserveTokenRequest",
-                "out_type": "ReserveTokenResponse"
               },
               {
                 "name": "RedeemToken",

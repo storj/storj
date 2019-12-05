@@ -19,7 +19,7 @@ import (
 var (
 	// LoopError is a standard error class for this component.
 	LoopError = errs.Class("metainfo loop error")
-	// LoopClosedError is a loop closed error
+	// LoopClosedError is a loop closed error.
 	LoopClosedError = LoopError.New("loop closed")
 )
 
@@ -32,11 +32,13 @@ type Observer interface {
 	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
 }
 
-// ScopedPath contains full expanded information about the path
+// ScopedPath contains full expanded information about the path.
 type ScopedPath struct {
-	ProjectID       uuid.UUID
-	ProjectIDString string
-	BucketName      string
+	ProjectID           uuid.UUID
+	ProjectIDString     string
+	Segment             string
+	BucketName          string
+	EncryptedObjectPath string
 
 	// TODO: should these be a []byte?
 
@@ -140,17 +142,6 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
-	defer func() {
-		if err != nil {
-			for _, observer := range observers {
-				observer.HandleError(err)
-			}
-			return
-		}
-		for _, observer := range observers {
-			observer.Finish()
-		}
-	}()
 
 	// wait for the first observer, or exit because context is canceled
 	select {
@@ -170,71 +161,29 @@ waitformore:
 		case <-timer.C:
 			break waitformore
 		case <-ctx.Done():
+			finishObservers(observers)
 			return ctx.Err()
 		}
 	}
 
-	err = loop.db.Iterate(ctx, storage.IterateOptions{Recurse: true},
-		func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
+	return iterateDatabase(ctx, loop.db, observers)
+}
 
-			// iterate over every segment in metainfo
-			for it.Next(ctx, &item) {
-				rawPath := item.Key.String()
-				pointer := &pb.Pointer{}
-
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return LoopError.New("unexpected error unmarshalling pointer %s", err)
-				}
-
-				pathElements := storj.SplitPath(rawPath)
-				if len(pathElements) < 3 {
-					return LoopError.New("invalid path %q", rawPath)
-				}
-
-				isLastSegment := pathElements[1] == "l"
-
-				path := ScopedPath{
-					Raw:             rawPath,
-					ProjectIDString: pathElements[0],
-					BucketName:      pathElements[2],
-				}
-
-				projectID, err := uuid.Parse(path.ProjectIDString)
-				if err != nil {
-					return LoopError.Wrap(err)
-				}
-				path.ProjectID = *projectID
-
-				nextObservers := observers[:0]
-				for _, observer := range observers {
-					keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
-					if keepObserver {
-						nextObservers = append(nextObservers, observer)
-					}
-				}
-
-				observers = nextObservers
-				if len(observers) == 0 {
-					return nil
-				}
-
-				// if context has been canceled exit. Otherwise, continue
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
-			}
-			return nil
-		})
-
-	return err
+// IterateDatabase iterates over PointerDB and notifies specified observers about results.
+func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
+	obsContexts := make([]*observerContext, len(observers))
+	for i, observer := range observers {
+		obsContexts[i] = &observerContext{
+			Observer: observer,
+			ctx:      ctx,
+			done:     make(chan error),
+		}
+	}
+	return iterateDatabase(ctx, db, obsContexts)
 }
 
 // handlePointer deals with a pointer for a single observer
-// if there is some error on the observer, handle the error and return false. Otherwise, return true
+// if there is some error on the observer, handles the error and returns false. Otherwise, returns true.
 func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
 	switch pointer.GetType() {
 	case pb.Pointer_REMOTE:
@@ -268,4 +217,85 @@ func handlePointer(ctx context.Context, observer *observerContext, path ScopedPa
 // Safe to be called concurrently.
 func (loop *Loop) Wait() {
 	<-loop.done
+}
+
+func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext) (err error) {
+	defer func() {
+		if err != nil {
+			for _, observer := range observers {
+				observer.HandleError(err)
+			}
+			return
+		}
+		finishObservers(observers)
+	}()
+
+	err = db.Iterate(ctx, storage.IterateOptions{Recurse: true},
+		func(ctx context.Context, it storage.Iterator) error {
+			var item storage.ListItem
+
+			// iterate over every segment in metainfo
+		nextSegment:
+			for it.Next(ctx, &item) {
+				rawPath := item.Key.String()
+				pointer := &pb.Pointer{}
+
+				err := proto.Unmarshal(item.Value, pointer)
+				if err != nil {
+					return LoopError.New("unexpected error unmarshalling pointer %s", err)
+				}
+
+				pathElements := storj.SplitPath(rawPath)
+
+				if len(pathElements) < 4 {
+					// We skip this path because it belongs to bucket metadata, not to an
+					// actual object
+					continue nextSegment
+				}
+
+				isLastSegment := pathElements[1] == "l"
+
+				path := ScopedPath{
+					Raw:                 rawPath,
+					ProjectIDString:     pathElements[0],
+					Segment:             pathElements[1],
+					BucketName:          pathElements[2],
+					EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
+				}
+
+				projectID, err := uuid.Parse(path.ProjectIDString)
+				if err != nil {
+					return LoopError.Wrap(err)
+				}
+				path.ProjectID = *projectID
+
+				nextObservers := observers[:0]
+				for _, observer := range observers {
+					keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
+					if keepObserver {
+						nextObservers = append(nextObservers, observer)
+					}
+				}
+
+				observers = nextObservers
+				if len(observers) == 0 {
+					return nil
+				}
+
+				// if context has been canceled exit. Otherwise, continue
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+			}
+			return nil
+		})
+	return err
+}
+
+func finishObservers(observers []*observerContext) {
+	for _, observer := range observers {
+		observer.Finish()
+	}
 }

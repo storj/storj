@@ -49,7 +49,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.Collect(ctx, time.Now())
+		// V3-3143 Pieces should be collected at least 24 hours after expiration
+		// to avoid premature deletion due to timezone issues, which may lead to
+		// storage node disqualification.
+		err := service.Collect(ctx, time.Now().Add(-24*time.Hour))
 		if err != nil {
 			service.log.Error("error during collecting pieces: ", zap.Error(err))
 		}

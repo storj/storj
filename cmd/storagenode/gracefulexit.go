@@ -205,13 +205,18 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
 }
 
 func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
-	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful")
+	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful\tCompletion Receipt")
 
 	for _, progress := range progresses {
 		isSuccessful := "N"
+		receipt := "N/A"
 		if progress.Successful {
 			isSuccessful = "Y"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful)
+		if progress.GetCompletionReceipt() != nil && len(progress.GetCompletionReceipt()) > 0 {
+			receipt = fmt.Sprintf("%x", progress.GetCompletionReceipt())
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)
 	}
 }

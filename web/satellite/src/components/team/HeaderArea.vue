@@ -19,7 +19,7 @@
                 <div class="header-default-state" v-if="isDefaultState">
                     <VButton
                         class="button"
-                        label="+Add"
+                        label="+ Add"
                         width="122px"
                         height="48px"
                         :on-press="onAddUsersClick"
@@ -210,6 +210,7 @@ export default class HeaderArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
+                color: #263549;
                 margin: 0;
                 user-select: none;
             }
@@ -324,10 +325,10 @@ export default class HeaderArea extends Vue {
         background-image: url('../../../static/images/account/billing/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;
-        min-width: 220px;
-        width: 220px;
+        min-width: 200px;
+        width: 200px;
         top: 110%;
-        left: -224%;
+        left: -205%;
         padding: 0 20px 12px 20px;
         word-break: break-word;
 

@@ -105,10 +105,9 @@ func TestAutoUpdater(t *testing.T) {
 		if !assert.Contains(t, logStr, "storagenode restarted successfully") {
 			t.Log(logStr)
 		}
-		// TODO: re-enable when updater is self-updating
-		//if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
-		//	t.Log(logStr)
-		//}
+		if !assert.Contains(t, logStr, "storagenode-updater restarted successfully") {
+			t.Log(logStr)
+		}
 	} else {
 		t.Log(string(out))
 	}
@@ -122,12 +121,11 @@ func TestAutoUpdater(t *testing.T) {
 	require.NotNil(t, oldStoragenodeInfo)
 	require.NotZero(t, oldStoragenodeInfo.Size())
 
-	// TODO: re-enable when updater is self-updating
-	//backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
-	//backupUpdaterInfo, err := os.Stat(backupUpdater)
-	//require.NoError(t, err)
-	//require.NotNil(t, backupUpdaterInfo)
-	//require.NotZero(t, backupUpdaterInfo.Size())
+	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
+	backupUpdaterInfo, err := os.Stat(backupUpdater)
+	require.NoError(t, err)
+	require.NotNil(t, backupUpdaterInfo)
+	require.NotZero(t, backupUpdaterInfo.Size())
 }
 
 func move(t *testing.T, src, dst string) {
