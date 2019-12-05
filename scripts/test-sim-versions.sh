@@ -10,7 +10,7 @@ cleanup(){
     rm -rf "$TMP"
     echo "cleaned up test successfully"
 }
-#trap cleanup EXIT
+trap cleanup EXIT
 
 # TODO make sure the number of storagenode versions matches the number of sns from setup
 
@@ -83,19 +83,6 @@ setup_stage(){
 
         let counter+=1
     done
-
-#    for ul_version in ${stage_ul_versions}; do
-        # use desired uplink binary and config
- #   done
-    # PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
-    # PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
-
-    # src_ul_scope=$(grep "scope" "${src_ul_cfg_dir}/config.yaml")
-    # dest_ul_scope=$(grep "scope" "${dest_ul_cfg_dir}/config.yaml")
-
-    # cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
-    # replace_in_file "${src_ul_version_dir}" "${test_dir}" "${dest_ul_cfg_dir}/config.yaml"
-    # replace_in_file "${src_ul_scope}" "${dest_ul_scope}" "${dest_ul_cfg_dir}/config.yaml"
 }
 
 # Set up each environment
