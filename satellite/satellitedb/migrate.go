@@ -507,6 +507,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "bad migration",
+				Version:     72,
+				Action: migrate.SQL{
+					`UPDATE nodes SET exit_success = true;`,
+				},
+			},
 		},
 	}
 }
