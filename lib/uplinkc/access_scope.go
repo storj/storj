@@ -56,7 +56,7 @@ func get_scope_api_key(scopeRef C.ScopeRef, cerr **C.char) C.APIKeyRef {
 		return C.APIKeyRef{}
 	}
 
-	return C.APIKeyRef{_handle: universe.Add(scope.APIKey)} 
+	return C.APIKeyRef{_handle: universe.Add(scope.APIKey)}
 }
 
 //export get_scope_enc_access
@@ -68,7 +68,7 @@ func get_scope_enc_access(scopeRef C.ScopeRef, cerr **C.char) C.EncryptionAccess
 		return C.EncryptionAccessRef{}
 	}
 
-	return C.EncryptionAccessRef{_handle: universe.Add(scope.EncryptionAccess)} 
+	return C.EncryptionAccessRef{_handle: universe.Add(scope.EncryptionAccess)}
 }
 
 //export parse_scope
