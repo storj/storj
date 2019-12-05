@@ -219,25 +219,29 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
-	query := `WITH r AS (
-			SELECT at_rest_total, start_time
-			FROM accounting_rollups
-			WHERE node_id = ?
-			AND ? <= start_time AND start_time <= ?
-		)
-		SELECT at_rest_total, start_time from r
+	query := `
+		SELECT at_rest_total, start_time::date
+		FROM accounting_rollups
+		WHERE node_id = $1
+		AND $2 <= start_time AND start_time <= $3
 		UNION
-		SELECT SUM(data_total) AS at_rest_total, DATE(interval_end_time) AS start_time
-			FROM storagenode_storage_tallies
-			WHERE node_id = ?
-			AND NOT EXISTS (SELECT 1 FROM r WHERE DATE(r.start_time) = DATE(interval_end_time))
-			AND (SELECT value FROM accounting_timestamps WHERE name = ?) < interval_end_time AND interval_end_time <= ?
-			GROUP BY start_time
-		ORDER BY start_time`
+		SELECT SUM(data_total) AS at_rest_total, interval_end_time::date AS start_time
+				FROM storagenode_storage_tallies
+				WHERE node_id = $1
+				AND NOT EXISTS (
+					SELECT 1 FROM accounting_rollups
+					WHERE node_id = $1
+					AND $2 <= start_time AND start_time <= $3
+					AND start_time::date = interval_end_time::date
+				)
+				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
+				GROUP BY interval_end_time::date
+		ORDER BY start_time;
+	`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
-		nodeID, start, end,
-		nodeID, accounting.LastRollup, end)
+		nodeID, start, end, accounting.LastRollup,
+	)
 
 	if err != nil {
 		return nil, Error.Wrap(err)

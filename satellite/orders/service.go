@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
+// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
+var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
+
 // Config is a configuration struct for orders Service.
 type Config struct {
 	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
@@ -191,8 +194,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
 		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, errs.Combine(err, combinedErrs)
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)

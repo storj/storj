@@ -23,7 +23,7 @@ func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
 
 // NewDB returns a new revocation database given the URL
 func NewDB(dbURL string) (*DB, error) {
-	driver, source, err := dbutil.SplitConnstr(dbURL)
+	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
