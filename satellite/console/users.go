@@ -38,7 +38,7 @@ func (user *UserInfo) IsValid() error {
 	var errs validationErrors
 
 	// validate fullName
-	if err := validateFullName(user.FullName); err != nil {
+	if err := ValidateFullName(user.FullName); err != nil {
 		errs.AddWrap(err)
 	}
 
@@ -58,8 +58,8 @@ type CreateUser struct {
 func (user *CreateUser) IsValid() error {
 	var errs validationErrors
 
-	errs.AddWrap(validateFullName(user.FullName))
-	errs.AddWrap(validatePassword(user.Password))
+	errs.AddWrap(ValidateFullName(user.FullName))
+	errs.AddWrap(ValidatePassword(user.Password))
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)

@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink/piecestore"

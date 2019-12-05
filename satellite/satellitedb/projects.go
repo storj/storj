@@ -34,6 +34,18 @@ func (projects *projects) GetAll(ctx context.Context) (_ []console.Project, err 
 	return projectsFromDbxSlice(ctx, projectsDbx)
 }
 
+// GetOwn is a method for querying all projects created by current user from the database.
+func (projects *projects) GetOwn(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	projectsDbx, err := projects.db.All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx, dbx.Project_OwnerId(userID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return projectsFromDbxSlice(ctx, projectsDbx)
+}
+
 // GetCreatedBefore retrieves all projects created before provided date
 func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -87,7 +99,6 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
-		dbx.Project_UsageLimit(0),
 		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)
@@ -114,7 +125,6 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 
 	updateFields := dbx.Project_Update_Fields{
 		Description: dbx.Project_Description(project.Description),
-		UsageLimit:  dbx.Project_UsageLimit(project.UsageLimit),
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,

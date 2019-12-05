@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	// We use a blank import here to get the side effects from the init function in version
-	_ "storj.io/storj/internal/version"
+	_ "storj.io/storj/private/version"
 )
 
 func init() {

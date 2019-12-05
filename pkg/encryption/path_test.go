@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testrand"
 )
 
 func newStore(key storj.Key) *Store {

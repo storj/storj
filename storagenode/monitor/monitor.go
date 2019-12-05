@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
@@ -197,5 +197,9 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 		return 0, Error.Wrap(err)
 	}
 	allocatedBandwidth := service.allocatedBandwidth
+
+	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
+	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
+
 	return allocatedBandwidth - usage, nil
 }

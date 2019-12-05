@@ -19,8 +19,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/processgroup"
-	"storj.io/storj/internal/sync2"
+	"storj.io/storj/private/processgroup"
+	"storj.io/storj/private/sync2"
 )
 
 // Processes contains list of processes
@@ -82,7 +82,18 @@ type Info struct {
 	Directory  string
 	ID         string
 	Pid        int
-	Extra      []string
+	Extra      []EnvVar
+}
+
+// EnvVar represents an environment variable like Key=Value
+type EnvVar struct {
+	Key   string
+	Value string
+}
+
+// AddExtra appends an extra environment variable to the process info.
+func (info *Info) AddExtra(key, value string) {
+	info.Extra = append(info.Extra, EnvVar{Key: key, Value: value})
 }
 
 // Env returns process flags
@@ -116,7 +127,7 @@ func (info *Info) Env() []string {
 		env = append(env, name+"_PID="+strconv.Itoa(info.Pid))
 	}
 	for _, extra := range info.Extra {
-		env = append(env, name+"_"+extra)
+		env = append(env, name+"_"+strings.ToUpper(extra.Key)+"="+extra.Value)
 	}
 	return env
 }

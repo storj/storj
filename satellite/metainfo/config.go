@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/postgreskv"
@@ -54,7 +54,7 @@ type PointerDB interface {
 
 // NewStore returns database for storing pointer data
 func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
-	driver, source, err := dbutil.SplitConnstr(dbURLString)
+	driver, source, _, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {
 		return nil, err
 	}

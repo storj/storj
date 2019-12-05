@@ -15,16 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
 )
 
 var (
-	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
-	t1     = Token{
+	t1 = Token{
 		UserID: "user@mail.test",
 		Data:   [tokenDataLength]byte{1, 2, 3},
 	}
@@ -189,8 +188,7 @@ func TestNewClient(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-
-	ident, err := idents.NewIdentity()
+	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 	require.NotNil(t, ident)
 

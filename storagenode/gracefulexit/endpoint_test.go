@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestGetNonExitingSatellites(t *testing.T) {
@@ -98,4 +98,6 @@ func TestGetExitProgress(t *testing.T) {
 	require.Equal(t, progress.GetDomainName(), exitingSatellite.Addr())
 	require.Equal(t, progress.NodeId, exitingSatellite.ID())
 	require.EqualValues(t, 20, progress.GetPercentComplete())
+	require.False(t, progress.GetSuccessful())
+	require.Empty(t, progress.GetCompletionReceipt())
 }

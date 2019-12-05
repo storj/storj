@@ -15,18 +15,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/eestream"
@@ -802,40 +802,43 @@ func TestSetBucketAttribution(t *testing.T) {
 		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
 		require.NoError(t, err)
 
+		err = uplink.CreateBucket(ctx, planet.Satellites[0], "alpha-new")
+		require.NoError(t, err)
+
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
 		partnerID := testrand.UUID()
-		{
-			// bucket with no items
+		{ // bucket with no items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
 				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
+		}
 
-			// no bucket exists
+		{ // setting attribution on a bucket that doesn't exist should fail
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "beta",
 				PartnerID: partnerID,
 			})
-			require.NoError(t, err)
+			require.Error(t, err)
 		}
-		{
-			// already attributed bucket, adding files
+
+		{ // add data to an attributed bucket
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
-			// bucket with items
+			// trying to set attribution should be ignored
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "beta",
+				Bucket:    "alpha",
 				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
 		}
-		{
-			//non attributed bucket, and adding files
+
+		{ // non attributed bucket, and adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
@@ -1139,8 +1142,13 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: 1,
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1297,8 +1305,13 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		metadata, err := proto.Marshal(&pb.StreamMeta{
+			NumberOfSegments: int64(len(segments)),
+		})
+		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID: streamID,
+			StreamID:          streamID,
+			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
 
@@ -1527,7 +1540,7 @@ func TestIDs(t *testing.T) {
 
 		{ // streamID expired
 			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
 
@@ -1543,9 +1556,30 @@ func TestIDs(t *testing.T) {
 			require.Error(t, err)
 		}
 
+		{ // segment id missing stream id
+			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+				CreationDate: time.Now().Add(-1 * time.Hour),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
+
 		{ // segmentID expired
 			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
-				CreationDate: time.Now().Add(-24 * time.Hour),
+				CreationDate: time.Now().Add(-36 * time.Hour),
+				StreamId: &pb.SatStreamID{
+					CreationDate: time.Now(),
+				},
 			})
 			require.NoError(t, err)
 
@@ -1629,7 +1663,13 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			requests = append(requests, &metainfo.CommitObjectParams{})
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
+			requests = append(requests, &metainfo.CommitObjectParams{
+				EncryptedMetadata: metadata,
+			})
 			requests = append(requests, &metainfo.ListSegmentsParams{})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1687,8 +1727,13 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
+			metadata, err := proto.Marshal(&pb.StreamMeta{
+				NumberOfSegments: int64(numOfSegments),
+			})
+			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID: streamID,
+				StreamID:          streamID,
+				EncryptedMetadata: metadata,
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)

@@ -15,13 +15,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/uplink"
 )
 
@@ -31,6 +31,8 @@ type UplinkFlags struct {
 	uplink.Config
 
 	Version checker.Config
+
+	PBKDFConcurrency int `help:"Unfortunately, up until v0.26.2, keys generated from passphrases depended on the number of cores the local CPU had. If you entered a passphrase with v0.26.2 earlier, you'll want to set this number to the number of CPU cores your computer had at the time. This flag may go away in the future. For new installations the default value is highly recommended." default:"0"`
 }
 
 var (
@@ -80,6 +82,7 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !cliCfg.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = cliCfg.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
+	libuplinkCfg.Volatile.PBKDFConcurrency = cliCfg.PBKDFConcurrency
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }
@@ -158,11 +161,11 @@ func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket)
 
 func convertError(err error, path fpath.FPath) error {
 	if storj.ErrBucketNotFound.Has(err) {
-		return fmt.Errorf("Bucket not found: %s", path.Bucket())
+		return fmt.Errorf("bucket not found: %s", path.Bucket())
 	}
 
 	if storj.ErrObjectNotFound.Has(err) {
-		return fmt.Errorf("Object not found: %s", path.String())
+		return fmt.Errorf("object not found: %s", path.String())
 	}
 
 	return err

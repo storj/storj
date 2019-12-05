@@ -6,9 +6,9 @@ package satellite
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	version_checker "storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/server"
+	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -110,6 +111,8 @@ type Config struct {
 	Mail mailservice.Config
 
 	Payments paymentsconfig.Config
+
+	Referrals referrals.Config
 
 	Console consoleweb.Config
 

@@ -159,22 +159,6 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return err
-	}
-
-	err = endpoint.validateRedundancy(ctx, req.Redundancy)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -304,8 +288,8 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
 		}
 
-		pieceNums := make(map[int32]struct{}, 0)
-		nodeIds := make(map[storj.NodeID]struct{}, 0)
+		pieceNums := make(map[int32]struct{})
+		nodeIds := make(map[storj.NodeID]struct{})
 		for _, piece := range remote.RemotePieces {
 			if piece.PieceNum >= int32(len(originalLimits)) {
 				return Error.New("invalid piece number")
@@ -381,7 +365,7 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	return nil
 }
 
-func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit, signee signing.Signee) (err error) {
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, originalLimit *pb.OrderLimit, signee signing.Signee) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
@@ -402,18 +386,16 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 		)
 	}
 
-	limit := limits[piece.PieceNum]
-	if limit != nil {
-		switch {
-		case limit.PieceId != piece.Hash.PieceId:
-			return errs.New("piece hash pieceID (%v) doesn't match limit pieceID (%v). NodeID: %v, PieceNum: %d",
-				piece.Hash.PieceId, limit.PieceId, piece.NodeId, piece.PieceNum,
-			)
-		case limit.Limit < piece.Hash.PieceSize:
-			return errs.New("piece hash PieceSize (%d) is larger than order limit (%d). NodeID: %v, PieceNum: %d",
-				piece.Hash.PieceSize, limit.Limit, piece.NodeId, piece.PieceNum,
-			)
-		}
+	switch {
+	case originalLimit.PieceId != piece.Hash.PieceId:
+		return errs.New("piece hash pieceID (%v) doesn't match limit pieceID (%v). NodeID: %v, PieceNum: %d",
+			piece.Hash.PieceId, originalLimit.PieceId, piece.NodeId, piece.PieceNum,
+		)
+	case originalLimit.Limit < piece.Hash.PieceSize:
+		return errs.New("piece hash PieceSize (%d) is larger than order limit (%d). NodeID: %v, PieceNum: %d",
+			piece.Hash.PieceSize, originalLimit.Limit, piece.NodeId, piece.PieceNum,
+		)
 	}
+
 	return nil
 }

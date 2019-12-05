@@ -39,14 +39,8 @@ var (
 	mon = monkit.Package()
 	// Error is used when an error occurs involving an authorization.
 	Error = errs.Class("authorization error")
-	// ErrDB is used when an error occurs involving the authorization database.
-	ErrDB = errs.Class("authorization db error")
 	// ErrInvalidToken is used when a token is invalid.
-	ErrInvalidToken = errs.Class("invalid token error")
-	// ErrCount is used when attempting to create an invalid number of authorizations.
-	ErrCount = ErrDB.New("cannot add less than one authorizations")
-	// ErrEmptyUserID is used when a user ID is required but not provided.
-	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
+	ErrInvalidToken = errs.Class("authorization token error")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.

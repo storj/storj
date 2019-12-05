@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
@@ -67,6 +67,10 @@ type PieceExpirationDB interface {
 	// DeleteFailed marks an expiration record as having experienced a failure in deleting the
 	// piece from the disk
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
+	// Trash marks a piece as in the trash
+	Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
+	// RestoreTrash marks all piece as not being in trash
+	RestoreTrash(ctx context.Context, satelliteID storj.NodeID) error
 }
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
@@ -275,6 +279,70 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	return Error.Wrap(err)
 }
 
+// Trash moves the specified piece to the blob trash. If necessary, it converts
+// the v0 piece to a v1 piece. It also marks the item as "trashed" in the
+// pieceExpirationDB.
+func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
+	// this is an old piece version and attempt to migrate it.
+	_, err = store.blobs.StatWithStorageFormat(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.MaxFormatVersionSupported)
+	if err != nil && !errs.IsFunc(err, os.IsNotExist) {
+		return Error.Wrap(err)
+	}
+
+	if errs.IsFunc(err, os.IsNotExist) {
+		// MaxFormatVersionSupported does not exist, migrate.
+		err = store.MigrateV0ToV1(ctx, satellite, pieceID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err = store.expirationInfo.Trash(ctx, satellite, pieceID)
+	err = errs.Combine(err, store.blobs.Trash(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}))
+
+	return Error.Wrap(err)
+}
+
+// EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval
+func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, deletedID := range deletedIDs {
+		pieceID, pieceIDErr := storj.PieceIDFromBytes(deletedID)
+		if pieceIDErr != nil {
+			return Error.Wrap(pieceIDErr)
+		}
+		_, deleteErr := store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
+		err = errs.Combine(err, deleteErr)
+	}
+	return Error.Wrap(err)
+}
+
+// RestoreTrash restores all pieces in the trash
+func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return Error.Wrap(store.expirationInfo.RestoreTrash(ctx, satelliteID))
+}
+
 // MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
 // format v1. If the piece is not stored as a v0 piece it will return an error.
 // The follow failures are possible:
@@ -332,11 +400,41 @@ func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID,
 	return Error.Wrap(err)
 }
 
-// GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
+// GetV0PieceInfoDBForTest returns this piece-store's reference to the V0 piece info DB (or nil,
 // if this piece-store does not have one). This is ONLY intended for use with testing
 // functionality.
-func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
-	return store.v0PieceInfo
+func (store StoreForTest) GetV0PieceInfoDBForTest() V0PieceInfoDBForTest {
+	if store.v0PieceInfo == nil {
+		return nil
+	}
+	return store.v0PieceInfo.(V0PieceInfoDBForTest)
+}
+
+// GetHashAndLimit returns the PieceHash and OrderLimit associated with the specified piece. The
+// piece must already have been opened for reading, and the associated *Reader passed in.
+//
+// Once we have migrated everything off of V0 storage and no longer need to support it, this can
+// cleanly become a method directly on *Reader and will need only the 'pieceID' parameter.
+func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
+	if reader.StorageFormatVersion() == filestore.FormatV0 {
+		info, err := store.GetV0PieceInfo(ctx, satellite, pieceID)
+		if err != nil {
+			return pb.PieceHash{}, pb.OrderLimit{}, err // err is already wrapped as a storagenodedb.ErrPieceInfo
+		}
+		return *info.UplinkPieceHash, *info.OrderLimit, nil
+	}
+	header, err := reader.GetPieceHeader()
+	if err != nil {
+		return pb.PieceHash{}, pb.OrderLimit{}, Error.Wrap(err)
+	}
+	pieceHash := pb.PieceHash{
+		PieceId:   pieceID,
+		Hash:      header.GetHash(),
+		PieceSize: reader.Size(),
+		Timestamp: header.GetCreationTime(),
+		Signature: header.GetSignature(),
+	}
+	return pieceHash, header.OrderLimit, nil
 }
 
 // WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
@@ -501,6 +599,12 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int
 		totalBySatellite[satelliteID] = totalUsed
 	}
 	return total, totalBySatellite, nil
+}
+
+// GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,
+// of no use when a piece does not have filestore.FormatV0 storage.
+func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Info, error) {
+	return store.v0PieceInfo.Get(ctx, satellite, pieceID)
 }
 
 // StorageStatus contains information about the disk store is using.

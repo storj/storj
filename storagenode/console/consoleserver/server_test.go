@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestConsole(t *testing.T) {

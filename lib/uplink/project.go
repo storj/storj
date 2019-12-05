@@ -9,10 +9,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
@@ -23,11 +23,10 @@ import (
 
 // Project represents a specific project access session.
 type Project struct {
-	uplinkCfg     *Config
-	dialer        rpc.Dialer
-	metainfo      *metainfo.Client
-	project       *kvmetainfo.Project
-	maxInlineSize memory.Size
+	uplinkCfg *Config
+	dialer    rpc.Dialer
+	metainfo  *metainfo.Client
+	project   *kvmetainfo.Project
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -101,7 +100,17 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg = cfg.clone()
 	cfg.setDefaults()
 
+	var partnerID uuid.UUID
+	if p.uplinkCfg.Volatile.PartnerID != "" {
+		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return storj.Bucket{}, Error.Wrap(err)
+		}
+		partnerID = *id
+	}
+
 	bucket = storj.Bucket{
+		PartnerID:                   partnerID,
 		PathCipher:                  cfg.PathCipher,
 		DefaultEncryptionParameters: cfg.EncryptionParameters,
 		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
@@ -158,21 +167,8 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	// partnerID set and bucket's attribution is not set
-	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.PartnerID.IsZero() {
-		// make an entry into the attribution table
-		err = p.checkBucketAttribution(ctx, bucketName)
-		if err != nil {
-			return nil, err
-		}
-
-		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		// update the bucket metainfo table with corresponding partner info
-		bucketInfo.PartnerID = *partnerID
-		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
+	if bucketInfo.PartnerID.IsZero() {
+		err = p.trySetBucketAttribution(ctx, bucketName)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +195,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs)
 
-	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
+	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.uplinkCfg.Volatile.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 	if err != nil {
 		return nil, err
 	}
@@ -231,43 +227,33 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "", uint8(p.uplinkCfg.Volatile.PBKDFConcurrency))
 	if err != nil {
 		return nil, err
 	}
 	return key, nil
 }
 
-// checkBucketAttribution Checks the bucket attribution
-func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+// trySetBucketAttribution sets the bucket attribution if PartnerID or UserAgent is available.
+func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if p.uplinkCfg.Volatile.PartnerID == "" {
+	if p.uplinkCfg.Volatile.PartnerID == "" && p.uplinkCfg.Volatile.UserAgent == "" {
 		return nil
 	}
 
-	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
-	if err != nil {
-		return Error.Wrap(err)
+	var partnerID uuid.UUID
+	if p.uplinkCfg.Volatile.PartnerID != "" {
+		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		partnerID = *id
 	}
 
+	// UserAgent is sent via RequestHeader
 	return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 		Bucket:    bucketName,
-		PartnerID: *partnerID,
+		PartnerID: partnerID,
 	})
-}
-
-// updateBucket updates an existing bucket's attribution info.
-func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	bucket = storj.Bucket{
-		Name:                        bucketInfo.Name,
-		PartnerID:                   bucketInfo.PartnerID,
-		PathCipher:                  bucketInfo.PathCipher,
-		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
-		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
-		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
-	}
-	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

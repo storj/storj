@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -15,15 +16,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -134,7 +135,9 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 
 var monLiveRequests = mon.TaskNamed("live-request")
 
-// Delete handles deleting a piece on piece store.
+// Delete handles deleting a piece on piece store requested by uplink.
+//
+// DEPRECATED in favor of DeletePiece.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -155,15 +158,59 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
-		// TODO: add more debug info
+
+		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
+		// report rpc status of internal server error or not found error,
+		// e.g. not found might happen when we get a deletion request after garbage
+		// collection has deleted it
 		endpoint.log.Error("delete failed", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
-		// TODO: report rpc status of internal server error or missing error,
-		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
 		endpoint.log.Info("deleted", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
+}
+
+// DeletePiece handles deleting a piece on piece store requested by satellite.
+//
+// It doesn't return an error if the piece isn't found by any reason.
+func (endpoint *Endpoint) DeletePiece(
+	ctx context.Context, req *pb.PieceDeletePieceRequest,
+) (_ *pb.PieceDeletePieceResponse, err error) {
+	defer mon.Task()(&ctx, req.PieceId.String())(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied,
+			Error.New("%s", "delete piece called with untrusted ID").Error(),
+		)
+	}
+
+	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
+	if err != nil {
+		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
+		// Once this method returns error classes change the following conditional
+		if strings.Contains(err.Error(), "file does not exist") {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
+		}
+
+		endpoint.log.Error("delete piece failed",
+			zap.Error(Error.Wrap(err)),
+			zap.Stringer("Satellite ID", peer.ID),
+			zap.Stringer("Piece ID", req.PieceId),
+		)
+
+		return nil, rpcstatus.Error(rpcstatus.Internal,
+			Error.New("%s", "delete piece failed").Error(),
+		)
+	}
+
+	return &pb.PieceDeletePieceResponse{}, nil
 }
 
 // Upload handles uploading a piece on piece store.
@@ -491,33 +538,10 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		var orderLimit pb.OrderLimit
-		var pieceHash pb.PieceHash
-
-		if pieceReader.StorageFormatVersion() == 0 {
-			// v0 stores this information in SQL
-			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-			if err != nil {
-				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = *info.OrderLimit
-			pieceHash = *info.UplinkPieceHash
-		} else {
-			//v1+ stores this information in the file
-			header, err := pieceReader.GetPieceHeader()
-			if err != nil {
-				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			orderLimit = header.OrderLimit
-			pieceHash = pb.PieceHash{
-				PieceId:   limit.PieceId,
-				Hash:      header.GetHash(),
-				PieceSize: pieceReader.Size(),
-				Timestamp: header.GetCreationTime(),
-				Signature: header.GetSignature(),
-			}
+		pieceHash, orderLimit, err := endpoint.store.GetHashAndLimit(ctx, limit.SatelliteId, limit.PieceId, pieceReader)
+		if err != nil {
+			endpoint.log.Error("could not get hash and order limit", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
@@ -657,6 +681,28 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
 	}
+}
+
+// RestoreTrash restores all trashed items for the satellite issuing the call
+func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.RestoreTrashRequest) (res *pb.RestoreTrashResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, Error.New("RestoreTrash called with untrusted ID").Error())
+	}
+
+	err = endpoint.store.RestoreTrash(ctx, peer.ID)
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
+	return &pb.RestoreTrashResponse{}, nil
 }
 
 // Retain keeps only piece ids specified in the request

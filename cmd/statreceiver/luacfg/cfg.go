@@ -43,7 +43,7 @@ func (scope *Scope) register(name string, val interface{}, pusher func(l *lua.St
 	defer scope.mu.Unlock()
 
 	if _, exists := scope.registrations[name]; exists {
-		return fmt.Errorf("Registration %#v already exists", name)
+		return fmt.Errorf("registration %#v already exists", name)
 	}
 
 	scope.registrations[name] = func(l *lua.State) error {

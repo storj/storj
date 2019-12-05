@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -78,6 +79,12 @@ type Blobs interface {
 	Delete(ctx context.Context, ref BlobRef) error
 	// DeleteWithStorageFormat deletes a blob of a specific storage format
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	// Trash marks a file for pending deletion
+	Trash(ctx context.Context, ref BlobRef) error
+	// RestoreTrash restores all files in the trash for a given namespace
+	RestoreTrash(ctx context.Context, namespace []byte) error
+	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore
+	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error)
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
@@ -97,6 +104,8 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	// Close closes the blob store and any resources associated with it.
+	Close() error
 }
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with

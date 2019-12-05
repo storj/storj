@@ -155,15 +155,15 @@ export default class ProjectDetailsArea extends Vue {
     .project-details {
         position: relative;
         overflow: hidden;
-        height: 85vh;
         font-family: 'font_regular', sans-serif;
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 24px;
-            line-height: 29px;
-            color: #354049;
+            font-size: 32px;
+            line-height: 39px;
+            color: #263549;
             user-select: none;
+            margin: 0;
         }
 
         &__button-area {

@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
@@ -89,7 +89,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		PartnerID      string `json:"partnerId"`
 		Password       string `json:"password"`
 		SecretInput    string `json:"secret"`
-		ReferrerUserID string `json:"referrerUserID"`
+		ReferrerUserID string `json:"referrerUserId"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -117,6 +117,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.serveJSONError(w, err)
+		return
 	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
