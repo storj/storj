@@ -6,6 +6,7 @@ package pgutil
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
@@ -139,3 +140,11 @@ var rxPostgresForeignKey = regexp.MustCompile(
 		`(?:\s*ON UPDATE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?` +
 		`(?:\s*ON DELETE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?$`,
 )
+
+// UnquoteIdentifier is the analog of pq.QuoteIdentifier.
+func UnquoteIdentifier(quotedIdent string) string {
+	if len(quotedIdent) >= 2 && quotedIdent[0] == '"' && quotedIdent[len(quotedIdent)-1] == '"' {
+		quotedIdent = strings.ReplaceAll(quotedIdent[1:len(quotedIdent)-1], "\"\"", "\"")
+	}
+	return quotedIdent
+}

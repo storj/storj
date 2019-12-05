@@ -6,9 +6,9 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/cockroachdb/cockroach-go/crdb"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/private/dbutil"
@@ -54,7 +54,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 					ORDER BY attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
-		return seg, fmt.Errorf("invalid dbType: %v", r.dbType)
+		return seg, errs.New("invalid dbType: %v", r.dbType)
 	}
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
