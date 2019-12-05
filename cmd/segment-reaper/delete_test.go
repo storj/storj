@@ -25,7 +25,7 @@ func TestDeleteSegment(t *testing.T) {
 	db := teststore.New()
 	defer ctx.Check(db.Close)
 
-	{
+	t.Run("segment is deleted", func(t *testing.T) {
 		err := makeSegment(ctx, db, "path1", time.Unix(10, 0))
 		require.NoError(t, err)
 
@@ -33,9 +33,10 @@ func TestDeleteSegment(t *testing.T) {
 		deleteError := deleteSegment(ctx, db, "path1", time.Unix(10, 0), dryRun)
 		require.NoError(t, deleteError)
 		_, err = db.Get(ctx, storage.Key("path1"))
-		require.Error(t, err) // segment is deleted
-	}
-	{
+		require.Error(t, err)
+		require.True(t, storage.ErrKeyNotFound.Has(err))
+	})
+	t.Run("segment is not deleted because of dryRun", func(t *testing.T) {
 		err := makeSegment(ctx, db, "path2", time.Unix(10, 0))
 		require.NoError(t, err)
 
@@ -43,9 +44,9 @@ func TestDeleteSegment(t *testing.T) {
 		deleteError := deleteSegment(ctx, db, "path2", time.Unix(10, 0), dryRun)
 		require.NoError(t, deleteError)
 		_, err = db.Get(ctx, storage.Key("path2"))
-		require.NoError(t, err) // segment is not deleted because of dryRun
-	}
-	{
+		require.NoError(t, err)
+	})
+	t.Run("segment is not deleted because of time mismatch", func(t *testing.T) {
 		err := makeSegment(ctx, db, "path3", time.Unix(10, 0))
 		require.NoError(t, err)
 
@@ -53,13 +54,14 @@ func TestDeleteSegment(t *testing.T) {
 		deleteError := deleteSegment(ctx, db, "path3", time.Unix(99, 0), dryRun)
 		require.Error(t, deleteError)
 		_, err = db.Get(ctx, storage.Key("path3"))
-		require.NoError(t, err) // segment is not deleted because of time mismatch
-	}
-	{
+		require.NoError(t, err)
+	})
+	t.Run("segment is not deleted because not exists", func(t *testing.T) {
 		dryRun := false
 		deleteError := deleteSegment(ctx, db, "not-existing-path", time.Unix(10, 0), dryRun)
 		require.Error(t, deleteError)
-	}
+		require.True(t, storage.ErrKeyNotFound.Has(deleteError))
+	})
 }
 
 func makeSegment(ctx context.Context, db metainfo.PointerDB, path string, creationDate time.Time) error {

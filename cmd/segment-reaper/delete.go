@@ -103,13 +103,11 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 			continue
 		}
 
-		log.Info("segment deleted", zap.String("path", rawPath))
+		log.Debug("segment deleted", zap.String("path", rawPath))
 		segmentsDeleted++
 	}
 
 	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped))
-
-	// TODO is printing results with zap is good enough?
 
 	return nil
 }
