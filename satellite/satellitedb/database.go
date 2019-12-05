@@ -99,7 +99,7 @@ func (db *DB) OverlayCache() overlay.DB {
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *DB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db.db}
+	return &repairQueue{db: db.db, dbType: db.implementation}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage
