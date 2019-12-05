@@ -37,7 +37,7 @@ GOBIN=$RELEASE_DIR/bin make -C "$RELEASE_DIR" install-sim
 GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
-STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+STORJ_SIM_SATELLITEDB=${STORJ_SIM_SATELLITEDB:-""}
 
 if [ -z ${STORJ_SIM_SATELLITEDB} ]; then
     echo "Postgres is required for the satellite DB. Exiting."
@@ -45,7 +45,7 @@ if [ -z ${STORJ_SIM_SATELLITEDB} ]; then
 fi
 
 # setup the network
-PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_SATELLITEDB setup
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
