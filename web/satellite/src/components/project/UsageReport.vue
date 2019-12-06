@@ -191,6 +191,11 @@ export default class UsageReport extends Vue {
     public onCustomDateClick(event: any): void {
         (this as any).$refs.datePicker.showCheck();
         this.onButtonClickAction(event);
+        this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            start_date: this.dateRange.startDate,
+            end_date: this.dateRange.endDate,
+        });
     }
 
     public onReportClick(): void {
