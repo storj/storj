@@ -57,19 +57,11 @@ typedef struct EncryptionRestriction {
     char *path_prefix;
 } EncryptionRestriction;
 
-typedef struct CaveatPath {
-	char *bucket;
-	char *encrypted_path_prefix;
-} CaveatPath;
-
 typedef struct Caveat { 
 	bool disallow_reads;
 	bool disallow_writes;
 	bool disallow_lists;
 	bool disallow_deletes;
-	//ToDo: CaveatPath *allowed_paths;
-	//ToDo: int64_t not_after;
-	//ToDo: int64_t not_before;
 } Caveat;
 
 typedef struct RedundancyScheme {

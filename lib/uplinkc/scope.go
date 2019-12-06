@@ -3,9 +3,6 @@
 
 package main
 
-// #include "uplink_definitions.h"
-import "C"
-
 import (
 	"context"
 
