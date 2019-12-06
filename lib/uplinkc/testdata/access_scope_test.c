@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
 
         char *satelliteAddres = get_scope_satellite_address(scope, err);
         require_noerror(*err);
+        require(satelliteAddres != NULL);
+        require(strcmp(satelliteAddres, "") !=0);
         
         APIKeyRef apikey = get_scope_api_key(scope, err);
         require_noerror(*err);
