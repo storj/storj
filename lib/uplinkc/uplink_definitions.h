@@ -32,7 +32,6 @@ typedef struct Downloader       { long _handle; } DownloaderRef;
 typedef struct Uploader         { long _handle; } UploaderRef;
 typedef struct EncryptionAccess { long _handle; } EncryptionAccessRef;
 typedef struct Scope            { long _handle; } ScopeRef;
-typedef struct Caveat           { long _handle; } CaveatRef;
 
 typedef struct UplinkConfig {
     struct {
@@ -57,6 +56,21 @@ typedef struct EncryptionRestriction {
     char *bucket;
     char *path_prefix;
 } EncryptionRestriction;
+
+typedef struct CaveatPath {
+	char *Bucket;
+	char *EncryptedPathPrefix;
+} CaveatPath;
+
+typedef struct Caveat { 
+	bool disallow_reads;
+	bool disallow_writes;
+	bool disallow_lists;
+	bool disallow_deletes;
+	//ToDo: CaveatPath *allowed_paths;
+	//ToDo: int64_t not_after;
+	//ToDo: int64_t not_before;
+} Caveat;
 
 typedef struct RedundancyScheme {
     RedundancyAlgorithm algorithm;
