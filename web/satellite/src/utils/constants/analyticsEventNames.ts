@@ -10,7 +10,7 @@ export enum SegmentEvent {
     EMAIL_VERIFIED= 'Email Verified',
     API_KEY_CREATED= 'API Key Created',
     API_KEY_DELETED= 'API Key Deleted',
-    API_KEYS_VIEWED='API Key Viewed',
+    API_KEYS_VIEWED= 'API Key Viewed',
     PAYMENT_METHODS_VIEWED= 'Payment Methods Viewed',
     PAYMENT_METHOD_ADDED= 'Payment Method Added',
     REPORT_DOWNLOADED= 'Report Downloaded',
