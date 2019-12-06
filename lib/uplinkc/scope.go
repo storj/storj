@@ -7,13 +7,13 @@ package main
 import "C"
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"unsafe"
 
-	"storj.io/storj/private/fpath"
-	"storj.io/storj/pkg/macaroon"
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/private/fpath"
 )
 
 // scope implements nesting context for foreign api.
@@ -77,13 +77,12 @@ func restrict_scope(scopeRef C.ScopeRef, caveatRef C.CaveatRef, restrictions **C
 
 	//Create new EncryptionAccess with restrictions
 	//problem: it uses it's own caveat internally
-	_, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...) 
-	if err != nil { 
-		*cerr = C.CString(fmt.Sprintf("%+v", err)) 
-		return C.ScopeRef{} 
+	_, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return C.ScopeRef{}
 	}
 
-	
 	//Construct new scope with the new apikey and restricted encAccess.
 	scopeRestricted := &libuplink.Scope{
 		SatelliteAddr:    scope.SatelliteAddr,
