@@ -142,11 +142,11 @@ func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, crea
 	if !dryRun {
 		// delete the pointer using compare-and-swap
 		err = db.CompareAndSwap(ctx, []byte(path), pointerBytes, nil)
-		if storage.ErrValueChanged.Has(err) {
-			// race detected while deleting the pointer, do not try deleting it again.
-			return errKnown.New("segment won't be deleted, race detected while deleting the pointer: %+v", err)
-		}
 		if err != nil {
+			if storage.ErrValueChanged.Has(err) {
+				// race detected while deleting the pointer, do not try deleting it again.
+				return errKnown.New("segment won't be deleted, race detected while deleting the pointer: %+v", err)
+			}
 			return err
 		}
 	}
