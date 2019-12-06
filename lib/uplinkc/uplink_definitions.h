@@ -32,6 +32,7 @@ typedef struct Downloader       { long _handle; } DownloaderRef;
 typedef struct Uploader         { long _handle; } UploaderRef;
 typedef struct EncryptionAccess { long _handle; } EncryptionAccessRef;
 typedef struct Scope            { long _handle; } ScopeRef;
+typedef struct Caveat           { long _handle; } CaveatRef;
 
 typedef struct UplinkConfig {
     struct {
@@ -50,6 +51,12 @@ typedef struct EncryptionParameters {
     CipherSuite cipher_suite;
     int32_t     block_size;
 } EncryptionParameters;
+
+
+typedef struct EncryptionRestriction {
+    char *bucket;
+    char *path_prefix;
+} EncryptionRestriction;
 
 typedef struct RedundancyScheme {
     RedundancyAlgorithm algorithm;
