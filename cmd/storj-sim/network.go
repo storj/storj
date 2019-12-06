@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,9 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/processgroup"
 )
@@ -337,19 +340,31 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {"api"},
 		})
 
+		var sadb, midb string
 		if flags.Postgres != "" {
-			// todo: close these tempdbs
-			tempSatelliteDB, err := tempdb.OpenUnique(flags.Postgres, fmt.Sprintf("satellite/%d", i))
+			_, _, implementation, err := dbutil.SplitConnStr(flags.Postgres)
 			if err != nil {
 				return nil, err
 			}
-			tempMetainfoDB, err := tempdb.OpenUnique(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
-			if err != nil {
-				return nil, err
+			switch implementation {
+			case dbutil.Postgres:
+				sadb = pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i))
+				midb = pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
+			case dbutil.Cockroach:
+				cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%d", i))
+				cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%dmeta", i))
+				connURL, _ := url.Parse(flags.Postgres)
+				connURL.Path = fmt.Sprintf("satellite%d", i)
+				sadb = connURL.String()
+				connURL.Path = fmt.Sprintf("satellite%dmeta", i)
+				midb = connURL.String()
+			default:
+				// error
 			}
+
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
-				"--database", tempSatelliteDB.ConnStr,
-				"--metainfo.database-url", tempMetainfoDB.ConnStr,
+				"--database", sadb,
+				"--metainfo.database-url", midb,
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {

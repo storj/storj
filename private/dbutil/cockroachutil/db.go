@@ -37,7 +37,7 @@ func OpenUnique(connStr string, schemaName string) (db *dbutil.TempDatabase, err
 		return nil, errs.New("Could not open masterDB at conn %q: %v", connStr, err)
 	}
 
-	_, err = masterDB.Exec("CREATE DATABASE " + pq.QuoteIdentifier(schemaName))
+	_, err = masterDB.Exec("CREATE DATABASE IF NOT EXISTS" + pq.QuoteIdentifier(schemaName))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

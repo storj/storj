@@ -89,8 +89,8 @@ pipeline {
 
                 stage('Tests Cockroach') {
                     environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
-                        // STORJ_POSTGRES_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
+                        // STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
@@ -124,7 +124,7 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
 
-                        STORJ_SIM_SATELLITEDB = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
                     }
 
                     steps {
@@ -139,7 +139,7 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
 
-                        STORJ_SIM_SATELLITEDB = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
                     }
 
                     steps {
@@ -153,7 +153,7 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
 
-                        STORJ_SIM_SATELLITEDB = 'cockroach://root@localhost:26257/teststorj2?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj2?sslmode=disable'
                     }
 
                     steps {
@@ -167,7 +167,7 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
 
-                        STORJ_SIM_SATELLITEDB = 'cockroach://root@localhost:26257/teststorj3?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj3?sslmode=disable'
                     }
 
                     steps {
