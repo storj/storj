@@ -115,9 +115,9 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 
 	//Get caveat from C
 	caveatGo := macaroon.Caveat{
-		DisallowReads: caveat.disallow_reads == C.bool(true),
-		DisallowWrites: caveat.disallow_writes == C.bool(true),
-		DisallowLists: caveat.disallow_lists == C.bool(true),
+		DisallowReads:   caveat.disallow_reads == C.bool(true),
+		DisallowWrites:  caveat.disallow_writes == C.bool(true),
+		DisallowLists:   caveat.disallow_lists == C.bool(true),
 		DisallowDeletes: caveat.disallow_deletes == C.bool(true),
 		//ToDo: allowed_paths
 		//ToDo: NotAfter: time.Unix(int64(caveat.not_after),0),

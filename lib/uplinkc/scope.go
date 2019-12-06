@@ -8,7 +8,7 @@ import "C"
 
 import (
 	"context"
-	
+
 	"storj.io/storj/private/fpath"
 )
 
