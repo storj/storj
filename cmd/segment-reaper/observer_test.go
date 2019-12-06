@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,6 +19,8 @@ import (
 func Test_observer_analyzeProject(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	allSegments64 := string(bytes.ReplaceAll(make([]byte, 64), []byte{0}, []byte{'1'}))
 
 	tests := []struct {
 		segments                 string
@@ -45,6 +48,9 @@ func Test_observer_analyzeProject(t *testing.T) {
 		{"10111_l", 0, "10000_l"}, // #13
 		{"10101_l", 0, "10000_l"}, // #14
 		{"11011_l", 0, "11000_l"}, // #15
+
+		// special cases
+		{allSegments64 + "_l", 65, allSegments64 + "_l"}, // #16
 	}
 	for testNum, tt := range tests {
 		testNum := testNum

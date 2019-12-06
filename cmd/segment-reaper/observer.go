@@ -302,7 +302,7 @@ func (obsvr *observer) appendAllObjectSegments(object *object) {
 			panic(err)
 		}
 		if has {
-			obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
+			obsvr.appendSegment(index)
 		}
 	}
 }
