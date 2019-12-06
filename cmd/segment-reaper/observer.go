@@ -182,7 +182,10 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 			}
 
 			for _, segmentIndex := range zombieSegments {
-				obsvr.printSegment(ctx, segmentIndex, bucket, path)
+				err = obsvr.printSegment(ctx, segmentIndex, bucket, path)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

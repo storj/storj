@@ -45,6 +45,7 @@ func Test_observer_analyzeProject(t *testing.T) {
 		{"11011_l", 0, "11000_l"}, // #13
 	}
 	for i, tt := range tests {
+		tt := tt
 		t.Run("case_"+strconv.Itoa(i), func(t *testing.T) {
 			bucketObjects := make(bucketsObjects)
 			singleObjectMap := make(map[storj.Path]*object)
