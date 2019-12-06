@@ -348,6 +348,7 @@ export default class SNOContentFilling extends Vue {
                 font-size: 22px;
                 line-height: 49px;
                 color: #4a4a4a;
+                user-select: none;
             }
         }
 
