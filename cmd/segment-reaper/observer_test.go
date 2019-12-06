@@ -37,14 +37,14 @@ func TestObserver_processSegment(t *testing.T) {
 			objects: make(bucketsObjects),
 		}
 
-		testdata1 := generateTestdataObjects(t, ctx.Context, false, false)
+		testdata1 := generateTestdataObjects(ctx.Context, t, false, false)
 		// Call processSegment with testadata objects of the first project
 		for _, objSeg := range testdata1.objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
-		testdata2 := generateTestdataObjects(t, ctx.Context, false, false)
+		testdata2 := generateTestdataObjects(ctx.Context, t, false, false)
 		// Call processSegment with testadata objects of the second project
 		for _, objSeg := range testdata2.objSegments {
 			err := obsvr.processSegment(ctx.Context, objSeg.path, objSeg.pointer)
@@ -104,7 +104,7 @@ func TestObserver_processSegment(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var (
-			testdata = generateTestdataObjects(t, ctx.Context, true, false)
+			testdata = generateTestdataObjects(ctx.Context, t, true, false)
 			obsvr    = observer{
 				objects: make(bucketsObjects),
 			}
@@ -162,7 +162,7 @@ func TestObserver_processSegment(t *testing.T) {
 				objects: make(bucketsObjects),
 			}
 			objPath, objSegmentsRefs = createNewObjectSegments(
-				t, ctx.Context, numSegments, &projectID, bucketName, false, false,
+				ctx.Context, t, numSegments, &projectID, bucketName, false, false,
 			)
 		)
 
@@ -203,7 +203,7 @@ func TestObserver_processSegment(t *testing.T) {
 				objects: make(bucketsObjects),
 			}
 			objPath, objSegmentsRefs = createNewObjectSegments(
-				t, ctx.Context, numSegments, &projectID, bucketName, false, true,
+				ctx.Context, t, numSegments, &projectID, bucketName, false, true,
 			)
 		)
 
@@ -237,7 +237,7 @@ func TestObserver_processSegment(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var (
-			testdata = generateTestdataObjects(t, ctx.Context, false, true)
+			testdata = generateTestdataObjects(ctx.Context, t, false, true)
 			obsvr    = observer{
 				objects: make(bucketsObjects),
 			}
@@ -302,9 +302,8 @@ type segmentRef struct {
 // NumberOfSegments set.
 //
 // It returns the object path and the list of object segment references.
-//nolint:golint
 func createNewObjectSegments(
-	t *testing.T, ctx context.Context, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
+	ctx context.Context, t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
 ) (objectPath string, _ []segmentRef) {
 	t.Helper()
 
@@ -392,9 +391,8 @@ type testdataObjects struct {
 // When withMoreThanMaxNumSegments is true, there will be objects with more
 // segments than the maxNumOfSegments, otherwise all of them will have less or
 // equal than it.
-// nolint:golint
 func generateTestdataObjects(
-	t *testing.T, ctx context.Context, withoutLastSegment bool, withMoreThanMaxNumSegments bool,
+	ctx context.Context, t *testing.T, withoutLastSegment bool, withMoreThanMaxNumSegments bool,
 ) testdataObjects {
 	t.Helper()
 
@@ -442,7 +440,7 @@ func generateTestdataObjects(
 			bucketName = fmt.Sprintf("bucket-%d", i)
 		}
 		objPath, objSegmentsProj := createNewObjectSegments(
-			t, ctx, numSegments, &projID, bucketName, inline, withNumSegments,
+			ctx, t, numSegments, &projID, bucketName, inline, withNumSegments,
 		)
 		testdata.objSegments = append(testdata.objSegments, objSegmentsProj...)
 
