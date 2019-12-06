@@ -44,9 +44,9 @@ func Test_observer_analyzeProject(t *testing.T) {
 		{"10111_l", 0, "10000_l"}, // #12
 		{"11011_l", 0, "11000_l"}, // #13
 	}
-	for i, tt := range tests {
+	for testNum, tt := range tests {
 		tt := tt
-		t.Run("case_"+strconv.Itoa(i), func(t *testing.T) {
+		t.Run("case_"+strconv.Itoa(testNum), func(t *testing.T) {
 			bucketObjects := make(bucketsObjects)
 			singleObjectMap := make(map[storj.Path]*object)
 			segments := bitmask(0)
@@ -84,7 +84,7 @@ func Test_observer_analyzeProject(t *testing.T) {
 				}
 			}
 
-			require.Equalf(t, tt.segmentsAfter, segmentsAfter, "segments before and after comparison faild: want %s got %s, case %d ", tt.segmentsAfter, segmentsAfter, i)
+			require.Equalf(t, tt.segmentsAfter, segmentsAfter, "segments before and after comparison faild: want %s got %s, case %d ", tt.segmentsAfter, segmentsAfter, testNum)
 		})
 	}
 }
