@@ -34,7 +34,7 @@ export class Segmentio {
         this.analytics.page();
     }
 
-    public identify() {
+    public identify(traits?: Object | undefined, options?: SegmentAnalytics.SegmentOpts | undefined, callback?: (() => void) | undefined) {
         if (!this.analytics) {
             return;
         }

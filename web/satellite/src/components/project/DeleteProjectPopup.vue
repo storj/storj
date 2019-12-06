@@ -66,7 +66,7 @@ import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -98,7 +98,9 @@ export default class DeleteProjectPopup extends Vue {
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-            this.$segment.track(EVENTS.PROJECT_DELETED);
+            this.$segment.track(SegmentEvent.PROJECT_DELETED, {
+                ProjectID: this.$store.getters.selectedProject.id,
+            });
             await this.$notify.success('Project was successfully deleted');
 
             await this.selectProject();

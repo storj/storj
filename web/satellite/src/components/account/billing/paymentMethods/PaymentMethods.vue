@@ -79,7 +79,7 @@ import VButton from '@/components/common/VButton.vue';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
@@ -110,7 +110,9 @@ export default class PaymentMethods extends Vue {
 
     public mounted() {
         try {
-            this.$segment.track(EVENTS.PAYMENT_METHODS_VIEWED);
+            this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
+                ProjectID: this.$store.getters.selectedProject.id,
+            });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -205,7 +207,6 @@ export default class PaymentMethods extends Vue {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-            this.$segment.track(EVENTS.PAYMENT_METHODS_VIEWED);
 
             this.isLoading = false;
 

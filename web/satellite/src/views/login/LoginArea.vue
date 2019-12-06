@@ -16,10 +16,11 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import { LocalData } from '../../utils/localData';
 
 @Component({
     components: {
@@ -79,7 +80,10 @@ export default class Login extends Vue {
         try {
             this.authToken = await this.auth.token(this.email, this.password);
             AuthToken.set(this.authToken);
-            this.$segment.track(EVENTS.USER_LOGGED_IN);
+            this.$segment.identify({
+                userId: this.$store.state.usersModule.id,
+            })
+            this.$segment.track(SegmentEvent.USER_LOGGED_IN);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
@@ -109,7 +113,7 @@ export default class Login extends Vue {
             isNoErrors = false;
         }
 
-        this.$segment.track(EVENTS.EMAIL_VERIFIED);
+        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
 
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';

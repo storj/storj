@@ -55,7 +55,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { validatePassword } from '@/utils/validation';
 
 @Component({
@@ -95,7 +95,7 @@ export default class DeleteAccountPopup extends Vue {
         try {
             await this.auth.delete(this.password);
             await this.$notify.success('Account was successfully deleted');
-            this.$segment.track(EVENTS.USER_DELETED);
+            this.$segment.track(SegmentEvent.USER_DELETED);
 
             AuthToken.remove();
 

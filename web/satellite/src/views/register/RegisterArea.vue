@@ -17,6 +17,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
@@ -114,11 +115,11 @@ export default class RegisterArea extends Vue {
         this.isLoading = false;
     }
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
+        this.$segment.track(SegmentEvent.CLICKED_LOGO);
         location.reload();
     }
     public onLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
+        this.$segment.track(SegmentEvent.CLICKED_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
     public setEmail(value: string): void {
@@ -152,7 +153,7 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        this.$segment.track(EVENTS.EMAIL_VERIFIED);
+        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
 
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';

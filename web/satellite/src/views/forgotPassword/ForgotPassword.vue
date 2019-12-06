@@ -14,7 +14,7 @@ import LogoIcon from '@/../static/images/Logo.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
@@ -66,7 +66,7 @@ export default class ForgotPassword extends Vue {
         if (!isEmailValid) {
             this.emailError = 'Invalid Email';
         }
-        this.$segment.track(EVENTS.EMAIL_VERIFIED);
+        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
 
         return isEmailValid;
     }
