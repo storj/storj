@@ -19,7 +19,6 @@ import (
 
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/s3client"
 	"storj.io/storj/private/testcontext"
@@ -30,8 +29,8 @@ import (
 )
 
 type config struct {
-	Server miniogw.ServerConfig
-	Minio  miniogw.MinioConfig
+	Server ServerConfig
+	Minio  MinioConfig
 }
 
 func TestUploadDownload(t *testing.T) {
@@ -161,7 +160,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	gw := miniogw.NewStorjGateway(
+	gw := NewStorjGateway(
 		project,
 		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
 		storj.CipherSuite(uplinkCfg.Enc.PathType),
@@ -170,6 +169,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		uplinkCfg.Client.SegmentSize,
 	)
 
-	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))
+	minio.StartGateway(cliCtx, Logging(gw, log))
 	return errors.New("unexpected minio exit")
 }

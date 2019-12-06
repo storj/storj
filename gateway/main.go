@@ -18,10 +18,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/cmd/internal/wizard"
+	"storj.io/gateway/miniogw"
+	"storj.io/storj/private/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/fpath"
