@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/gateway/miniogw"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -29,8 +30,8 @@ import (
 )
 
 type config struct {
-	Server ServerConfig
-	Minio  MinioConfig
+	Server miniogw.ServerConfig
+	Minio  miniogw.MinioConfig
 }
 
 func TestUploadDownload(t *testing.T) {
@@ -160,7 +161,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	gw := NewStorjGateway(
+	gw := miniogw.NewStorjGateway(
 		project,
 		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
 		storj.CipherSuite(uplinkCfg.Enc.PathType),
@@ -169,6 +170,6 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		uplinkCfg.Client.SegmentSize,
 	)
 
-	minio.StartGateway(cliCtx, Logging(gw, log))
+	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))
 	return errors.New("unexpected minio exit")
 }
