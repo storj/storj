@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB is an implementation of notifications.Notifications.
+// DB works with notifications database.
 //
 // architecture: Database
 type DB interface {

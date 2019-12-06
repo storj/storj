@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/private/testrand"
-
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
