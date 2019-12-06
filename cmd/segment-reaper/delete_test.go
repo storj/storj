@@ -56,6 +56,7 @@ func TestDeleteSegment(t *testing.T) {
 		dryRun := false
 		deleteError := deleteSegment(ctx, db, "path3", time.Unix(99, 0), dryRun)
 		require.Error(t, deleteError)
+		require.True(t, errKnown.Has(deleteError))
 		pointer, err := db.Get(ctx, storage.Key("path3"))
 		require.NoError(t, err)
 		pointerBytes, err := pointer.MarshalBinary()
