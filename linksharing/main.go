@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/linksharing"
-	"storj.io/storj/linksharing/httpserver"
+	"storj.io/linksharing/linksharing"
+	"storj.io/linksharing/linksharing/httpserver"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/private/fpath"
