@@ -142,22 +142,18 @@ func pgMigrateTest(t *testing.T, connStr string) {
 	snapshots, err := loadSnapshots(connStr)
 	require.NoError(t, err)
 
-	base := snapshots.List[0]
-
-	schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
-	connstr := pgutil.ConnstrWithSchema(connStr, schemaName)
+	// create tempDB
+	tempDB, err := tempdb.OpenUnique(connStr, "migrate-")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tempDB.Close()) }()
 
 	// create a new satellitedb connection
-	db, err := satellitedb.New(log, connstr)
+	db, err := satellitedb.New(log, tempDB.ConnStr)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
 	rawdb := db.(*satellitedb.DB).TestDBAccess()
-
-	// insert the base data into postgres
-	_, err = rawdb.Exec(base.Script)
-	require.NoError(t, err)
 
 	var finalSchema *dbschema.Schema
 
@@ -175,7 +171,7 @@ func pgMigrateTest(t *testing.T, connStr string) {
 		require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
 
 		// insert data for new tables
-		if newdata := newData(expected); newdata != "" && step.Version > base.Version {
+		if newdata := newData(expected); newdata != "" {
 			_, err = rawdb.Exec(newdata)
 			require.NoError(t, err, tag)
 		}
