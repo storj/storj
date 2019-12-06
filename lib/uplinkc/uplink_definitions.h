@@ -58,8 +58,8 @@ typedef struct EncryptionRestriction {
 } EncryptionRestriction;
 
 typedef struct CaveatPath {
-	char *Bucket;
-	char *EncryptedPathPrefix;
+	char *bucket;
+	char *encrypted_path_prefix;
 } CaveatPath;
 
 typedef struct Caveat { 
