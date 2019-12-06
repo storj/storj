@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var SkippedVersions = []string{
+var SkippedUplinkVersions = []string{
 	"v0.10.1",
 	"v0.10.0", "v0.10.2",
 	"v0.11.0", "v0.11.1", "v0.11.2", "v0.11.3", "v0.11.4", "v0.11.5", "v0.11.6", "v0.11.7",
@@ -60,17 +60,17 @@ func run() error {
 		return err
 	}
 
-	var filteredTagList []string
+	var filteredUplinkTagList []string
 	for _, test := range tests {
-		filteredTagList, err = getVersions(test, filteredTagList)
+		filteredUplinkTagList, err = getVersions(test, filteredUplinkTagList)
 		if err != nil {
 			return err
 		}
 		if len(test.Stage1.UplinkVersions) < 1 {
-			test.Stage1.UplinkVersions = filteredTagList
+			test.Stage1.UplinkVersions = filteredUplinkTagList
 		}
 		if len(test.Stage2.UplinkVersions) < 1 {
-			test.Stage2.UplinkVersions = filteredTagList
+			test.Stage2.UplinkVersions = filteredUplinkTagList
 		}
 
 		if err := runTest(test, scriptFile); err != nil {
