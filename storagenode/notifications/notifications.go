@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB works with notifications database.
+// DB tells how application works with notifications database.
 //
 // architecture: Database
 type DB interface {
@@ -36,7 +36,7 @@ const (
 	NotificationTypeDisqualification NotificationType = 3
 )
 
-// NewNotification holds notification entity info which is being inserted to database.
+// NewNotification holds notification entity info which is being received from satellite.
 type NewNotification struct {
 	SenderID storj.NodeID
 	Type     NotificationType
