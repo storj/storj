@@ -117,7 +117,7 @@ func getVersions(test *VersionsTest, filteredTagList []string) ([]string, error)
 	// skip specified versions if there's any
 	for _, tag := range tagList {
 		shouldSkip := false
-		for _, skip := range SkippedVersions {
+		for _, skip := range SkippedUplinkVersions {
 			if skip == tag {
 				shouldSkip = true
 				break
