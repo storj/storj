@@ -1,8 +1,6 @@
 - stage1:
     sat_version: v0.16.2
     uplink_versions:
-        - v0.16.2
-        - v0.15.4
     storagenode_versions:
         - v0.16.2
         - v0.16.2
@@ -17,8 +15,6 @@
   stage2:
       sat_version: v0.20.2
       uplink_versions:
-          - v0.20.2
-          - v0.19.7
       storagenode_versions:
           - v0.20.2
           - v0.20.2
