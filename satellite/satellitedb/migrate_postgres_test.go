@@ -137,72 +137,71 @@ func TestMigratePostgres(t *testing.T) {
 }
 
 func pgMigrateTest(t *testing.T, connStr string) {
+	log := zaptest.NewLogger(t)
+
 	snapshots, err := loadSnapshots(connStr)
 	require.NoError(t, err)
 
 	base := snapshots.List[0]
 
-	t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
-		log := zaptest.NewLogger(t)
-		schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
-		connstr := pgutil.ConnstrWithSchema(connStr, schemaName)
+	schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
+	connstr := pgutil.ConnstrWithSchema(connStr, schemaName)
 
-		// create a new satellitedb connection
-		db, err := satellitedb.New(log, connstr)
-		require.NoError(t, err)
-		defer func() { require.NoError(t, db.Close()) }()
+	// create a new satellitedb connection
+	db, err := satellitedb.New(log, connstr)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
 
-		// we need raw database access unfortunately
-		rawdb := db.(*satellitedb.DB).TestDBAccess()
+	// we need raw database access unfortunately
+	rawdb := db.(*satellitedb.DB).TestDBAccess()
 
-		// insert the base data into postgres
-		_, err = rawdb.Exec(base.Script)
-		require.NoError(t, err)
+	// insert the base data into postgres
+	_, err = rawdb.Exec(base.Script)
+	require.NoError(t, err)
 
-		var finalSchema *dbschema.Schema
+	var finalSchema *dbschema.Schema
 
-		// get migration for this database
-		migrations := db.(*satellitedb.DB).PostgresMigration()
-		for i, step := range migrations.Steps {
-			tag := fmt.Sprintf("#%d - v%d", i, step.Version)
+	// get migration for this database
+	migrations := db.(*satellitedb.DB).PostgresMigration()
+	for i, step := range migrations.Steps {
+		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
-			// run migration up to a specific version
-			err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
+		// run migration up to a specific version
+		err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
+		require.NoError(t, err, tag)
+
+		// find the matching expected version
+		expected, ok := snapshots.FindVersion(step.Version)
+		require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
+
+		// insert data for new tables
+		if newdata := newData(expected); newdata != "" && step.Version > base.Version {
+			_, err = rawdb.Exec(newdata)
 			require.NoError(t, err, tag)
-
-			// find the matching expected version
-			expected, ok := snapshots.FindVersion(step.Version)
-			require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
-
-			// insert data for new tables
-			if newdata := newData(expected); newdata != "" && step.Version > base.Version {
-				_, err = rawdb.Exec(newdata)
-				require.NoError(t, err, tag)
-			}
-
-			// load schema from database
-			currentSchema, err := pgutil.QuerySchema(rawdb)
-			require.NoError(t, err, tag)
-
-			// we don't care changes in versions table
-			currentSchema.DropTable("versions")
-
-			// load data from database
-			currentData, err := pgutil.QueryData(rawdb, currentSchema)
-			require.NoError(t, err, tag)
-
-			// verify schema and data
-			require.Equal(t, expected.Schema, currentSchema, tag)
-			require.Equal(t, expected.Data, currentData, tag)
-
-			// keep the last version around
-			finalSchema = currentSchema
 		}
 
-		// verify that we also match the dbx version
-		dbxschema, err := loadDBXSchema(connStr, rawdb.Schema())
-		require.NoError(t, err)
+		// load schema from database
+		currentSchema, err := pgutil.QuerySchema(rawdb)
+		require.NoError(t, err, tag)
 
-		require.Equal(t, dbxschema, finalSchema, "dbx")
-	})
+		// we don't care changes in versions table
+		currentSchema.DropTable("versions")
+
+		// load data from database
+		currentData, err := pgutil.QueryData(rawdb, currentSchema)
+		require.NoError(t, err, tag)
+
+		// verify schema and data
+		require.Equal(t, expected.Schema, currentSchema, tag)
+		require.Equal(t, expected.Data, currentData, tag)
+
+		// keep the last version around
+		finalSchema = currentSchema
+	}
+
+	// verify that we also match the dbx version
+	dbxschema, err := loadDBXSchema(connStr, rawdb.Schema())
+	require.NoError(t, err)
+
+	require.Equal(t, dbxschema, finalSchema, "dbx")
 }
