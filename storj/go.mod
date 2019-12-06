@@ -1,4 +1,4 @@
-module storj.io
+module storj.io/storj
 
 go 1.13
 
