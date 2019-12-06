@@ -87,7 +87,7 @@ export default class ProjectDetailsArea extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
-                ProjectID: this.$store.getters.selectedProject.id,
+                project_id: this.$store.getters.selectedProject.id,
             });
         } catch (error) {
             await this.$notify.error(error.message);

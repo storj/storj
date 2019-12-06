@@ -80,10 +80,9 @@ export default class Login extends Vue {
         try {
             this.authToken = await this.auth.token(this.email, this.password);
             AuthToken.set(this.authToken);
-            this.$segment.identify({
-                userId: this.$store.state.usersModule.id,
-            })
-            this.$segment.track(SegmentEvent.USER_LOGGED_IN);
+            this.$segment.track(SegmentEvent.USER_LOGGED_IN, {
+                email: this.email,
+            });
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
@@ -112,8 +111,6 @@ export default class Login extends Vue {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
-
-        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
 
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';

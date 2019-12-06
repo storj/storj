@@ -66,8 +66,7 @@ export default class ForgotPassword extends Vue {
         if (!isEmailValid) {
             this.emailError = 'Invalid Email';
         }
-        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
-
+        
         return isEmailValid;
     }
 }

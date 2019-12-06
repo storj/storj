@@ -180,6 +180,10 @@ export default class ApiKeysArea extends Vue {
 
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
+        this.$segment.track(SegmentEvent.API_KEYS_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            api_keys_count: this.selectedAPIKeysCount,
+        });
     }
 
     public async beforeDestroy(): Promise<void> {
@@ -222,7 +226,7 @@ export default class ApiKeysArea extends Vue {
             await this.$store.dispatch(DELETE);
             await this.$notify.success(`API keys deleted successfully`);
             this.$segment.track(SegmentEvent.API_KEY_DELETED, {
-                ProjectID: this.$store.getters.selectedProject.id,
+                project_id: this.$store.getters.selectedProject.id,
             });
         } catch (error) {
             await this.$notify.error(error.message);

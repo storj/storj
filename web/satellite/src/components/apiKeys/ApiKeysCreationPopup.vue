@@ -85,7 +85,7 @@ export default class ApiKeysCreationPopup extends Vue {
         try {
             createdApiKey = await this.$store.dispatch(CREATE, this.name);
             this.$segment.track(SegmentEvent.API_KEY_CREATED, {
-                ProjectID: this.$store.getters.selectedProject.id,
+                project_id: this.$store.getters.selectedProject.id,
             });
         } catch (error) {
             await this.$notify.error(error.message);

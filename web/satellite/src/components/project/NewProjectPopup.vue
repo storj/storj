@@ -117,7 +117,7 @@ export default class NewProjectPopup extends Vue {
             const project = await this.createProject();
             this.createdProjectId = project.id;
             this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                ProjectID: this.createdProjectId,
+                project_id: this.createdProjectId,
             });
         } catch (e) {
             this.isLoading = false;

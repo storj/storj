@@ -99,7 +99,7 @@ export default class DeleteProjectPopup extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
             this.$segment.track(SegmentEvent.PROJECT_DELETED, {
-                ProjectID: this.$store.getters.selectedProject.id,
+                project_id: this.$store.getters.selectedProject.id,
             });
             await this.$notify.success('Project was successfully deleted');
 

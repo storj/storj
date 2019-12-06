@@ -115,11 +115,9 @@ export default class RegisterArea extends Vue {
         this.isLoading = false;
     }
     public onLogoClick(): void {
-        this.$segment.track(SegmentEvent.CLICKED_LOGO);
         location.reload();
     }
     public onLoginClick(): void {
-        this.$segment.track(SegmentEvent.CLICKED_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
     public setEmail(value: string): void {
@@ -153,8 +151,6 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        this.$segment.track(SegmentEvent.EMAIL_VERIFIED);
-
         if (!validatePassword(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
@@ -180,6 +176,11 @@ export default class RegisterArea extends Vue {
                 await this.auth.register(this.user, this.secret, this.refUserId);
 
             LocalData.setUserId(this.userId);
+
+            this.$segment.identify(this.userId, {
+                email: this.$store.getters.user.email,
+                referralToken: this.referralToken,
+            });
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
