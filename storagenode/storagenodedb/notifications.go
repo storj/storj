@@ -30,7 +30,7 @@ type notificationDB struct {
 }
 
 // Insert puts new notification to database.
-func (repo *notificationDB) Insert(ctx context.Context, notification notifications.NewNotification) (_ notifications.Notification, err error) {
+func (db *notificationDB) Insert(ctx context.Context, notification notifications.NewNotification) (_ notifications.Notification, err error) {
 	defer mon.Task()(&ctx, notification)(&err)
 
 	id, err := uuid.New()
@@ -47,7 +47,7 @@ func (repo *notificationDB) Insert(ctx context.Context, notification notificatio
 			(?, ?, ?, ?, ?, ?);
 	`
 
-	_, err = repo.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, createdAt)
+	_, err = db.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, createdAt)
 	if err != nil {
 		return notifications.Notification{}, ErrNotificationsDB.Wrap(err)
 	}
@@ -64,7 +64,7 @@ func (repo *notificationDB) Insert(ctx context.Context, notification notificatio
 }
 
 // List returns listed page of notifications from database.
-func (repo *notificationDB) List(ctx context.Context, cursor notifications.NotificationCursor) (_ notifications.NotificationPage, err error) {
+func (db *notificationDB) List(ctx context.Context, cursor notifications.NotificationCursor) (_ notifications.NotificationPage, err error) {
 	defer mon.Task()(&ctx, cursor)(&err)
 
 	if cursor.Limit > 50 {
@@ -87,7 +87,7 @@ func (repo *notificationDB) List(ctx context.Context, cursor notifications.Notif
 			notifications
 	`
 
-	countRow := repo.QueryRowContext(ctx, countQuery)
+	countRow := db.QueryRowContext(ctx, countQuery)
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
@@ -108,7 +108,7 @@ func (repo *notificationDB) List(ctx context.Context, cursor notifications.Notif
 		LIMIT ? OFFSET ?
 	`
 
-	rows, err := repo.QueryContext(ctx, query, page.Limit, page.Offset)
+	rows, err := db.QueryContext(ctx, query, page.Limit, page.Offset)
 	if err != nil {
 		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
 	}
@@ -162,7 +162,7 @@ func (repo *notificationDB) List(ctx context.Context, cursor notifications.Notif
 }
 
 // Read updates specific notification in database as read.
-func (repo *notificationDB) Read(ctx context.Context, notificationID uuid.UUID) (err error) {
+func (db *notificationDB) Read(ctx context.Context, notificationID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, notificationID)(&err)
 
 	query := `
@@ -173,13 +173,13 @@ func (repo *notificationDB) Read(ctx context.Context, notificationID uuid.UUID) 
 		WHERE
 			id = ?;
 	`
-	_, err = repo.ExecContext(ctx, query, time.Now().UTC(), notificationID[:])
+	_, err = db.ExecContext(ctx, query, time.Now().UTC(), notificationID[:])
 
 	return ErrNotificationsDB.Wrap(err)
 }
 
 // ReadAll updates all notifications in database as read.
-func (repo *notificationDB) ReadAll(ctx context.Context) (err error) {
+func (db *notificationDB) ReadAll(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -191,7 +191,7 @@ func (repo *notificationDB) ReadAll(ctx context.Context) (err error) {
 			read_at IS NULL;
 	`
 
-	_, err = repo.ExecContext(ctx, query, time.Now().UTC())
+	_, err = db.ExecContext(ctx, query, time.Now().UTC())
 
 	return ErrNotificationsDB.Wrap(err)
 }

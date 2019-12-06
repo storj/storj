@@ -76,9 +76,9 @@ func TestNotificationsDB(t *testing.T) {
 
 		page := notifications.NotificationPage{}
 
-		// test paged list.
+		// test List method to return right form of page depending on cursor.
 		t.Run("test paged list", func(t *testing.T) {
-			page, err := notificationsdb.List(ctx, notificationCursor)
+			page, err = notificationsdb.List(ctx, notificationCursor)
 			assert.NoError(t, err)
 			assert.Equal(t, 2, len(page.Notifications))
 			assert.Equal(t, notificationFromDB0, page.Notifications[0])
@@ -95,7 +95,7 @@ func TestNotificationsDB(t *testing.T) {
 			Page:  1,
 		}
 
-		// test read.
+		// test Read method to make specific notification's status as read.
 		t.Run("test notification read", func(t *testing.T) {
 			err = notificationsdb.Read(ctx, notificationFromDB0.ID)
 			assert.NoError(t, err)
@@ -114,7 +114,7 @@ func TestNotificationsDB(t *testing.T) {
 			assert.Equal(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
 		})
 
-		// test read all.
+		// test ReadAll method to make all notifications' status as read.
 		t.Run("test notification read all", func(t *testing.T) {
 			err = notificationsdb.ReadAll(ctx)
 			assert.NoError(t, err)
@@ -140,7 +140,7 @@ func TestEmptyNotificationsDB(t *testing.T) {
 			Page:  1,
 		}
 
-		// test empty paged list.
+		// test List method to return right form of page depending on cursor with empty database.
 		t.Run("test empty paged list", func(t *testing.T) {
 			page, err := notificationsdb.List(ctx, notificationCursor)
 			assert.NoError(t, err)
