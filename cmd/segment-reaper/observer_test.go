@@ -76,8 +76,9 @@ func Test_observer_analyzeProject(t *testing.T) {
 				lastProjectID: testrand.UUID().String(),
 				zombieBuffer: make([]int, 0, maxNumOfSegments),
 			}
-			indexes, err := observer.findZombieSegments(object)
+			err := observer.findZombieSegments(object)
 			require.NoError(t, err)
+			indexes := observer.zombieBuffer
 
 			segmentsAfter := tt.segments
 			for _, segmentIndex := range indexes {

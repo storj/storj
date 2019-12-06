@@ -178,12 +178,12 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 				continue
 			}
 
-			zombieSegments, err := obsvr.findZombieSegments(object)
+			err := obsvr.findZombieSegments(object)
 			if err != nil {
 				return err
 			}
 
-			for _, segmentIndex := range zombieSegments {
+			for _, segmentIndex := range obsvr.zombieBuffer {
 				err = obsvr.printSegment(ctx, segmentIndex, bucket, path)
 				if err != nil {
 					return err
@@ -194,11 +194,11 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	return nil
 }
 
-func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
-	obsvr.zombieBuffer = obsvr.zombieBuffer[:0]
+func (obsvr *observer) findZombieSegments(object *object) error {
+	obsvr.resetZombieBuffer()
 
 	if !object.hasLastSegment {
-		obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
+		obsvr.appendAllObjectSegments(object)
 	} else {
 		segmentsCount := object.segments.Count()
 
@@ -215,7 +215,7 @@ func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
 					panic(err)
 				}
 				if has {
-					obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
+					obsvr.appendSegment(index)
 				}
 			}
 		case segmentsCount > int(object.expectedNumberOfSegments)-1:
@@ -228,21 +228,21 @@ func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
 						panic(err)
 					}
 					if has {
-						obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
+						obsvr.appendSegment(index)
 					}
 				}
 			} else {
-				obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
-				obsvr.zombieBuffer = append(obsvr.zombieBuffer, lastSegment)
+				obsvr.appendAllObjectSegments(object)
+				obsvr.appendSegment(lastSegment)
 			}
 		case segmentsCount < int(object.expectedNumberOfSegments)-1,
 			segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
-			obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
-			obsvr.zombieBuffer = append(obsvr.zombieBuffer, lastSegment)
+			obsvr.appendAllObjectSegments(object)
+			obsvr.appendSegment(lastSegment)
 		}
 	}
 
-	return obsvr.zombieBuffer, nil
+	return nil
 }
 
 func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket, path string) error {
@@ -286,6 +286,27 @@ func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, 
 	return pointer.CreationDate.Format(time.RFC3339Nano), nil
 }
 
+func (obsvr *observer) resetZombieBuffer() {
+	obsvr.zombieBuffer = obsvr.zombieBuffer[:0]
+}
+
+func (obsvr *observer) appendSegment(segmentIndex int) {
+	obsvr.zombieBuffer = append(obsvr.zombieBuffer, segmentIndex)
+}
+
+func (obsvr *observer) appendAllObjectSegments(object *object) {
+	// segments := make([]int, 0)
+	for index := 0; index < maxNumOfSegments; index++ {
+		has, err := object.segments.Has(index)
+		if err != nil {
+			panic(err)
+		}
+		if has {
+			obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
+		}
+	}
+}
+
 // clearBucketsObjects clears up the buckets objects map for reusing it.
 func (obsvr *observer) clearBucketsObjects() {
 	// This is an idiomatic way of not having to destroy and recreate a new map
@@ -323,18 +344,4 @@ func firstSequenceLength(segments bitmask) int {
 		}
 	}
 	return maxNumOfSegments
-}
-
-func allSegments(object *object) []int {
-	segments := make([]int, 0)
-	for index := 0; index < maxNumOfSegments; index++ {
-		has, err := object.segments.Has(index)
-		if err != nil {
-			panic(err)
-		}
-		if has {
-			segments = append(segments, index)
-		}
-	}
-	return segments
 }
