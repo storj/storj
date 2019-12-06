@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -92,6 +93,7 @@ type DB struct {
 	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
+	notificationsDB   *notificationDB
 
 	sqlDatabases map[string]SQLDB
 }
@@ -114,6 +116,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	storageUsageDB := &storageUsageDB{}
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
 
 	db := &DB{
 		log:    log,
@@ -131,6 +134,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		storageUsageDB:    storageUsageDB,
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
 
 		sqlDatabases: map[string]SQLDB{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -143,6 +147,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			StorageUsageDBName:    storageUsageDB,
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
 		},
 	}
 
@@ -205,6 +210,11 @@ func (db *DB) openDatabases() error {
 	}
 
 	err = db.openDatabase(SatellitesDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(NotificationsDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
@@ -322,6 +332,11 @@ func (db *DB) UsedSerials() piecestore.UsedSerials {
 // Satellites returns the instance of the Satellites database.
 func (db *DB) Satellites() satellites.DB {
 	return db.satellitesDB
+}
+
+// Notifications returns the instance of the Notifications database.
+func (db *DB) Notifications() notifications.DB {
+	return db.notificationsDB
 }
 
 // RawDatabases are required for testing purposes
@@ -883,6 +898,23 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`CREATE INDEX idx_piece_expirations_trashed
 						ON piece_expirations(satellite_id, trash)
 						WHERE trash = 1`,
+				},
+			},
+			{
+				DB:          db.notificationsDB,
+				Description: "Create notifications table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE notifications (
+						id         BLOB NOT NULL,
+						sender_id  BLOB NOT NULL,
+						type       INTEGER NOT NULL,
+						title      TEXT NOT NULL,
+						message    TEXT NOT NULL,
+						read_at    TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (id)
+					);`,
 				},
 			},
 		},
