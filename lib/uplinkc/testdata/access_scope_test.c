@@ -27,6 +27,9 @@ int main(int argc, char *argv[])
 
         free_scope(scope);
     }
+	{
+		requiref(false, "Test-Error\n");
+	}
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
