@@ -104,7 +104,7 @@ func serialize_scope(scopeHandle C.ScopeRef, cerr **C.char) *C.char {
 }
 
 //export restrict_scope
-// restricts a given scope with the provided caveat and encryptionRestrictions
+// restrict_scope restricts a given scope with the provided caveat and encryptionRestrictions
 func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.EncryptionRestriction, cerr **C.char) C.ScopeRef {
 	//Get scope
 	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
