@@ -164,11 +164,6 @@ func pgMigrateTest(t *testing.T, connStr string) {
 		// get migration for this database
 		migrations := db.(*satellitedb.DB).PostgresMigration()
 		for i, step := range migrations.Steps {
-			// the schema is different when migration step is before the step, cannot test the layout
-			if step.Version < base.Version {
-				continue
-			}
-
 			tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
 			// run migration up to a specific version
