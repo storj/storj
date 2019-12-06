@@ -308,13 +308,8 @@ func createNewObjectSegments(
 ) (objectPath string, _ []segmentRef) {
 	t.Helper()
 
-	var objectID string
-	{
-		id := testrand.UUID()
-		objectID = id.String()
-	}
-
 	var (
+		objectID        = testrand.UUID().String()
 		projectIDString = projectID.String()
 		references      = make([]segmentRef, 0, numSegments)
 		encryptedPath   = fmt.Sprintf("%s-%s-%s", projectIDString, bucketName, objectID)
