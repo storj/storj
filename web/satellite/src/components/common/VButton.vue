@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-        <h1 class="label" :class="{'white': isWhite}">{{label}}</h1>
+        <h1 class="label">{{label}}</h1>
     </div>
 </template>
 
@@ -49,6 +49,25 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .white,
+    .red {
+        background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
+        .label {
+            color: #354049 !important;
+        }
+    }
+
+    .disabled {
+        background-color: #dadde5 !important;
+        border-color: #dadde5 !important;
+
+        .label {
+            color: #acb0bc !important;
+        }
+    }
+
     .container {
         display: flex;
         align-items: center;
@@ -56,6 +75,7 @@ export default class VButton extends Vue {
         background-color: #2683ff;
         border-radius: 6px;
         cursor: pointer;
+        user-select: none;
 
         .label {
             font-family: 'font_medium', sans-serif;
@@ -64,49 +84,30 @@ export default class VButton extends Vue {
             color: #fff;
         }
 
-        .white,
-        .red {
-            background-color: transparent;
-            border: 1px solid #afb7c1;
-
-            .label {
-                color: #354049;
-            }
-        }
-
-        .disabled {
-            background-color: #dadde5;
-            border-color: #dadde5;
-
-            .label {
-                color: #acb0bc;
-            }
-        }
-
         &:hover {
             box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
             &.white {
-                box-shadow: none;
-                background-color: #2683ff;
-                border: 1px solid #2683ff;
+                box-shadow: none !important;
+                background-color: #2683ff !important;
+                border: 1px solid #2683ff !important;
 
                 .label {
-                    color: white;
+                    color: white !important;
                 }
             }
 
             &.red {
-                box-shadow: none;
-                background-color: transparent;
+                box-shadow: none !important;
+                background-color: transparent !important;
 
                 .label {
-                    color: #eb5757;
+                    color: #eb5757 !important;
                 }
             }
 
             &.disabled {
-                box-shadow: none;
+                box-shadow: none !important;
                 background-color: #dadde5 !important;
 
                 .label {

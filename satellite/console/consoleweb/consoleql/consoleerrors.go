@@ -20,7 +20,7 @@ var errConsoleInternalDetailed = errs.New(internalErrDetailedMsg)
 // HandleError returns detailed error if such error handles
 func HandleError(err error) error {
 	switch {
-	case console.ErrConsoleInternal.Has(err):
+	case console.Error.Has(err):
 		return errConsoleInternalDetailed
 	default:
 		return err

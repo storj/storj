@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="satellite-selection-toggle-container" v-if="satellites" @click="toggleDropDown">
-        <p><b class="satellite-selection-toggle-container__bold-text">Choose your satellite: </b>{{selectedSatellite ? selectedSatellite : 'All satellites'}}</p>
+    <div class="satellite-selection-toggle-container" v-if="satellites" @click.stop="toggleDropDown">
+        <p><b class="satellite-selection-toggle-container__bold-text">Choose your satellite: </b>{{selectedSatellite ? selectedSatellite : 'All Satellites'}}</p>
         <DropdownArrowIcon
             class="satellite-selection-toggle-container__image"
             alt="Arrow down"
@@ -41,7 +41,7 @@ export default class SatelliteSelection extends Vue {
     }
 
     public get selectedSatellite(): string {
-        return this.$store.state.node.selectedSatellite.id;
+        return this.$store.state.node.selectedSatellite.url;
     }
 
     public get isPopupShown(): boolean {
@@ -68,6 +68,7 @@ export default class SatelliteSelection extends Vue {
 
         &__bold-text {
             margin-right: 3px;
+            user-select: none;
         }
 
         &__image {

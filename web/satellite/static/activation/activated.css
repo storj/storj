@@ -15,7 +15,6 @@
     justify-content: center;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
-    -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
@@ -26,7 +25,7 @@ a {
 }
 
 .container__title {
-    font-family: 'font', sans-serif;
+    font-family: 'font_regular', sans-serif;
     font-weight: bold;
     font-size: 32px;
     line-height: 39px;
@@ -35,7 +34,7 @@ a {
 .container__info {
     width: 566px;
     text-align: center;
-    font-family: 'font', sans-serif;
+    font-family: 'font_regular', sans-serif;
     font-size: 18px;
     line-height: 26px;
 }
@@ -53,7 +52,7 @@ a {
 }
 
 .container__button p {
-    font-family: 'font', sans-serif;
+    font-family: 'font_regular', sans-serif;
     font-weight: bold;
     font-size: 16px;
     line-height: 23px;

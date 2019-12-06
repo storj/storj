@@ -13,6 +13,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// ensures that registrationTokens implements console.RegistrationTokens.
+var _ console.RegistrationTokens = (*registrationTokens)(nil)
+
 // registrationTokens is an implementation of RegistrationTokens interface using spacemonkeygo/dbx orm
 type registrationTokens struct {
 	db dbx.Methods

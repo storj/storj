@@ -7,8 +7,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -31,15 +31,16 @@ var (
 
 // DB contains access to different database tables
 type DB struct {
-	log    *zap.Logger
-	db     *dbx.DB
-	driver string
-	source string
+	log            *zap.Logger
+	db             *dbx.DB
+	driver         string
+	implementation dbutil.Implementation
+	source         string
 }
 
 // New creates instance of database supports postgres
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
-	driver, source, err := dbutil.SplitConnstr(databaseURL)
+	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 	dbutil.Configure(db.DB, mon)
 
-	core := &DB{log: log, db: db, driver: driver, source: source}
+	core := &DB{log: log, db: db, driver: driver, source: source, implementation: implementation}
 	return core, nil
 }
 
@@ -67,19 +68,9 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-// CreateSchema creates a schema if it doesn't exist.
-func (db *DB) CreateSchema(schema string) error {
-	return pgutil.CreateSchema(db.db, schema)
-}
-
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
-
-// DropSchema drops the named schema
-func (db *DB) DropSchema(schema string) error {
-	return pgutil.DropSchema(db.db, schema)
-}
 
 // PeerIdentities returns a storage for peer identities
 func (db *DB) PeerIdentities() overlay.PeerIdentities {
@@ -98,7 +89,7 @@ func (db *DB) OverlayCache() overlay.DB {
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *DB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db.db}
+	return &repairQueue{db: db.db, dbType: db.implementation}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage
@@ -144,12 +135,7 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
 }
 
-// Customers returns database for dealing with stripe customers.
-func (db *DB) Customers() stripecoinpayments.CustomersDB {
-	return &customers{db: db.db}
-}
-
-// CoinpaymentsTransactions returns database for dealing with coinpayments transactions.
-func (db *DB) CoinpaymentsTransactions() stripecoinpayments.TransactionsDB {
-	return &coinpaymentsTransactions{db: db.db}
+// StripeCoinPayments returns database for stripecoinpayments.
+func (db *DB) StripeCoinPayments() stripecoinpayments.DB {
+	return &stripeCoinPaymentsDB{db: db.db}
 }

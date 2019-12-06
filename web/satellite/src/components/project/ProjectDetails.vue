@@ -68,6 +68,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { EVENTS } from '@/utils/constants/analyticsEventNames';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -119,6 +120,7 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
+            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 
@@ -155,14 +157,15 @@ export default class ProjectDetailsArea extends Vue {
     .project-details {
         position: relative;
         overflow: hidden;
-        height: 85vh;
         font-family: 'font_regular', sans-serif;
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 24px;
-            line-height: 29px;
-            color: #354049;
+            font-size: 32px;
+            line-height: 39px;
+            color: #263549;
+            user-select: none;
+            margin: 0;
         }
 
         &__button-area {
@@ -194,6 +197,7 @@ export default class ProjectDetailsArea extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: rgba(56, 75, 101, 0.4);
+                user-select: none;
             }
 
             &__project-name {
@@ -215,17 +219,25 @@ export default class ProjectDetailsArea extends Vue {
             padding: 28px;
             background-color: #fff;
 
+            ::-webkit-scrollbar,
+            ::-webkit-scrollbar-track,
+            ::-webkit-scrollbar-thumb {
+                margin-top: 0;
+            }
+
             &__text {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: flex-start;
                 margin-right: 20px;
+                width: 100%;
 
                 &__title {
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.4);
+                    user-select: none;
                 }
 
                 &__project-description {
@@ -236,6 +248,7 @@ export default class ProjectDetailsArea extends Vue {
                     max-height: 25vh;
                     overflow-y: scroll;
                     word-break: break-word;
+                    white-space: pre-line;
                 }
             }
 

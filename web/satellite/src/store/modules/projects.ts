@@ -24,7 +24,7 @@ export const PROJECTS_MUTATIONS = {
 
 const defaultSelectedProject = new Project('', '', '', '', '', true);
 
-class ProjectsState {
+export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
 }

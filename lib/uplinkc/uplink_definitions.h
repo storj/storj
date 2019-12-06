@@ -31,13 +31,18 @@ typedef struct Object           { long _handle; } ObjectRef;
 typedef struct Downloader       { long _handle; } DownloaderRef;
 typedef struct Uploader         { long _handle; } UploaderRef;
 typedef struct EncryptionAccess { long _handle; } EncryptionAccessRef;
+typedef struct Scope            { long _handle; } ScopeRef;
 
 typedef struct UplinkConfig {
     struct {
         struct {
             bool skip_peer_ca_whitelist;
+            char *peer_ca_whitelist_path;
         } tls;
-        // TODO: add support for MaxMemory
+        char *peer_id_version;
+        int32_t max_inline_size;
+        int32_t max_memory;
+        int32_t dial_timeout;
     } Volatile;
 } UplinkConfig;
 

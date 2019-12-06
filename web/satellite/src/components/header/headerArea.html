@@ -27,5 +27,5 @@
         class="adapted-navigation"
         v-if="isNavigationVisible"
     />
-    <div class="navigation-blur" v-if="isNavigationVisible"></div>
+    <div class="navigation-blur" v-if="isNavigationVisible" @click.self.stop="toggleNavigationVisibility"></div>
 </div>

@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-billing-area">
-        <div class="account-billing-area__notification-container">
+        <div class="account-billing-area__notification-container" v-if="hasNoCreditCard">
             <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect width="40" height="40" rx="10" fill="#EB5757"/>
@@ -29,10 +29,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AccountBalance from '@/components/account/billing/AccountBalance.vue';
-import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
-import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
-import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
+import AccountBalance from '@/components/account/billing/balance/AccountBalance.vue';
+import DepositAndBilling from '@/components/account/billing/billingHistory/DepositAndBilling.vue';
+import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
+import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
@@ -53,8 +53,8 @@ export default class BillingArea extends Vue {
     // If balance is lower - yellow notification should appear.
     private readonly CRITICAL_AMOUNT: number = 1000;
 
-    public beforeDestroy() {
-        this.$store.dispatch(CLEAR_PAYMENT_INFO);
+    public get hasNoCreditCard(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public get isBalanceNegative(): boolean {
@@ -68,18 +68,11 @@ export default class BillingArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-thumb {
-        width: 0;
-    }
-
     .account-billing-area {
-        margin-top: 83px;
-        overflow-y: scroll;
-        height: 75vh;
+        padding-bottom: 35px;
 
         &__notification-container {
+            margin-top: 35px;
 
             &__negative-balance,
             &__low-balance {

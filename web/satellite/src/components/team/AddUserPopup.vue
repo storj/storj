@@ -374,6 +374,7 @@ export default class AddUserPopup extends Vue {
                 color: #384b65;
                 margin-top: 0;
                 width: 107%;
+                user-select: none;
             }
         }
 
@@ -451,6 +452,7 @@ export default class AddUserPopup extends Vue {
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
+                user-select: none;
             }
 
             &__button-container {

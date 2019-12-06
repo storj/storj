@@ -17,13 +17,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -142,7 +142,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		return nil, failedPieces, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
+		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //locked
+		return nil, failedPieces, Error.New("couldn't download enough pieces for segment: %s, number of successful downloaded pieces (%d) is less than required number (%d)", path, successfulPieces, es.RequiredCount())
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
@@ -315,7 +316,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			}
 			ec.log.Debug("Repair to storage node failed",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", limits[info.i].GetLimit().StorageNodeId),
+				zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 				zap.Error(info.err),
 			)
 			continue
@@ -380,8 +381,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -392,8 +393,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -416,11 +417,11 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		if parent.Err() == context.Canceled {
 			ec.log.Info("Upload to node canceled by user",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", storageNodeID))
+				zap.Stringer("Node ID", storageNodeID))
 		} else {
 			ec.log.Debug("Node cut from upload due to slow connection",
 				zap.Binary("Segment", []byte(path)),
-				zap.Stringer("NodeID", storageNodeID))
+				zap.Stringer("Node ID", storageNodeID))
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -431,8 +432,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 
 		ec.log.Debug("Failed uploading piece to node",
 			zap.Binary("Segment", []byte(path)),
-			zap.Stringer("PieceID", pieceID),
-			zap.Stringer("NodeID", storageNodeID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Stringer("Node ID", storageNodeID),
 			zap.String("Node Address", nodeAddress),
 			zap.Error(err),
 		)

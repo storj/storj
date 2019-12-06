@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
