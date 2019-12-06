@@ -124,6 +124,9 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, creationDate time.Time, dryRun bool) error {
 	pointerBytes, err := db.Get(ctx, []byte(path))
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return errKnown.New("segment already deleted by user: %+v", err)
+		}
 		return err
 	}
 

@@ -67,7 +67,7 @@ func TestDeleteSegment(t *testing.T) {
 		dryRun := false
 		deleteError := deleteSegment(ctx, db, "not-existing-path", time.Unix(10, 0), dryRun)
 		require.Error(t, deleteError)
-		require.True(t, storage.ErrKeyNotFound.Has(deleteError))
+		require.True(t, errKnown.Has(deleteError))
 	})
 }
 
