@@ -52,10 +52,11 @@ func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*ob
 	}
 
 	return &observer{
-		db:     db,
-		writer: w,
-		from:   from,
-		to:     to,
+		db:           db,
+		writer:       w,
+		from:         from,
+		to:           to,
+		zombieBuffer: make([]int, 0, maxNumOfSegments),
 
 		objects: make(bucketsObjects),
 	}, nil
@@ -69,6 +70,7 @@ type observer struct {
 	to     *time.Time
 
 	lastProjectID string
+	zombieBuffer  []int
 
 	objects            bucketsObjects
 	inlineSegments     int
@@ -193,10 +195,10 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 }
 
 func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
-	zombieSegments := make([]int, 0)
+	obsvr.zombieBuffer = obsvr.zombieBuffer[:0]
 
 	if !object.hasLastSegment {
-		zombieSegments = append(zombieSegments, allSegments(object)...)
+		obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
 	} else {
 		segmentsCount := object.segments.Count()
 
@@ -213,7 +215,7 @@ func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
 					panic(err)
 				}
 				if has {
-					zombieSegments = append(zombieSegments, index)
+					obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
 				}
 			}
 		case segmentsCount > int(object.expectedNumberOfSegments)-1:
@@ -226,21 +228,21 @@ func (obsvr *observer) findZombieSegments(object *object) ([]int, error) {
 						panic(err)
 					}
 					if has {
-						zombieSegments = append(zombieSegments, index)
+						obsvr.zombieBuffer = append(obsvr.zombieBuffer, index)
 					}
 				}
 			} else {
-				zombieSegments = append(zombieSegments, allSegments(object)...)
-				zombieSegments = append(zombieSegments, lastSegment)
+				obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
+				obsvr.zombieBuffer = append(obsvr.zombieBuffer, lastSegment)
 			}
 		case segmentsCount < int(object.expectedNumberOfSegments)-1,
 			segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
-			zombieSegments = append(zombieSegments, allSegments(object)...)
-			zombieSegments = append(zombieSegments, lastSegment)
+			obsvr.zombieBuffer = append(obsvr.zombieBuffer, allSegments(object)...)
+			obsvr.zombieBuffer = append(obsvr.zombieBuffer, lastSegment)
 		}
 	}
 
-	return zombieSegments, nil
+	return obsvr.zombieBuffer, nil
 }
 
 func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket, path string) error {
@@ -320,7 +322,7 @@ func firstSequenceLength(segments bitmask) int {
 			return index
 		}
 	}
-	return 0
+	return maxNumOfSegments
 }
 
 func allSegments(object *object) []int {
