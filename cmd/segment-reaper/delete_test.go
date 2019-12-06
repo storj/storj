@@ -26,7 +26,7 @@ func TestDeleteSegment(t *testing.T) {
 	defer ctx.Check(db.Close)
 
 	t.Run("segment is deleted", func(t *testing.T) {
-		err := makeSegment(ctx, db, "path1", time.Unix(10, 0))
+		_, err := makeSegment(ctx, db, "path1", time.Unix(10, 0))
 		require.NoError(t, err)
 
 		dryRun := false
@@ -37,24 +37,30 @@ func TestDeleteSegment(t *testing.T) {
 		require.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 	t.Run("segment is not deleted because of dryRun", func(t *testing.T) {
-		err := makeSegment(ctx, db, "path2", time.Unix(10, 0))
+		expectedPointer, err := makeSegment(ctx, db, "path2", time.Unix(10, 0))
 		require.NoError(t, err)
 
 		dryRun := true
 		deleteError := deleteSegment(ctx, db, "path2", time.Unix(10, 0), dryRun)
 		require.NoError(t, deleteError)
-		_, err = db.Get(ctx, storage.Key("path2"))
+		pointer, err := db.Get(ctx, storage.Key("path2"))
 		require.NoError(t, err)
+		pointerBytes, err := pointer.MarshalBinary()
+		require.NoError(t, err)
+		require.Equal(t, expectedPointer, pointerBytes)
 	})
 	t.Run("segment is not deleted because of time mismatch", func(t *testing.T) {
-		err := makeSegment(ctx, db, "path3", time.Unix(10, 0))
+		expectedPointer, err := makeSegment(ctx, db, "path3", time.Unix(10, 0))
 		require.NoError(t, err)
 
 		dryRun := false
 		deleteError := deleteSegment(ctx, db, "path3", time.Unix(99, 0), dryRun)
 		require.Error(t, deleteError)
-		_, err = db.Get(ctx, storage.Key("path3"))
+		pointer, err := db.Get(ctx, storage.Key("path3"))
 		require.NoError(t, err)
+		pointerBytes, err := pointer.MarshalBinary()
+		require.NoError(t, err)
+		require.Equal(t, expectedPointer, pointerBytes)
 	})
 	t.Run("segment is not deleted because not exists", func(t *testing.T) {
 		dryRun := false
@@ -64,20 +70,20 @@ func TestDeleteSegment(t *testing.T) {
 	})
 }
 
-func makeSegment(ctx context.Context, db metainfo.PointerDB, path string, creationDate time.Time) error {
+func makeSegment(ctx context.Context, db metainfo.PointerDB, path string, creationDate time.Time) (pointerBytes []byte, err error) {
 	pointer := &pb.Pointer{
 		CreationDate: creationDate,
 	}
 
-	pointerBytes, err := proto.Marshal(pointer)
+	pointerBytes, err = proto.Marshal(pointer)
 	if err != nil {
-		return err
+		return []byte{}, err
 	}
 
 	err = db.Put(ctx, storage.Key(path), storage.Value(pointerBytes))
 	if err != nil {
-		return err
+		return []byte{}, err
 	}
 
-	return nil
+	return pointerBytes, nil
 }
