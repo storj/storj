@@ -20,7 +20,6 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
-import { LocalData } from '../../utils/localData';
 
 @Component({
     components: {

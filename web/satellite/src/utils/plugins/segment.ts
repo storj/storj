@@ -34,8 +34,7 @@ export class Segmentio {
         this.analytics.page();
     }
 
-    public identify(userId: string, traits?: Object, options?: SegmentAnalytics.SegmentOpts,
-        callback?: () => void) {
+    public identify(userId: string, traits?: Object, options?: SegmentAnalytics.SegmentOpts, callback?: () => void) {
         if (!this.analytics) {
             return;
         }

@@ -66,9 +66,9 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -214,7 +214,7 @@ export default class UsageReport extends Vue {
             start_date: startDate,
             end_date: endDate,
             project_id: projectID,
-        })
+        });
 
         window.open(url.href, '_blank');
     }
