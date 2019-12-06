@@ -122,7 +122,6 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 	}
 
 	//Restrict apiKey using caveat
-	//problem: caveat needs to know about encryptionsRestrictions before vv
 	apiKeyRestricted, err := scope.APIKey.Restrict(caveatGo)
 	if err != nil {
 		*cerr = C.CString("could not restrict apiKey")
@@ -140,14 +139,12 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 	}
 
 	//Create new EncryptionAccess with restrictions
-	//problem: it uses it's own caveat internally
 	apiKeyRestricted, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
 	if err != nil {
 		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.ScopeRef{}
 	}
 
-	//Construct new scope with the new apikey and restricted encAccess.
 	scopeRestricted := &libuplink.Scope{
 		SatelliteAddr:    scope.SatelliteAddr,
 		APIKey:           apiKeyRestricted,
