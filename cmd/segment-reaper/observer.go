@@ -199,16 +199,31 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 
 	if !object.hasLastSegment {
 		obsvr.appendAllObjectSegments(object)
-	} else {
-		segmentsCount := object.segments.Count()
+		return nil
+	}
 
-		// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
-		switch {
-		// this case is only for old style pointers with encrypted number of segments
-		// value 0 means that we don't know how much segments object should have
-		case object.expectedNumberOfSegments == 0:
-			sequenceLength := firstSequenceLength(object.segments)
+	segmentsCount := object.segments.Count()
 
+	// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
+	switch {
+	// this case is only for old style pointers with encrypted number of segments
+	// value 0 means that we don't know how much segments object should have
+	case object.expectedNumberOfSegments == 0:
+		sequenceLength := firstSequenceLength(object.segments)
+
+		for index := sequenceLength; index < maxNumOfSegments; index++ {
+			has, err := object.segments.Has(index)
+			if err != nil {
+				panic(err)
+			}
+			if has {
+				obsvr.appendSegment(index)
+			}
+		}
+	case segmentsCount > int(object.expectedNumberOfSegments)-1:
+		sequenceLength := firstSequenceLength(object.segments)
+
+		if sequenceLength == int(object.expectedNumberOfSegments-1) {
 			for index := sequenceLength; index < maxNumOfSegments; index++ {
 				has, err := object.segments.Has(index)
 				if err != nil {
@@ -218,28 +233,14 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 					obsvr.appendSegment(index)
 				}
 			}
-		case segmentsCount > int(object.expectedNumberOfSegments)-1:
-			sequenceLength := firstSequenceLength(object.segments)
-
-			if sequenceLength == int(object.expectedNumberOfSegments-1) {
-				for index := sequenceLength; index < maxNumOfSegments; index++ {
-					has, err := object.segments.Has(index)
-					if err != nil {
-						panic(err)
-					}
-					if has {
-						obsvr.appendSegment(index)
-					}
-				}
-			} else {
-				obsvr.appendAllObjectSegments(object)
-				obsvr.appendSegment(lastSegment)
-			}
-		case segmentsCount < int(object.expectedNumberOfSegments)-1,
-			segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+		} else {
 			obsvr.appendAllObjectSegments(object)
 			obsvr.appendSegment(lastSegment)
 		}
+	case segmentsCount < int(object.expectedNumberOfSegments)-1,
+		segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+		obsvr.appendAllObjectSegments(object)
+		obsvr.appendSegment(lastSegment)
 	}
 
 	return nil
@@ -295,7 +296,6 @@ func (obsvr *observer) appendSegment(segmentIndex int) {
 }
 
 func (obsvr *observer) appendAllObjectSegments(object *object) {
-	// segments := make([]int, 0)
 	for index := 0; index < maxNumOfSegments; index++ {
 		has, err := object.segments.Has(index)
 		if err != nil {

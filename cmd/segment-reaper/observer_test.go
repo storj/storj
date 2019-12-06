@@ -74,7 +74,7 @@ func Test_observer_analyzeProject(t *testing.T) {
 			observer := &observer{
 				objects:       bucketObjects,
 				lastProjectID: testrand.UUID().String(),
-				zombieBuffer: make([]int, 0, maxNumOfSegments),
+				zombieBuffer:  make([]int, 0, maxNumOfSegments),
 			}
 			err := observer.findZombieSegments(object)
 			require.NoError(t, err)
