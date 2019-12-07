@@ -354,6 +354,8 @@ CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandw
 
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);
 
+-- NEW DATA --
+
 INSERT INTO "accounting_rollups"("id", "node_id", "start_time", "put_total", "get_total", "get_audit_total", "get_repair_total", "put_repair_total", "at_rest_total") VALUES (1, E'\\367M\\177\\251]t/\\022\\256\\214\\265\\025\\224\\204:\\217\\212\\0102<\\321\\374\\020&\\271Qc\\325\\261\\354\\246\\233'::bytea, '2019-02-09 00:00:00+00', 1000, 2000, 3000, 4000, 0, 5000);
 
 INSERT INTO "accounting_timestamps" VALUES ('LastAtRestTally', '0001-01-01 00:00:00+00');
@@ -427,6 +429,5 @@ INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "roo
 
 INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci,'::bytea, '2019-06-01 08:28:24.267934+00');
 
--- NEW DATA --
 INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "received", "status", "key", "timeout", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 1, 'key', 60, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
