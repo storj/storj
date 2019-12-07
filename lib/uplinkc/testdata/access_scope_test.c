@@ -27,9 +27,12 @@ int main(int argc, char *argv[])
 
         free_scope(scope);
     }
-	{
-		requiref(false, "Test-Error\n");
-	}
+    { //restrict_scope - checks scope
+	ScopeRef emptyScope = restrict_scope(NULL,NULL,NULL,err);
+	requiref(strcmp("invalid scope", err) == 0,
+                 "Scope is not checked from restrict_scope\n");
+	requiref(emptyScope._handle == 0, "got no empty scope from restrict_scope if base-scope is invalid\n");
+    }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
