@@ -9,8 +9,9 @@ import (
 	"encoding/hex"
 	"math/rand"
 	"net/url"
-	"strconv"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 // CreateRandomTestingSchemaName creates a random schema name string.
@@ -24,8 +25,12 @@ func CreateRandomTestingSchemaName(n int) string {
 
 // ConnstrWithSchema adds schema to a  connection string
 func ConnstrWithSchema(connstr, schema string) string {
-	schema = strings.ToLower(schema)
-	return connstr + "&search_path=" + url.QueryEscape(schema)
+	if strings.Contains(connstr, "?") {
+		connstr += "&options="
+	} else {
+		connstr += "?options="
+	}
+	return connstr + url.QueryEscape("--search_path="+pq.QuoteIdentifier(schema))
 }
 
 // ParseSchemaFromConnstr returns the name of the schema parsed from the
@@ -36,16 +41,24 @@ func ParseSchemaFromConnstr(connstr string) (string, error) {
 		return "", err
 	}
 	queryValues := url.Query()
+	// this is the Proper™ way to encode search_path in a pq connection string
+	options := queryValues["options"]
+	for _, option := range options {
+		if strings.HasPrefix(option, "--search_path=") {
+			return UnquoteIdentifier(option[len("--search_path="):]), nil
+		}
+	}
+	// this is another way we've used before; supported brokenly as a kludge in github.com/lib/pq
 	schema := queryValues["search_path"]
 	if len(schema) > 0 {
-		return schema[0], nil
+		return UnquoteIdentifier(schema[0]), nil
 	}
 	return "", nil
 }
 
 // QuoteSchema quotes schema name for
 func QuoteSchema(schema string) string {
-	return strconv.QuoteToASCII(schema)
+	return pq.QuoteIdentifier(schema)
 }
 
 // Execer is for executing sql
