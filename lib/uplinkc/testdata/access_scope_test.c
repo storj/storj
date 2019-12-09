@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	ScopeRef scope; //just need a valid scope-variable for this test 
 	Caveat caveat; //just need a valid caveat-variable for this test
         ScopeRef emptyScope = restrict_scope(scope, caveat, NULL, err);
-	requiref(strcmp("invalid scope", err) == 0,
+	requiref(strcmp("invalid scope", *err) == 0,
                  "Scope is not checked from restrict_scope\n");
 	requiref(emptyScope._handle == 0, "got no empty scope from restrict_scope if base-scope is invalid\n");
     }
