@@ -354,8 +354,8 @@ CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandw
 
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);
 
-INSERT INTO "offers" ("id","name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "award_credit_duration_days", "invitee_credit_duration_days", "redeemable_cap", "expires_at", "created_at", "status", "type") VALUES (1, 'testOffer', 'Test offer 1', 0, 0, 14, 14, 50, '2019-03-14 08:28:24.636949+00', '2019-02-14 08:28:24.636949+00', 0, 0);
-INSERT INTO "offers" ("id","name","description","award_credit_in_cents","award_credit_duration_days", "invitee_credit_in_cents","invitee_credit_duration_days", "expires_at","created_at","status","type") VALUES (2, 'Default free credit offer','Is active when no active free credit offer',0, NULL,300, 14, '2119-03-14 08:28:24.636949+00','2019-07-14 08:28:24.636949+00',1,1);
+INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "expires_at", "created_at", "status", "type", "award_credit_duration_days", "invitee_credit_duration_days") VALUES (1, 'Default referral offer', 'Is active when no other active referral offer', 300, 600, '2119-03-14 08:28:24.636949+00', '2019-07-14 08:28:24.636949+00', 1, 2, 365, 14);
+INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "expires_at", "created_at", "status", "type", "award_credit_duration_days", "invitee_credit_duration_days") VALUES (2, 'Default free credit offer', 'Is active when no active free credit offer', 0, 300, '2119-03-14 08:28:24.636949+00', '2019-07-14 08:28:24.636949+00', 1, 1, NULL, 14);
 
 -- NEW DATA --
 
