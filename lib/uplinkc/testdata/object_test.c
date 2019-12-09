@@ -211,6 +211,7 @@ void handle_project(ProjectRef project) {
 
             download_close(downloader, err);
             require_noerror(*err);
+            require(limit == downloaded_total);
             require(memcmp(&data[start], downloaded_data, limit) == 0);
 
             free(downloaded_data);
