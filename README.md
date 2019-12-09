@@ -10,6 +10,7 @@
 ## TODO
 
 * Create a repository for all our testing, such that the jenkinsfile could be in sync or shared. Otherwise we need to manually keep staticcheck, go, golint etc. settings in sync.
+* Repository for creating builds and docker images.
 
 ## Potential Problems
 
