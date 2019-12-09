@@ -133,7 +133,7 @@ func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uui
 	return lastCountInline + lastCountRemote + cachedTotal, nil
 }
 
-// GetProjectStorageTotals returns total amount of allocated bandwidth used for past 30 days.
+// GetProjectBandwidthTotals returns total amount of allocated bandwidth used for past 30 days.
 func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
@@ -143,7 +143,7 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetProjectStorageLimits returns current project storage limit.
+// GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
