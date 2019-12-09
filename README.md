@@ -1,5 +1,12 @@
 # Notes for repository split
 
+## Order of changes
+
+1. Move `cmd/internal/wizard` into `uplink/wizard` (or `private/wizard`).
+2. Move `s3-benchmark` to a separate repository.
+3. Move `gateway` to a separate repository. We don't want miniogw as a `go.mod` dependency in `uplink`.
+4. Move `linksharing` to a separate repository.
+
 ## TODO
 
 * Create a repository for all our testing, such that the jenkinsfile could be in sync or shared. Otherwise we need to manually keep staticcheck, go, golint etc. settings in sync.
