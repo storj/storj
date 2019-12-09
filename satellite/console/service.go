@@ -61,6 +61,9 @@ var ErrNoMembership = errs.Class("no membership error")
 // ErrTokenExpiration is error type of token reached expiration time.
 var ErrTokenExpiration = errs.Class("token expiration error")
 
+// ErrProjLimit is error type of project limit.
+var ErrProjLimit = errs.Class("project limit error")
+
 // Service is handling accounts related logic
 //
 // architecture: Service
@@ -309,7 +312,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	} else {
 		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 		if err != nil {
-			return nil, errs.New(vanguardRegTokenErrMsg)
+			return nil, ErrUnauthorized.Wrap(err)
 		}
 		// if a registration token is already associated with an user ID, that means the token is already used
 		// we should terminate the account creation process and return an error
@@ -757,7 +760,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	// TODO: remove after vanguard release
 	err = s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrProjLimit.Wrap(err)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
@@ -1247,7 +1250,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 		return Error.Wrap(err)
 	}
 	if len(projects) >= registrationToken.ProjectLimit {
-		return ErrUnauthorized.Wrap(errs.New(projLimitVanguardErrMsg))
+		return ErrProjLimit.Wrap(errs.New(projLimitVanguardErrMsg))
 	}
 
 	return nil
