@@ -142,7 +142,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		return nil, failedPieces, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
+		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //locked
+		return nil, failedPieces, Error.New("couldn't download enough pieces for segment: %s, number of successful downloaded pieces (%d) is less than required number (%d)", path, successfulPieces, es.RequiredCount())
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
