@@ -23,15 +23,15 @@ populates_sno_versions(){
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are splited into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
-currentReleaseVersion=$(git describe --tags `git rev-list --tags --max-count=1`)
+current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
 majorReleaseTags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
-stage1_sat_version=$currentReleaseVersion
+stage1_sat_version=$current_release_version
 stage1_uplink_versions=$majorReleaseTags
-stage1_storagenode_versions=$(populates_sno_versions $currentReleaseVersion 10)
+stage1_storagenode_versions=$(populates_sno_versions $current_release_version 10)
 # TODO separate satellite version into satellite api version and satellite core verion
 stage2_sat_version="master"
 stage2_uplink_versions=$majorReleaseTags\ "master"
-stage2_storagenode_versions=$(populates_sno_versions $currentReleaseVersion 5)\ $(populates_sno_versions "master" 5)
+stage2_storagenode_versions=$(populates_sno_versions $current_release_version 5)\ $(populates_sno_versions "master" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_versions" $stage1_uplink_versions
@@ -120,17 +120,29 @@ for version in ${unique_versions}; do
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
     git worktree add -f ${dir} ${version}
-    rm -f ${dir}/private/version/release.go || rm ${dir}/internal/version/release.go
-    echo "Installing storj-sim for ${version} in ${dir}."
-    GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
-    echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-    PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
-
-    echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
-    echo "Binary shasums:"
-    shasum ${bin_dir}/satellite
-    shasum ${bin_dir}/storagenode
-    shasum ${bin_dir}/uplink
+    rm -f ${dir}/private/version/release.go
+    rm -f ${dir}/internal/version/release.go
+    if [[ $version = $current_release_version || $version = "master" ]]
+    then
+        echo "Installing storj-sim for ${version} in ${dir}."
+        GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
+        echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
+        PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
+        echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
+        echo "Binary shasums:"
+        shasum ${bin_dir}/satellite
+        shasum ${bin_dir}/storagenode
+        shasum ${bin_dir}/uplink
+        shasum ${bin_dir}/gateway
+    else
+        echo "Installing uplink and gateway for ${version} in ${dir}."
+        GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
+        GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+        echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
+        echo "Binary shasums:"
+        shasum ${bin_dir}/uplink
+        shasum ${bin_dir}/gateway
+    fi
 done
 
 # Use stage 1 satellite version as the starting state. Create a cp of that
