@@ -1161,7 +1161,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 	})
 }
 
-func TestListSegment(t *testing.T) {
+func TestListSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1193,7 +1193,7 @@ func TestListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, test := range []struct {
+		for i, test := range []struct {
 			Index  int32
 			Limit  int32
 			Result int
@@ -1213,11 +1213,11 @@ func TestListSegment(t *testing.T) {
 					Index: test.Index,
 				},
 			})
-			require.NoError(t, err)
-			require.Len(t, segments, test.Result)
-			require.Equal(t, test.More, more)
+			require.NoErrorf(t, err, "test case: %d", i)
+			require.Lenf(t, segments, test.Result, "test case: %d", i)
+			require.Equalf(t, test.More, more, "test case: %d", i)
 			if !more && test.Result > 0 {
-				require.Equal(t, int32(-1), segments[test.Result-1].Position.Index)
+				require.Equalf(t, int32(-1), segments[test.Result-1].Position.Index, "test case: %d", i)
 			}
 		}
 	})
