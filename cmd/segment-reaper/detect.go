@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/csv"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -16,7 +17,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-const maxNumOfSegments = byte(64)
+const maxNumOfSegments = 64
 
 var (
 	detectCmd = &cobra.Command{
@@ -28,8 +29,8 @@ var (
 
 	detectCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"postgres://"`
-		From        string `help:"begin of date range for detecting zombie segments" default:""`
-		To          string `help:"end of date range for detecting zombie segments" default:""`
+		From        string `help:"begin of date range for detecting zombie segments (RFC3339)" default:""`
+		To          string `help:"end of date range for detecting zombie segments (RFC3339)" default:""`
 		File        string `help:"location of file with report" default:"zombie-segments.csv"`
 	}
 )
@@ -67,19 +68,27 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, writer.Error())
 	}()
 
-	headers := []string{
-		"ProjectID",
-		"SegmentIndex",
-		"Bucket",
-		"EncodedEncryptedPath",
-		"CreationDate",
+	var from, to *time.Time
+	if detectCfg.From != "" {
+		fromTime, err := time.Parse(time.RFC3339, detectCfg.From)
+		if err != nil {
+			return err
+		}
+		from = &fromTime
 	}
-	err = writer.Write(headers)
+
+	if detectCfg.To != "" {
+		toTime, err := time.Parse(time.RFC3339, detectCfg.To)
+		if err != nil {
+			return err
+		}
+		to = &toTime
+	}
+
+	observer, err := newObserver(db, writer, from, to)
 	if err != nil {
 		return err
 	}
-
-	observer := newObserver(db, writer)
 
 	err = metainfo.IterateDatabase(ctx, db, observer)
 	if err != nil {
@@ -89,5 +98,6 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	log.Info("number of inline segments", zap.Int("segments", observer.inlineSegments))
 	log.Info("number of last inline segments", zap.Int("segments", observer.lastInlineSegments))
 	log.Info("number of remote segments", zap.Int("segments", observer.remoteSegments))
+	log.Info("number of zombie segments", zap.Int("segments", observer.zombieSegments))
 	return nil
 }

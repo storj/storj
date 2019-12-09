@@ -27,7 +27,7 @@ func (db *DB) CreateTables() error {
 		}
 
 		if schema != "" {
-			err = db.CreateSchema(schema)
+			err = pgutil.CreateSchema(db.db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
