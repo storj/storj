@@ -89,12 +89,11 @@ pipeline {
 
                 stage('Tests Cockroach') {
                     environment {
-                        // STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
-                        STORJ_POSTGRES_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'cockroach://root@localhost:26257/teststorj1?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj1;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
@@ -153,11 +152,11 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
 
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj2?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj4?sslmode=disable'
                     }
 
                     steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj2;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj4;\''
                         sh 'make test-sim'
                     }
                 }
@@ -167,11 +166,11 @@ pipeline {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
 
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj3?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj5?sslmode=disable'
                     }
 
                     steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj3;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj5;\''
                         sh 'make test-sim-backwards-compatible'
                     }
                 }

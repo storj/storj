@@ -351,8 +351,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				sadb = pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i))
 				midb = pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
 			case dbutil.Cockroach:
-				cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%d", i))
-				cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%dmeta", i))
+				_, err := cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%d", i))
+				if err != nil {
+					return nil, err
+				}
+				_, err = cockroachutil.OpenUnique(flags.Postgres, fmt.Sprintf("satellite%dmeta", i))
+				if err != nil {
+					return nil, err
+				}
 				connURL, _ := url.Parse(flags.Postgres)
 				connURL.Path = fmt.Sprintf("satellite%d", i)
 				sadb = connURL.String()
