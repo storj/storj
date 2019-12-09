@@ -232,12 +232,8 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			// TODO: This is analogous to the way we worked prior to the advent of OpenUnique,
 			// but it seems wrong. Tests that use planet.Start() instead of testplanet.Run()
 			// will not get run against both types of DB.
-			connStr := *pgtest.ConnStr
-			if *pgtest.CrdbConnStr != "" {
-				connStr = *pgtest.CrdbConnStr
-			}
 			var tempDB *dbutil.TempDatabase
-			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
+			tempDB, err = tempdb.OpenUnique(*pgtest.ConnStr, fmt.Sprintf("%s.%d", planet.id, i))
 			if err != nil {
 				return nil, err
 			}

@@ -71,7 +71,10 @@ func TestC(t *testing.T) {
 					},
 				})
 
-				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+					Reconfigure: testplanet.DisablePeerCAWhitelist,
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)
 					cmd.Dir = filepath.Dir(testexe)
 					cmd.Env = append(os.Environ(),
