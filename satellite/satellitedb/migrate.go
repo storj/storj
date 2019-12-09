@@ -68,7 +68,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
-
 			{
 				DB:          db.db,
 				Description: "Initial setup",
