@@ -40,8 +40,6 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 
 	return &Object{
 		Meta: ObjectMeta{
-			bucketInfo: b.bucket,
-
 			Bucket:      info.Bucket.Name,
 			Path:        info.Path,
 			IsPrefix:    info.IsPrefix,
@@ -64,6 +62,8 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 		},
 		metainfoDB: b.metainfo,
 		streams:    b.streams,
+		object:     info,
+		bucket:     b.bucket,
 	}, nil
 }
 
@@ -193,7 +193,12 @@ func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadClose
 func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, path)
+	object, err := b.metainfo.GetObject(ctx, b.bucket, path)
+	if err != nil {
+		return nil, err
+	}
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, object)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +210,12 @@ func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser
 func (b *Bucket) DownloadRange(ctx context.Context, path storj.Path, start, limit int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, path)
+	object, err := b.metainfo.GetObject(ctx, b.bucket, path)
+	if err != nil {
+		return nil, err
+	}
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.bucket, object)
 	if err != nil {
 		return nil, err
 	}
