@@ -427,8 +427,7 @@ func assertObserver(t *testing.T, obsvr *observer, testdata testdataObjects) {
 	if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
 		for bucket, bucketObjs := range obsvr.objects {
 			expBucketObjs, ok := testdata.expectedObjects[bucket]
-			if !ok {
-				t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
+			if !assert.Truef(t, ok, "bucket '%s' shouldn't exist in objects map", bucket) {
 				continue
 			}
 
