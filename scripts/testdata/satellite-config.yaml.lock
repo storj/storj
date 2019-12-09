@@ -379,7 +379,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.download-timeout: 5m0s
 
 # how frequently repairer should try and repair more data
-# repairer.interval: 1h0m0s
+# repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
