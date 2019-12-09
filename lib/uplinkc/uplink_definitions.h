@@ -31,6 +31,7 @@ typedef struct Object           { long _handle; } ObjectRef;
 typedef struct Downloader       { long _handle; } DownloaderRef;
 typedef struct Uploader         { long _handle; } UploaderRef;
 typedef struct EncryptionAccess { long _handle; } EncryptionAccessRef;
+typedef struct Scope            { long _handle; } ScopeRef;
 
 typedef struct UplinkConfig {
     struct {

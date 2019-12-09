@@ -363,6 +363,9 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits, PrivateKey: privateKey}, nil
@@ -468,9 +471,12 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 
 // filterValidPieces filter out the invalid remote pieces held by pointer.
 //
+// This method expect the pointer to be valid, so it has to be validated before
+// calling it.
+//
 // The method always return a gRPC status error so the caller can directly
 // return it to the client.
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type != pb.Pointer_REMOTE {
@@ -514,7 +520,21 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		}
 		signee := signing.SigneeFromPeerIdentity(peerID)
 
-		err = endpoint.validatePieceHash(ctx, piece, limits, signee)
+		limit := originalLimits[piece.PieceNum]
+		if limit == nil {
+			endpoint.log.Warn("There is not limit for the piece.  Piece removed from pointer",
+				zap.Int32("Piece ID", piece.PieceNum),
+			)
+
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   "No order limit for validating the piece hash",
+			})
+			continue
+		}
+
+		err = endpoint.validatePieceHash(ctx, piece, limit, signee)
 		if err != nil {
 			endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
 			invalidPieces = append(invalidPieces, invalidPiece{
@@ -1123,7 +1143,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits object when all segments are also committed
+// CommitObject commits an object when all its segments have already been
+// committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1293,6 +1314,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
+	endpoint.log.Info("Get Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1341,6 +1363,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
+	endpoint.log.Info("List Objects", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1394,6 +1417,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, err
 	}
 
+	endpoint.log.Info("Delete Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1499,6 +1523,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		RootPieceId:         rootPieceID,
 		CreationDate:        time.Now(),
 	})
+
+	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
@@ -1719,6 +1745,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("Make Inline Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
@@ -1769,6 +1797,8 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		Index:               req.Position.Index,
 		CreationDate:        time.Now(),
 	})
+
+	endpoint.log.Info("Delete Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1845,6 +1875,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.log.Info("List Segments", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
@@ -2014,6 +2046,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -2025,6 +2058,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
@@ -2036,6 +2072,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				limits[i] = &pb.AddressedOrderLimit{}
 			}
 		}
+
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,

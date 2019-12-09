@@ -8,7 +8,7 @@ import (
 	"errors"
 
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -18,11 +18,7 @@ var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
 type readonlyStream struct {
 	db *DB
 
-	id        storj.StreamID
-	info      storj.Object
-	bucket    string
-	encPath   storj.Path
-	streamKey *storj.Key // lazySegmentReader derivedKey
+	info storj.Object
 }
 
 func (stream *readonlyStream) Info() storj.Object { return stream.info }
@@ -46,56 +42,45 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 	}
 
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
-	if !isLastSegment {
-		info, _, err := stream.db.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
-			StreamID: stream.id,
-			Position: storj.SegmentPosition{
-				Index: int32(index),
-			},
-		})
-		if err != nil {
-			return segment, err
-		}
-
-		segment.Size = stream.info.FixedSegmentSize
-		segment.EncryptedKeyNonce = info.SegmentEncryption.EncryptedKeyNonce
-		segment.EncryptedKey = info.SegmentEncryption.EncryptedKey
-	} else {
-		segment.Size = stream.info.LastSegment.Size
-		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
-		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
+	if isLastSegment {
+		index = -1
+	}
+	info, limits, err := stream.db.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+		StreamID: stream.Info().ID,
+		Position: storj.SegmentPosition{
+			Index: int32(index),
+		},
+	})
+	if err != nil {
+		return segment, err
 	}
 
-	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionParameters.CipherSuite, stream.streamKey, &segment.EncryptedKeyNonce)
+	segment.Size = stream.info.Size
+	segment.EncryptedKeyNonce = info.SegmentEncryption.EncryptedKeyNonce
+	segment.EncryptedKey = info.SegmentEncryption.EncryptedKey
+
+	streamKey, err := encryption.DeriveContentKey(stream.info.Bucket.Name, paths.NewUnencrypted(stream.info.Path), stream.db.encStore)
+	if err != nil {
+		return segment, err
+	}
+
+	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.info.EncryptionParameters.CipherSuite, streamKey, &segment.EncryptedKeyNonce)
 	if err != nil {
 		return segment, err
 	}
 
 	nonce := new(storj.Nonce)
-	_, err = encryption.Increment(nonce, index+1)
+	_, err = encryption.Increment(nonce, segment.Index+1)
 	if err != nil {
 		return segment, err
 	}
 
-	if isLastSegment {
-		index = -1
-	}
-
-	pointer, err := stream.db.metainfo.SegmentInfoOld(ctx, stream.bucket, stream.encPath, index)
-	if err != nil {
-		return segment, err
-	}
-
-	if pointer.GetType() == pb.Pointer_INLINE {
-		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionParameters.CipherSuite, contentKey, nonce)
-	} else {
-		segment.PieceID = pointer.Remote.RootPieceId
-		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))
-		for _, piece := range pointer.Remote.RemotePieces {
-			var nodeID storj.NodeID
-			copy(nodeID[:], piece.NodeId.Bytes())
-			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID})
+	if len(info.EncryptedInlineData) != 0 || len(limits) == 0 {
+		inline, err := encryption.Decrypt(info.EncryptedInlineData, stream.info.EncryptionParameters.CipherSuite, contentKey, nonce)
+		if err != nil {
+			return segment, err
 		}
+		segment.Inline = inline
 	}
 
 	return segment, nil

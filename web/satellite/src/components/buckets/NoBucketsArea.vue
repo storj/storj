@@ -36,7 +36,7 @@
             </div>
             <div class="no-buckets-area__steps-area__usage">
                 <h2 class="no-buckets-area__steps-area__usage__title">View Usage Here</h2>
-                <UsageIcon class="usage-icon"/>
+                <img class="usage-icon" src="@/../static/images/buckets/noBucketState/usage.jpg" alt="usage icon">
             </div>
         </div>
         <div class="no-buckets-area__footer">
@@ -59,7 +59,6 @@ import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
 import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
 import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
 import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
-import UsageIcon from '@/../static/images/buckets/noBucketState/usage.svg';
 
 @Component({
     components: {
@@ -67,7 +66,6 @@ import UsageIcon from '@/../static/images/buckets/noBucketState/usage.svg';
         FirstStepIcon,
         SecondStepIcon,
         ThirdStepIcon,
-        UsageIcon,
         DotsIcon,
         ButtonArrowIcon,
     },
@@ -222,6 +220,12 @@ export default class NoBucketArea extends Vue {}
         border: 1px solid #cfd5da;
     }
 
+    .usage-icon {
+        width: 375px;
+        height: 288px;
+        border-radius: 11px;
+    }
+
     .dots-icon {
         margin-bottom: 36px;
     }
@@ -267,8 +271,7 @@ export default class NoBucketArea extends Vue {}
             }
         }
 
-        .usage-icon,
-        .usage-rect {
+        .usage-icon {
             width: 329px;
             height: 253px;
         }
@@ -339,8 +342,7 @@ export default class NoBucketArea extends Vue {}
             }
         }
 
-        .usage-icon,
-        .usage-rect {
+        .usage-icon {
             width: 292px;
             height: 225px;
         }

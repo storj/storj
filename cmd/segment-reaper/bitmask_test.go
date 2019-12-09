@@ -260,5 +260,56 @@ func TestBitmask(t *testing.T) {
 			ok := mask.IsSequence()
 			assert.False(t, ok)
 		})
+
+	})
+	t.Run("Unset", func(t *testing.T) {
+		t.Run("ok", func(t *testing.T) {
+			var (
+				expectedUnsetIdx = rand.Intn(32)
+				expectedSetIdx   = rand.Intn(32) + 32
+				mask             bitmask
+			)
+
+			err := mask.Set(expectedUnsetIdx)
+			require.NoError(t, err)
+			has, err := mask.Has(expectedUnsetIdx)
+			require.NoError(t, err)
+			require.True(t, has)
+
+			err = mask.Set(expectedSetIdx)
+			require.NoError(t, err)
+
+			err = mask.Unset(expectedUnsetIdx)
+			require.NoError(t, err)
+			has, err = mask.Has(expectedUnsetIdx)
+			require.NoError(t, err)
+			require.False(t, has)
+
+			has, err = mask.Has(expectedSetIdx)
+			require.NoError(t, err)
+			require.True(t, has)
+		})
+
+		t.Run("error: negative index", func(t *testing.T) {
+			var (
+				invalidIdx = -(rand.Intn(math.MaxInt32-1) + 1)
+				mask       bitmask
+			)
+
+			err := mask.Unset(invalidIdx)
+			assert.Error(t, err)
+			assert.True(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+		})
+
+		t.Run("error: index > 63", func(t *testing.T) {
+			var (
+				invalidIdx = rand.Intn(math.MaxInt16) + 64
+				mask       bitmask
+			)
+
+			err := mask.Unset(invalidIdx)
+			assert.Error(t, err)
+			assert.True(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+		})
 	})
 }

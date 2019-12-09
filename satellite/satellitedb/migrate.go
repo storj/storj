@@ -27,7 +27,7 @@ func (db *DB) CreateTables() error {
 		}
 
 		if schema != "" {
-			err = db.CreateSchema(schema)
+			err = pgutil.CreateSchema(db.db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
@@ -68,7 +68,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
-
 			{
 				DB:          db.db,
 				Description: "Initial setup",

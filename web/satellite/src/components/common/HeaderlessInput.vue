@@ -17,6 +17,8 @@
             :placeholder="placeholder"
             :type="type"
             :style="style.inputStyle"
+            @focus="showPasswordStrength"
+            @blur="hidePasswordStrength"
         />
         <!--2 conditions of eye image (crossed or not) -->
         <PasswordHiddenIcon
@@ -84,6 +86,14 @@ export default class HeaderlessInput extends Vue {
     // Used to set default value from parent component
     public setValue(value: string): void {
         this.value = value;
+    }
+
+    public showPasswordStrength(): void {
+        this.$emit('showPasswordStrength');
+    }
+
+    public hidePasswordStrength(): void {
+        this.$emit('hidePasswordStrength');
     }
 
     // triggers on input

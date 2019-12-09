@@ -6,6 +6,7 @@ package pgutil
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
@@ -53,18 +54,25 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 	// find constraints
 	err = func() error {
 		rows, err := db.Query(`
-			SELECT  pg_class.relname      AS table_name,
-			        pg_constraint.conname AS constraint_name,
-					pg_constraint.contype AS constraint_type,
-					ARRAY_AGG(pg_attribute.attname ORDER BY u.attposition) AS columns,
-					pg_get_constraintdef(pg_constraint.oid)                AS definition
-			FROM pg_constraint pg_constraint
-					JOIN LATERAL UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, attposition) ON TRUE
-					JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
-					JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
-					JOIN pg_attribute ON (pg_attribute.attrelid = pg_class.oid AND pg_attribute.attnum = u.attnum)
+			SELECT
+				pg_class.relname      AS table_name,
+				pg_constraint.conname AS constraint_name,
+				pg_constraint.contype AS constraint_type,
+				(
+					SELECT
+						ARRAY_AGG(pg_attribute.attname ORDER BY u.pos)
+					FROM
+						pg_attribute
+						JOIN UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, pos) ON u.attnum = pg_attribute.attnum
+					WHERE
+						pg_attribute.attrelid = pg_class.oid
+				) AS columns,
+				pg_get_constraintdef(pg_constraint.oid) AS definition
+			FROM
+				pg_constraint
+				JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
+				JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
 			WHERE pg_namespace.nspname = CURRENT_SCHEMA
-			GROUP BY constraint_name, constraint_type, table_name, definition
 		`)
 		if err != nil {
 			return err
@@ -132,3 +140,11 @@ var rxPostgresForeignKey = regexp.MustCompile(
 		`(?:\s*ON UPDATE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?` +
 		`(?:\s*ON DELETE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?$`,
 )
+
+// UnquoteIdentifier is the analog of pq.QuoteIdentifier.
+func UnquoteIdentifier(quotedIdent string) string {
+	if len(quotedIdent) >= 2 && quotedIdent[0] == '"' && quotedIdent[len(quotedIdent)-1] == '"' {
+		quotedIdent = strings.ReplaceAll(quotedIdent[1:len(quotedIdent)-1], "\"\"", "\"")
+	}
+	return quotedIdent
+}
