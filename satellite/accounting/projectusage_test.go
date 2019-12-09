@@ -436,5 +436,32 @@ func TestUsageRollups(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, totals2)
 		})
+
+		t.Run("Get paged", func(t *testing.T) {
+			// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
+			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, start, now)
+			assert.NoError(t, err)
+			assert.NotNil(t, bucketsPage)
+			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
+			assert.Equal(t, uint(0), bucketsPage.CurrentPage)
+			assert.Equal(t, uint(0), bucketsPage.PageCount)
+			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
+
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, start, now)
+			assert.NoError(t, err)
+			assert.NotNil(t, bucketsPage)
+			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
+			assert.Equal(t, uint(1), bucketsPage.CurrentPage)
+			assert.Equal(t, uint(2), bucketsPage.PageCount)
+			assert.Equal(t, 3, len(bucketsPage.BucketUsages))
+
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, start, now)
+			assert.NoError(t, err)
+			assert.NotNil(t, bucketsPage)
+			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
+			assert.Equal(t, uint(1), bucketsPage.CurrentPage)
+			assert.Equal(t, uint(1), bucketsPage.PageCount)
+			assert.Equal(t, 5, len(bucketsPage.BucketUsages))
+		})
 	})
 }
