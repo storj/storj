@@ -213,17 +213,27 @@ func getBucketNames(bucketList storj.BucketList) []string {
 }
 
 func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
+	key := new(storj.Key)
+	copy(key[:], TestEncKey)
+
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(key)
+
+	runTestWithEncStore(t, encStore, test)
+}
+
+func runTestWithEncStore(t *testing.T, encStore *encryption.Store, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(planet)
+		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
+func newMetainfoParts(planet *testplanet.Planet, encStore *encryption.Store) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
@@ -268,12 +278,6 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	}
 
 	segments := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.KiB.Int(), 8*memory.MiB.Int64())
-
-	key := new(storj.Key)
-	copy(key[:], TestEncKey)
-
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(key)
 
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()

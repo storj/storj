@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
@@ -294,7 +297,13 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	key := new(storj.Key)
+	copy(key[:], TestEncKey)
+
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(key)
+
+	runTestWithEncStore(t, encStore, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		require.NoError(t, err)
 
@@ -636,6 +645,30 @@ func TestListObjects(t *testing.T) {
 					assert.Equal(t, TestBucket, item.Bucket.Name, errTag)
 					assert.Equal(t, storj.EncNull, item.Bucket.PathCipher, errTag)
 				}
+			}
+		}
+
+		{ // test encryption bypass
+			encStore.EncryptionBypass = true
+
+			opts := options("", "", storj.After, 0)
+			opts.Recursive = true
+
+			list, err := db.ListObjects(ctx, bucket.Name, opts)
+			require.NoError(t, err)
+
+			for _, item := range list.Items {
+				t.Logf("item path: %s", item.Path)
+				decoded, err := encryption.EncryptPath(bucket.Name, paths.NewUnencrypted(item.Path), storj.EncURLSafeBase64, encStore)
+				require.NoError(t, err)
+
+				filePathCount := len(filePaths)
+				sort.Strings(filePaths)
+				pathIndex := sort.Search(filePathCount, func(i int) bool {
+					return decoded.String() <= filePaths[i]
+				})
+
+				require.Truef(t, pathIndex < filePathCount, "path \"%s\" not found", decoded)
 			}
 		}
 	})

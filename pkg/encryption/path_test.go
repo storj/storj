@@ -53,6 +53,18 @@ func TestStoreEncryption(t *testing.T) {
 			}
 
 			assert.Equal(t, rawPath, decPath.Raw(), errTag)
+
+			// test storj.EncURLSafeBase64 cipher
+			urlEncPath, err := DecryptPath("bucket", encPath, storj.EncURLSafeBase64, store)
+			require.NoError(t, err)
+			require.NotNil(t, urlEncPath)
+			t.Logf("encPath: %s", encPath)
+			t.Logf("urlEncPath: %s", urlEncPath)
+
+			encPath2, err := EncryptPath("bucket", urlEncPath, storj.EncURLSafeBase64, store)
+			require.NoError(t, err)
+			require.Equal(t, encPath, encPath2)
+			t.Logf("encPath2: %s", encPath2)
 		}
 	})
 }
