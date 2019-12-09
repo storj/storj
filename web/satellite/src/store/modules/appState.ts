@@ -93,7 +93,6 @@ export const appStateModule = {
         // Mutation changing payment selection visibility
         [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any, value: boolean): void {
             state.appState.isPaymentSelectionShown = value;
-            console.log('state.appState.isPaymentSelectionShown', state.appState.isPaymentSelectionShown)
         },
         [APP_STATE_MUTATIONS.SET_NAME](state: any, satelliteName: string): void {
             state.satelliteName = satelliteName;

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="form-container">
         <div class="selected-container" v-if="!isCustomAmount">
             <div id="paymentSelectButton" class="selected-container__label-container" @click="open">
                 <p class="selected-container__label-container__label">{{current.label}}</p>
@@ -11,27 +11,6 @@
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                     </svg>
                 </div>
-            </div>
-            <div
-                id="paymentSelect"
-                class="options-container"
-                v-if="isSelectionShown"
-                v-click-outside="close"
-            >
-                <div
-                    class="options-container__item"
-                    v-for="option in paymentOptions"
-                    :key="option.label"
-                    @click.prevent.stop="select(option)"
-                >
-                    <div class="options-container__item__svg" v-if="option.value === current.value">
-                        <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
-                        </svg>
-                    </div>
-                    <p class="options-container__item__label">{{option.label}}</p>
-                </div>
-                <div class="options-container__custom-container" @click.prevent="toggleCustomAmount">Custom Amount</div>
             </div>
         </div>
         <label class="label" v-if="isCustomAmount">
@@ -42,12 +21,40 @@
                 v-model="customAmount"
                 @input="onCustomAmountChange"
             >
-            <div class="input-svg" @click="toggleCustomAmount">
+            <div class="input-svg" @click.self.stop="closeCustomAmountSelection">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                 </svg>
             </div>
         </label>
+        <div
+            id="paymentSelect"
+            class="options-container"
+            v-if="isSelectionShown"
+            v-click-outside="close"
+        >
+            <div
+                class="options-container__item"
+                v-for="option in paymentOptions"
+                :key="option.label"
+                @click.prevent.stop="select(option)"
+            >
+                <div class="options-container__item__svg" v-if="option.value === current.value && !isCustomAmount">
+                    <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                    </svg>
+                </div>
+                <p class="options-container__item__label">{{option.label}}</p>
+            </div>
+            <div class="options-container__custom-container" @click.stop.self.prevent="openCustomAmountSelection">
+                <div class="options-container__item__svg" v-if="isCustomAmount">
+                    <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                    </svg>
+                </div>
+                Custom Amount
+            </div>
+        </div>
     </div>
 </template>
 
@@ -102,26 +109,22 @@ export default class TokenDepositSelection extends Vue {
         this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
-    /**
-     * toggleCustomAmount toggles custom amount input and changes token value in parent
-     */
-    public toggleCustomAmount(): void {
-        this.isCustomAmount = !this.isCustomAmount;
+    public openCustomAmountSelection(): void {
+        this.isCustomAmount = true;
+        this.close();
+        this.$emit('onChangeTokenValue', 0);
+    }
+
+    public closeCustomAmountSelection(): void {
         this.open();
-
-        if (this.isCustomAmount) {
-            this.$emit('onChangeTokenValue', 0);
-
-            return;
-        }
-
-        this.$emit('onChangeTokenValue', this.paymentOptions[0].value);
+        this.$emit('onChangeTokenValue', this.current.value);
     }
 
     /**
      * select standard value from list and emits it value to parent component
      */
     public select(option: PaymentAmountOption): void {
+        this.isCustomAmount = false;
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
         this.close();
@@ -150,6 +153,10 @@ export default class TokenDepositSelection extends Vue {
         margin: 0;
     }
 
+    .form-container {
+        position: relative;
+    }
+
     .label {
         position: relative;
     }
@@ -160,6 +167,11 @@ export default class TokenDepositSelection extends Vue {
         right: 20px;
         transform: translate(0, -50%);
         cursor: pointer;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .selected-container {
@@ -206,10 +218,13 @@ export default class TokenDepositSelection extends Vue {
         z-index: 102;
         margin-right: 10px;
         border-radius: 12px;
-        top: calc(100% + 10px);
+        top: 50px;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 
         &__custom-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
             padding: 0 20px;
