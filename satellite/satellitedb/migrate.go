@@ -68,7 +68,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
-
 			{
 				DB:          db.db,
 				Description: "Initial setup",
@@ -505,6 +504,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						interval_end timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Reset node reputations to re-enable disqualification",
+				Version:     72,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_beta = 0;`,
 				},
 			},
 		},
