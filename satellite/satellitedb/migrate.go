@@ -506,6 +506,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Reset node reputations to re-enable disqualification",
+				Version:     72,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_beta = 0;`,
+				},
+			},
 		},
 	}
 }
