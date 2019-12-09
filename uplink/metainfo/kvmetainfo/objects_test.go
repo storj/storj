@@ -124,32 +124,37 @@ func TestGetObjectStream(t *testing.T) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
-		upload(ctx, t, db, streams, bucket, "empty-file", nil)
-		upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
-		upload(ctx, t, db, streams, bucket, "large-file", data)
+		emptyFile := upload(ctx, t, db, streams, bucket, "empty-file", nil)
+		smallFile := upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
+		largeFile := upload(ctx, t, db, streams, bucket, "large-file", data)
 
 		emptyBucket := storj.Bucket{
 			PathCipher: storj.EncNull,
 		}
-		_, err = db.GetObjectStream(ctx, emptyBucket, "")
+		_, err = db.GetObjectStream(ctx, emptyBucket, storj.Object{})
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = db.GetObjectStream(ctx, bucket, "")
+		_, err = db.GetObjectStream(ctx, bucket, storj.Object{})
 		assert.True(t, storj.ErrNoPath.Has(err))
 
 		nonExistingBucket := storj.Bucket{
 			Name:       "non-existing-bucket",
 			PathCipher: storj.EncNull,
 		}
-		_, err = db.GetObjectStream(ctx, nonExistingBucket, "small-file")
-		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		_, err = db.GetObjectStream(ctx, bucket, "non-existing-file")
-		assert.True(t, storj.ErrObjectNotFound.Has(err))
+		// no error because we are not doing satellite connection with this method
+		_, err = db.GetObjectStream(ctx, nonExistingBucket, smallFile)
+		assert.NoError(t, err)
 
-		assertStream(ctx, t, db, streams, bucket, "empty-file", []byte{})
-		assertStream(ctx, t, db, streams, bucket, "small-file", []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", data)
+		// no error because we are not doing satellite connection with this method
+		_, err = db.GetObjectStream(ctx, bucket, storj.Object{
+			Path: "non-existing-file",
+		})
+		assert.NoError(t, err)
+
+		assertStream(ctx, t, db, streams, bucket, emptyFile, []byte{})
+		assertStream(ctx, t, db, streams, bucket, smallFile, []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, largeFile, data)
 
 		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay
@@ -166,7 +171,7 @@ func TestGetObjectStream(t *testing.T) {
 	})
 }
 
-func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) {
+func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) storj.Object {
 	obj, err := db.CreateObject(ctx, bucket, path, nil)
 	require.NoError(t, err)
 
@@ -183,13 +188,15 @@ func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams stream
 
 	err = obj.Commit(ctx)
 	require.NoError(t, err)
+
+	return obj.Info()
 }
 
-func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, content []byte) {
-	readOnly, err := db.GetObjectStream(ctx, bucket, path)
+func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, object storj.Object, content []byte) {
+	readOnly, err := db.GetObjectStream(ctx, bucket, object)
 	require.NoError(t, err)
 
-	assert.Equal(t, path, readOnly.Info().Path)
+	assert.Equal(t, object.Path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
 	assert.Equal(t, storj.EncAESGCM, readOnly.Info().Bucket.PathCipher)
 
@@ -232,7 +239,6 @@ func assertInlineSegment(t *testing.T, segment storj.Segment, content []byte) {
 func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 	assert.Nil(t, segment.Inline)
 	assert.NotNil(t, segment.PieceID)
-	assert.NotEqual(t, 0, len(segment.Pieces))
 
 	// check that piece numbers and nodes are unique
 	nums := make(map[byte]struct{})

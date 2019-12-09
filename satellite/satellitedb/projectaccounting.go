@@ -438,7 +438,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name)
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?`)
+		AND bucket_name LIKE ?`)
 
 	countRow := db.db.QueryRowContext(ctx,
 		countQuery,
@@ -460,7 +460,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?
+		AND bucket_name LIKE ?
 		ORDER BY bucket_name ASC
 		LIMIT ? OFFSET ?`)
 
@@ -468,7 +468,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		bucketsQuery,
 		projectID[:],
 		since, before,
-		search,
+		[]byte(search),
 		page.Limit,
 		page.Offset)
 
