@@ -5,8 +5,10 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -16,6 +18,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
+
+const lastSegment = int(-1)
 
 // object represents object with segments.
 type object struct {
@@ -34,26 +38,45 @@ type object struct {
 // name.
 type bucketsObjects map[string]map[storj.Path]*object
 
-func newObserver(db metainfo.PointerDB, w *csv.Writer) *observer {
+func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*observer, error) {
+	headers := []string{
+		"ProjectID",
+		"SegmentIndex",
+		"Bucket",
+		"EncodedEncryptedPath",
+		"CreationDate",
+	}
+	err := w.Write(headers)
+	if err != nil {
+		return nil, err
+	}
+
 	return &observer{
-		db:     db,
-		writer: w,
+		db:           db,
+		writer:       w,
+		from:         from,
+		to:           to,
+		zombieBuffer: make([]int, 0, maxNumOfSegments),
 
 		objects: make(bucketsObjects),
-	}
+	}, nil
 }
 
 // observer metainfo.Loop observer for zombie reaper.
 type observer struct {
 	db     metainfo.PointerDB
 	writer *csv.Writer
+	from   *time.Time
+	to     *time.Time
 
 	lastProjectID string
+	zombieBuffer  []int
 
 	objects            bucketsObjects
 	inlineSegments     int
 	lastInlineSegments int
 	remoteSegments     int
+	zombieSegments     int
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
@@ -127,6 +150,12 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 	}
 
+	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
+		object.skip = true
+	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
+		object.skip = true
+	}
+
 	// collect number of pointers for report
 	if pointer.Type == pb.Pointer_INLINE {
 		obsvr.inlineSegments++
@@ -143,9 +172,139 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {
-	// TODO this part will be implemented in next PR
-	// TODO(if): For what is this?
+	for bucket, objects := range obsvr.objects {
+		for path, object := range objects {
+			if object.skip {
+				continue
+			}
+
+			err := obsvr.findZombieSegments(object)
+			if err != nil {
+				return err
+			}
+
+			for _, segmentIndex := range obsvr.zombieBuffer {
+				err = obsvr.printSegment(ctx, segmentIndex, bucket, path)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
+}
+
+func (obsvr *observer) findZombieSegments(object *object) error {
+	obsvr.resetZombieBuffer()
+
+	if !object.hasLastSegment {
+		obsvr.appendAllObjectSegments(object)
+		return nil
+	}
+
+	segmentsCount := object.segments.Count()
+
+	// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
+	switch {
+	// this case is only for old style pointers with encrypted number of segments
+	// value 0 means that we don't know how much segments object should have
+	case object.expectedNumberOfSegments == 0:
+		sequenceLength := firstSequenceLength(object.segments)
+
+		for index := sequenceLength; index < maxNumOfSegments; index++ {
+			has, err := object.segments.Has(index)
+			if err != nil {
+				panic(err)
+			}
+			if has {
+				obsvr.appendSegment(index)
+			}
+		}
+	case segmentsCount > int(object.expectedNumberOfSegments)-1:
+		sequenceLength := firstSequenceLength(object.segments)
+
+		if sequenceLength == int(object.expectedNumberOfSegments-1) {
+			for index := sequenceLength; index < maxNumOfSegments; index++ {
+				has, err := object.segments.Has(index)
+				if err != nil {
+					panic(err)
+				}
+				if has {
+					obsvr.appendSegment(index)
+				}
+			}
+		} else {
+			obsvr.appendAllObjectSegments(object)
+			obsvr.appendSegment(lastSegment)
+		}
+	case segmentsCount < int(object.expectedNumberOfSegments)-1,
+		segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+		obsvr.appendAllObjectSegments(object)
+		obsvr.appendSegment(lastSegment)
+	}
+
+	return nil
+}
+
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket, path string) error {
+	var segmentIndexStr string
+	if segmentIndex == lastSegment {
+		segmentIndexStr = "l"
+	} else {
+		segmentIndexStr = "s" + strconv.Itoa(segmentIndex)
+	}
+	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndexStr, bucket, path)
+	if err != nil {
+		return err
+	}
+	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
+	err = obsvr.writer.Write([]string{
+		obsvr.lastProjectID,
+		segmentIndexStr,
+		bucket,
+		encodedPath,
+		creationDate,
+	})
+	if err != nil {
+		return err
+	}
+	obsvr.zombieSegments++
+	return nil
+}
+
+func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string) (string, error) {
+	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
+	pointerBytes, err := db.Get(ctx, key)
+	if err != nil {
+		return "", err
+	}
+
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		return "", err
+	}
+	return pointer.CreationDate.Format(time.RFC3339Nano), nil
+}
+
+func (obsvr *observer) resetZombieBuffer() {
+	obsvr.zombieBuffer = obsvr.zombieBuffer[:0]
+}
+
+func (obsvr *observer) appendSegment(segmentIndex int) {
+	obsvr.zombieBuffer = append(obsvr.zombieBuffer, segmentIndex)
+}
+
+func (obsvr *observer) appendAllObjectSegments(object *object) {
+	for index := 0; index < maxNumOfSegments; index++ {
+		has, err := object.segments.Has(index)
+		if err != nil {
+			panic(err)
+		}
+		if has {
+			obsvr.appendSegment(index)
+		}
+	}
 }
 
 // clearBucketsObjects clears up the buckets objects map for reusing it.
@@ -172,4 +331,17 @@ func findOrCreate(bucketName string, path string, buckets bucketsObjects) *objec
 	}
 
 	return obj
+}
+
+func firstSequenceLength(segments bitmask) int {
+	for index := 0; index < maxNumOfSegments; index++ {
+		has, err := segments.Has(index)
+		if err != nil {
+			panic(err)
+		}
+		if !has {
+			return index
+		}
+	}
+	return maxNumOfSegments
 }
