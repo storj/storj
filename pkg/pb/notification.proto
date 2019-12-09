@@ -1,0 +1,31 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package notification;
+
+enum NotificationType {
+    AUDIT_RECORD   = 0;
+    UPTIME_RECORD  = 1;
+    GRACEFUL_EXIT  = 2;
+    VETTED_NODE    = 3;
+}
+
+message Notification {
+    bytes            message  = 1;
+    string           title = 2;
+    NotificationType notification_type = 3;
+}
+
+service Notifications {
+    rpc ProcessNotification(Notification) returns (NotificationResponse);
+    rpc ProcessNotifications(ProcessNotificationsRequest) returns (NotificationResponse);
+}
+
+message ProcessNotificationsRequest {
+    repeated Notification notifications = 1;
+}
+
+message NotificationResponse {}
