@@ -63,6 +63,9 @@
                 />
             </div>
         </div>
+        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
+            <p class="info-area__blurred-checks__title">Select A Specific Satellite To View Audit And Uptime Percentages</p>
+        </div>
         <div v-if="selectedSatellite.id">
             <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
             <div class="info-area__checks-area">
@@ -328,6 +331,25 @@ export default class SNOContentFilling extends Vue {
             line-height: 57px;
             color: #535f77;
             user-select: none;
+        }
+
+        &__blurred-checks {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 224px;
+            background-image: url('../../../static/images/BlurredChecks.png');
+            background-size: contain;
+            margin: 35px 0;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 49px;
+                color: #4a4a4a;
+                user-select: none;
+            }
         }
 
         &__chart-area,
