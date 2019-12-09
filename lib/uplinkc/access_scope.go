@@ -114,6 +114,10 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 	}
 
 	//Get caveat from C
+	if(!caveat){
+		*cerr = C.CString("invalid caveat")
+		return C.ScopeRef{}
+	}
 	caveatGo := macaroon.Caveat{
 		DisallowReads:   caveat.disallow_reads == C.bool(true),
 		DisallowWrites:  caveat.disallow_writes == C.bool(true),
