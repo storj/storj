@@ -37,7 +37,7 @@ func TestObserver_processSegment(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		obsvr := observer{
+		obsvr := &observer{
 			objects: make(bucketsObjects),
 		}
 
@@ -57,32 +57,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		// Inspect observer internal state to assert that it only has the state
 		// related to the second project
-		assert.Equal(t, testdata2.projectID.String(), obsvr.lastProjectID, "lastProjectID")
-		if assert.Equal(t, len(testdata2.expectedObjects), len(obsvr.objects), "objects number") {
-			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := testdata2.expectedObjects[bucket]
-				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
-					continue
-				}
-
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
-					continue
-				}
-
-				for expPath, expObj := range expBucketObjs {
-					if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
-						continue
-					}
-
-					obj := bucketObjs[expPath]
-					assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
-					assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
-					assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
-					assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
-				}
-			}
-		}
+		assertObserver(t, obsvr, testdata2)
 
 		// Assert that objserver keep track global stats of all the segments which
 		// have received through processSegment calls
@@ -109,7 +84,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			testdata = generateTestdataObjects(ctx.Context, t, true, false)
-			obsvr    = observer{
+			obsvr    = &observer{
 				objects: make(bucketsObjects),
 			}
 		)
@@ -121,32 +96,7 @@ func TestObserver_processSegment(t *testing.T) {
 		}
 
 		// Assert observer internal state
-		assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
-		if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
-			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := testdata.expectedObjects[bucket]
-				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
-					continue
-				}
-
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
-					continue
-				}
-
-				for expPath, expObj := range expBucketObjs {
-					if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
-						continue
-					}
-
-					obj := bucketObjs[expPath]
-					assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
-					assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
-					assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
-					assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
-				}
-			}
-		}
+		assertObserver(t, obsvr, testdata)
 
 		// Assert observer global stats
 		assert.Equal(t, testdata.expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
@@ -242,7 +192,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			testdata = generateTestdataObjects(ctx.Context, t, false, true)
-			obsvr    = observer{
+			obsvr    = &observer{
 				objects: make(bucketsObjects),
 			}
 		)
@@ -253,35 +203,7 @@ func TestObserver_processSegment(t *testing.T) {
 		}
 
 		// Assert observer internal state
-		assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
-		if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
-			for bucket, bucketObjs := range obsvr.objects {
-				expBucketObjs, ok := testdata.expectedObjects[bucket]
-				if !ok {
-					t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
-					continue
-				}
-
-				if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
-					continue
-				}
-
-				for expPath, expObj := range expBucketObjs {
-					if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
-						continue
-					}
-
-					obj := bucketObjs[expPath]
-					assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
-					assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
-
-					assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
-					if !expObj.skip {
-						assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
-					}
-				}
-			}
-		}
+		assertObserver(t, obsvr, testdata)
 
 		// Assert observer global stats
 		assert.Equal(t, testdata.expectedInlineSegments, obsvr.inlineSegments, "inlineSegments")
@@ -495,6 +417,42 @@ func generateTestdataObjects(
 	})
 
 	return testdata
+}
+
+// assertObserver assert the observer values with the testdata ones.
+func assertObserver(t *testing.T, obsvr *observer, testdata testdataObjects) {
+	t.Helper()
+
+	assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
+	if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
+		for bucket, bucketObjs := range obsvr.objects {
+			expBucketObjs, ok := testdata.expectedObjects[bucket]
+			if !ok {
+				t.Errorf("bucket '%s' shouldn't exist in objects map", bucket)
+				continue
+			}
+
+			if !assert.Equalf(t, len(expBucketObjs), len(bucketObjs), "objects per bucket (%s) number", bucket) {
+				continue
+			}
+
+			for expPath, expObj := range expBucketObjs {
+				if !assert.Contains(t, bucketObjs, expPath, "path in bucket objects map") {
+					continue
+				}
+
+				obj := bucketObjs[expPath]
+				assert.Equal(t, expObj.expectedNumberOfSegments, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
+				assert.Equal(t, expObj.hasLastSegment, obj.hasLastSegment, "Object.hasLastSegment")
+				assert.Equal(t, expObj.skip, obj.skip, "Object.skip")
+
+				if !expObj.skip {
+					assert.Equal(t, expObj.segments, obj.segments, "Object.segments")
+				}
+			}
+		}
+	}
+
 }
 
 func Test_observer_analyzeProject(t *testing.T) {
