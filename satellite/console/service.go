@@ -37,7 +37,6 @@ const (
 // Error messages
 const (
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
-	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	emailUsedErrMsg                      = "This email is already in use, try another"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
