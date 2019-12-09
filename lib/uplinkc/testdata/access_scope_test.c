@@ -35,6 +35,14 @@ int main(int argc, char *argv[])
                  "Scope is not checked from restrict_scope\n");
 	requiref(emptyScope._handle == 0, "got no empty scope from restrict_scope if base-scope is invalid\n");
     }
+    { //restrict_scope - checks caveat
+	ScopeRef scope = parse_scope(scopeStr, err);
+	Caveat caveat; //just need a valid caveat-variable for this test
+        ScopeRef emptyScope = restrict_scope(scope, caveat, NULL, err);
+	requiref(strcmp("invalid caveat", *err) == 0,
+                 "Caveat is not checked from restrict_scope\n");
+	requiref(emptyScope._handle == 0, "got no empty scope from restrict_scope if caveat is invalid\n");
+    }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
