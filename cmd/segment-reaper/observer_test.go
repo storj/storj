@@ -212,7 +212,7 @@ func TestObserver_processSegment(t *testing.T) {
 	})
 }
 
-func Test_observer_analyzeProject(t *testing.T) {
+func TestObserver_analyzeProject(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -291,7 +291,7 @@ func Test_observer_analyzeProject(t *testing.T) {
 				}
 			}
 
-			require.Equalf(t, tt.segmentsAfter, segmentsAfter, "segments before and after comparison faild: want %s got %s, case %d ", tt.segmentsAfter, segmentsAfter, testNum)
+			require.Equalf(t, tt.segmentsAfter, segmentsAfter, "segments before and after comparison failed: want %s got %s, case %d ", tt.segmentsAfter, segmentsAfter, testNum)
 		})
 	}
 }
