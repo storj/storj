@@ -2,8 +2,8 @@
 
 ## Order of changes
 
-1. Move `cmd/internal/wizard` into `uplink/wizard` (or `private/wizard`).
 1. Kill `storj.io/storj/storage` for `storj.io/storj/storj/uplink`
+
 2. Move `storj.io/storj/private/*` to `storj.io/core/*`.
 3. Move `storj.io/storj/pkg/*` to `storj.io/core/*` (only uplink dependencies).
 4. Move `storj.io/storj/uplink/*` to `storj.io/uplink/*`
@@ -11,6 +11,8 @@
 2. Move `s3-benchmark` to a separate repository.
 2. Move `gateway` to a separate repository. We don't want miniogw as a `go.mod` dependency in `uplink`.
 2. Move `linksharing` to a separate repository.
+
+5. Move `cmd/internal/wizard` into `uplink/wizard` (or `private/wizard`), maybe just later.
 
 ## TODO
 
@@ -48,6 +50,49 @@ PR 3. Remove from original repository:
 
 ```
 - UploadStream(name string, data []byte)
+```
+
+## Thoughts on CI
+
+### Single Jenkinsfile
+
+1. pull all repositories
+2. update dependency to the current repository
+3. run all tests
+
+```
+ci/ [repository]
+    linter/*
+    Dockerfile
+    Jenkinsfile
+        def Everything():
+            pull core, satellite, storagenode
+            run tests
+
+xyz/
+    Jenkinsfile
+        imports ci/Jenkinsfile
+        run Everything()
+```
+
+### Independent Jobs
+
+1. run all tests
+2. trigger all tests in other repositories using the current PR
+
+```
+ci/ [repository]
+    linter/*
+    Dockerfile
+    Jenkinsfile
+        def Everything():
+            trigger core, satellite, storagenode
+            wait responses
+
+xyz/
+    Jenkinsfile
+        imports ci/Jenkinsfile
+        run Everything()
 ```
 
 ## Minimal split
