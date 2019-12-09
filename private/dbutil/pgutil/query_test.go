@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/testcontext"
 )
 
@@ -21,32 +22,44 @@ const (
 	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 )
 
-func TestQuery(t *testing.T) {
+func TestQueryPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgresConn)
 	}
 
+	doQueryTest(t, *pgtest.ConnStr)
+}
+
+func TestQueryCockroach(t *testing.T) {
+	if *pgtest.CrdbConnStr == "" {
+		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
+	}
+
+	doQueryTest(t, *pgtest.CrdbConnStr)
+}
+
+func doQueryTest(t *testing.T, connStr string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := pgutil.Open(*pgtest.ConnStr, "pgutil-query")
+	db, err := tempdb.OpenUnique(connStr, "pgutil-query")
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
 	emptySchema, err := pgutil.QuerySchema(db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
 	_, err = db.Exec(`
 		CREATE TABLE users (
-			a integer NOT NULL,
-			b integer NOT NULL,
+			a bigint NOT NULL,
+			b bigint NOT NULL,
 			c text,
 			UNIQUE (c),
 			PRIMARY KEY (a)
 		);
 		CREATE TABLE names (
-			users_a integer REFERENCES users( a ) ON DELETE CASCADE,
+			users_a bigint REFERENCES users( a ) ON DELETE CASCADE,
 			a text NOT NULL,
 			x text,
 			b text,
@@ -58,15 +71,15 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	schema, err := pgutil.QuerySchema(db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	expected := &dbschema.Schema{
 		Tables: []*dbschema.Table{
 			{
 				Name: "users",
 				Columns: []*dbschema.Column{
-					{Name: "a", Type: "integer", IsNullable: false, Reference: nil},
-					{Name: "b", Type: "integer", IsNullable: false, Reference: nil},
+					{Name: "a", Type: "bigint", IsNullable: false, Reference: nil},
+					{Name: "b", Type: "bigint", IsNullable: false, Reference: nil},
 					{Name: "c", Type: "text", IsNullable: true, Reference: nil},
 				},
 				PrimaryKey: []string{"a"},
@@ -77,7 +90,7 @@ func TestQuery(t *testing.T) {
 			{
 				Name: "names",
 				Columns: []*dbschema.Column{
-					{Name: "users_a", Type: "integer", IsNullable: true,
+					{Name: "users_a", Type: "bigint", IsNullable: true,
 						Reference: &dbschema.Reference{
 							Table:    "users",
 							Column:   "a",
