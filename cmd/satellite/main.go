@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
@@ -97,6 +98,14 @@ var (
 		RunE:  cmdGracefulExit,
 	}
 
+	verifyGracefulExitReceiptCmd = &cobra.Command{
+		Use:   "verify-exit-receipt [storage node ID] [receipt]",
+		Short: "Verify a graceful exit receipt",
+		Long:  "Verify a graceful exit receipt is valid.",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdVerifyGracefulExitReceipt,
+	}
+
 	runCfg   Satellite
 	setupCfg Satellite
 
@@ -113,9 +122,11 @@ var (
 		Output   string `help:"destination of report output" default:""`
 	}
 	gracefulExitCfg struct {
-		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output    string `help:"destination of report output" default:""`
 		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
+	}
+	verifyGracefulExitReceiptCfg struct {
 	}
 	confDir     string
 	identityDir string
@@ -137,6 +148,7 @@ func init() {
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
+	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -145,6 +157,7 @@ func init() {
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -285,6 +298,23 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// display the data
 	return w.Flush()
+}
+
+func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	// Check the node ID is valid
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return errs.Combine(err, errs.New("Invalid node ID."))
+	}
+
+	return verifyGracefulExitReceipt(ctx, identity, nodeID, args[1])
 }
 
 func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {

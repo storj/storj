@@ -6,9 +6,6 @@ package process
 import (
 	"bytes"
 	"flag"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cast"
@@ -18,6 +15,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/private/fpath"
 )
 
 // SaveConfigOption is a function that updates the options for SaveConfig.
@@ -201,7 +199,7 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 		lines = append(lines, nil)
 	}
 
-	return errs.Wrap(atomicWrite(outfile, 0600, bytes.Join(lines, nl)))
+	return errs.Wrap(fpath.AtomicWriteFile(outfile, bytes.Join(lines, nl), 0600))
 }
 
 // readSourceAnnotation is a helper to return the source annotation or cfgstruct.AnySource if unset.
@@ -217,31 +215,4 @@ func readSourceAnnotation(flag *pflag.Flag) string {
 func readBoolAnnotation(flag *pflag.Flag, key string) bool {
 	annotation := flag.Annotations[key]
 	return len(annotation) > 0 && annotation[0] == "true"
-}
-
-// atomicWrite is a helper to atomically write the data to the outfile.
-func atomicWrite(outfile string, mode os.FileMode, data []byte) (err error) {
-	fh, err := ioutil.TempFile(filepath.Dir(outfile), filepath.Base(outfile))
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, fh.Close())
-			err = errs.Combine(err, os.Remove(fh.Name()))
-		}
-	}()
-	if _, err := fh.Write(data); err != nil {
-		return errs.Wrap(err)
-	}
-	if err := fh.Sync(); err != nil {
-		return errs.Wrap(err)
-	}
-	if err := fh.Close(); err != nil {
-		return errs.Wrap(err)
-	}
-	if err := os.Rename(fh.Name(), outfile); err != nil {
-		return errs.Wrap(err)
-	}
-	return nil
 }
