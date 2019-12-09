@@ -44,10 +44,6 @@ func Databases() []SatelliteDatabases {
 			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
 			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
 		},
-		{
-			MasterDB:  Database{"Cockroach", *pgtest.CrdbConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr + " or use STORJ_COCKROACH_TEST environment variable."},
-			PointerDB: Database{"Cockroach", *pgtest.CrdbConnStr, ""},
-		},
 	}
 }
 
@@ -146,7 +142,7 @@ func CreatePointerDB(t testing.TB, category string, index int, dbInfo Database) 
 	if err != nil {
 		return nil, err
 	}
-
+	tempDB.ConnStr = strings.Replace(tempDB.ConnStr, "postgres", "cockroach", 1)
 	return CreatePointerDBOnTopOf(log.Named("pointerdb"), tempDB)
 }
 

@@ -56,7 +56,6 @@ func OpenUnique(connStr string, schemaName string) (db *dbutil.TempDatabase, err
 	if err != nil {
 		return nil, errs.Combine(errs.Wrap(err), cleanup(masterDB))
 	}
-
 	dbutil.Configure(sqlDB, mon)
 	return &dbutil.TempDatabase{
 		DB:             sqlDB,
