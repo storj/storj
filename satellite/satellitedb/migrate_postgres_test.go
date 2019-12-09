@@ -12,12 +12,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -35,16 +38,19 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 		versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
 		version, err := strconv.Atoi(versionStr)
 		if err != nil {
-			return nil, err
+			return nil, errs.New("invalid testdata file %q: %v", match, err)
 		}
 
 		scriptData, err := ioutil.ReadFile(match)
 		if err != nil {
-			return nil, err
+			return nil, errs.New("could not read testdata file for version %d: %v", version, err)
 		}
 
-		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
+		snapshot, err := loadSnapshotFromSQL(connstr, string(scriptData))
 		if err != nil {
+			if pqErr, ok := err.(*pq.Error); ok && pqErr.Detail != "" {
+				return nil, fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pqErr, pqErr.Detail, pqErr.Hint)
+			}
 			return nil, fmt.Errorf("Version %d error: %+v", version, err)
 		}
 		snapshot.Version = version
@@ -55,6 +61,28 @@ func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
 	snapshots.Sort()
 
 	return snapshots, nil
+}
+
+// loadSnapshotFromSQL inserts script into connstr and loads schema.
+func loadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
+	db, err := tempdb.OpenUnique(connstr, "load-schema")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, db.Close()) }()
+
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot, err := pgutil.QuerySnapshot(db)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot.Script = script
+	return snapshot, nil
 }
 
 const newDataSeparator = `-- NEW DATA --`
@@ -79,9 +107,25 @@ var (
 // it shouldn't change during the test
 func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
 	dbxschema.Do(func() {
-		dbxschema.Schema, dbxschema.err = pgutil.LoadSchemaFromSQL(connstr, dbxscript)
+		dbxschema.Schema, dbxschema.err = loadSchemaFromSQL(connstr, dbxscript)
 	})
 	return dbxschema.Schema, dbxschema.err
+}
+
+// loadSchemaFromSQL inserts script into connstr and loads schema.
+func loadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
+	db, err := tempdb.OpenUnique(connstr, "load-schema")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, db.Close()) }()
+
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgutil.QuerySchema(db)
 }
 
 const (
@@ -94,7 +138,11 @@ func TestMigratePostgres(t *testing.T) {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
 	}
 
-	snapshots, err := loadSnapshots(*pgtest.ConnStr)
+	pgMigrateTest(t, *pgtest.ConnStr)
+}
+
+func pgMigrateTest(t *testing.T, connStr string) {
+	snapshots, err := loadSnapshots(connStr)
 	require.NoError(t, err)
 
 	for _, snapshot := range snapshots.List {
@@ -107,16 +155,12 @@ func TestMigratePostgres(t *testing.T) {
 		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
 			log := zaptest.NewLogger(t)
 			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
-			connstr := pgutil.ConnstrWithSchema(*pgtest.ConnStr, schemaName)
+			connstr := pgutil.ConnstrWithSchema(connStr, schemaName)
 
 			// create a new satellitedb connection
 			db, err := satellitedb.New(log, connstr)
 			require.NoError(t, err)
 			defer func() { require.NoError(t, db.Close()) }()
-
-			// setup our own schema to avoid collisions
-			require.NoError(t, db.CreateSchema(schemaName))
-			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
 
 			// we need raw database access unfortunately
 			rawdb := db.(*satellitedb.DB).TestDBAccess()
@@ -171,7 +215,7 @@ func TestMigratePostgres(t *testing.T) {
 			}
 
 			// verify that we also match the dbx version
-			dbxschema, err := loadDBXSchema(*pgtest.ConnStr, rawdb.Schema())
+			dbxschema, err := loadDBXSchema(connStr, rawdb.Schema())
 			require.NoError(t, err)
 
 			require.Equal(t, dbxschema, finalSchema, "dbx")

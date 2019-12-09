@@ -63,9 +63,6 @@ type ObjectMeta struct {
 		// Object's data storage.
 		SegmentsSize int64
 	}
-
-	// full storj.Bucket object for internal use
-	bucketInfo storj.Bucket
 }
 
 // An Object is a sequence of bytes with associated metadata, stored in the
@@ -78,13 +75,15 @@ type Object struct {
 
 	metainfoDB *kvmetainfo.DB
 	streams    streams.Store
+	bucket     storj.Bucket
+	object     storj.Object
 }
 
 // DownloadRange returns an Object's data. A length of -1 will mean (Object.Size - offset).
 func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.bucketInfo, o.Meta.Path)
+	segmentStream, err := o.metainfoDB.GetObjectStream(ctx, o.bucket, o.object)
 	if err != nil {
 		return nil, err
 	}
