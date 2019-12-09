@@ -5,8 +5,11 @@ package kvmetainfo_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +18,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
@@ -289,6 +294,70 @@ func TestListObjectsEmpty(t *testing.T) {
 				assert.False(t, list.More)
 				assert.Equal(t, 0, len(list.Items))
 			}
+		}
+	})
+}
+
+func TestListObjects_EncryptionBypass(t *testing.T) {
+	key := new(storj.Key)
+	copy(key[:], TestEncKey)
+
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(key)
+
+	runTestWithEncStore(t, encStore, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncAESGCM})
+		require.NoError(t, err)
+
+		filePaths := []string{
+			"a", "aa", "b", "bb", "c",
+			"a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc",
+			"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
+		}
+
+		for _, path := range filePaths {
+			upload(ctx, t, db, streams, bucket, path, nil)
+		}
+
+		// Enable encryption bypass
+		encStore.EncryptionBypass = true
+
+		opts := options("", "", storj.After, 0)
+		opts.Recursive = true
+		encodedList, err := db.ListObjects(ctx, bucket.Name, opts)
+		require.NoError(t, err)
+		require.Equal(t, len(filePaths), len(encodedList.Items))
+
+		seenPaths := make(map[string]struct{})
+		for _, item := range encodedList.Items {
+			iter := paths.NewUnencrypted(item.Path).Iterator()
+			var decoded, next string
+			for !iter.Done() {
+				next = iter.Next()
+
+				decodedNextBytes, err := base64.URLEncoding.DecodeString(next)
+				require.NoError(t, err)
+
+				decoded += string(decodedNextBytes) + "/"
+			}
+			decoded = strings.TrimRight(decoded, "/")
+			encryptedPath := paths.NewEncrypted(decoded)
+
+			decryptedPath, err := encryption.DecryptPath(bucket.Name, encryptedPath, storj.EncAESGCM, encStore)
+			require.NoError(t, err)
+
+			// NB: require decrypted path is a member of `filePaths`.
+			sort.Strings(filePaths)
+			result := sort.Search(len(filePaths), func(i int) bool {
+				return !paths.NewUnencrypted(filePaths[i]).Less(decryptedPath)
+			})
+			require.NotEqual(t, len(filePaths), result)
+
+			// NB: ensure each path is only seen once.
+			_, ok := seenPaths[decryptedPath.String()]
+			require.False(t, ok)
+
+			seenPaths[decryptedPath.String()] = struct{}{}
 		}
 	})
 }
