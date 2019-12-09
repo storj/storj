@@ -188,17 +188,17 @@ void handle_project(ProjectRef project) {
         }
 
         { // download range
-            long start = 100;
-            long limit = 1024 * 4;
+            long start = 100 + (i+1);
+            long limit = 1024 * (i+1);
             DownloaderRef downloader = download_range(bucket, object_paths[i], start, limit, err);
             require_noerror(*err);
 
-            uint8_t *downloaded_data = malloc(data_len);
-            memset(downloaded_data, '\0', data_len);
+            uint8_t *downloaded_data = malloc(limit);
+            memset(downloaded_data, '\0', limit);
             size_t downloaded_total = 0;
 
             size_t size_to_read = 256 + i;
-            while (downloaded_total < data_len) {
+            while (downloaded_total < limit) {
                 size_t read_size = download_read(downloader, &downloaded_data[downloaded_total], size_to_read, err);
                 require_noerror(*err);
 
