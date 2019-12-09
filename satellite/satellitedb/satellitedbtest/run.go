@@ -142,7 +142,6 @@ func CreatePointerDB(t testing.TB, category string, index int, dbInfo Database) 
 	if err != nil {
 		return nil, err
 	}
-	tempDB.ConnStr = strings.Replace(tempDB.ConnStr, "postgres", "cockroach", 1)
 	return CreatePointerDBOnTopOf(log.Named("pointerdb"), tempDB)
 }
 
