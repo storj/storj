@@ -14,12 +14,24 @@ trap cleanup EXIT
 
 # TODO make sure the number of storagenode versions matches the number of sns from setup
 
-stage1_sat_version="$1"
-stage1_uplink_versions="$2"
-stage1_storagenode_versions="$3"
-stage2_sat_version="$4"
-stage2_uplink_versions="$5"
-stage2_storagenode_versions="$6"
+populates_sno_versions(){
+    local version=$1
+    local number_of_nodes=$2
+    seq $number_of_nodes | xargs -n1 -I{} echo $version
+}
+
+# set peers' versions
+# in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
+# in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are splited into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
+currentReleaseVersion=$(git describe --tags `git rev-list --tags --max-count=1`)
+majorReleaseTags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
+stage1_sat_version=$currentReleaseVersion
+stage1_uplink_versions=$majorReleaseTags
+stage1_storagenode_versions=$(populates_sno_versions $currentReleaseVersion 10)
+# TODO separate satellite version into satellite api version and satellite core verion
+stage2_sat_version="master"
+stage2_uplink_versions=$majorReleaseTags\ "master"
+stage2_storagenode_versions=$(populates_sno_versions $currentReleaseVersion 5)\ $(populates_sno_versions "master" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_versions" $stage1_uplink_versions
@@ -44,6 +56,7 @@ replace_in_file(){
     local path=$3
     sed -i '' "s#${src}#${dest}#g" "${path}"
 }
+
 
 setup_stage(){
     local test_dir=$1
@@ -107,7 +120,7 @@ for version in ${unique_versions}; do
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
     git worktree add -f ${dir} ${version}
-    rm ${dir}/internal/version/release.go
+    rm -f ${dir}/private/version/release.go || rm ${dir}/internal/version/release.go
     echo "Installing storj-sim for ${version} in ${dir}."
     GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
     echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
