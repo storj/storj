@@ -143,7 +143,7 @@ func pgMigrateTest(t *testing.T, connStr string) {
 	require.NoError(t, err)
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(connStr, "migrate-")
+	tempDB, err := tempdb.OpenUnique(connStr, "migrate")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
