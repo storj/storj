@@ -276,7 +276,8 @@ CREATE TABLE user_credits
     created_at              timestamp with time zone NOT NULL,
     PRIMARY KEY (id)
 );
-CREATE TABLE graceful_exit_progress (
+CREATE TABLE graceful_exit_progress
+(
     node_id             bytea                    NOT NULL,
     bytes_transferred   bigint                   NOT NULL,
     pieces_transferred  bigint                   NOT NULL,
@@ -284,7 +285,8 @@ CREATE TABLE graceful_exit_progress (
     updated_at          timestamp                NOT NULL,
     PRIMARY KEY ( node_id )
 );
-CREATE TABLE graceful_exit_transfer_queue (
+CREATE TABLE graceful_exit_transfer_queue
+(
     node_id            bytea                    NOT NULL,
     path               bytea                    NOT NULL,
     piece_num          integer                  NOT NULL,
@@ -299,14 +301,16 @@ CREATE TABLE graceful_exit_transfer_queue (
     order_limit_send_count integer NOT NULL,
     PRIMARY KEY ( node_id, path, piece_num )
 );
-CREATE TABLE stripe_customers (
+CREATE TABLE stripe_customers
+(
     user_id bytea NOT NULL,
     customer_id text NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( user_id ),
     UNIQUE ( customer_id )
 );
-CREATE TABLE coinpayments_transactions (
+CREATE TABLE coinpayments_transactions
+(
     id text NOT NULL,
     user_id bytea NOT NULL,
     address text NOT NULL,
@@ -318,13 +322,15 @@ CREATE TABLE coinpayments_transactions (
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( id )
 );
-CREATE TABLE stripecoinpayments_apply_balance_intents (
+CREATE TABLE stripecoinpayments_apply_balance_intents
+(
     tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
     state integer NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( tx_id )
 );
-CREATE TABLE stripecoinpayments_invoice_project_records (
+CREATE TABLE stripecoinpayments_invoice_project_records
+(
     id bytea NOT NULL,
     project_id bytea NOT NULL,
     storage double precision NOT NULL,
@@ -337,19 +343,43 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
     PRIMARY KEY ( id ),
     UNIQUE ( project_id, period_start, period_end )
 );
-CREATE TABLE stripecoinpayments_tx_conversion_rates (
+CREATE TABLE stripecoinpayments_tx_conversion_rates
+(
     tx_id text NOT NULL,
     rate bytea NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( tx_id )
 );
-CREATE TABLE project_limits (
+CREATE TABLE project_limits
+(
     project_id bytea NOT NULL,
     usage_limit bigint NOT NULL,
     limit_type integer NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( project_id, limit_type )
 );
+CREATE TABLE coupons
+(
+    id bytea NOT NULL,
+    project_id bytea NOT NULL,
+    user_id bytea NOT NULL,
+    amount bigint NOT NULL,
+    description text NOT NULL,
+    status integer NOT NULL,
+    duration bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id ),
+    UNIQUE ( project_id )
+);
+CREATE TABLE coupon_usages
+(
+    id bytea NOT NULL,
+    coupon_id bytea NOT NULL,
+    amount bigint NOT NULL,
+    interval_end timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id )
+);
+
 
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 
@@ -366,11 +396,11 @@ INSERT INTO "accounting_timestamps" VALUES ('LastAtRestTally', '0001-01-01 00:00
 INSERT INTO "accounting_timestamps" VALUES ('LastRollup', '0001-01-01 00:00:00+00');
 INSERT INTO "accounting_timestamps" VALUES ('LastBandwidthTally', '0001-01-01 00:00:00+00');
 
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 5, 100, 5, false);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 0, 100, 5, false);
 INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '127.0.0.1:55518', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 3, 3, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 0, 100, 0, false);
 INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014', '127.0.0.1:55517', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 0, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 0, 100, 0, false);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\015', '127.0.0.1:55519', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 1, 2, 1, 2, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 1, 100, 1, false);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55520', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 300, 400, 300, 400, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 300, 100, 300, 100, false);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\015', '127.0.0.1:55519', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 1, 2, 1, 2, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 50, 0, 100, 1, false);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_bandwidth", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "audit_reputation_alpha", "audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55520', '', 0, 4, '', '', -1, -1, 0, 0, 1, 0, '', 'epoch', false, 0, 300, 400, 300, 400, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, 300, 0, 300, 100, false);
 
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "partner_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'Noahson', 'William', '1email1@mail.test', '1EMAIL1@MAIL.TEST', E'some_readable_hash'::bytea, 1, NULL, '2019-02-14 08:28:24.614594+00');
 INSERT INTO "projects"("id", "name", "description", "partner_id", "owner_id", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 'ProjectName', 'projects description', NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.254934+00');
@@ -436,6 +466,9 @@ INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate", "created_
 INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "received", "status", "key", "timeout", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 1, 'key', 60, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
--- NEW DATA --
 INSERT INTO "project_limits" ("project_id", "limit_type", "usage_limit", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 0, 10, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "project_limits" ("project_id", "limit_type", "usage_limit", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 1, 20, '2019-06-01 08:28:24.267934+00');
+
+INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 111111111121, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coupon_usages" ("id", "coupon_id", "amount", "interval_end") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, '2019-06-01 09:28:24.267934+00');
+-- NEW DATA --

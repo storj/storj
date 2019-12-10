@@ -25,7 +25,33 @@ int main(int argc, char *argv[])
         requiref(strcmp(scopeSerialized, scopeStr) == 0,
                  "got invalid serialized %s expected %s\n", scopeSerialized, scopeStr);
 
+        char *satelliteAddres = get_scope_satellite_address(scope, err);
+        require_noerror(*err);
+        require(satelliteAddres != NULL);
+        require(strcmp(satelliteAddres, "") !=0);
+        
+        APIKeyRef apikey = get_scope_api_key(scope, err);
+        require_noerror(*err);
+        requiref(apikey._handle != 0, "got empty api key\n");
+        
+        EncryptionAccessRef ea = get_scope_enc_access(scope, err);
+        require_noerror(*err);
+        requiref(ea._handle != 0, "got empty encryption access\n");
+        
+        ScopeRef newScope = new_scope(satelliteAddres, apikey, ea, err);
+        require_noerror(*err);
+        requiref(newScope._handle != 0, "got empty scope\n");
+
+        char *newScopeSerialized = serialize_scope(newScope, err);
+        require_noerror(*err);
+
+        requiref(strcmp(newScopeSerialized, scopeStr) == 0,
+                 "got invalid serialized %s expected %s\n", newScopeSerialized, scopeStr);
+
         free_scope(scope);
+        free_scope(newScope);
+        free_api_key(apikey);
+        free_encryption_access(ea);
     }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
