@@ -19,11 +19,16 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-const lastSegment = int(-1)
+const (
+	maxNumOfSegments = 64
+	lastSegment      = int(-1)
+)
 
 // object represents object with segments.
 type object struct {
-	// TODO verify if we have more than 64 segments for object in network
+	// TODO verify if we have more than 65 segments for object in network.
+	// 65 because the observer tracks in the bitmask all the segments execept the
+	//  last one (the 'l' segment)
 	segments bitmask
 
 	expectedNumberOfSegments byte
@@ -94,6 +99,17 @@ func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, poi
 	return nil
 }
 
+// processSegment aggregates, in the observer internal state, the objects that
+// belong the same project, tracking their segments indexes and aggregated
+// information of them for calling analyzeProject method, before a new project
+// list of object segments list starts and the internal status is reset.
+//
+// It also aggregates some stats about all the segments independently of the
+// object to which belong.
+//
+// NOTE it's expected that this method is called continually for the objects
+// which belong to a same project before calling it with objects of another
+// project.
 func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	if obsvr.lastProjectID != "" && obsvr.lastProjectID != path.ProjectIDString {
 		err := obsvr.analyzeProject(ctx)
@@ -119,7 +135,9 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 
 		if streamMeta.NumberOfSegments > 0 {
-			if streamMeta.NumberOfSegments > int64(maxNumOfSegments) {
+			// We can support the size of the bitmask + 1 because the last segment
+			// ins't tracked in it.
+			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
 				object.skip = true
 				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
 			}
@@ -133,20 +151,20 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		if segmentIndex >= int(maxNumOfSegments) {
 			object.skip = true
 			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
-		}
+		} else {
+			ok, err := object.segments.Has(segmentIndex)
+			if err != nil {
+				return err
+			}
+			if ok {
+				// TODO make path displayable
+				return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+			}
 
-		ok, err := object.segments.Has(segmentIndex)
-		if err != nil {
-			return err
-		}
-		if ok {
-			// TODO make path displayable
-			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
-		}
-
-		err = object.segments.Set(segmentIndex)
-		if err != nil {
-			return err
+			err = object.segments.Set(segmentIndex)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
