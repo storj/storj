@@ -6,6 +6,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/csv"
 	"fmt"
 	"math"
 	"math/rand"
@@ -19,6 +21,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -601,5 +604,47 @@ func assertObserver(t *testing.T, obsvr *observer, testdata testdataObjects) {
 				}
 			}
 		}
+	}
+}
+
+func TestObserver_processSegment_switch_project(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// need bolddb to have DB with concurrent access support
+	db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	buffer := new(bytes.Buffer)
+	writer := csv.NewWriter(buffer)
+	defer ctx.Check(writer.Error)
+
+	observer, err := newObserver(db, writer, nil, nil)
+	require.NoError(t, err)
+
+	// project IDs are pregenerated to avoid issues with iteration order
+	now := time.Now()
+	project1 := "7176d6a8-3a83-7ae7-e084-5fdbb1a17ac1"
+	project2 := "890dd9f9-6461-eb1b-c3d1-73af7252b9a4"
+
+	// zombie segment for project 1
+	_, err = makeSegment(ctx, db, storj.JoinPaths(project1, "s0", "bucket1", "path1"), now)
+	require.NoError(t, err)
+
+	// zombie segment for project 2
+	_, err = makeSegment(ctx, db, storj.JoinPaths(project2, "s0", "bucket1", "path1"), now)
+	require.NoError(t, err)
+
+	err = observer.detectZombieSegments(ctx)
+	require.NoError(t, err)
+
+	writer.Flush()
+
+	result := buffer.String()
+	for _, projectID := range []string{project1, project2} {
+		encodedPath := base64.StdEncoding.EncodeToString([]byte("path1"))
+		pathPrefix := strings.Join([]string{projectID, "s0", "bucket1", encodedPath, now.UTC().Format(time.RFC3339Nano)}, ",")
+		assert.Containsf(t, result, pathPrefix, "entry for projectID %s not found: %s", projectID)
 	}
 }
