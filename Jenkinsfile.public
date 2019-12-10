@@ -117,7 +117,7 @@ pipeline {
                     }
                 }
 
-                stage('Integration Cockroach') {
+                stage('Cockroach Integration') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
@@ -127,7 +127,7 @@ pipeline {
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        sh 'make test-sim'
+                        // sh 'make test-sim'
                     }
                 }
 
