@@ -50,7 +50,6 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities      *testidentity.Identities
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
 
@@ -152,15 +151,17 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		version := storj.LatestIDVersion()
 		config.IdentityVersion = &version
 	}
-	if config.Identities == nil {
-		config.Identities = testidentity.NewPregeneratedSignedIdentities(*config.IdentityVersion)
-	}
 
 	planet := &Planet{
-		log:        log,
-		id:         config.Name + "/" + pgutil.CreateRandomTestingSchemaName(6),
-		config:     config,
-		identities: config.Identities,
+		log:    log,
+		id:     config.Name + "/" + pgutil.CreateRandomTestingSchemaName(6),
+		config: config,
+	}
+
+	if config.Reconfigure.Identities != nil {
+		planet.identities = config.Reconfigure.Identities(log, *config.IdentityVersion)
+	} else {
+		planet.identities = testidentity.NewPregeneratedSignedIdentities(*config.IdentityVersion)
 	}
 
 	var err error

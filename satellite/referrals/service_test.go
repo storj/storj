@@ -19,12 +19,12 @@ import (
 )
 
 func TestServiceSuccess(t *testing.T) {
-	endpoint := &endpointHappyPath{}
 	tokenCount := 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+				endpoint := &endpointHappyPath{}
 				endpoint.SetTokenCount(tokenCount)
 				return endpoint
 			},
@@ -55,11 +55,11 @@ func TestServiceSuccess(t *testing.T) {
 }
 
 func TestServiceRedeemFailure(t *testing.T) {
-	endpoint := &endpointFailedPath{}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+				endpoint := &endpointFailedPath{}
 				endpoint.SetTokenCount(2)
 				return endpoint
 			},

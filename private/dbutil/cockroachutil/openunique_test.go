@@ -56,13 +56,19 @@ func TestTempCockroachDB(t *testing.T) {
 	require.NoError(t, err)
 	require.Equalf(t, 1, count, "Expected 1 DB with matching name, but counted %d", count)
 
-	// close testDB but leave otherConn open
+	// close testDB
 	err = testDB.Close()
 	require.NoError(t, err)
 
+	// make a new connection back to the master connstr just to check that the our temp db
+	// really was dropped
+	plainDBConn, err := sql.Open("cockroach", *pgtest.CrdbConnStr)
+	require.NoError(t, err)
+	defer ctx.Check(plainDBConn.Close)
+
 	// assert new test db was deleted (we expect this connection to keep working, even though its
 	// database was deleted out from under it!)
-	row = otherConn.QueryRow(`SELECT COUNT(*) FROM pg_database WHERE datname = current_database()`)
+	row = plainDBConn.QueryRow(`SELECT COUNT(*) FROM pg_database WHERE datname = $1`, dbName)
 	err = row.Scan(&count)
 	require.NoError(t, err)
 	require.Equalf(t, 0, count, "Expected 0 DB with matching name, but counted %d (deletion failure?)", count)

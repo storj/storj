@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/lib/pq"
@@ -97,21 +96,10 @@ func newData(snap *dbschema.Snapshot) string {
 	return tokens[1]
 }
 
-var (
-	dbxschema struct {
-		sync.Once
-		*dbschema.Schema
-		err error
-	}
-)
-
 // loadDBXSChema loads dbxscript schema only once and caches it,
 // it shouldn't change during the test
 func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
-	dbxschema.Do(func() {
-		dbxschema.Schema, dbxschema.err = loadSchemaFromSQL(connstr, dbxscript)
-	})
-	return dbxschema.Schema, dbxschema.err
+	return loadSchemaFromSQL(connstr, dbxscript)
 }
 
 // loadSchemaFromSQL inserts script into connstr and loads schema.
