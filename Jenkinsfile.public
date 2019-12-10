@@ -92,6 +92,7 @@ pipeline {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
+                        AWS_PROFILE = 'postgres'
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
                     }
@@ -121,6 +122,7 @@ pipeline {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
+                        AWS_PROFILE = 'cockroach'
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
                     }
