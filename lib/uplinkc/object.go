@@ -278,6 +278,31 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 	})}
 }
 
+//export download_range
+// download_range returns an Object's data from specified range
+func download_range(bucketRef C.BucketRef, path *C.char, start, limit int64, cErr **C.char) C.DownloaderRef {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return C.DownloaderRef{}
+	}
+
+	scope := bucket.scope.child()
+
+	rc, err := bucket.DownloadRange(scope.ctx, C.GoString(path), start, limit)
+	if err != nil {
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return C.DownloaderRef{}
+	}
+
+	return C.DownloaderRef{universe.Add(&Download{
+		scope: scope,
+		rc:    rc,
+	})}
+}
+
 //export download_read
 // download_read reads data upto `length` bytes into `bytes` buffer and returns
 // the count of bytes read. The exact number of bytes returned depends on different
