@@ -10,7 +10,6 @@
 
 2. Move `s3-benchmark` to a separate repository.
 2. Move `gateway` to a separate repository. We don't want miniogw as a `go.mod` dependency in `uplink`.
-2. Move `linksharing` to a separate repository.
 
 5. Move `cmd/internal/wizard` into `uplink/wizard` (or `private/wizard`), maybe just later.
 
