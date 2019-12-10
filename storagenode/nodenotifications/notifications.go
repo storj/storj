@@ -26,8 +26,8 @@ type DB interface {
 type NotificationType int
 
 const (
-	// TODO: change type name when all notification types will be known
 	// NotificationTypeCustom is a common notification type which doesn't describe node's core functionality.
+	// TODO: change type name when all notification types will be known
 	NotificationTypeCustom NotificationType = 0
 	// NotificationTypeAuditCheckFailure is a notification type which describes node's audit check failure.
 	NotificationTypeAuditCheckFailure NotificationType = 1
