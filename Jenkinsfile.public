@@ -119,14 +119,14 @@ pipeline {
 
                 stage('Integration Cockroach') {
                     environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+                        STORJ_NETWORK_HOST4 = '127.0.0.4'
+                        STORJ_NETWORK_HOST6 = '127.0.0.4'
 
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
                     }
 
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
                         sh 'make test-sim'
                     }
                 }

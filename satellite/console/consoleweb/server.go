@@ -561,7 +561,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
-		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+		server.log.Error("dist folder is not generated. use 'npm run build' command")
 	}
 
 	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
