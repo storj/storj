@@ -158,10 +158,8 @@ type ProjectAccounting interface {
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
-	// UpdateProjectStorageLimit updates project storage usage limit.
-	UpdateProjectStorageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
-	// UpdateProjectBandwidthLimit updates project bandwidth usage limit.
-	UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
+	// UpdateProjectUsageLimit updates project usage limit.
+	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
 	// GetProjectStorageLimit returns project storage usage limit.
 	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 	// GetProjectBandwidthLimit returns project bandwidth usage limit.
