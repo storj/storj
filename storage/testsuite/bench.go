@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -39,7 +40,9 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		}
 	}
 
-	defer cleanupItems(store, items)
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	defer cleanupItems(b, ctx, store, items)
 
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))

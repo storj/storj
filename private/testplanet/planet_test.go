@@ -18,48 +18,41 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	test := func(version storj.IDVersion) {
-		planet, err := testplanet.NewWithIdentityVersion(t, &version, 2, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-
-		planet.Start(ctx)
-
-		for _, satellite := range planet.Satellites {
-			t.Log("SATELLITE", satellite.ID(), satellite.Addr())
-		}
-		for _, storageNode := range planet.StorageNodes {
-			t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
-		}
-		for _, uplink := range planet.Uplinks {
-			t.Log("UPLINK", uplink.ID(), uplink.Addr())
-		}
-
-		for _, sat := range planet.Satellites {
-			satellite := sat.Local().Node
-			for _, sn := range planet.StorageNodes {
-				node := sn.Local()
-				conn, err := sn.Dialer.DialNode(ctx, &satellite)
-				require.NoError(t, err)
-				defer ctx.Check(conn.Close)
-				_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
-					Address:  node.GetAddress().GetAddress(),
-					Version:  &node.Version,
-					Capacity: &node.Capacity,
-					Operator: &node.Operator,
-				})
-				require.NoError(t, err)
-			}
-		}
-		// wait a bit to see whether some failures occur
-		time.Sleep(time.Second)
-	}
-
 	for _, version := range storj.IDVersions {
-		test(version)
+		version := version
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 2, StorageNodeCount: 4, UplinkCount: 1,
+			IdentityVersion: &version,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, satellite := range planet.Satellites {
+				t.Log("SATELLITE", satellite.ID(), satellite.Addr())
+			}
+			for _, storageNode := range planet.StorageNodes {
+				t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
+			}
+			for _, uplink := range planet.Uplinks {
+				t.Log("UPLINK", uplink.ID(), uplink.Addr())
+			}
+
+			for _, sat := range planet.Satellites {
+				satellite := sat.Local().Node
+				for _, sn := range planet.StorageNodes {
+					node := sn.Local()
+					conn, err := sn.Dialer.DialNode(ctx, &satellite)
+					require.NoError(t, err)
+					defer ctx.Check(conn.Close)
+					_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
+						Address:  node.GetAddress().GetAddress(),
+						Version:  &node.Version,
+						Capacity: &node.Capacity,
+						Operator: &node.Operator,
+					})
+					require.NoError(t, err)
+				}
+			}
+			// wait a bit to see whether some failures occur
+			time.Sleep(time.Second)
+		})
 	}
 }
 

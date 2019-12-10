@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
 )
@@ -401,7 +400,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	// TODO refactor to use []byte directly
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1300,7 +1299,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 			pointer, err = endpoint.metainfo.Get(ctx, path)
 			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
+				if storj.ErrObjectNotFound.Has(err) {
 					break
 				}
 
@@ -1864,7 +1863,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1939,7 +1938,7 @@ func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uu
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
+			if storj.ErrObjectNotFound.Has(err) {
 				break
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2097,7 +2096,7 @@ func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, s
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, "", rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, "", rpcstatus.Error(rpcstatus.Internal, err.Error())
