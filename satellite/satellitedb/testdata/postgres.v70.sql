@@ -277,7 +277,8 @@ CREATE TABLE user_credits
     created_at              timestamp with time zone NOT NULL,
     PRIMARY KEY (id)
 );
-CREATE TABLE graceful_exit_progress (
+CREATE TABLE graceful_exit_progress
+(
     node_id             bytea                    NOT NULL,
     bytes_transferred   bigint                   NOT NULL,
     pieces_transferred  bigint                   NOT NULL,
@@ -285,7 +286,8 @@ CREATE TABLE graceful_exit_progress (
     updated_at          timestamp                NOT NULL,
     PRIMARY KEY ( node_id )
 );
-CREATE TABLE graceful_exit_transfer_queue (
+CREATE TABLE graceful_exit_transfer_queue
+(
     node_id            bytea                    NOT NULL,
     path               bytea                    NOT NULL,
     piece_num          integer                  NOT NULL,
@@ -300,14 +302,16 @@ CREATE TABLE graceful_exit_transfer_queue (
     order_limit_send_count integer NOT NULL,
     PRIMARY KEY ( node_id, path, piece_num )
 );
-CREATE TABLE stripe_customers (
+CREATE TABLE stripe_customers
+(
     user_id bytea NOT NULL,
     customer_id text NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( user_id ),
     UNIQUE ( customer_id )
 );
-CREATE TABLE coinpayments_transactions (
+CREATE TABLE coinpayments_transactions
+(
     id text NOT NULL,
     user_id bytea NOT NULL,
     address text NOT NULL,
@@ -319,13 +323,15 @@ CREATE TABLE coinpayments_transactions (
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( id )
 );
-CREATE TABLE stripecoinpayments_apply_balance_intents (
+CREATE TABLE stripecoinpayments_apply_balance_intents
+(
     tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
     state integer NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( tx_id )
 );
-CREATE TABLE stripecoinpayments_invoice_project_records (
+CREATE TABLE stripecoinpayments_invoice_project_records
+(
     id bytea NOT NULL,
     project_id bytea NOT NULL,
     storage double precision NOT NULL,
@@ -338,19 +344,35 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
     PRIMARY KEY ( id ),
     UNIQUE ( project_id, period_start, period_end )
 );
-CREATE TABLE stripecoinpayments_tx_conversion_rates (
+CREATE TABLE stripecoinpayments_tx_conversion_rates
+(
     tx_id text NOT NULL,
     rate bytea NOT NULL,
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( tx_id )
 );
-CREATE TABLE project_limits (
+CREATE TABLE coupons
+(
+    id bytea NOT NULL,
     project_id bytea NOT NULL,
-    usage_limit bigint NOT NULL,
-    limit_type integer NOT NULL,
+    user_id bytea NOT NULL,
+    amount bigint NOT NULL,
+    description text NOT NULL,
+    status integer NOT NULL,
+    duration bigint NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY ( project_id, limit_type )
+    PRIMARY KEY ( id ),
+    UNIQUE ( project_id )
 );
+CREATE TABLE coupon_usages
+(
+    id bytea NOT NULL,
+    coupon_id bytea NOT NULL,
+    amount bigint NOT NULL,
+    interval_end timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id )
+);
+
 
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 
@@ -438,5 +460,5 @@ INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
 -- NEW DATA --
-INSERT INTO "project_limits" ("project_id", "limit_type", "usage_limit", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 0, 10, '2019-06-01 08:28:24.267934+00');
-INSERT INTO "project_limits" ("project_id", "limit_type", "usage_limit", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 1, 20, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 111111111121, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coupon_usages" ("id", "coupon_id", "amount", "interval_end") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, '2019-06-01 09:28:24.267934+00');
