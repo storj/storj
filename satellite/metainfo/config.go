@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/private/memory"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/cockroachkv"
 	"storj.io/storj/storage/postgreskv"
 )
 
@@ -54,18 +55,20 @@ type PointerDB interface {
 
 // NewStore returns database for storing pointer data
 func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
-	driver, source, _, err := dbutil.SplitConnStr(dbURLString)
+	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {
 		return nil, err
 	}
 
-	switch driver {
-	case "bolt":
+	switch implementation {
+	case dbutil.Bolt:
 		db, err = boltdb.New(source, BoltPointerBucket)
-	case "postgresql", "postgres":
+	case dbutil.Postgres:
 		db, err = postgreskv.New(source)
+	case dbutil.Cockroach:
+		db, err = cockroachkv.New(source)
 	default:
-		err = Error.New("unsupported db scheme: %s", driver)
+		err = Error.New("unsupported db implementation: %s", dbURLString)
 	}
 
 	if err != nil {

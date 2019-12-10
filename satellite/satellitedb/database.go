@@ -68,19 +68,9 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-// CreateSchema creates a schema if it doesn't exist.
-func (db *DB) CreateSchema(schema string) error {
-	return pgutil.CreateSchema(db.db, schema)
-}
-
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
-
-// DropSchema drops the named schema
-func (db *DB) DropSchema(schema string) error {
-	return pgutil.DropSchema(db.db, schema)
-}
 
 // PeerIdentities returns a storage for peer identities
 func (db *DB) PeerIdentities() overlay.PeerIdentities {
