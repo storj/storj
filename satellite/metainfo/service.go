@@ -71,6 +71,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		// read the pointer
 		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 
@@ -154,6 +157,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			continue
 		}
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 		return pointer, nil
