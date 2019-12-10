@@ -9,6 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -97,7 +98,7 @@ func resetPasswordTokenFromDBX(ctx context.Context, resetToken *dbx.ResetPasswor
 	}
 
 	if resetToken.OwnerId != nil {
-		ownerID, err := bytesToUUID(resetToken.OwnerId)
+		ownerID, err := dbutil.BytesToUUID(resetToken.OwnerId)
 		if err != nil {
 			return nil, err
 		}

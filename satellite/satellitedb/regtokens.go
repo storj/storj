@@ -9,6 +9,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -96,7 +97,7 @@ func registrationTokenFromDBX(ctx context.Context, regToken *dbx.RegistrationTok
 	}
 
 	if regToken.OwnerId != nil {
-		ownerID, err := bytesToUUID(regToken.OwnerId)
+		ownerID, err := dbutil.BytesToUUID(regToken.OwnerId)
 		if err != nil {
 			return nil, err
 		}

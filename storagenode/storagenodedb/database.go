@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/storagenode/nodenotifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -335,7 +335,7 @@ func (db *DB) Satellites() satellites.DB {
 }
 
 // Notifications returns the instance of the Notifications database.
-func (db *DB) Notifications() notifications.DB {
+func (db *DB) Notifications() nodenotifications.DB {
 	return db.notificationsDB
 }
 

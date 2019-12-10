@@ -1,15 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb
+package dbutil
 
 import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 )
 
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
+// BytesToUUID is used to convert []byte to UUID.
+func BytesToUUID(data []byte) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	copy(id[:], data)

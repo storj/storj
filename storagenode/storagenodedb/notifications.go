@@ -10,11 +10,12 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/storagenode/nodenotifications"
 )
 
 // ensures that notificationDB implements notifications.Notifications interface.
-var _ notifications.DB = (*notificationDB)(nil)
+var _ nodenotifications.DB = (*notificationDB)(nil)
 
 // NotificationsDBName represents the database name.
 const NotificationsDBName = "notifications"
@@ -30,12 +31,12 @@ type notificationDB struct {
 }
 
 // Insert puts new notification to database.
-func (db *notificationDB) Insert(ctx context.Context, notification notifications.NewNotification) (_ notifications.Notification, err error) {
+func (db *notificationDB) Insert(ctx context.Context, notification nodenotifications.NewNotification) (_ nodenotifications.Notification, err error) {
 	defer mon.Task()(&ctx, notification)(&err)
 
 	id, err := uuid.New()
 	if err != nil {
-		return notifications.Notification{}, err
+		return nodenotifications.Notification{}, err
 	}
 
 	createdAt := time.Now().UTC()
@@ -49,10 +50,10 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 
 	_, err = db.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, createdAt)
 	if err != nil {
-		return notifications.Notification{}, ErrNotificationsDB.Wrap(err)
+		return nodenotifications.Notification{}, ErrNotificationsDB.Wrap(err)
 	}
 
-	return notifications.Notification{
+	return nodenotifications.Notification{
 		ID:        *id,
 		SenderID:  notification.SenderID,
 		Type:      notification.Type,
@@ -64,7 +65,7 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 }
 
 // List returns listed page of notifications from database.
-func (db *notificationDB) List(ctx context.Context, cursor notifications.NotificationCursor) (_ notifications.NotificationPage, err error) {
+func (db *notificationDB) List(ctx context.Context, cursor nodenotifications.NotificationCursor) (_ nodenotifications.NotificationPage, err error) {
 	defer mon.Task()(&ctx, cursor)(&err)
 
 	if cursor.Limit > 50 {
@@ -72,10 +73,10 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 	}
 
 	if cursor.Page == 0 {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page can not be 0"))
+		return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page can not be 0"))
 	}
 
-	page := notifications.NotificationPage{
+	page := nodenotifications.NotificationPage{
 		Limit:  cursor.Limit,
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
@@ -91,13 +92,13 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+		return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
 	}
 	if page.TotalCount == 0 {
 		return page, nil
 	}
 	if page.Offset > page.TotalCount-1 {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page is out of range"))
+		return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page is out of range"))
 	}
 
 	query := `
@@ -110,7 +111,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 
 	rows, err := db.QueryContext(ctx, query, page.Limit, page.Offset)
 	if err != nil {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+		return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
 	}
 
 	defer func() {
@@ -118,7 +119,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 	}()
 
 	for rows.Next() {
-		notification := notifications.Notification{}
+		notification := nodenotifications.Notification{}
 		var notificationIDBytes []uint8
 		var notificationID uuid.UUID
 
@@ -132,13 +133,13 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 			&notification.CreatedAt,
 		)
 		if err != nil {
-			return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+			return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
 		}
 
 		if notificationIDBytes != nil {
-			notificationID, err = bytesToUUID(notificationIDBytes)
+			notificationID, err = dbutil.BytesToUUID(notificationIDBytes)
 			if err != nil {
-				return notifications.NotificationPage{}, err
+				return nodenotifications.NotificationPage{}, err
 			}
 		}
 
@@ -155,7 +156,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 	page.CurrentPage = cursor.Page
 
 	if err = rows.Err(); err != nil {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+		return nodenotifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
 	}
 
 	return page, nil

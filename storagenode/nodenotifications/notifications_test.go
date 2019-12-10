@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package notifications_test
+package nodenotifications_test
 
 import (
 	"testing"
@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/private/testidentity"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/storagenode/nodenotifications"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -29,26 +29,26 @@ func TestNotificationsDB(t *testing.T) {
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
 		satellite2 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion()).ID
 
-		expectedNotification0 := notifications.NewNotification{
+		expectedNotification0 := nodenotifications.NewNotification{
 			SenderID: satellite0,
 			Type:     0,
 			Title:    "testTitle0",
 			Message:  "testMessage0",
 		}
-		expectedNotification1 := notifications.NewNotification{
+		expectedNotification1 := nodenotifications.NewNotification{
 			SenderID: satellite1,
 			Type:     1,
 			Title:    "testTitle1",
 			Message:  "testMessage1",
 		}
-		expectedNotification2 := notifications.NewNotification{
+		expectedNotification2 := nodenotifications.NewNotification{
 			SenderID: satellite2,
 			Type:     2,
 			Title:    "testTitle2",
 			Message:  "testMessage2",
 		}
 
-		notificationCursor := notifications.NotificationCursor{
+		notificationCursor := nodenotifications.NotificationCursor{
 			Limit: 2,
 			Page:  1,
 		}
@@ -74,7 +74,7 @@ func TestNotificationsDB(t *testing.T) {
 		assert.Equal(t, expectedNotification2.Title, notificationFromDB2.Title)
 		assert.Equal(t, expectedNotification2.Message, notificationFromDB2.Message)
 
-		page := notifications.NotificationPage{}
+		page := nodenotifications.NotificationPage{}
 
 		// test List method to return right form of page depending on cursor.
 		t.Run("test paged list", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestNotificationsDB(t *testing.T) {
 			assert.Equal(t, uint(1), page.CurrentPage)
 		})
 
-		notificationCursor = notifications.NotificationCursor{
+		notificationCursor = nodenotifications.NotificationCursor{
 			Limit: 5,
 			Page:  1,
 		}
@@ -135,7 +135,7 @@ func TestEmptyNotificationsDB(t *testing.T) {
 
 		notificationsdb := db.Notifications()
 
-		notificationCursor := notifications.NotificationCursor{
+		notificationCursor := nodenotifications.NotificationCursor{
 			Limit: 5,
 			Page:  1,
 		}

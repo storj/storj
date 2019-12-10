@@ -36,8 +36,8 @@ import (
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodenotifications"
 	"storj.io/storj/storagenode/nodestats"
-	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -72,7 +72,7 @@ type DB interface {
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
-	Notifications() notifications.DB
+	Notifications() nodenotifications.DB
 }
 
 // Config is all the configuration parameters for a Storage Node

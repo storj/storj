@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package notifications
+package nodenotifications
 
 import (
 	"context"
@@ -26,6 +26,7 @@ type DB interface {
 type NotificationType int
 
 const (
+	// TODO: change type name when all notification types will be known
 	// NotificationTypeCustom is a common notification type which doesn't describe node's core functionality.
 	NotificationTypeCustom NotificationType = 0
 	// NotificationTypeAuditCheckFailure is a notification type which describes node's audit check failure.

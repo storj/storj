@@ -10,9 +10,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
@@ -185,7 +185,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
 	for _, r := range results {
-		projectID, _ := bytesToUUID(r.ProjectID)
+		projectID, _ := dbutil.BytesToUUID(r.ProjectID)
 		// The query returns results by partnerID, so we need to filter out by projectID
 		if projectID != testData.projectID {
 			continue
@@ -252,16 +252,4 @@ func createTallyData(ctx *testcontext.Context, projectAccoutingDB accounting.Pro
 		return accounting.BucketStorageTally{}, err
 	}
 	return tally, nil
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }
