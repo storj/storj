@@ -54,7 +54,7 @@ func NewDBFromCfg(config DBConfig) (*DB, error) {
 
 // NewDB creates and/or opens the authorization database.
 func NewDB(dbURL string, overwrite bool) (*DB, error) {
-	driver, source, err := dbutil.SplitConnstr(dbURL)
+	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}

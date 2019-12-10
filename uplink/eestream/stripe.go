@@ -116,6 +116,7 @@ func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ [
 		}
 	}
 	// could not read enough shares to attempt a decode
+	mon.Meter("download_stripe_failed_not_enough_pieces_uplink").Mark(1) //locked
 	return nil, r.combineErrs(num)
 }
 

@@ -62,7 +62,7 @@ const (
 						va.partner_id, 
 						bst.project_id, 
 						bst.bucket_name, 
-						hours 
+						date_trunc('hour', bst.interval_start) 
 					ORDER BY 
 						max_interval DESC
 				) bsti 
@@ -83,7 +83,7 @@ const (
 				bbr.bucket_name as bucket_name, 
 				0 as remote, 
 				0 as inline, 
-				SUM(settled) as settled, 
+				SUM(settled)::integer as settled, 
 				NULL as hours 
 			FROM 
 				bucket_bandwidth_rollups bbr 

@@ -50,6 +50,7 @@ storj.io/storj/satellite/gracefulexit."graceful_exit_success" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_successful_pieces_transfer_ratio" IntVal
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_fail" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_success" Meter
+storj.io/storj/satellite/orders."download_failed_not_enough_pieces_uplink" Meter
 storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
@@ -59,6 +60,7 @@ storj.io/storj/satellite/repair/checker."remote_files_lost" IntVal
 storj.io/storj/satellite/repair/checker."remote_segments_checked" IntVal
 storj.io/storj/satellite/repair/checker."remote_segments_lost" IntVal
 storj.io/storj/satellite/repair/checker."remote_segments_needing_repair" IntVal
+storj.io/storj/satellite/repair/repairer."download_failed_not_enough_pieces_repair" Meter
 storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
 storj.io/storj/storage/filestore."open_file_in_trash" Meter
@@ -66,3 +68,4 @@ storj.io/storj/storagenode/contact."satellite_contact_request" Meter
 storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter
 storj.io/storj/storagenode/monitor."allocated_bandwidth" IntVal
 storj.io/storj/storagenode/monitor."used_bandwidth" IntVal
+storj.io/storj/uplink/eestream."download_stripe_failed_not_enough_pieces_uplink" Meter

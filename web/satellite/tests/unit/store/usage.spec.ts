@@ -42,8 +42,12 @@ describe('mutations', () => {
     it('fetch project usage', () => {
         store.commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, testUsage);
 
-        expect(state.projectUsage.storage).toBe(2);
-        expect(state.projectUsage.egress).toBe(3);
+        expect(state.projectUsage.storage.bytes).toBe(2);
+        expect(state.projectUsage.egress.bytes).toBe(3);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0020');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0030');
+        expect(state.projectUsage.storage.label).toBe('KB');
+        expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
         expect(state.startDate.toDateString()).toBe(now.toDateString());
         expect(state.endDate.toDateString()).toBe(now.toDateString());
@@ -60,8 +64,12 @@ describe('mutations', () => {
     it('clear usage', () => {
         store.commit(PROJECT_USAGE_MUTATIONS.CLEAR);
 
-        expect(state.projectUsage.storage).toBe(0);
-        expect(state.projectUsage.egress).toBe(0);
+        expect(state.projectUsage.storage.bytes).toBe(0);
+        expect(state.projectUsage.egress.bytes).toBe(0);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0000');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0000');
+        expect(state.projectUsage.storage.label).toBe('Bytes');
+        expect(state.projectUsage.egress.label).toBe('Bytes');
         expect(state.projectUsage.objectCount).toBe(0);
         expect(state.startDate.toDateString()).toBe(now.toDateString());
         expect(state.endDate.toDateString()).toBe(now.toDateString());
@@ -82,8 +90,12 @@ describe('actions', () => {
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
 
-        expect(state.projectUsage.storage).toBe(2);
-        expect(state.projectUsage.egress).toBe(3);
+        expect(state.projectUsage.storage.bytes).toBe(2);
+        expect(state.projectUsage.egress.bytes).toBe(3);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0020');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0030');
+        expect(state.projectUsage.storage.label).toBe('KB');
+        expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
         expect(state.startDate.toDateString()).toBe(testDate1.toDateString());
         expect(state.endDate.toDateString()).toBe(testDate2.toDateString());
@@ -99,8 +111,12 @@ describe('actions', () => {
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
 
-        expect(state.projectUsage.storage).toBe(2);
-        expect(state.projectUsage.egress).toBe(3);
+        expect(state.projectUsage.storage.bytes).toBe(2);
+        expect(state.projectUsage.egress.bytes).toBe(3);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0020');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0030');
+        expect(state.projectUsage.storage.label).toBe('KB');
+        expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
         expect(state.startDate.toDateString()).toBe(firstDate.toDateString());
         expect(state.endDate.toDateString()).toBe(now.toDateString());
@@ -118,8 +134,12 @@ describe('actions', () => {
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
 
-        expect(state.projectUsage.storage).toBe(2);
-        expect(state.projectUsage.egress).toBe(3);
+        expect(state.projectUsage.storage.bytes).toBe(2);
+        expect(state.projectUsage.egress.bytes).toBe(3);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0020');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0030');
+        expect(state.projectUsage.storage.label).toBe('KB');
+        expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
         expect(state.startDate.toDateString()).toBe(firstDate.toDateString());
         expect(state.endDate.toDateString()).toBe(secondDate.toDateString());
@@ -128,8 +148,12 @@ describe('actions', () => {
     it('success clear usage', async () => {
         await store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
 
-        expect(state.projectUsage.storage).toBe(0);
-        expect(state.projectUsage.egress).toBe(0);
+        expect(state.projectUsage.storage.bytes).toBe(0);
+        expect(state.projectUsage.egress.bytes).toBe(0);
+        expect(state.projectUsage.storage.formattedBytes).toBe('0.0000');
+        expect(state.projectUsage.egress.formattedBytes).toBe('0.0000');
+        expect(state.projectUsage.storage.label).toBe('Bytes');
+        expect(state.projectUsage.egress.label).toBe('Bytes');
         expect(state.projectUsage.objectCount).toBe(0);
         expect(state.startDate.toDateString()).toBe(now.toDateString());
         expect(state.endDate.toDateString()).toBe(now.toDateString());
@@ -143,8 +167,12 @@ describe('actions', () => {
             await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.projectUsage.storage).toBe(0);
-            expect(state.projectUsage.egress).toBe(0);
+            expect(state.projectUsage.storage.bytes).toBe(0);
+            expect(state.projectUsage.egress.bytes).toBe(0);
+            expect(state.projectUsage.storage.formattedBytes).toBe('0.0000');
+            expect(state.projectUsage.egress.formattedBytes).toBe('0.0000');
+            expect(state.projectUsage.storage.label).toBe('Bytes');
+            expect(state.projectUsage.egress.label).toBe('Bytes');
             expect(state.projectUsage.objectCount).toBe(0);
             expect(state.startDate.toDateString()).toBe(now.toDateString());
             expect(state.endDate.toDateString()).toBe(now.toDateString());
