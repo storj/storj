@@ -103,6 +103,20 @@ pipeline {
                     }
                 }
 
+                stage('Cockroach Integration') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.4'
+                        STORJ_NETWORK_HOST6 = '127.0.0.4'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
+                        sh 'make test-sim'
+                    }
+                }
+
                 stage('Backwards Compatibility') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
@@ -114,21 +128,6 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
-                stage('CockroachDB migration compatibility') {
-                    environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/teststorj?sslmode=disable'
-                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj4?sslmode=disable'
-                    }
-
-                    steps {
-                        // Until we can run all the unit tests with cockroach (i.e. all the sql is fixed to be cockroachdb compatible),
-                        // lets just run a bare bones test here that sets up testplanet and runs the database migration
-                        sh 'psql -U postgres -c \'create database teststorj4;\''
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database teststorj;\''
-                        sh 'cd private/testplanet && go test ./... -run=TestRun'
                     }
                 }
 
