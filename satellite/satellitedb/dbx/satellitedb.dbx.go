@@ -6290,6 +6290,10 @@ type LeafSerialNumber_Row struct {
 	LeafSerialNumber []byte
 }
 
+type UsageLimit_Row struct {
+	UsageLimit int64
+}
+
 type Value_Row struct {
 	Value time.Time
 }
@@ -7633,6 +7637,27 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project, nil
+
+}
+
+func (obj *postgresImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UsageLimit_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UsageLimit_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.UsageLimit)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -12267,6 +12292,16 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UsageLimit_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_UsageLimit_By_Id(ctx, project_id)
+}
+
 func (rx *Rx) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	registration_token_owner_id RegistrationToken_OwnerId_Field) (
 	registration_token *RegistrationToken, err error) {
@@ -13227,6 +13262,10 @@ type Methods interface {
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
+
+	Get_Project_UsageLimit_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *UsageLimit_Row, err error)
 
 	Get_RegistrationToken_By_OwnerId(ctx context.Context,
 		registration_token_owner_id RegistrationToken_OwnerId_Field) (

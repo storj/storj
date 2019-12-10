@@ -277,6 +277,10 @@ read one (
     select project
     where project.id = ?
 )
+read one (
+    select project.usage_limit
+    where  project.id = ?
+)
 read all (
     select project
 )
