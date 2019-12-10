@@ -34,38 +34,33 @@ const (
 )
 
 func TestECClient(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: storageNodes, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-	planet, err := testplanet.New(t, 1, storageNodes, 1)
-	require.NoError(t, err)
+		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
 
-	defer ctx.Check(planet.Shutdown)
+		k := storageNodes / 2
+		n := storageNodes
+		fc, err := infectious.NewFEC(k, n)
+		require.NoError(t, err)
 
-	planet.Start(ctx)
+		es := eestream.NewRSScheme(fc, dataSize.Int()/n)
+		rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
+		require.NoError(t, err)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
+		data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
+		require.NoError(t, err)
 
-	k := storageNodes / 2
-	n := storageNodes
-	fc, err := infectious.NewFEC(k, n)
-	require.NoError(t, err)
+		// Erasure encode some random data and upload the pieces
+		successfulNodes, successfulHashes := testPut(ctx, t, planet, ec, rs, data)
 
-	es := eestream.NewRSScheme(fc, dataSize.Int()/n)
-	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
-	require.NoError(t, err)
+		// Download the pieces and erasure decode the data
+		testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
 
-	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
-	require.NoError(t, err)
-
-	// Erasure encode some random data and upload the pieces
-	successfulNodes, successfulHashes := testPut(ctx, t, planet, ec, rs, data)
-
-	// Download the pieces and erasure decode the data
-	testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
-
-	// Delete the pieces
-	testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
+		// Delete the pieces
+		testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
+	})
 }
 
 func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) ([]*pb.Node, []*pb.PieceHash) {

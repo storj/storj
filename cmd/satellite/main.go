@@ -180,7 +180,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -188,7 +188,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -245,6 +245,17 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
+
+	// There should be an explicit CreateTables call for the pointerdb as well.
+	// This is tracked in jira ticket #3337.
+	pdb, err := metainfo.NewStore(log.Named("db migration"), runCfg.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, pdb.Close())
+	}()
+
 	return nil
 }
 

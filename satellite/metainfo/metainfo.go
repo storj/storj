@@ -363,6 +363,9 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits, PrivateKey: privateKey}, nil
@@ -1140,7 +1143,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits object when all segments are also committed
+// CommitObject commits an object when all its segments have already been
+// committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2054,6 +2058,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 

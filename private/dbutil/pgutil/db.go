@@ -15,79 +15,50 @@ import (
 	"storj.io/storj/private/dbutil/dbschema"
 )
 
-// DB is postgres database with schema
-type DB struct {
-	*sql.DB
-	Schema string
-}
-
 var (
 	mon = monkit.Package()
 )
 
-// Open opens a postgres database with a schema
-func Open(connstr string, schemaPrefix string) (*DB, error) {
-	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
-
-	db, err := sql.Open("postgres", ConnstrWithSchema(connstr, schemaName))
-	if err != nil {
-		return nil, err
+// OpenUnique opens a postgres database with a temporary unique schema, which will be cleaned up
+// when closed. It is expected that this should normally be used by way of
+// "storj.io/storj/private/dbutil/tempdb".OpenUnique() instead of calling it directly.
+func OpenUnique(connstr string, schemaPrefix string) (*dbutil.TempDatabase, error) {
+	// sanity check, because you get an unhelpful error message when this happens
+	if strings.HasPrefix(connstr, "cockroach://") {
+		return nil, errs.New("can't connect to cockroach using pgutil.OpenUnique()! connstr=%q. try tempdb.OpenUnique() instead?", connstr)
 	}
 
-	dbutil.Configure(db, mon)
+	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
+	connStrWithSchema := ConnstrWithSchema(connstr, schemaName)
+
+	db, err := sql.Open("postgres", connStrWithSchema)
+	if err == nil {
+		// check that connection actually worked before trying CreateSchema, to make
+		// troubleshooting (lots) easier
+		err = db.Ping()
+	}
+	if err != nil {
+		return nil, errs.New("failed to connect to %q with driver postgres: %v", connStrWithSchema, err)
+	}
 
 	err = CreateSchema(db, schemaName)
 	if err != nil {
 		return nil, errs.Combine(err, db.Close())
 	}
 
-	return &DB{db, schemaName}, err
-}
-
-// Close closes the database and deletes the schema.
-func (db *DB) Close() error {
-	return errs.Combine(
-		DropSchema(db.DB, db.Schema),
-		db.DB.Close(),
-	)
-}
-
-// LoadSchemaFromSQL inserts script into connstr and loads schema.
-func LoadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
-	db, err := Open(connstr, "load-schema")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, db.Close()) }()
-
-	_, err = db.Exec(script)
-	if err != nil {
-		return nil, err
+	cleanup := func(cleanupDB *sql.DB) error {
+		return DropSchema(cleanupDB, schemaName)
 	}
 
-	return QuerySchema(db)
-}
-
-// LoadSnapshotFromSQL inserts script into connstr and loads schema.
-func LoadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := Open(connstr, "load-schema")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, db.Close()) }()
-
-	_, err = db.Exec(script)
-	if err != nil {
-		return nil, err
-	}
-
-	snapshot, err := QuerySnapshot(db)
-	if err != nil {
-		return nil, err
-	}
-
-	snapshot.Script = script
-	return snapshot, nil
+	dbutil.Configure(db, mon)
+	return &dbutil.TempDatabase{
+		DB:             db,
+		ConnStr:        connStrWithSchema,
+		Schema:         schemaName,
+		Driver:         "postgres",
+		Implementation: dbutil.Postgres,
+		Cleanup:        cleanup,
+	}, nil
 }
 
 // QuerySnapshot loads snapshot from database
@@ -109,7 +80,7 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 	}, err
 }
 
-//CheckApplicationName ensures that the Connection String contains an application name
+// CheckApplicationName ensures that the Connection String contains an application name
 func CheckApplicationName(s string) (r string) {
 	if !strings.Contains(s, "application_name") {
 		if !strings.Contains(s, "?") {
@@ -119,7 +90,7 @@ func CheckApplicationName(s string) (r string) {
 		r = s + "&application_name=Satellite"
 		return
 	}
-	//return source as is if application_name is set
+	// return source as is if application_name is set
 	return s
 }
 

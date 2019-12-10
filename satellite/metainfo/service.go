@@ -27,12 +27,12 @@ type Service struct {
 	bucketsDB BucketsDB
 }
 
-// NewService creates new metainfo service
+// NewService creates new metainfo service.
 func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service {
 	return &Service{logger: logger, db: db, bucketsDB: bucketsDB}
 }
 
-// Put puts pointer to db under specific path
+// Put puts pointer to db under specific path.
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

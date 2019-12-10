@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/testcontext"
 )
@@ -42,19 +42,24 @@ func TestBasicMigrationPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
+	testBasicMigrationGeneric(t, *pgtest.ConnStr)
+}
 
-	schema := "create-" + pgutil.CreateRandomTestingSchemaName(8)
+func TestBasicMigrationCockroach(t *testing.T) {
+	if *pgtest.CrdbConnStr == "" {
+		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
+	}
+	testBasicMigrationGeneric(t, *pgtest.CrdbConnStr)
+}
 
-	db, err := sql.Open("postgres", pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema))
+func testBasicMigrationGeneric(t *testing.T, connStr string) {
+	db, err := tempdb.OpenUnique(connStr, "create-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	require.NoError(t, pgutil.CreateSchema(db, schema))
-	defer func() { assert.NoError(t, pgutil.DropSchema(db, schema)) }()
-
-	basicMigration(t, db, &postgresDB{DB: db})
+	basicMigration(t, db.DB, &postgresDB{DB: db.DB})
 }
 
 func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {

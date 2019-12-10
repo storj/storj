@@ -151,8 +151,8 @@ export default class DiskSpaceChart extends Vue {
         background-image: url('../../../static/images/tooltipBack.png');
         background-repeat: no-repeat;
         background-size: cover;
-        min-width: 150px;
-        min-height: 90px;
+        width: 180px;
+        height: 90px;
         font-size: 12px;
         border-radius: 14px;
         box-shadow: 0 2px 10px #d2d6de;
