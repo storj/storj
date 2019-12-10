@@ -19,9 +19,11 @@ const (
 	Redis
 )
 
-func setImplementation(s string) Implementation {
-	switch s {
-	case "postgres":
+// ImplementationForScheme returns the Implementation that is used for
+// the url with the provided scheme.
+func ImplementationForScheme(scheme string) Implementation {
+	switch scheme {
+	case "postgres", "postgresql":
 		return Postgres
 	case "cockroach":
 		return Cockroach
@@ -29,8 +31,6 @@ func setImplementation(s string) Implementation {
 		return Bolt
 	case "redis":
 		return Redis
-	case "postgresql":
-		return Postgres
 	default:
 		return Unknown
 	}

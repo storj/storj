@@ -17,7 +17,7 @@ func SplitConnStr(s string) (driver string, source string, implementation Implem
 	}
 	driver = parts[0]
 	source = parts[1]
-	implementation = setImplementation(parts[0])
+	implementation = ImplementationForScheme(parts[0])
 
 	if driver == "postgres" {
 		source = s // postgres wants full URLS for its DSN

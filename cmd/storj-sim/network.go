@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/processgroup"
@@ -338,9 +340,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		if flags.Postgres != "" {
+			masterDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d", i))
+			if err != nil {
+				return nil, err
+			}
+			metainfoDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
+			if err != nil {
+				return nil, err
+			}
+
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
-				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
-				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+				"--database", masterDBURL,
+				"--metainfo.database-url", metainfoDBURL,
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
@@ -650,4 +661,26 @@ func readConfigString(into *string, dir, flagName string) error {
 		*into = v
 	}
 	return nil
+}
+
+// namespacedDatabaseURL returns an equivalent database url with the given namespace
+// so that a database opened with the url does not conflict with other databases
+// opened with a different namespace.
+func namespacedDatabaseURL(dbURL, namespace string) (string, error) {
+	parsed, err := url.Parse(dbURL)
+	if err != nil {
+		return "", err
+	}
+
+	switch dbutil.ImplementationForScheme(parsed.Scheme) {
+	case dbutil.Postgres:
+		return pgutil.ConnstrWithSchema(dbURL, namespace), nil
+
+	case dbutil.Cockroach:
+		parsed.Path += "/" + namespace
+		return parsed.String(), nil
+
+	default:
+		return "", errs.New("unable to namespace db url: %q", dbURL)
+	}
 }
