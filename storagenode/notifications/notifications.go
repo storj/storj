@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package nodenotifications
+package notifications
 
 import (
 	"context"
@@ -37,7 +37,7 @@ const (
 	NotificationTypeDisqualification NotificationType = 3
 )
 
-// NewNotification holds notification entity info which is being received from satellite.
+// NewNotification holds notification entity info which is being received from satellite or local client.
 type NewNotification struct {
 	SenderID storj.NodeID
 	Type     NotificationType
