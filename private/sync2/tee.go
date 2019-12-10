@@ -6,6 +6,7 @@ package sync2
 import (
 	"io"
 	"io/ioutil"
+	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -28,6 +29,15 @@ type tee struct {
 // NewTeeFile returns a tee that uses file-system to offload memory
 func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 	tempfile, err := ioutil.TempFile(tempdir, "tee")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// https://pubs.opengroup.org/onlinepubs/9699919799/functions/unlink.html
+	// The file will still be available to this process, but will be
+	// cleaned up if this process exits unexpectedly. This is necessary to
+	// prevent filling up the temp space.
+	err = os.Remove(tempfile.Name())
 	if err != nil {
 		return nil, nil, err
 	}
