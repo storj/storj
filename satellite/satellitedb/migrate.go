@@ -504,7 +504,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( project_id, limit_type )
 					);`,
-					`ALTER TABLE projects DROP COLUMN usage_limit;`,
+					`WITH limits as (SELECT id, usage_limit FROM projects WHERE usage_limit > 0);
+
+						INSERT INTO project_limits (project_id, limit_type, usage_limit, created_at)
+						SELECT id, 0, usage_limit, now()
+						FROM limits;
+
+						INSERT INTO project_limits (project_id, limit_type, usage_limit, created_at)
+						SELECT id, 1, usage_limit, now()
+						FROM limits;
+					`,
 				},
 			},
 			{
