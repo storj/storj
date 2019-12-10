@@ -182,17 +182,11 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
+	usage_limit bigint NOT NULL,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE project_limits (
-	project_id bytea NOT NULL,
-	usage_limit bigint NOT NULL,
-	limit_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( project_id, limit_type )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,

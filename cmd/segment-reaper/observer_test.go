@@ -212,6 +212,72 @@ func TestObserver_processSegment(t *testing.T) {
 	})
 }
 
+func TestObserver_processSegment_from_to(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	var (
+		notSet = time.Time{}
+		now    = time.Now()
+	)
+
+	tests := []struct {
+		from              time.Time
+		to                time.Time
+		pointerCreateDate time.Time
+		skipObject        bool
+	}{
+		// not skipped
+		{notSet, notSet, now, false},
+		{notSet, now, now, false},
+		{now, now, now, false},
+		{now, notSet, now, false},
+		{now.Add(-time.Minute), now.Add(time.Minute), now, false},
+		{now.Add(-time.Minute), now.Add(time.Minute), now.Add(time.Minute), false},
+		{now.Add(-time.Minute), now.Add(time.Minute), now.Add(-time.Minute), false},
+
+		// skipped
+		{notSet, now, now.Add(time.Second), true},
+		{now, notSet, now.Add(-time.Second), true},
+		{now.Add(-time.Minute), now.Add(time.Minute), now.Add(time.Hour), true},
+		{now.Add(-time.Minute), now.Add(time.Minute), now.Add(-time.Hour), true},
+	}
+	for _, tt := range tests {
+		var from *time.Time
+		var to *time.Time
+		if tt.from != notSet {
+			from = &tt.from
+		}
+		if tt.to != notSet {
+			to = &tt.to
+		}
+		observer := &observer{
+			objects: make(bucketsObjects),
+			from:    from,
+			to:      to,
+		}
+		path := metainfo.ScopedPath{
+			ProjectID:           testrand.UUID(),
+			Segment:             "l",
+			BucketName:          "bucket1",
+			EncryptedObjectPath: "path1",
+		}
+		pointer := &pb.Pointer{
+			CreationDate: tt.pointerCreateDate,
+		}
+		err := observer.processSegment(ctx, path, pointer)
+		require.NoError(t, err)
+
+		objectsMap, ok := observer.objects["bucket1"]
+		require.True(t, ok)
+
+		object, ok := objectsMap["path1"]
+		require.True(t, ok)
+
+		require.Equal(t, tt.skipObject, object.skip)
+	}
+}
+
 func TestObserver_analyzeProject(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -234,16 +300,17 @@ func TestObserver_analyzeProject(t *testing.T) {
 		{"11110_l", 6, "00000_0"}, // #5
 		{"00011_l", 4, "00000_0"}, // #6
 		{"10011_l", 4, "00000_0"}, // #7
+		{"11011_l", 4, "00000_0"}, // #8
 
 		// unknown number of segments
-		{"11111_l", 0, "11111_l"}, // #8
-		{"00000_l", 0, "00000_l"}, // #9
-		{"10000_l", 0, "10000_l"}, // #10
-		{"1111100", 0, "0000000"}, // #11
-		{"00111_l", 0, "00000_l"}, // #12
-		{"10111_l", 0, "10000_l"}, // #13
-		{"10101_l", 0, "10000_l"}, // #14
-		{"11011_l", 0, "11000_l"}, // #15
+		{"11111_l", 0, "11111_l"}, // #9
+		{"00000_l", 0, "00000_l"}, // #10
+		{"10000_l", 0, "10000_l"}, // #11
+		{"1111100", 0, "0000000"}, // #12
+		{"00111_l", 0, "00000_l"}, // #13
+		{"10111_l", 0, "10000_l"}, // #14
+		{"10101_l", 0, "10000_l"}, // #15
+		{"11011_l", 0, "11000_l"}, // #16
 
 		// special cases
 		{allSegments64 + "_l", 65, allSegments64 + "_l"}, // #16
