@@ -494,23 +494,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.db,
-				Description: "Add project_limits table, remove usage_limit from project",
-				Version:     70,
-				Action: migrate.SQL{
-					`CREATE TABLE project_limits (
-						project_id bytea NOT NULL,
-						usage_limit bigint NOT NULL,
-						limit_type integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( project_id, limit_type )
-					);`,
-					`ALTER TABLE projects DROP COLUMN usage_limit;`,
-				},
-			},
-			{
-				DB:          db.db,
 				Description: "Add coupons and coupon_usage tables",
-				Version:     71,
+				Version:     70,
 				Action: migrate.SQL{
 					`CREATE TABLE coupons (
 						id bytea NOT NULL,
@@ -536,7 +521,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			{
 				DB:          db.db,
 				Description: "Reset node reputations to re-enable disqualification",
-				Version:     72,
+				Version:     71,
 				Action: migrate.SQL{
 					`UPDATE nodes SET audit_reputation_beta = 0;`,
 				},

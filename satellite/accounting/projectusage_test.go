@@ -269,7 +269,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		// set custom usage limit for project
 		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
 
-		err = acctDB.UpdateProjectStorageLimit(ctx, project.ID, expectedLimit)
+		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
