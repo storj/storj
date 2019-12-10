@@ -127,7 +127,7 @@ pipeline {
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        // sh 'make test-sim'
+                        sh 'make test-sim'
                     }
                 }
 
