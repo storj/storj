@@ -54,7 +54,7 @@ replace_in_file(){
     local src="$1"
     local dest="$2"
     local path=$3
-    sed -i '' "s#${src}#${dest}#g" "${path}"
+    sed -i "s#${src}#${dest}#g" "${path}"
 }
 
 
@@ -136,8 +136,10 @@ for version in ${unique_versions}; do
         shasum ${bin_dir}/gateway
     else
         echo "Installing uplink and gateway for ${version} in ${dir}."
+        cd ${dir}
         GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
         GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+        cd -
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
         shasum ${bin_dir}/uplink
