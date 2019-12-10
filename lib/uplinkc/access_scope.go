@@ -114,7 +114,7 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 	}
 
 	//Get caveat from C
-	if(!caveat){
+	if caveat == nil {
 		*cerr = C.CString("invalid caveat")
 		return C.ScopeRef{}
 	}
