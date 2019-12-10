@@ -54,7 +54,7 @@ replace_in_file(){
     local src="$1"
     local dest="$2"
     local path=$3
-    sed -i '' "s#${src}#${dest}#g" "${path}"
+    sed -i "s#${src}#${dest}#g" "${path}"
 }
 
 
