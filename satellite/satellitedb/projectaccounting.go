@@ -165,7 +165,7 @@ func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, proje
 	return db.getProjectUsageLimit(ctx, projectID)
 }
 
-// getProjectUsageLimit returns project usage limit
+// getProjectUsageLimit returns project usage limit.
 func (db *ProjectAccounting) getProjectUsageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -179,7 +179,7 @@ func (db *ProjectAccounting) getProjectUsageLimit(ctx context.Context, projectID
 	return memory.Size(row.UsageLimit), nil
 }
 
-// GetProjectTotal retrieves project usage for a given period
+// GetProjectTotal retrieves project usage for a given period.
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
