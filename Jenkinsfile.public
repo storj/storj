@@ -103,20 +103,6 @@ pipeline {
                     }
                 }
 
-                stage('Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
                 stage('Cockroach Integration') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
@@ -128,6 +114,20 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
                         sh 'make test-sim'
+                    }
+                }
+
+                stage('Backwards Compatibility') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'make test-sim-backwards-compatible'
                     }
                 }
 
