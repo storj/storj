@@ -1936,24 +1936,33 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, 
 	}, nil
 }
 
-func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
-	index := int64(cursorIndex)
+// listSegmentManually lists the segments that belongs to projectID and streamID
+// from the cursorIndex up to the limit. It stops before the limit when
+// cursorIndex + n returns a not found pointer.
+//
+// limit must be greater than 0 and cursorIndex greater than or equal than 0,
+// otherwise an error is returned.
+func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+	if limit <= 0 {
+		return nil, rpcstatus.Errorf(
+			rpcstatus.InvalidArgument, "invalid limit, cannot be 0 or negative. Got %d", limit,
+		)
+	}
 
+	index := int64(cursorIndex)
 	segmentItems := make([]*pb.SegmentListItem, 0)
 	more := false
 
 	for {
-		path, err := CreatePath(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
+		_, _, err := endpoint.getPointer(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-		_, err = endpoint.metainfo.Get(ctx, path)
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				break
+			if rpcstatus.Code(err) != rpcstatus.NotFound {
+				return nil, err
 			}
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+
+			break
 		}
+
 		if limit == int32(len(segmentItems)) {
 			more = true
 			break
