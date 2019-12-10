@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/sync2"
-	"storj.io/storj/satellite/overlay"
 )
 
 var (
@@ -29,21 +28,20 @@ var (
 // Service is the notification service between storage nodes and satellites.
 // architecture: Service
 type Service struct {
-	log     *zap.Logger
-	dialer  rpc.Dialer
-	overlay *overlay.Service
+	log    *zap.Logger
+	dialer rpc.Dialer
+	db     NotificationDB
 
 	loop *sync2.Cycle
 	lock *sync.Mutex
 }
 
 // NewService creates a new notification service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, overlay *overlay.Service) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer) *Service {
 	return &Service{
-		log:     log,
-		dialer:  dialer,
-		overlay: overlay,
-		lock:    &sync.Mutex{},
+		log:    log,
+		dialer: dialer,
+		lock:   &sync.Mutex{},
 	}
 }
 
@@ -60,6 +58,7 @@ func (service *Service) ProcessNotification(ctx context.Context, message *pb.Not
 	return nil
 }
 
+// ProcessNotifications sends messages to the specified node.
 func (service *Service) ProcessNotifications(ctx context.Context, messages []*pb.Notification, id storj.NodeID, address string) {
 	var sentCount int
 
