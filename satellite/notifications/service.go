@@ -6,7 +6,6 @@ package notifications
 import (
 	"context"
 	"net"
-	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -15,7 +14,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/sync2"
 )
 
 var (
@@ -31,9 +29,6 @@ type Service struct {
 	log    *zap.Logger
 	dialer rpc.Dialer
 	db     NotificationDB
-
-	loop *sync2.Cycle
-	lock *sync.Mutex
 }
 
 // NewService creates a new notification service.
@@ -41,26 +36,26 @@ func NewService(log *zap.Logger, dialer rpc.Dialer) *Service {
 	return &Service{
 		log:    log,
 		dialer: dialer,
-		lock:   &sync.Mutex{},
 	}
 }
 
 // ProcessNotification sends message to the specified node.
-func (service *Service) ProcessNotification(ctx context.Context, message *pb.Notification, id storj.NodeID, address string) (err error) {
+func (service *Service) ProcessNotification(ctx context.Context, message *pb.Notification, id storj.NodeID, address string) (_ *pb.NotificationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.log.Debug("sending to node", zap.String("address", address), zap.String("message", string(message.Message)))
-	_, err = service.processNotification(ctx, message, id, address)
+	result, err := service.processNotification(ctx, message, id, address)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return result, nil
 }
 
 // ProcessNotifications sends messages to the specified node.
-func (service *Service) ProcessNotifications(ctx context.Context, messages []*pb.Notification, id storj.NodeID, address string) {
+func (service *Service) ProcessNotifications(ctx context.Context, messages []*pb.Notification, id storj.NodeID, address string) (_ []*pb.NotificationResponse, err error) {
 	var sentCount int
+	var result []*pb.NotificationResponse
 
 	for i := range messages {
 		// RPC Message
@@ -70,13 +65,16 @@ func (service *Service) ProcessNotifications(ctx context.Context, messages []*pb
 			NotificationType: messages[i].NotificationType,
 		}
 
-		err := service.ProcessNotification(ctx, mess, id, address)
+		res, err := service.ProcessNotification(ctx, mess, id, address)
 		if err != nil {
-			return
+			return nil, err
 		}
+
+		result = append(result, res)
 	}
 
-	service.log.Info("sent to nodes", zap.Int("count", sentCount))
+	service.log.Debug("sent to nodes", zap.Int("count", sentCount))
+	return result, nil
 }
 
 // processNotification sends message to the specified node.
@@ -85,11 +83,11 @@ func (service *Service) processNotification(ctx context.Context, message *pb.Not
 	if err != nil {
 		_, ok := err.(net.Error)
 		if ok {
-			return &pb.NotificationResponse{}, Error.New("failed to connect to %s: %v", address, err)
+			return &pb.NotificationResponse{}, err
 		}
 
 		service.log.Warn("internal error", zap.String("error", err.Error()))
-		return &pb.NotificationResponse{}, Error.New("couldn't connect to client at addr: %s due to internal error.", address)
+		return &pb.NotificationResponse{}, err
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 

@@ -25,13 +25,15 @@ func NewEndpoint(service *Service) *Endpoint {
 // ProcessNotification sends notification to node by ID.
 func (endpoint *Endpoint) ProcessNotification(ctx context.Context, message *pb.Notification, id storj.NodeID) (_ *pb.NotificationResponse, err error) {
 	address, err := endpoint.service.db.GetAddressByID(ctx, id)
-	return endpoint.service.processNotification(ctx, message, id, address)
+	return endpoint.service.ProcessNotification(ctx, message, id, address)
 }
 
 // ProcessNotifications sends group of notifications to node by ID.
-func (endpoint *Endpoint) ProcessNotifications(ctx context.Context, message []*pb.Notification, id storj.NodeID) {
+func (endpoint *Endpoint) ProcessNotifications(ctx context.Context, message []*pb.Notification, id storj.NodeID) (_ []*pb.NotificationResponse, err error) {
 	address, err := endpoint.service.db.GetAddressByID(ctx, id)
-	if err == nil {
-		endpoint.service.ProcessNotifications(ctx, message, id, address)
+	if err != nil {
+		return nil, err
 	}
+
+	return endpoint.service.ProcessNotifications(ctx, message, id, address)
 }
