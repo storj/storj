@@ -25,7 +25,7 @@ populates_sno_versions(){
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are splited into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
 current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
-major_release_tags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
+major_release_tags=$(git tag -l | sort -nr | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populates_sno_versions $current_release_version 10)
