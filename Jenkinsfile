@@ -9,8 +9,8 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Run Migration Test') {
-      echo "Running migration test"
+    stage('Run Versions Test') {
+      echo "Running versions test"
 
       sh 'docker run --rm -p 58723:5432 --name postgres postgres'
 
