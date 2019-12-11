@@ -155,7 +155,7 @@ func TestEmptyNotificationsDB(t *testing.T) {
 		// test notification read with not existing id.
 		t.Run("test notification read with not existing id", func(t *testing.T) {
 			err := notificationsdb.Read(ctx, testrand.UUID())
-			assert.NoError(t, err)
+			assert.Error(t, err, "no rows affected")
 		})
 
 		// test read for all notifications if they don't exist.

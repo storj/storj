@@ -166,9 +166,20 @@ func (db *notificationDB) Read(ctx context.Context, notificationID uuid.UUID) (e
 		WHERE
 			id = ?;
 	`
-	_, err = db.ExecContext(ctx, query, time.Now().UTC(), notificationID[:])
+	result, err := db.ExecContext(ctx, query, time.Now().UTC(), notificationID[:])
+	if err != nil {
+		return ErrNotificationsDB.Wrap(err)
+	}
 
-	return ErrNotificationsDB.Wrap(err)
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return ErrNotificationsDB.Wrap(err)
+	}
+	if rowsAffected != 1 {
+		return ErrNotificationsDB.Wrap(ErrNoRows)
+	}
+
+	return nil
 }
 
 // ReadAll updates all notifications in database as read.

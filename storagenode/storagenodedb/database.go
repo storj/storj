@@ -38,6 +38,8 @@ var (
 
 	// ErrDatabase represents errors from the databases.
 	ErrDatabase = errs.Class("storage node database error")
+	// ErrNoRows represents database error if rows weren't affected.
+	ErrNoRows = errs.New("no rows affected")
 )
 
 var _ storagenode.DB = (*DB)(nil)
