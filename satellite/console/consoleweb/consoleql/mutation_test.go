@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,7 +15,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/private/currency"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
@@ -111,20 +109,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			Password:  "123a123",
 		}
 		refUserID := ""
-
-		_, err = db.Rewards().Create(ctx, &rewards.NewOffer{
-			Name:                      "Couchbase",
-			Description:               "",
-			AwardCredit:               currency.Cents(0),
-			InviteeCredit:             currency.Cents(20),
-			RedeemableCap:             10,
-			AwardCreditDurationDays:   0,
-			InviteeCreditDurationDays: 14,
-			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-			Status:                    rewards.Active,
-			Type:                      rewards.Partner,
-		})
-		require.NoError(t, err)
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
