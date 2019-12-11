@@ -72,7 +72,6 @@ func (db *DB) CreateTables() error {
 		}
 
 		return migration.Run(db.log.Named("migrate"))
-
 	default:
 		return migrate.Create("database", db.db)
 	}
@@ -383,6 +382,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);`,
 
 					`INSERT INTO offers (
+						id,
 						name,
 						description,
 						award_credit_in_cents,
@@ -395,6 +395,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						invitee_credit_duration_days
 					)
 					VALUES (
+						1,
 						'Default referral offer',
 						'Is active when no other active referral offer',
 						300,
@@ -407,6 +408,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						14
 					),
 					(
+						2,
 						'Default free credit offer',
 						'Is active when no active free credit offer',
 						0,
@@ -524,6 +526,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     71,
 				Action: migrate.SQL{
 					`UPDATE nodes SET audit_reputation_beta = 0;`,
+				},
+			},
+			{
+				DB:          db.db,
+				Description: "Add unique to user_credits to match dbx schema",
+				Version:     72,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits ADD UNIQUE (id, offer_id);`,
 				},
 			},
 		},
