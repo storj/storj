@@ -9,6 +9,20 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Run Migration Test') {
+      echo "Running migration test"
+
+      sh 'docker run --rm -p 58723:5432 --name postgres postgres'
+
+      environment {
+        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost:58723/teststorj?sslmode=disable'
+      }
+      steps {
+        sh 'psql -U postgres -p 58723 -c \'create database teststorj;\''
+        sh './scripts/test-sim-versions.sh'
+      }
+    }
+
     stage('Build Binaries') {
       sh 'make binaries'
 
