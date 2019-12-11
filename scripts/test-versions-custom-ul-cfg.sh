@@ -28,16 +28,18 @@ echo "Begin test-versions.sh, storj-sim config directory:" ${main_cfg_dir}
 echo "which storj-sim: $(which storj-sim)"
 # shasum $(which storj-sim)
 
+if [ ! -d ${main_cfg_dir}/uplink ]; then
+    mkdir -p ${main_cfg_dir}/uplink
+    api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
+    sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
+    uplink setup --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --config-dir="${main_cfg_dir}/uplink" --enc.encryption-key="TestEncKey"
+fi
 echo -e "\nConfig directory for uplink:"
-mkdir ${main_cfg_dir}/uplink
 echo "${main_cfg_dir}/uplink"
 echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
-api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
-sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
-uplink setup --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --config-dir="${main_cfg_dir}/uplink"
 # uplink version --config-dir "${main_cfg_dir}/gateway/0/"
 
 echo -e "\nConfig directory for satellite:"
