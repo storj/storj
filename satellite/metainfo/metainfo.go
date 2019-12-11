@@ -62,7 +62,7 @@ type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
-// Endpoint metainfo endpoint
+// Endpoint metainfo endpoint.
 //
 // architecture: Endpoint
 type Endpoint struct {
@@ -2110,7 +2110,11 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	return &pb.SegmentDownloadResponse{}, rpcstatus.Error(rpcstatus.Internal, "invalid type of pointer")
 }
 
-func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte) (*pb.Pointer, string, error) {
+func (endpoint *Endpoint) getPointer(
+	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
+) (_ *pb.Pointer, _ string, err error) {
+	defer mon.Task()(&ctx, projectID.String(), segmentIndex, bucket, encryptedPath)(&err)
+
 	path, err := CreatePath(ctx, projectID, segmentIndex, bucket, encryptedPath)
 	if err != nil {
 		return nil, "", rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
