@@ -79,6 +79,7 @@ import VButton from '@/components/common/VButton.vue';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
@@ -109,6 +110,9 @@ export default class PaymentMethods extends Vue {
 
     public mounted() {
         try {
+            this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -178,6 +182,10 @@ export default class PaymentMethods extends Vue {
             await this.$notify.error(error.message);
         }
 
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
+
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
@@ -190,6 +198,9 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeCardInput.onSubmit();
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
     }
 
     public async addCard(token: string) {
@@ -210,6 +221,9 @@ export default class PaymentMethods extends Vue {
         }
 
         await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {

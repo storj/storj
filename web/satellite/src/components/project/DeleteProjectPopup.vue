@@ -18,7 +18,7 @@
                     </div>
                     <input
                         class="delete-project-input"
-                        type="text" 
+                        type="text"
                         placeholder="Enter Project Name"
                         v-model="projectName"
                         @keyup="resetError"
@@ -34,8 +34,8 @@
                     />
                     <VButton
                         label="Delete"
-                        width="205px" 
-                        height="48px" 
+                        width="205px"
+                        height="48px"
                         class="red"
                         :on-press="onDeleteProjectClick"
                         :is-disabled="isDeleteButtonDisabled"
@@ -66,6 +66,7 @@ import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -97,7 +98,9 @@ export default class DeleteProjectPopup extends Vue {
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-
+            this.$segment.track(SegmentEvent.PROJECT_DELETED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
             await this.$notify.success('Project was successfully deleted');
 
             await this.selectProject();
