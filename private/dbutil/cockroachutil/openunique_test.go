@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/testcontext"
@@ -25,6 +27,10 @@ func TestTempCockroachDB(t *testing.T) {
 	prefix := "name#spaced/Test/DB"
 	testDB, err := tempdb.OpenUnique(*pgtest.CrdbConnStr, prefix)
 	require.NoError(t, err)
+
+	require.Equal(t, "cockroach", testDB.Driver)
+	require.Equal(t, dbutil.Cockroach, testDB.Implementation)
+	require.IsType(t, &cockroachutil.Driver{}, testDB.DB.Driver())
 
 	// save these so we can close testDB down below and then still try connecting to the same place
 	// (without requiring that the values stay intact in the testDB struct when we close it)
