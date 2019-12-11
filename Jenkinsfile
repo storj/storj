@@ -17,7 +17,7 @@ node('node') {
       }
 
       sh 'docker run --rm -p 58723:5432 -d --name postgres postgres'
-      sh 'docker exec -it postgres createdb -U postgres teststorj'
+      sh 'docker exec postgres createdb -U postgres teststorj'
       sh './scripts/test-sim-versions.sh'
       sh 'docker rm -f postgres'
     }
