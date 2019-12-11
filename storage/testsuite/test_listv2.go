@@ -11,10 +11,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testListV2(t *testing.T, store storage.KeyValueStore) {
+func testListV2(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("music/a-song1.mp3", "1", false),
 		newItem("music/a-song2.mp3", "2", false),
@@ -25,7 +26,8 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		newItem("videos/movie.mkv", "7", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
+
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
@@ -120,49 +122,6 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			true, storage.Items{
 				newItem("a-song2.mp3", "", false),
 				newItem("my-album/", "", true),
-			},
-		},
-		{"end before 2 recursive",
-			storage.ListOptions{
-				Recursive: true,
-				EndBefore: storage.Key("music/z-song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("music/my-album/song3.mp3", "", false),
-				newItem("music/my-album/song4.mp3", "", false),
-			},
-		},
-		{"end before non-existing 2 recursive",
-			storage.ListOptions{
-				Recursive: true,
-				EndBefore: storage.Key("music/my-album/song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("music/my-album/song3.mp3", "", false),
-				newItem("music/my-album/song4.mp3", "", false),
-			},
-		},
-		{"end before 2",
-			storage.ListOptions{
-				Prefix:    storage.Key("music/"),
-				EndBefore: storage.Key("z-song5.mp3"),
-				Limit:     2,
-			},
-			true, storage.Items{
-				newItem("a-song2.mp3", "", false),
-				newItem("my-album/", "", true),
-			},
-		},
-		{"end before 2 prefixed",
-			storage.ListOptions{
-				Prefix:    storage.Key("music/my-album/"),
-				EndBefore: storage.Key("song4.mp3"),
-				Limit:     2,
-			},
-			false, storage.Items{
-				newItem("song3.mp3", "", false),
 			},
 		},
 	}

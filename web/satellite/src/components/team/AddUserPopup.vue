@@ -7,12 +7,12 @@
             <div class="add-user__main">
                 <div class='add-user__info-panel-container'>
                     <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
-                    <div v-html='imageSource'></div>
+                    <AddMemberIcon/>
                 </div>
                 <div class='add-user__form-container'>
                     <p class='add-user__form-container__common-label' v-if="!formError">Email Address</p>
                     <div v-if="formError" class="add-user__form-container__label">
-                        <img src="../../../static/images/register/ErrorInfo.svg" alt="Red error icon"/>
+                        <ErrorIcon alt="Red error icon"/>
                         <p class="add-user__form-container__label__error">{{formError}}</p>
                     </div>
                     <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
@@ -26,18 +26,16 @@
                                 :class="{ 'error-input': input.error }"
                                 @keyup="resetFormErrors(index)"
                             />
-                            <svg class="add-user__form-container__inputs-group__item__image" @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path class="delete-input-svg-path" d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
-                            </svg>
+                            <DeleteFieldIcon
+                                class="add-user__form-container__inputs-group__item__image"
+                                @click="deleteInput(index)"
+                            />
                         </div>
                     </div>
                     <div class="add-user-row">
                         <div @click='addInput' class="add-user-row__item" id="addUserButton">
                             <div :class="{ 'inactive-image': isMaxInputsCount }">
-                                <svg class="add-user-row__item__image" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect class="add-user-row__item__image__rect" width="40" height="40" rx="20" fill="#2683FF" />
-                                    <path class="add-user-row__item__image__path" d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
-                                </svg>
+                                <AddFieldIcon class="add-user-row__item__image"/>
                             </div>
                             <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
                         </div>
@@ -60,16 +58,11 @@
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>
-                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                        <path class="close-cross-svg-path" d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
-                    </svg>
+                    <CloseCrossIcon/>
                 </div>
             </div>
             <div class="notification-wrap">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="40" height="40" rx="10" fill="#2683FF"/>
-                    <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
-                </svg>
+                <AddMemberNotificationIcon class="notification-wrap__image"/>
                 <div class="notification-wrap__text-area">
                     <p class="notification-wrap__text-area__text">If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <router-link target="_blank" exact to="/register" >{{registerPath}}</router-link></p>
                 </div>
@@ -83,19 +76,30 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import AddFieldIcon from '@/../static/images/team/addField.svg';
+import AddMemberIcon from '@/../static/images/team/addMember.svg';
+import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
+import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
+
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
     components: {
         VButton,
+        AddMemberIcon,
+        ErrorIcon,
+        DeleteFieldIcon,
+        AddFieldIcon,
+        CloseCrossIcon,
+        AddMemberNotificationIcon,
     },
 })
 export default class AddUserPopup extends Vue {
-    public imageSource: string = EMPTY_STATE_IMAGES.ADD_USER;
     private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
     private formError: string = '';
     private isLoading: boolean = false;
@@ -154,7 +158,7 @@ export default class AddUserPopup extends Vue {
         }
 
         if (emailArray.includes(this.$store.state.usersModule.email)) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. You can't add yourself to the project`);
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
             this.isLoading = false;
 
             return;
@@ -163,19 +167,19 @@ export default class AddUserPopup extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${error.message}`);
+            await this.$notify.error(`Error during adding project members. ${error.message}`);
             this.isLoading = false;
 
             return;
         }
 
-        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+        await this.$notify.success('Members successfully added to project!');
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
@@ -255,7 +259,7 @@ export default class AddUserPopup extends Vue {
         justify-content: center;
         align-items: center;
         flex-direction: column;
-        font-family: 'font_regular';
+        font-family: 'font_regular', sans-serif;
     }
 
     .add-user-row {
@@ -274,7 +278,7 @@ export default class AddUserPopup extends Vue {
             }
 
             &__label {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 margin-left: 0;
                 padding-left: 0;
@@ -285,7 +289,6 @@ export default class AddUserPopup extends Vue {
             &:first-child {
                 cursor: pointer;
                 -webkit-user-select: none;
-                -khtml-user-select: none;
                 -moz-user-select: none;
                 -ms-user-select: none;
                 user-select: none;
@@ -295,7 +298,7 @@ export default class AddUserPopup extends Vue {
 
     .inactive-label {
         cursor: default;
-        color: #DADDE5;
+        color: #dadde5;
     }
 
     .error-input {
@@ -308,11 +311,11 @@ export default class AddUserPopup extends Vue {
         .add-user-row__item__image {
 
             &__rect {
-                fill: #DADDE5;
+                fill: #dadde5;
             }
 
             &__path {
-                fill: #ACB0BC;
+                fill: #acb0bc;
             }
         }
     }
@@ -322,7 +325,7 @@ export default class AddUserPopup extends Vue {
     }
 
     .red {
-        background-color: #EB5757;
+        background-color: #eb5757;
     }
 
     .add-user {
@@ -343,7 +346,7 @@ export default class AddUserPopup extends Vue {
             align-items: flex-start;
             position: relative;
             justify-content: center;
-            background-color: #FFFFFF;
+            background-color: #fff;
             padding: 80px 20px 80px 60px;
             width: calc(100% - 80px);
         }
@@ -363,12 +366,13 @@ export default class AddUserPopup extends Vue {
             }
 
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
-                color: #384B65;
+                color: #384b65;
                 margin-top: 0;
                 width: 107%;
+                user-select: none;
             }
         }
 
@@ -390,7 +394,7 @@ export default class AddUserPopup extends Vue {
                 &__error {
                     margin: 0;
                     padding-left: 10px;
-                    color: #EB5757;
+                    color: #eb5757;
                 }
             }
 
@@ -426,7 +430,7 @@ export default class AddUserPopup extends Vue {
                         cursor: pointer;
 
                         &:hover .delete-input-svg-path {
-                            fill: #2683FF;
+                            fill: #2683ff;
                         }
                     }
                 }
@@ -442,10 +446,11 @@ export default class AddUserPopup extends Vue {
 
             &__common-label {
                 margin: 0 0 10px 0;
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
+                user-select: none;
             }
 
             &__button-container {
@@ -470,7 +475,7 @@ export default class AddUserPopup extends Vue {
             cursor: pointer;
 
             &:hover .close-cross-svg-path {
-                fill: #2683FF;
+                fill: #2683ff;
             }
         }
     }
@@ -486,14 +491,18 @@ export default class AddUserPopup extends Vue {
         border-bottom-left-radius: 6px;
         border-bottom-right-radius: 6px;
 
+        &__image {
+            margin-right: 40px;
+            min-width: 40px;
+        }
+
         &__text-area {
             display: flex;
             align-items: center;
 
             &__text {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
-                margin-left: 40px;
             }
         }
     }
@@ -503,6 +512,7 @@ export default class AddUserPopup extends Vue {
     }
 
     @media screen and (max-width: 1025px) {
+
         .add-user {
             padding: 10px;
             max-width: 1000px;

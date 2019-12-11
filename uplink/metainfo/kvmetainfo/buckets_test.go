@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
@@ -267,7 +267,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(metainfo, ec, rs)
 
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
@@ -278,7 +278,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streams, err := streams.NewStreamStore(metainfo, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
+	streams, err := streams.NewStreamStore(metainfo, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold, 8*memory.MiB.Int64())
 	if err != nil {
 		return nil, nil, err
 	}

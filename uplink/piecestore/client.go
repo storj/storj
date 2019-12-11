@@ -10,16 +10,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 // Error is the default error class for piecestore client.
 var Error = errs.Class("piecestore")
 
-// Config defines piecestore client parameters fro upload and download.
+// Config defines piecestore client parameters for upload and download.
 type Config struct {
 	UploadBufferSize   int64
 	DownloadBufferSize int64
@@ -69,6 +70,15 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateK
 	return Error.Wrap(err)
 }
 
+// DeletePiece deletes a piece.
+func (client *Client) DeletePiece(ctx context.Context, id storj.PieceID) (err error) {
+	defer mon.Task()(&ctx, id.String())(&err)
+	_, err = client.client.DeletePiece(ctx, &pb.PieceDeletePieceRequest{
+		PieceId: id,
+	})
+	return Error.Wrap(err)
+}
+
 // Retain uses a bloom filter to tell the piece store which pieces to keep.
 func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -79,6 +89,11 @@ func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err er
 // Close closes the underlying connection.
 func (client *Client) Close() error {
 	return client.conn.Close()
+}
+
+// GetPeerIdentity gets the connection's peer identity
+func (client *Client) GetPeerIdentity() (*identity.PeerIdentity, error) {
+	return client.conn.PeerIdentity()
 }
 
 // next allocation step find the next trusted step.

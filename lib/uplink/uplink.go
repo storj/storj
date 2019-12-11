@@ -7,18 +7,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )
 
 const defaultUplinkDialTimeout = 20 * time.Second
-const defaultUplinkRequestTimeout = 20 * time.Second
 
 // Config represents configuration options for an Uplink
 type Config struct {
@@ -64,16 +64,34 @@ type Config struct {
 		MaxMemory memory.Size
 
 		// PartnerID is the identity given to the partner for value
-		// attribution
+		// attribution.
+		//
+		// Deprecated: prefer UserAgent
 		PartnerID string
+
+		// UserAgent for the product using the library.
+		UserAgent string
 
 		// DialTimeout is the maximum time to wait connecting to another node.
 		// If not set, the library default (20 seconds) will be used.
 		DialTimeout time.Duration
 
-		// RequestTimeout is the maximum time to wait for a request response from another node.
-		// If not set, the library default (20 seconds) will be used.
-		RequestTimeout time.Duration
+		// PBKDFConcurrency is the passphrase-based key derivation function
+		// concurrency to use.
+		// WARNING: changing this value fundamentally changes how keys are
+		// derived. Keys generated with one value will not be the same keys
+		// as generated with other values! Leaving this at the default is
+		// highly recommended.
+		//
+		// Unfortunately, up to version v0.26.2, we automatically set this to the
+		// number of CPU cores your processor had. If you are having trouble
+		// decrypting data uploaded with v0.26.2 or older, you may need to set
+		// this value to the number of cores your computer had at the time
+		// you entered a passphrase.
+		//
+		// Otherwise, this value should be left at the default value of 0
+		// (which means to use the internal default).
+		PBKDFConcurrency int
 	}
 }
 
@@ -97,8 +115,15 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
 	}
-	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
-		cfg.Volatile.RequestTimeout = defaultUplinkRequestTimeout
+	if cfg.Volatile.PBKDFConcurrency == 0 {
+		// WARNING: if this default value changes, the root keys of every user will change.
+		// So, don't change this without sufficiently good reason.
+		// some other argon2 wrapper libraries have chosen 8 as the default, so
+		// we do here.
+		cfg.Volatile.PBKDFConcurrency = 8
+	}
+	if cfg.Volatile.PBKDFConcurrency < 0 || cfg.Volatile.PBKDFConcurrency >= 256 {
+		return errs.New("Invalid value for PBKDFConcurrency (must fit in a uint8)")
 	}
 	return nil
 }
@@ -145,7 +170,6 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 	dialer.DialTimeout = cfg.Volatile.DialTimeout
-	dialer.RequestTimeout = cfg.Volatile.RequestTimeout
 
 	return &Uplink{
 		ident:  ident,
@@ -160,7 +184,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key)
+	m, err := metainfo.Dial(ctx, u.dialer, satelliteAddr, apiKey.key, u.cfg.Volatile.UserAgent)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +195,10 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
-		uplinkCfg:     u.cfg,
-		dialer:        u.dialer,
-		metainfo:      m,
-		project:       project,
-		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
+		uplinkCfg: u.cfg,
+		dialer:    u.dialer,
+		metainfo:  m,
+		project:   project,
 	}, nil
 }
 

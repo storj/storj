@@ -8,12 +8,21 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
 
+import DocsIcon from '@/../static/images/navigation/docs.svg';
+import LogoIcon from '@/../static/images/navigation/logo.svg';
+import LogoTextIcon from '@/../static/images/navigation/logoText.svg';
+import SupportIcon from '@/../static/images/navigation/support.svg';
+
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 
 @Component({
     components: {
         ProjectSelectionArea,
+        LogoIcon,
+        LogoTextIcon,
+        DocsIcon,
+        SupportIcon,
     },
 })
 export default class NavigationArea extends Vue {
@@ -68,6 +77,7 @@ export default class NavigationArea extends Vue {
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Profile),
         RouteConfig.Account.with(RouteConfig.Billing),
+        RouteConfig.Account.with(RouteConfig.Referral),
     ];
 
     public onLogoClick(): void {

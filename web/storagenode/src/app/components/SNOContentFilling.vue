@@ -5,51 +5,47 @@
     <div class="info-area">
         <SatelliteSelection/>
         <div v-if="isDisqualifiedInfoShown" class="info-area__disqualified-info">
-            <svg class="info-area__disqualified-info__image" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" alt="Disqualified image">
-                <path d="M37.0279 30.9608C36.5357 30.0515 36.0404 29.1405 35.5467 28.2265C34.6279 26.5312 33.7108 24.8358 32.7936 23.1405C31.692 21.1092 30.5936 19.0749 29.4936 17.0437C28.4311 15.0828 27.3717 13.1249 26.3092 11.1657C25.528 9.72504 24.7498 8.28289 23.9686 6.84088C23.7576 6.45026 23.5467 6.05964 23.3358 5.67212C23.117 5.26588 22.8858 4.87525 22.5545 4.54401C21.3983 3.37993 19.4795 3.15648 18.0889 4.0362C17.492 4.41433 17.0608 4.95028 16.7296 5.56432C16.2218 6.50184 15.7139 7.43933 15.2061 8.37996C14.2811 10.0909 13.3546 11.8018 12.4296 13.5128C11.3155 15.555 10.2108 17.602 9.10144 19.6488C8.05144 21.5894 6.99988 23.5269 5.94832 25.4692C5.17956 26.891 4.40924 28.3098 3.63896 29.7316C3.43584 30.1066 3.23272 30.4816 3.0296 30.8566C2.74523 31.3847 2.5218 31.919 2.45148 32.5284C2.25305 34.2503 3.45928 35.9472 5.12648 36.3691C5.56712 36.4816 6.00148 36.4863 6.44681 36.4863H33.9468H33.9906C34.8968 36.4675 35.7562 36.1269 36.4202 35.5097C37.0609 34.916 37.4359 34.1035 37.5421 33.2441C37.6437 32.4347 37.4093 31.6691 37.028 30.9613L37.0279 30.9608ZM18.4371 13.9528C18.4371 13.0778 19.1528 12.4294 19.9996 12.3904C20.8434 12.3513 21.5621 13.1372 21.5621 13.9528V24.956C21.5621 25.831 20.8464 26.4795 19.9996 26.5185C19.1558 26.5576 18.4371 25.7716 18.4371 24.956V13.9528ZM19.9996 31.8404C19.1215 31.8404 18.409 31.1295 18.409 30.2498C18.409 29.3717 19.1199 28.6592 19.9996 28.6592C20.8777 28.6592 21.5902 29.3701 21.5902 30.2498C21.5902 31.1279 20.8778 31.8404 19.9996 31.8404Z" fill="#F4D638"/>
-            </svg>
+            <LargeDisqualificationIcon
+                class="info-area__disqualified-info__image"
+                alt="Disqualified image"
+            />
             <p class="info-area__disqualified-info__info">Your node has been paused on <b>{{getDisqualificationDate}}</b>. If you have any questions regarding this please contact our <a href="https://support.storj.io/hc/en-us/requests/new">support</a>.</p>
         </div>
         <div v-else-if="doDisqualifiedSatellitesExist" class="info-area__disqualified-info">
-            <svg class="info-area__disqualified-info__image" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" alt="Disqualified image">
-                <path d="M37.0279 30.9608C36.5357 30.0515 36.0404 29.1405 35.5467 28.2265C34.6279 26.5312 33.7108 24.8358 32.7936 23.1405C31.692 21.1092 30.5936 19.0749 29.4936 17.0437C28.4311 15.0828 27.3717 13.1249 26.3092 11.1657C25.528 9.72504 24.7498 8.28289 23.9686 6.84088C23.7576 6.45026 23.5467 6.05964 23.3358 5.67212C23.117 5.26588 22.8858 4.87525 22.5545 4.54401C21.3983 3.37993 19.4795 3.15648 18.0889 4.0362C17.492 4.41433 17.0608 4.95028 16.7296 5.56432C16.2218 6.50184 15.7139 7.43933 15.2061 8.37996C14.2811 10.0909 13.3546 11.8018 12.4296 13.5128C11.3155 15.555 10.2108 17.602 9.10144 19.6488C8.05144 21.5894 6.99988 23.5269 5.94832 25.4692C5.17956 26.891 4.40924 28.3098 3.63896 29.7316C3.43584 30.1066 3.23272 30.4816 3.0296 30.8566C2.74523 31.3847 2.5218 31.919 2.45148 32.5284C2.25305 34.2503 3.45928 35.9472 5.12648 36.3691C5.56712 36.4816 6.00148 36.4863 6.44681 36.4863H33.9468H33.9906C34.8968 36.4675 35.7562 36.1269 36.4202 35.5097C37.0609 34.916 37.4359 34.1035 37.5421 33.2441C37.6437 32.4347 37.4093 31.6691 37.028 30.9613L37.0279 30.9608ZM18.4371 13.9528C18.4371 13.0778 19.1528 12.4294 19.9996 12.3904C20.8434 12.3513 21.5621 13.1372 21.5621 13.9528V24.956C21.5621 25.831 20.8464 26.4795 19.9996 26.5185C19.1558 26.5576 18.4371 25.7716 18.4371 24.956V13.9528ZM19.9996 31.8404C19.1215 31.8404 18.409 31.1295 18.409 30.2498C18.409 29.3717 19.1199 28.6592 19.9996 28.6592C20.8777 28.6592 21.5902 29.3701 21.5902 30.2498C21.5902 31.1279 20.8778 31.8404 19.9996 31.8404Z" fill="#F4D638"/>
-            </svg>
+            <LargeDisqualificationIcon
+                class="info-area__disqualified-info__image"
+                alt="Disqualified image"
+            />
             <p class="info-area__disqualified-info__info">Your node has been paused on<span v-for="disqualified in disqualifiedSatellites"><b> {{disqualified.id}}</b></span>. If you have any questions regarding this please contact our <a href="https://support.storj.io/hc/en-us/requests/new">support</a>.</p>
         </div>
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
             <div class="chart-container">
-                <p class="chart-container__title">Bandwidth Used This Month</p>
-                <p class="chart-container__amount"><b>{{bandwidthSummary}}</b></p>
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+                    <div class="chart-container__title-area__chart-choice-item" :class="{'egress-chart-shown' : isEgressChartShown}" @click.stop="toggleEgressChartShowing">Egress</div>
+                    <div class="chart-container__title-area__chart-choice-item" :class="{'ingress-chart-shown' : isIngressChartShown}" @click.stop="toggleIngressChartShowing">Ingress</div>
+                </div>
+                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{bandwidthSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressSummary}}</b></p>
+                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ingressSummary}}</b></p>
                 <div class="chart-container__chart">
-                    <BandwidthChart/>
+                    <BandwidthChart v-if="isBandwidthChartShown"/>
+                    <EgressChart v-if="isEgressChartShown"/>
+                    <IngressChart v-if="isIngressChartShown"/>
                 </div>
             </div>
             <div class="chart-container">
-                <p class="chart-container__title">Disk Space Used This Month</p>
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                </div>
                 <p class="chart-container__amount"><b>{{storageSummary}}*h</b></p>
                 <div class="chart-container__chart">
                     <DiskSpaceChart/>
                 </div>
             </div>
         </div>
-        <div v-if="selectedSatellite.id">
-            <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
-            <div class="info-area__checks-area">
-                <ChecksArea
-                    label="Uptime Checks"
-                    :amount="checks.uptime"
-                    info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."
-                />
-                <ChecksArea
-                    label="Audit Checks"
-                    :amount="checks.audit"
-                    info-text="Percentage of successful pings/communication between the node & satellite."
-                />
-            </div>
-        </div>
         <div>
-            <p class="info-area__title">Remaining on the Node</p>
             <div class="info-area__remaining-space-area">
                 <BarInfo
                     label="Bandwidth Remaining"
@@ -64,6 +60,24 @@
                     info-text="of disk space left"
                     :current-bar-amount="diskSpace.used"
                     :max-bar-amount="diskSpace.available"
+                />
+            </div>
+        </div>
+        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
+            <p class="info-area__blurred-checks__title">Select A Specific Satellite To View Audit And Uptime Percentages</p>
+        </div>
+        <div v-if="selectedSatellite.id">
+            <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
+            <div class="info-area__checks-area">
+                <ChecksArea
+                    label="Uptime Checks"
+                    :amount="checks.uptime"
+                    info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."
+                />
+                <ChecksArea
+                    label="Audit Checks"
+                    :amount="checks.audit"
+                    info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
         </div>
@@ -82,8 +96,14 @@ import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
+import EgressChart from '@/app/components/EgressChart.vue';
+import IngressChart from '@/app/components/IngressChart.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
+
+import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 
@@ -102,51 +122,160 @@ class Checks {
 
 @Component ({
     components: {
+        EgressChart,
+        IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
         BarInfo,
         ChecksArea,
         PayoutArea,
+        LargeDisqualificationIcon,
     },
 })
 export default class SNOContentFilling extends Vue {
+    /**
+     * isBandwidthChartShown showing status of bandwidth chart from store.
+     * @return boolean - bandwidth chart displaying status
+     */
+    public get isBandwidthChartShown(): boolean {
+        return this.$store.state.appStateModule.isBandwidthChartShown;
+    }
+
+    /**
+     * isIngressChartShown showing status of ingress chart from store.
+     * @return boolean - ingress chart displaying status
+     */
+    public get isIngressChartShown(): boolean {
+        return this.$store.state.appStateModule.isIngressChartShown;
+    }
+
+    /**
+     * isEgressChartShown showing status of egress chart from store.
+     * @return boolean - egress chart displaying status
+     */
+    public get isEgressChartShown(): boolean {
+        return this.$store.state.appStateModule.isEgressChartShown;
+    }
+
+    /**
+     * toggleEgressChartShowing toggles displaying of egress chart.
+     */
+    public toggleEgressChartShowing(): void {
+        if (this.isBandwidthChartShown || this.isIngressChartShown) {
+            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+
+            return;
+        }
+
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+    }
+
+    /**
+     * toggleIngressChartShowing toggles displaying of ingress chart.
+     */
+    public toggleIngressChartShowing(): void {
+        if (this.isBandwidthChartShown || this.isEgressChartShown) {
+            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
+
+            return;
+        }
+
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+    }
+
+    /**
+     * wallet - wallet address as string from store.
+     * @return string - wallet address
+     */
     public get wallet(): string {
         return this.$store.state.node.info.wallet;
     }
 
+    /**
+     * bandwidthSummary - amount of monthly bandwidth used from store.
+     * @return string - formatted amount of monthly bandwidth used
+     */
     public get bandwidthSummary(): string {
         return formatBytes(this.$store.state.node.bandwidthSummary);
     }
 
+    /**
+     * egressSummary - amount of monthly egress used from store.
+     * @return string - formatted amount of monthly egress used
+     */
+    public get egressSummary(): string {
+        return formatBytes(this.$store.state.node.egressSummary);
+    }
+
+    /**
+     * ingressSummary - amount of monthly ingress used from store.
+     * @return string - formatted amount of monthly ingress used
+     */
+    public get ingressSummary(): string {
+        return formatBytes(this.$store.state.node.ingressSummary);
+    }
+
+    /**
+     * storageSummary - amount of monthly disk space used from store.
+     * @return string - formatted amount of monthly disk space used
+     */
     public get storageSummary(): string {
         return formatBytes(this.$store.state.node.storageSummary);
     }
 
+    /**
+     * bandwidth - remaining amount of bandwidth from store.
+     * @return BandwidthInfo - remaining amount of bandwidth
+     */
     public get bandwidth(): BandwidthInfo {
         return this.$store.state.node.utilization.bandwidth;
     }
 
+    /**
+     * diskSpace - remaining amount of diskSpace from store.
+     * @return DiskSpaceInfo - remaining amount of diskSpace
+     */
     public get diskSpace(): DiskSpaceInfo {
         return this.$store.state.node.utilization.diskSpace;
     }
 
+    /**
+     * checks - uptime and audit checks statuses from store.
+     * @return Checks - uptime and audit checks statuses
+     */
     public get checks(): Checks {
         return this.$store.state.node.checks;
     }
 
+    /**
+     * selectedSatellite - current selected satellite from store.
+     * @return SatelliteInfo - current selected satellite
+     */
     public get selectedSatellite(): SatelliteInfo {
         return this.$store.state.node.selectedSatellite;
     }
 
+    /**
+     * disqualifiedSatellites - array of disqualified satellites from store.
+     * @return SatelliteInfo[] - array of disqualified satellites
+     */
     public get disqualifiedSatellites(): SatelliteInfo[] {
         return this.$store.state.node.disqualifiedSatellites;
     }
 
+    /**
+     * isDisqualifiedInfoShown checks if disqualification status is shown.
+     * @return boolean - disqualification status
+     */
     public get isDisqualifiedInfoShown(): boolean {
         return !!(this.selectedSatellite.id && this.selectedSatellite.disqualified);
     }
 
+    /**
+     * getDisqualificationDate gets a date of disqualification.
+     * @return String - date of disqualification
+     */
     public get getDisqualificationDate(): string {
         if (this.selectedSatellite.disqualified) {
             return this.selectedSatellite.disqualified.toUTCString();
@@ -155,6 +284,10 @@ export default class SNOContentFilling extends Vue {
         return '';
     }
 
+    /**
+     * doDisqualifiedSatellitesExist checks if disqualified satellites exist.
+     * @return boolean - disqualified satellites existing status
+     */
     public get doDisqualifiedSatellitesExist(): boolean {
         return this.disqualifiedSatellites.length > 0;
     }
@@ -176,7 +309,7 @@ export default class SNOContentFilling extends Vue {
             align-items: center;
             justify-content: space-between;
             padding: 20px 27px 20px 25px;
-            background-color: #FCF8E3;
+            background-color: #fcf8e3;
             border-radius: 12px;
             width: calc(100% - 52px);
             margin-top: 17px;
@@ -196,7 +329,27 @@ export default class SNOContentFilling extends Vue {
         &__title {
             font-size: 18px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
+            user-select: none;
+        }
+
+        &__blurred-checks {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 224px;
+            background-image: url('../../../static/images/BlurredChecks.png');
+            background-size: contain;
+            margin: 35px 0;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 49px;
+                color: #4a4a4a;
+                user-select: none;
+            }
         }
 
         &__chart-area,
@@ -210,22 +363,40 @@ export default class SNOContentFilling extends Vue {
     .chart-container {
         width: 339px;
         height: 336px;
-        background-color: #FFFFFF;
-        border: 1px solid #E9EFF4;
+        background-color: #fff;
+        border: 1px solid #e9eff4;
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
         position: relative;
 
-        &__title {
-            font-size: 14px;
-            color: #586C86;
+        &__title-area {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            &__title {
+                font-size: 14px;
+                color: #586c86;
+                user-select: none;
+            }
+
+            &__chart-choice-item {
+                padding: 5px 12px;
+                background-color: #f1f6ff;
+                border-radius: 47px;
+                font-size: 12px;
+                color: #9daed2;
+                max-height: 25px;
+                cursor: pointer;
+                user-select: none;
+            }
         }
 
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535F77;
+            color: #535f77;
         }
 
         &__chart {
@@ -233,5 +404,15 @@ export default class SNOContentFilling extends Vue {
             bottom: 0;
             left: 0;
         }
+    }
+
+    .egress-chart-shown {
+        background-color: #d3f2cc;
+        color: #2e5f46;
+    }
+
+    .ingress-chart-shown {
+        background-color: #ffeac2;
+        color: #c48c4b;
     }
 </style>

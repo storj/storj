@@ -18,6 +18,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
+
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
@@ -40,7 +41,7 @@ class BandwidthTooltip {
         this.repairIngress = formatBytes(bandwidth.ingress.repair);
         this.repairEgress = formatBytes(bandwidth.egress.repair);
         this.auditEgress = formatBytes(bandwidth.egress.audit);
-        this.date = bandwidth.intervalStart.toUTCString();
+        this.date = bandwidth.intervalStart.toUTCString().slice(0, 16);
     }
 }
 
@@ -50,13 +51,16 @@ class BandwidthTooltip {
     },
 })
 export default class BandwidthChart extends Vue {
+    private readonly TOOLTIP_OPACITY: string = '1';
+    private readonly TOOLTIP_POSITION: string = 'absolute';
+
     private get allBandwidth(): BandwidthUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
 
     public get chartDataDimension(): string {
-        if (!this.allBandwidth.length) {
-            return '';
+        if (!this.$store.state.node.bandwidthChartData.length) {
+            return 'Bytes';
         }
 
         return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
@@ -72,9 +76,7 @@ export default class BandwidthChart extends Vue {
         const chartBorderWidth = 2;
 
         if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map((elem) => {
-                return elem.summary();
-            }));
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
@@ -90,9 +92,19 @@ export default class BandwidthChart extends Vue {
             document.body.appendChild(tooltipEl);
         }
 
+        // Tooltip Arrow
+        let tooltipArrow = document.getElementById('bandwidth-tooltip-arrow');
+        // Create element on first render
+        if (!tooltipArrow) {
+            tooltipArrow = document.createElement('div');
+            tooltipArrow.id = 'bandwidth-tooltip-arrow';
+            document.body.appendChild(tooltipArrow);
+        }
+
         // Hide if no tooltip
         if (!tooltipModel.opacity) {
             document.body.removeChild(tooltipEl);
+            document.body.removeChild(tooltipArrow);
 
             return;
         }
@@ -127,17 +139,22 @@ export default class BandwidthChart extends Vue {
                                    </div>`;
         }
 
-        // `this` will be the overall tooltip
         const bandwidthChart = document.getElementById('bandwidth-chart');
-        if (bandwidthChart) {
-            const position = bandwidthChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
-            tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
-            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+        if (!bandwidthChart) {
+            return;
         }
 
-        return;
+        // `this` will be the overall tooltip.
+        const position = bandwidthChart.getBoundingClientRect();
+        tooltipEl.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipEl.style.position = this.TOOLTIP_POSITION;
+        tooltipEl.style.left = `${position.left + tooltipModel.caretX - 125}px`;
+        tooltipEl.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 303}px`;
+
+        tooltipArrow.style.opacity = this.TOOLTIP_OPACITY;
+        tooltipArrow.style.position = this.TOOLTIP_POSITION;
+        tooltipArrow.style.left = `${position.left + tooltipModel.caretX - 24}px`;
+        tooltipArrow.style.top = `${position.top + window.pageYOffset + tooltipModel.caretY - 35}px`;
     }
 }
 </script>
@@ -152,37 +169,49 @@ export default class BandwidthChart extends Vue {
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 30px;
-            font-family: 'font_medium';
+            margin: 0 0 5px 31px;
+            font-family: 'font_medium', sans-serif;
         }
     }
 
     #bandwidth-tooltip {
-        background-color: #FFFFFF;
-        width: auto;
+        background-image: url('../../../static/images/tooltipBack.png');
+        background-repeat: no-repeat;
+        background-size: cover;
+        min-width: 250px;
+        min-height: 230px;
         font-size: 12px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px #D2D6DE;
-        color: #535F77;
-        padding: 6px;
+        border-radius: 14px;
+        box-shadow: 0 2px 10px #d2d6de;
+        color: #535f77;
+        pointer-events: none;
+    }
+
+    #bandwidth-tooltip-arrow {
+        background-image: url('../../../static/images/tooltipArrow.png');
+        background-repeat: no-repeat;
+        background-size: 50px 30px;
+        min-width: 50px;
+        min-height: 30px;
         pointer-events: none;
     }
 
     .tooltip-header {
         display: flex;
-        padding: 0 35px 0 83px;
-        line-height: 57px;
+        padding: 10px 0 0 92px;
+        line-height: 40px;
 
         &__ingress {
-            margin-left: 30px;
+            margin-left: 29px;
         }
     }
 
     .tooltip-body {
+        margin: 8px;
 
         &__info {
             display: flex;
-            background-color: #EBECF0;
+            background-color: #ebecf0;
             border-radius: 12px;
             padding: 14px 17px 14px 14px;
             align-items: center;
@@ -212,5 +241,6 @@ export default class BandwidthChart extends Vue {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
+        color: rgba(83, 95, 119, 0.44);
     }
 </style>

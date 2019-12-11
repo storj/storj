@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/memory"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No bucket specified for creation")
+		return fmt.Errorf("no bucket specified for creation")
 	}
 
 	dst, err := fpath.New(args[0])
@@ -37,11 +37,11 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	if dst.Path() != "" {
-		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
+		return fmt.Errorf("nested buckets not supported, use format sj://bucket/")
 	}
 
 	project, err := cfg.GetProject(ctx)

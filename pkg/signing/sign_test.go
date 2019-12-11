@@ -6,16 +6,19 @@ package signing_test
 import (
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testrand"
 )
 
 func TestOrderLimitVerification(t *testing.T) {
@@ -205,4 +208,63 @@ func TestPieceHashVerification(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, unsignedBytes, encoded)
 	}
+}
+
+func TestSignExitCompleted(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	satIdentity, err := testidentity.NewTestIdentity(ctx)
+	nodeID := testrand.NodeID()
+	require.NoError(t, err)
+
+	finishedAt := time.Now().UTC()
+	signer := signing.SignerFromFullIdentity(satIdentity)
+	signee := signing.SigneeFromPeerIdentity(satIdentity.PeerIdentity())
+
+	unsigned := &pb.ExitCompleted{
+		SatelliteId: satIdentity.ID,
+		NodeId:      nodeID,
+		Completed:   finishedAt,
+	}
+	signed, err := signing.SignExitCompleted(ctx, signer, unsigned)
+	require.NoError(t, err)
+
+	err = signing.VerifyExitCompleted(ctx, signee, signed)
+	require.NoError(t, err)
+
+	signed.SatelliteId = testrand.NodeID()
+
+	err = signing.VerifyExitCompleted(ctx, signee, signed)
+	require.Error(t, err)
+}
+
+func TestSignExitFailed(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	satIdentity, err := testidentity.NewTestIdentity(ctx)
+	nodeID := testrand.NodeID()
+	require.NoError(t, err)
+
+	finishedAt := time.Now().UTC()
+	signer := signing.SignerFromFullIdentity(satIdentity)
+	signee := signing.SigneeFromPeerIdentity(satIdentity.PeerIdentity())
+
+	unsigned := &pb.ExitFailed{
+		SatelliteId: satIdentity.ID,
+		NodeId:      nodeID,
+		Failed:      finishedAt,
+		Reason:      pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED,
+	}
+	signed, err := signing.SignExitFailed(ctx, signer, unsigned)
+	require.NoError(t, err)
+
+	err = signing.VerifyExitFailed(ctx, signee, signed)
+	require.NoError(t, err)
+
+	signed.Reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
+
+	err = signing.VerifyExitFailed(ctx, signee, signed)
+	require.Error(t, err)
 }

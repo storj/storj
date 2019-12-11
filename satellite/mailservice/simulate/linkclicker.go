@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -54,6 +54,9 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	var sendError error
 	for _, link := range links {
 		response, err := http.Get(link)
+		if err != nil {
+			continue
+		}
 		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 

@@ -4,15 +4,18 @@
 <template>
     <div class="account-button-container" id="accountDropdownButton">
         <div class="account-button-toggle-container" @click="toggleSelection">
-            <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
-                <!-- First digit of firstName after Registration -->
-                <!-- img if avatar was set -->
                 <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="@/../static/images/account/BlackArrowExpand.svg" alt="Arrow down (expand)"/>
-                <img v-if="isDropdownShown" src="@/../static/images/account/BlackArrowHide.svg" alt="Arrow up (hide)"/>
+                <ExpandIcon
+                    v-if="!isDropdownShown"
+                    alt="Arrow down (expand)"
+                />
+                <HideIcon
+                    v-if="isDropdownShown"
+                    alt="Arrow up (hide)"
+                />
             </div>
         </div>
         <AccountDropdown v-if="isDropdownShown"/>
@@ -22,6 +25,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
+import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
+
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import AccountDropdown from './AccountDropdown.vue';
@@ -29,6 +35,8 @@ import AccountDropdown from './AccountDropdown.vue';
 @Component({
     components: {
         AccountDropdown,
+        ExpandIcon,
+        HideIcon,
     },
 })
 export default class AccountButton extends Vue {
@@ -47,19 +55,6 @@ export default class AccountButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .account-button-container {
-        position: relative;
-        background-color: #FFFFFF;
-        cursor: pointer;
-
-        &:hover {
-
-            .account-button-toggle-container__user-name {
-                opacity: 0.7;
-            }
-        }
-    }
-
     .account-button-toggle-container {
         display: flex;
         flex-direction: row;
@@ -70,11 +65,11 @@ export default class AccountButton extends Vue {
 
         &__user-name {
             margin-left: 12px;
-            font-family: 'font_medium';
+            font-family: 'font_medium', sans-serif;
             font-size: 16px;
             line-height: 23px;
             color: #354049;
-            transition: opacity .2s ease-in-out;
+            transition: opacity 0.2s ease-in-out;
         }
 
         &__avatar {
@@ -84,10 +79,10 @@ export default class AccountButton extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #E8EAF2;
+            background: #e8eaf2;
 
             &__letter {
-                font-family: 'font_medium';
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
                 color: #354049;
@@ -102,7 +97,21 @@ export default class AccountButton extends Vue {
         }
     }
 
+    .account-button-container {
+        position: relative;
+        background-color: #fff;
+        cursor: pointer;
+
+        &:hover {
+
+            .account-button-toggle-container__user-name {
+                opacity: 0.7;
+            }
+        }
+    }
+
     @media screen and (max-width: 1024px) {
+
         .account-button-toggle-container {
 
             &__user-name,

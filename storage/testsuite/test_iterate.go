@@ -4,16 +4,14 @@
 package testsuite
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-var ctx = context.Background() // test context
-
-func testIterate(t *testing.T, store storage.KeyValueStore) {
+func testIterate(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("a", "a", false),
 		newItem("b/1", "b/1", false),
@@ -27,12 +25,13 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 		newItem("h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
+
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
 
-	testIterations(t, store, []iterationTest{
+	testIterations(t, ctx, store, []iterationTest{
 		{"no limits",
 			storage.IterateOptions{}, storage.Items{
 				newItem("a", "a", false),
@@ -41,17 +40,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("c/", "", true),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-		{"no limits reverse",
-			storage.IterateOptions{
-				Reverse: true,
-			}, storage.Items{
-				newItem("h", "h", false),
-				newItem("g", "g", false),
-				newItem("c/", "", true),
-				newItem("c", "c", false),
-				newItem("b/", "", true),
-				newItem("a", "a", false),
 			}},
 
 		{"at a",
@@ -64,14 +52,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("c/", "", true),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-
-		{"reverse at a",
-			storage.IterateOptions{
-				First:   storage.Key("a"),
-				Reverse: true,
-			}, storage.Items{
-				newItem("a", "a", false),
 			}},
 
 		{"after a",
@@ -125,16 +105,6 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 			}, storage.Items{
 				newItem("g", "g", false),
 				newItem("h", "h", false),
-			}},
-		{"reverse after e",
-			storage.IterateOptions{
-				First:   storage.NextKey(storage.Key("e")),
-				Reverse: true,
-			}, storage.Items{
-				newItem("c/", "", true),
-				newItem("c", "c", false),
-				newItem("b/", "", true),
-				newItem("a", "a", false),
 			}},
 		{"prefix b slash",
 			storage.IterateOptions{

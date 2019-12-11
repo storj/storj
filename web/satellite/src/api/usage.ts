@@ -1,11 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import gql from 'graphql-tag';
-
 import { BaseGql } from '@/api/baseGql';
 import { ProjectUsage, UsageApi } from '@/types/usage';
-import apollo from '@/utils/apollo';
 
 /**
  * Exposes all project-usage-related functionality
@@ -39,6 +36,12 @@ export class ProjectUsageApiGql extends BaseGql implements UsageApi {
 
         const response = await this.query(query, variables);
 
-        return response.data.project.usage;
+        return this.fromJson(response);
+    }
+
+    private fromJson(response: any): ProjectUsage {
+        const usage = response.data.project.usage;
+
+        return new ProjectUsage(usage.storage, usage.egress, usage.objectCount, usage.since, usage.before);
     }
 }

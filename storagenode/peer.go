@@ -7,15 +7,13 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/version"
-	"storj.io/storj/internal/version/checker"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -24,6 +22,9 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
@@ -120,7 +121,7 @@ type Peer struct {
 	Version *checker.Service
 
 	// services and endpoints
-	// TODO: similar grouping to satellite.Peer
+	// TODO: similar grouping to satellite.Core
 
 	Contact struct {
 		Service   *contact.Service
@@ -133,6 +134,7 @@ type Peer struct {
 		// TODO: lift things outside of it to organize better
 		Trust         *trust.Pool
 		Store         *pieces.Store
+		TrashChore    *pieces.TrashChore
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
@@ -175,8 +177,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	var err error
 
 	{
-		test := version.Info{}
-		if test != versionInfo {
+		if !versionInfo.IsZero() {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
@@ -249,6 +250,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.PieceSpaceUsedDB(),
 		)
 
+		peer.Storage2.TrashChore = pieces.NewTrashChore(
+			log.Named("pieces:trashchore"),
+			24*time.Hour,   // choreInterval: how often to run the chore
+			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
+		)
+
 		peer.Storage2.CacheService = pieces.NewService(
 			log.Named("piecestore:cacheUpdate"),
 			peer.Storage2.BlobsCache,
@@ -303,7 +312,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
-		dialer.RequestTimeout = config.Storage2.Orders.SenderRequestTimeout
 
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
@@ -398,6 +406,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
 			config.GracefulExit,
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
 			peer.DB.Satellites(),
 		)
 	}
@@ -435,6 +446,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.TrashChore.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
@@ -483,6 +497,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
+	}
+	if peer.Storage2.TrashChore != nil {
+		errlist.Add(peer.Storage2.TrashChore.Close())
 	}
 	if peer.Storage2.RetainService != nil {
 		errlist.Add(peer.Storage2.RetainService.Close())

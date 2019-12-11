@@ -17,12 +17,12 @@ import (
 
 var rolloutErrScenarios = []struct {
 	name        string
-	rollout     versioncontrol.Rollout
+	rollout     versioncontrol.RolloutConfig
 	errContains string
 }{
 	{
 		"short seed",
-		versioncontrol.Rollout{
+		versioncontrol.RolloutConfig{
 			// 31 byte seed
 			Seed:   "00000000000000000000000000000000000000000000000000000000000000",
 			Cursor: 0,
@@ -31,7 +31,7 @@ var rolloutErrScenarios = []struct {
 	},
 	{
 		"long seed",
-		versioncontrol.Rollout{
+		versioncontrol.RolloutConfig{
 			// 33 byte seed
 			Seed:   "000000000000000000000000000000000000000000000000000000000000000000",
 			Cursor: 0,
@@ -40,7 +40,7 @@ var rolloutErrScenarios = []struct {
 	},
 	{
 		"invalid seed",
-		versioncontrol.Rollout{
+		versioncontrol.RolloutConfig{
 			// non-hex seed
 			Seed:   "G000000000000000000000000000000000000000000000000000000000000000",
 			Cursor: 0,
@@ -49,7 +49,7 @@ var rolloutErrScenarios = []struct {
 	},
 	{
 		"negative cursor",
-		versioncontrol.Rollout{
+		versioncontrol.RolloutConfig{
 			Seed:   "0000000000000000000000000000000000000000000000000000000000000000",
 			Cursor: -1,
 		},
@@ -57,7 +57,7 @@ var rolloutErrScenarios = []struct {
 	},
 	{
 		"cursor too big",
-		versioncontrol.Rollout{
+		versioncontrol.RolloutConfig{
 			Seed:   "0000000000000000000000000000000000000000000000000000000000000000",
 			Cursor: 101,
 		},
@@ -67,7 +67,7 @@ var rolloutErrScenarios = []struct {
 
 func TestPeer_Run(t *testing.T) {
 	testVersion := "v0.0.1"
-	testServiceVersions := versioncontrol.ServiceVersions{
+	testServiceVersions := versioncontrol.OldVersionConfig{
 		Gateway:     testVersion,
 		Identity:    testVersion,
 		Satellite:   testVersion,
@@ -78,6 +78,7 @@ func TestPeer_Run(t *testing.T) {
 	t.Run("random rollouts", func(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			config := versioncontrol.Config{
+				Address:  "127.0.0.1:0",
 				Versions: testServiceVersions,
 				Binary:   validRandVersions(t),
 			}
@@ -89,17 +90,17 @@ func TestPeer_Run(t *testing.T) {
 	})
 
 	t.Run("empty rollout seed", func(t *testing.T) {
-		versionsType := reflect.TypeOf(versioncontrol.Versions{})
+		versionsType := reflect.TypeOf(versioncontrol.ProcessesConfig{})
 		fieldCount := versionsType.NumField()
 
 		// test invalid rollout for each binary
 		for i := 0; i < fieldCount; i++ {
-			versions := versioncontrol.Versions{}
+			versions := versioncontrol.ProcessesConfig{}
 			versionsValue := reflect.ValueOf(&versions)
 			field := versionsValue.Elem().Field(i)
 
-			binary := versioncontrol.Binary{
-				Rollout: versioncontrol.Rollout{
+			binary := versioncontrol.ProcessConfig{
+				Rollout: versioncontrol.RolloutConfig{
 					Seed:   "",
 					Cursor: 0,
 				},
@@ -108,6 +109,7 @@ func TestPeer_Run(t *testing.T) {
 			field.Set(reflect.ValueOf(binary))
 
 			config := versioncontrol.Config{
+				Address:  "127.0.0.1:0",
 				Versions: testServiceVersions,
 				Binary:   versions,
 			}
@@ -123,23 +125,24 @@ func TestPeer_Run_error(t *testing.T) {
 	for _, scenario := range rolloutErrScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			versionsType := reflect.TypeOf(versioncontrol.Versions{})
+			versionsType := reflect.TypeOf(versioncontrol.ProcessesConfig{})
 			fieldCount := versionsType.NumField()
 
 			// test invalid rollout for each binary
 			for i := 0; i < fieldCount; i++ {
-				versions := versioncontrol.Versions{}
+				versions := versioncontrol.ProcessesConfig{}
 				versionsValue := reflect.ValueOf(&versions)
 				field := reflect.Indirect(versionsValue).Field(i)
 
-				binary := versioncontrol.Binary{
+				binary := versioncontrol.ProcessConfig{
 					Rollout: scenario.rollout,
 				}
 
 				field.Set(reflect.ValueOf(binary))
 
 				config := versioncontrol.Config{
-					Binary: versions,
+					Address: "127.0.0.1:0",
+					Binary:  versions,
 				}
 
 				peer, err := versioncontrol.New(zaptest.NewLogger(t), &config)
@@ -159,7 +162,7 @@ func TestVersions_ValidateRollouts(t *testing.T) {
 
 func TestRollout_Validate(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		rollout := versioncontrol.Rollout{
+		rollout := versioncontrol.RolloutConfig{
 			Seed:   randSeedString(t),
 			Cursor: i,
 		}
@@ -181,32 +184,32 @@ func TestRollout_Validate_error(t *testing.T) {
 	}
 }
 
-func validRandVersions(t *testing.T) versioncontrol.Versions {
+func validRandVersions(t *testing.T) versioncontrol.ProcessesConfig {
 	t.Helper()
 
-	return versioncontrol.Versions{
-		Satellite: versioncontrol.Binary{
+	return versioncontrol.ProcessesConfig{
+		Satellite: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-		Storagenode: versioncontrol.Binary{
+		Storagenode: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-		Uplink: versioncontrol.Binary{
+		Uplink: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-		Gateway: versioncontrol.Binary{
+		Gateway: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-		Identity: versioncontrol.Binary{
+		Identity: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
 	}
 }
 
-func randRollout(t *testing.T) versioncontrol.Rollout {
+func randRollout(t *testing.T) versioncontrol.RolloutConfig {
 	t.Helper()
 
-	return versioncontrol.Rollout{
+	return versioncontrol.RolloutConfig{
 		Seed:   randSeedString(t),
 		Cursor: rand.Intn(101),
 	}

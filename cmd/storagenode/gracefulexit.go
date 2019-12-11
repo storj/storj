@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
 
 type gracefulExitClient struct {
@@ -136,7 +136,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		}
 		resp, err := client.initGracefulExit(ctx, req)
 		if err != nil {
-			zap.S().Debug("initializing graceful exit failed", zap.String("Satellite ID", id.String()), zap.Error(err))
+			zap.S().Debug("initializing graceful exit failed", zap.Stringer("Satellite ID", id), zap.Error(err))
 			errgroup.Add(err)
 			continue
 		}
@@ -205,13 +205,18 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
 }
 
 func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
-	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful")
+	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful\tCompletion Receipt")
 
 	for _, progress := range progresses {
 		isSuccessful := "N"
+		receipt := "N/A"
 		if progress.Successful {
 			isSuccessful = "Y"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful)
+		if progress.GetCompletionReceipt() != nil && len(progress.GetCompletionReceipt()) > 0 {
+			receipt = fmt.Sprintf("%x", progress.GetCompletionReceipt())
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)
 	}
 }

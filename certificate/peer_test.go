@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -27,6 +25,8 @@ import (
 	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
 )
 
 // TODO: test sad path
@@ -62,7 +62,8 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				certificatesCfg := certificate.Config{
 					Signer: signerCAConfig,
 					Server: server.Config{
-						Address: "127.0.0.1:0",
+						Address:        "127.0.0.1:0",
+						PrivateAddress: "127.0.0.1:0",
 						Config: tlsopts.Config{
 							PeerIDVersions: "*",
 						},
@@ -196,13 +197,15 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			require.NotEmpty(t, updatedAuths)
 			require.NotNil(t, updatedAuths[0].Claim)
 
-			now := time.Now().Unix()
 			claim := updatedAuths[0].Claim
 			assert.Equal(t, expectedAddr.String(), claim.Addr)
 			assert.Equal(t, res.Chain, claim.SignedChainBytes)
+
+			now := time.Now()
+			claimTime := time.Unix(claim.Timestamp, 0)
 			assert.Condition(t, func() bool {
-				return now-authorization.MaxClaimDelaySeconds < claim.Timestamp &&
-					claim.Timestamp < now+authorization.MaxClaimDelaySeconds
+				return now.Sub(claimTime) < authorization.MaxClockSkew &&
+					claimTime.Sub(now) < authorization.MaxClockSkew
 			})
 		})
 	})

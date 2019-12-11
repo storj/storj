@@ -29,7 +29,7 @@ const {
 const bucketPageLimit = 7;
 const firstPage = 1;
 
-class BucketsState {
+export class BucketsState {
     public cursor: BucketCursor = { limit: bucketPageLimit, search: '', page: firstPage };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: bucketPageLimit, search: '', totalCount: 0 };
 }
