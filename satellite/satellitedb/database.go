@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -47,11 +48,12 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if driver != "postgres" {
+	if implementation != dbutil.Postgres && implementation != dbutil.Cockroach {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
 	source = pgutil.CheckApplicationName(source)
+	source = cockroachutil.TranslateName(source)
 
 	dbxDB, err := dbx.Open("postgres", source)
 	if err != nil {
