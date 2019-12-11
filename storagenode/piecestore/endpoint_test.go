@@ -90,352 +90,328 @@ func TestUploadAndPartialDownload(t *testing.T) {
 }
 
 func TestUpload(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
-	defer ctx.Check(client.Close)
-
-	for _, tt := range []struct {
-		pieceID       storj.PieceID
-		contentLength memory.Size
-		action        pb.PieceAction
-		err           string
-	}{
-		{ // should successfully store data
-			pieceID:       storj.PieceID{1},
-			contentLength: 50 * memory.KiB,
-			action:        pb.PieceAction_PUT,
-			err:           "",
-		},
-		{ // should err with piece ID not specified
-			pieceID:       storj.PieceID{},
-			contentLength: 1 * memory.KiB,
-			action:        pb.PieceAction_PUT,
-			err:           "missing piece id",
-		},
-		{ // should err because invalid action
-			pieceID:       storj.PieceID{1},
-			contentLength: 1 * memory.KiB,
-			action:        pb.PieceAction_GET,
-			err:           "expected put or put repair action got GET",
-		},
-	} {
-		data := testrand.Bytes(tt.contentLength)
-		serialNumber := testrand.SerialNumber()
-
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
-			t,
-			planet.Satellites[0].ID(),
-			planet.StorageNodes[0].ID(),
-			tt.pieceID,
-			tt.action,
-			serialNumber,
-			24*time.Hour,
-			24*time.Hour,
-			int64(len(data)),
-		)
-		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
-		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-		require.NoError(t, err)
+		for _, tt := range []struct {
+			pieceID       storj.PieceID
+			contentLength memory.Size
+			action        pb.PieceAction
+			err           string
+		}{
+			{ // should successfully store data
+				pieceID:       storj.PieceID{1},
+				contentLength: 50 * memory.KiB,
+				action:        pb.PieceAction_PUT,
+				err:           "",
+			},
+			{ // should err with piece ID not specified
+				pieceID:       storj.PieceID{},
+				contentLength: 1 * memory.KiB,
+				action:        pb.PieceAction_PUT,
+				err:           "missing piece id",
+			},
+			{ // should err because invalid action
+				pieceID:       storj.PieceID{1},
+				contentLength: 1 * memory.KiB,
+				action:        pb.PieceAction_GET,
+				err:           "expected put or put repair action got GET",
+			},
+		} {
+			data := testrand.Bytes(tt.contentLength)
+			serialNumber := testrand.SerialNumber()
 
-		_, err = uploader.Write(data)
-		require.NoError(t, err)
-
-		pieceHash, err := uploader.Commit(ctx)
-		if tt.err != "" {
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.err)
-		} else {
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				planet.StorageNodes[0].ID(),
+				tt.pieceID,
+				tt.action,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(len(data)),
+			)
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 			require.NoError(t, err)
 
-			expectedHash := pkcrypto.SHA256Hash(data)
-			assert.Equal(t, expectedHash, pieceHash.Hash)
+			uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
+			require.NoError(t, err)
 
-			signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
-			require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
+			_, err = uploader.Write(data)
+			require.NoError(t, err)
+
+			pieceHash, err := uploader.Commit(ctx)
+			if tt.err != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.NoError(t, err)
+
+				expectedHash := pkcrypto.SHA256Hash(data)
+				assert.Equal(t, expectedHash, pieceHash.Hash)
+
+				signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
+				require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
+			}
 		}
-	}
+	})
 }
 
 func TestDownload(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pieceID := storj.PieceID{1}
+		expectedData, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+		require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+		for _, tt := range []struct {
+			pieceID storj.PieceID
+			action  pb.PieceAction
+			errs    []string
+		}{
+			{ // should successfully download data
+				pieceID: pieceID,
+				action:  pb.PieceAction_GET,
+			},
+			{ // should err with piece ID not specified
+				pieceID: storj.PieceID{},
+				action:  pb.PieceAction_GET,
+				errs:    []string{"missing piece id"},
+			},
+			{ // should err with piece ID not specified
+				pieceID: storj.PieceID{2},
+				action:  pb.PieceAction_GET,
+				errs:    []string{"file does not exist", "The system cannot find the path specified"},
+			},
+			{ // should err with invalid action
+				pieceID: pieceID,
+				action:  pb.PieceAction_PUT,
+				errs:    []string{"expected get or get repair or audit action got PUT"},
+			},
+		} {
+			serialNumber := testrand.SerialNumber()
 
-	planet.Start(ctx)
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				planet.StorageNodes[0].ID(),
+				tt.pieceID,
+				tt.action,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(len(expectedData)),
+			)
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+			require.NoError(t, err)
 
-	pieceID := storj.PieceID{1}
-	expectedData, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
-	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
+			downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, int64(len(expectedData)))
+			require.NoError(t, err)
 
-	for _, tt := range []struct {
-		pieceID storj.PieceID
-		action  pb.PieceAction
-		errs    []string
-	}{
-		{ // should successfully download data
-			pieceID: pieceID,
-			action:  pb.PieceAction_GET,
-		},
-		{ // should err with piece ID not specified
-			pieceID: storj.PieceID{},
-			action:  pb.PieceAction_GET,
-			errs:    []string{"missing piece id"},
-		},
-		{ // should err with piece ID not specified
-			pieceID: storj.PieceID{2},
-			action:  pb.PieceAction_GET,
-			errs:    []string{"file does not exist", "The system cannot find the path specified"},
-		},
-		{ // should err with invalid action
-			pieceID: pieceID,
-			action:  pb.PieceAction_PUT,
-			errs:    []string{"expected get or get repair or audit action got PUT"},
-		},
-	} {
+			buffer := make([]byte, len(expectedData))
+			n, err := downloader.Read(buffer)
+
+			if len(tt.errs) > 0 {
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, expectedData, buffer[:n])
+			}
+
+			err = downloader.Close()
+			if len(tt.errs) > 0 {
+				require.Error(t, err)
+				require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
+			hash, originalLimit := downloader.GetHashAndLimit()
+			require.Nil(t, hash)
+			require.Nil(t, originalLimit)
+		}
+	})
+}
+
+func TestDownloadGetRepair(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		pieceID := storj.PieceID{1}
+		expectedData, ulOrderLimit, originHash := uploadPiece(
+			t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0],
+		)
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+		require.NoError(t, err)
+
 		serialNumber := testrand.SerialNumber()
 
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
+		dlOrderLimit, piecePrivateKey := GenerateOrderLimit(
 			t,
 			planet.Satellites[0].ID(),
 			planet.StorageNodes[0].ID(),
-			tt.pieceID,
-			tt.action,
+			storj.PieceID{1},
+			pb.PieceAction_GET_REPAIR,
 			serialNumber,
 			24*time.Hour,
 			24*time.Hour,
 			int64(len(expectedData)),
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+		dlOrderLimit, err = signing.SignOrderLimit(ctx, signer, dlOrderLimit)
 		require.NoError(t, err)
 
-		downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, int64(len(expectedData)))
+		downloader, err := client.Download(ctx, dlOrderLimit, piecePrivateKey, 0, int64(len(expectedData)))
 		require.NoError(t, err)
 
 		buffer := make([]byte, len(expectedData))
 		n, err := downloader.Read(buffer)
 
-		if len(tt.errs) > 0 {
-		} else {
-			require.NoError(t, err)
-			require.Equal(t, expectedData, buffer[:n])
-		}
+		require.NoError(t, err)
+		require.Equal(t, expectedData, buffer[:n])
 
 		err = downloader.Close()
-		if len(tt.errs) > 0 {
-			require.Error(t, err)
-			require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
-		} else {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 
-		// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
-		hash, originalLimit := downloader.GetHashAndLimit()
-		require.Nil(t, hash)
-		require.Nil(t, originalLimit)
-	}
-}
+		hash, originLimit := downloader.GetHashAndLimit()
+		require.NotNil(t, hash)
+		require.Equal(t, originHash.Hash, hash.Hash)
+		require.Equal(t, originHash.PieceId, hash.PieceId)
 
-func TestDownloadGetRepair(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	pieceID := storj.PieceID{1}
-	expectedData, ulOrderLimit, originHash := uploadPiece(
-		t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0],
-	)
-	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
-
-	serialNumber := testrand.SerialNumber()
-
-	dlOrderLimit, piecePrivateKey := GenerateOrderLimit(
-		t,
-		planet.Satellites[0].ID(),
-		planet.StorageNodes[0].ID(),
-		storj.PieceID{1},
-		pb.PieceAction_GET_REPAIR,
-		serialNumber,
-		24*time.Hour,
-		24*time.Hour,
-		int64(len(expectedData)),
-	)
-	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	dlOrderLimit, err = signing.SignOrderLimit(ctx, signer, dlOrderLimit)
-	require.NoError(t, err)
-
-	downloader, err := client.Download(ctx, dlOrderLimit, piecePrivateKey, 0, int64(len(expectedData)))
-	require.NoError(t, err)
-
-	buffer := make([]byte, len(expectedData))
-	n, err := downloader.Read(buffer)
-
-	require.NoError(t, err)
-	require.Equal(t, expectedData, buffer[:n])
-
-	err = downloader.Close()
-	require.NoError(t, err)
-
-	hash, originLimit := downloader.GetHashAndLimit()
-	require.NotNil(t, hash)
-	require.Equal(t, originHash.Hash, hash.Hash)
-	require.Equal(t, originHash.PieceId, hash.PieceId)
-
-	require.NotNil(t, originLimit)
-	require.Equal(t, originLimit.Action, ulOrderLimit.Action)
-	require.Equal(t, originLimit.Limit, ulOrderLimit.Limit)
-	require.Equal(t, originLimit.PieceId, ulOrderLimit.PieceId)
-	require.Equal(t, originLimit.SatelliteId, ulOrderLimit.SatelliteId)
-	require.Equal(t, originLimit.SerialNumber, ulOrderLimit.SerialNumber)
-	require.Equal(t, originLimit.SatelliteSignature, ulOrderLimit.SatelliteSignature)
-	require.Equal(t, originLimit.UplinkPublicKey, ulOrderLimit.UplinkPublicKey)
+		require.NotNil(t, originLimit)
+		require.Equal(t, originLimit.Action, ulOrderLimit.Action)
+		require.Equal(t, originLimit.Limit, ulOrderLimit.Limit)
+		require.Equal(t, originLimit.PieceId, ulOrderLimit.PieceId)
+		require.Equal(t, originLimit.SatelliteId, ulOrderLimit.SatelliteId)
+		require.Equal(t, originLimit.SerialNumber, ulOrderLimit.SerialNumber)
+		require.Equal(t, originLimit.SatelliteSignature, ulOrderLimit.SatelliteSignature)
+		require.Equal(t, originLimit.UplinkPublicKey, ulOrderLimit.UplinkPublicKey)
+	})
 }
 
 func TestDelete(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	pieceID := storj.PieceID{1}
-	uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
-	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-	require.NoError(t, err)
-
-	for _, tt := range []struct {
-		pieceID storj.PieceID
-		action  pb.PieceAction
-		err     string
-	}{
-		{ // should successfully delete data
-			pieceID: pieceID,
-			action:  pb.PieceAction_DELETE,
-			err:     "",
-		},
-		{ // should err with piece ID not found
-			pieceID: storj.PieceID{99},
-			action:  pb.PieceAction_DELETE,
-			err:     "", // TODO should this return error
-		},
-		{ // should err with piece ID not specified
-			pieceID: storj.PieceID{},
-			action:  pb.PieceAction_DELETE,
-			err:     "missing piece id",
-		},
-		{ // should err due to incorrect action
-			pieceID: pieceID,
-			action:  pb.PieceAction_GET,
-			err:     "expected delete action got GET",
-		},
-	} {
-		serialNumber := testrand.SerialNumber()
-
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
-			t,
-			planet.Satellites[0].ID(),
-			planet.StorageNodes[0].ID(),
-			tt.pieceID,
-			tt.action,
-			serialNumber,
-			24*time.Hour,
-			24*time.Hour,
-			100,
-		)
-		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pieceID := storj.PieceID{1}
+		uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
 
-		err := client.Delete(ctx, orderLimit, piecePrivateKey)
-		if tt.err != "" {
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.err)
-		} else {
+		for _, tt := range []struct {
+			pieceID storj.PieceID
+			action  pb.PieceAction
+			err     string
+		}{
+			{ // should successfully delete data
+				pieceID: pieceID,
+				action:  pb.PieceAction_DELETE,
+				err:     "",
+			},
+			{ // should err with piece ID not found
+				pieceID: storj.PieceID{99},
+				action:  pb.PieceAction_DELETE,
+				err:     "", // TODO should this return error
+			},
+			{ // should err with piece ID not specified
+				pieceID: storj.PieceID{},
+				action:  pb.PieceAction_DELETE,
+				err:     "missing piece id",
+			},
+			{ // should err due to incorrect action
+				pieceID: pieceID,
+				action:  pb.PieceAction_GET,
+				err:     "expected delete action got GET",
+			},
+		} {
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				planet.StorageNodes[0].ID(),
+				tt.pieceID,
+				tt.action,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				100,
+			)
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 			require.NoError(t, err)
+
+			err := client.Delete(ctx, orderLimit, piecePrivateKey)
+			if tt.err != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.NoError(t, err)
+			}
 		}
-	}
+	})
 }
 
 func TestDeletePiece(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	var (
-		planetSat = planet.Satellites[0]
-		planetSN  = planet.StorageNodes[0]
-	)
-
-	var client *piecestore.Client
-	{
-		dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
-		require.NoError(t, err)
-
-		client, err = piecestore.Dial(
-			ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var (
+			planetSat = planet.Satellites[0]
+			planetSN  = planet.StorageNodes[0]
 		)
-		require.NoError(t, err)
-	}
 
-	t.Run("Ok", func(t *testing.T) {
-		pieceID := storj.PieceID{1}
-		data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+		var client *piecestore.Client
+		{
+			dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
+			require.NoError(t, err)
 
-		err := client.DeletePiece(ctx.Context, pieceID)
-		require.NoError(t, err)
+			client, err = piecestore.Dial(
+				ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
+			)
+			require.NoError(t, err)
+		}
 
-		_, err = downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
-		require.Error(t, err)
+		t.Run("Ok", func(t *testing.T) {
+			pieceID := storj.PieceID{1}
+			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
 
-		require.Condition(t, func() bool {
-			return strings.Contains(err.Error(), "file does not exist") ||
-				strings.Contains(err.Error(), "The system cannot find the path specified")
-		}, "unexpected error message")
-	})
+			err := client.DeletePiece(ctx.Context, pieceID)
+			require.NoError(t, err)
 
-	t.Run("error: Not found", func(t *testing.T) {
-		err := client.DeletePiece(ctx.Context, storj.PieceID{2})
-		require.Error(t, err)
-		require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
-	})
+			_, err = downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			require.Error(t, err)
 
-	t.Run("error: permission denied", func(t *testing.T) {
-		client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
-		require.NoError(t, err)
+			require.Condition(t, func() bool {
+				return strings.Contains(err.Error(), "file does not exist") ||
+					strings.Contains(err.Error(), "The system cannot find the path specified")
+			}, "unexpected error message")
+		})
 
-		err = client.DeletePiece(ctx.Context, storj.PieceID{})
-		require.Error(t, err)
-		require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
+		t.Run("error: Not found", func(t *testing.T) {
+			err := client.DeletePiece(ctx.Context, storj.PieceID{2})
+			require.Error(t, err)
+			require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
+		})
+
+		t.Run("error: permission denied", func(t *testing.T) {
+			client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
+			require.NoError(t, err)
+
+			err = client.DeletePiece(ctx.Context, storj.PieceID{})
+			require.Error(t, err)
+			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
+		})
 	})
 }
 

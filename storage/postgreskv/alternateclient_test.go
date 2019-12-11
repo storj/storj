@@ -4,6 +4,7 @@
 package postgreskv
 
 import (
+	"context"
 	"flag"
 	"testing"
 
@@ -56,13 +57,16 @@ type pgAltLongBenchmarkStore struct {
 	*AlternateClient
 }
 
-func (store *pgAltLongBenchmarkStore) BulkImport(iter storage.Iterator) error {
+func (store *pgAltLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) error {
 	return bulkImport(store.pgConn, iter)
 }
 
-func (store *pgAltLongBenchmarkStore) BulkDelete() error {
-	return bulkDelete(store.pgConn)
+func (store *pgAltLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {
+	return bulkDeleteAll(store.pgConn)
 }
+
+var _ testsuite.BulkImporter = &pgAltLongBenchmarkStore{}
+var _ testsuite.BulkCleaner = &pgAltLongBenchmarkStore{}
 
 func BenchmarkSuiteLongAlt(b *testing.B) {
 	store, cleanup := newTestAlternatePostgres(b)

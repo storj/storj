@@ -24,8 +24,8 @@ func OpenUnique(connStr string, schemaName string) (db *dbutil.TempDatabase, err
 	if !strings.HasPrefix(connStr, "cockroach://") {
 		return nil, errs.New("expected a cockroachDB URI, but got %q", connStr)
 	}
-	connStr = "postgres://" + connStr[12:]
-	masterDB, err := sql.Open("postgres", connStr)
+	postgresConnStr := "postgres://" + connStr[12:]
+	masterDB, err := sql.Open("postgres", postgresConnStr)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -52,7 +52,8 @@ func OpenUnique(connStr string, schemaName string) (db *dbutil.TempDatabase, err
 		return nil, errs.Combine(err, cleanup(masterDB))
 	}
 
-	sqlDB, err := sql.Open("postgres", modifiedConnStr)
+	modifiedPostgresConnStr := "postgres://" + modifiedConnStr[12:]
+	sqlDB, err := sql.Open("postgres", modifiedPostgresConnStr)
 	if err != nil {
 		return nil, errs.Combine(errs.Wrap(err), cleanup(masterDB))
 	}

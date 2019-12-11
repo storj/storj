@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
 )
@@ -401,7 +400,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	// TODO refactor to use []byte directly
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1143,7 +1142,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits object when all segments are also committed
+// CommitObject commits an object when all its segments have already been
+// committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1299,7 +1299,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 			pointer, err = endpoint.metainfo.Get(ctx, path)
 			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
+				if storj.ErrObjectNotFound.Has(err) {
 					break
 				}
 
@@ -1863,7 +1863,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1880,20 +1880,40 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
 		// TODO cleanup int32 vs int64
-		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+		return endpoint.listSegmentsFromNumberOfSegments(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
 	}
 
 	// list segments by requesting each segment from cursor index to n until n segment is not found
 	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
 }
 
-func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, numberOfSegments, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+	if numberOfSegments <= 0 {
+		endpoint.log.Error(
+			"Invalid number of segments; this function requires the value to be greater than 0",
+			zap.Int32("numberOfSegments", numberOfSegments),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
+	if cursorIndex > numberOfSegments {
+		endpoint.log.Error(
+			"Invalid number cursor index; the index cannot be greater than the total number of segments",
+			zap.Int32("numberOfSegments", numberOfSegments),
+			zap.Int32("cursorIndex", cursorIndex),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
 	numberOfSegments -= cursorIndex
 
-	segmentItems := make([]*pb.SegmentListItem, 0)
-	more := false
-
+	var (
+		segmentItems = make([]*pb.SegmentListItem, 0)
+		more         = false
+	)
 	if numberOfSegments > 0 {
+		segmentItems = make([]*pb.SegmentListItem, 0, int(numberOfSegments))
+
 		if numberOfSegments > limit {
 			more = true
 			numberOfSegments = limit
@@ -1902,6 +1922,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 			// last segment will be added manually at the end of this block
 			numberOfSegments--
 		}
+
 		for index := int32(0); index < numberOfSegments; index++ {
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
 				Position: &pb.SegmentPosition{
@@ -1909,6 +1930,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 				},
 			})
 		}
+
 		if !more {
 			// last segment is always the last one
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
@@ -1938,7 +1960,7 @@ func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uu
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
+			if storj.ErrObjectNotFound.Has(err) {
 				break
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2096,7 +2118,7 @@ func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, s
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, "", rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, "", rpcstatus.Error(rpcstatus.Internal, err.Error())

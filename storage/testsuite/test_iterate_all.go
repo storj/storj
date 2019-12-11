@@ -7,10 +7,11 @@ import (
 	"math/rand"
 	"testing"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testIterateAll(t *testing.T, store storage.KeyValueStore) {
+func testIterateAll(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("a", "a", false),
 		newItem("b/1", "b/1", false),
@@ -24,12 +25,13 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 		newItem("h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
+
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
 
-	testIterations(t, store, []iterationTest{
+	testIterations(t, ctx, store, []iterationTest{
 		{"no limits",
 			storage.IterateOptions{
 				Recurse: true,
