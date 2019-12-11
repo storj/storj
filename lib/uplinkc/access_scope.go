@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"fmt"
+	"unsafe"
 
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
@@ -104,7 +105,7 @@ func serialize_scope(scopeRef C.ScopeRef, cerr **C.char) *C.char {
 
 //export restrict_scope
 // restrict_scope restricts a given scope with the provided caveat and encryption restrictions
-func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions []C.EncryptionRestriction, cerr **C.char) C.ScopeRef {
+func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.EncryptionRestriction, numberOfRestrictions int, cerr **C.char) C.ScopeRef {
 	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
 	if !ok {
 		*cerr = C.CString("invalid scope")
@@ -124,15 +125,19 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions []C.Encry
 		return C.ScopeRef{}
 	}
 
-	restrictionsGo := make([]libuplink.EncryptionRestriction, len(restrictions))
-	for i, restriction := range restrictions {
-		restrictionsGo[i] = libuplink.EncryptionRestriction{
-			Bucket:     C.GoString(restriction.bucket),
-			PathPrefix: C.GoString(restriction.path_prefix),
+	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, numberOfRestrictions)
+	if restrictions != nil {
+		restrictionsArray := (*[1 << 30 / unsafe.Sizeof(C.EncryptionRestriction{})]C.EncryptionRestriction)(unsafe.Pointer(restrictions))
+
+		for i := 0; i < numberOfRestrictions; i++ {
+			restriction := restrictionsArray[i]
+			restrictionsGo = append(restrictionsGo, libuplink.EncryptionRestriction{
+				Bucket:     C.GoString(restriction.bucket),
+				PathPrefix: C.GoString(restriction.path_prefix),
+			})
 		}
 	}
 
-	//Create new EncryptionAccess with restrictions
 	apiKeyRestricted, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
 	if err != nil {
 		*cerr = C.CString(fmt.Sprintf("%+v", err))

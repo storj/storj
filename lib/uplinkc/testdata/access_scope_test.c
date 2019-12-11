@@ -59,20 +59,13 @@ int main(int argc, char *argv[])
         require_noerror(*err);
         requiref(scope._handle != 0, "got empty scope\n");
 
-        Caveat caveat = { disallow_writes: true };
-        EncryptionRestriction entries[] = {
-            {
-                "bucket1",
-                "path1"
-            }
-        };
-        GoSlice restrictions = {
-            data: entries,
-            len: 1,
-            cap: 1,
-        };
-        
-        ScopeRef restrictedScope = restrict_scope(scope, caveat, restrictions, err);
+        Caveat caveat = {disallow_writes : true};
+        EncryptionRestriction restrictions[] = {
+            {"bucket1",
+             "path1"},
+            {"bucket2",
+             "path2"}};
+        ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
         require_noerror(*err);
         requiref(restrictedScope._handle != 0, "got empty scope\n");
 
