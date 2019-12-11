@@ -24,13 +24,13 @@ populates_sno_versions(){
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are splited into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
-majorReleaseTags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
+major_release_tags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
 stage1_sat_version=$current_release_version
-stage1_uplink_versions=$majorReleaseTags
+stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populates_sno_versions $current_release_version 10)
 # TODO separate satellite version into satellite api version and satellite core verion
 stage2_sat_version="master"
-stage2_uplink_versions=$majorReleaseTags\ "master"
+stage2_uplink_versions=$major_release_tags\ "master"
 stage2_storagenode_versions=$(populates_sno_versions $current_release_version 5)\ $(populates_sno_versions "master" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
@@ -54,7 +54,12 @@ replace_in_file(){
     local src="$1"
     local dest="$2"
     local path=$3
-    sed -i "s#${src}#${dest}#g" "${path}"
+    case "$OSTYPE" in
+    darwin*)
+        sed -i '' "s#${src}#${dest}#g" "${path}" ;;
+    *)
+        sed -i "s#${src}#${dest}#g" "${path}" ;;
+    esac
 }
 
 
