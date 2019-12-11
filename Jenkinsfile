@@ -91,6 +91,7 @@ node('node') {
   finally {
 
     stage('Cleanup') {
+      sh 'docker rm -f postgres || true'
       sh 'make clean-images'
       deleteDir()
     }
