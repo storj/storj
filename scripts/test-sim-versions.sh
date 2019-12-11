@@ -23,6 +23,7 @@ populates_sno_versions(){
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are splited into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
+git fetch --tags
 current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
 major_release_tags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --unique | grep -e "^v0\.\(1[5-9]\)\|2[2-9]")
 stage1_sat_version=$current_release_version
@@ -117,7 +118,6 @@ fi
 echo "Setting up environments for versions" ${unique_versions}
 
 # Get latest release tags and clean up git worktree
-git fetch --tags
 git worktree prune
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
