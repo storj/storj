@@ -6,6 +6,7 @@ package orders
 import (
 	"context"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -148,6 +149,11 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 	service.log.Debug("sending")
 
 	const batchSize = 1000
+
+	jitter := time.Duration(rand.Int63n(int64(time.Second * 300)))
+	if !sync2.Sleep(ctx, jitter) {
+		return ctx.Err()
+	}
 
 	ordersBySatellite, err := service.orders.ListUnsentBySatellite(ctx)
 	if err != nil {
