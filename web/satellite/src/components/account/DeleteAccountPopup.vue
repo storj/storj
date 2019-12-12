@@ -57,6 +57,7 @@ import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { validatePassword } from '@/utils/validation';
+
 import { LocalData } from '../../utils/localData';
 
 @Component({

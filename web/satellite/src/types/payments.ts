@@ -142,7 +142,11 @@ export enum BillingHistoryItemType {
 
 // TokenDeposit holds public information about token deposit
 export class TokenDeposit {
-    constructor(public amount: number, public address: string) {}
+    constructor(
+        public amount: number,
+        public address: string,
+        public link: string,
+    ) {}
 }
 
 // Amount holds information for displaying billing item payment
