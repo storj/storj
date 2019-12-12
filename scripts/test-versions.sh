@@ -27,7 +27,8 @@ setup(){
 echo "Begin test-versions.sh, storj-sim config directory:" ${main_cfg_dir}
 
 echo "which storj-sim: $(which storj-sim)"
-# shasum $(which storj-sim)
+echo "Shasum for storj-sim:"
+shasum $(which storj-sim)
 
 if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
@@ -41,11 +42,8 @@ echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
-# uplink version --config-dir "${main_cfg_dir}/gateway/0/"
-
 echo -e "\nConfig directory for satellite:"
 echo "${main_cfg_dir}/satellite/0"
-# storj-sim network env --config-dir "${main_cfg_dir}" SATELLITE_0_DIR
 echo "Shasum for satellite:"
 shasum ${main_cfg_dir}/satellite/0/satellite
 
@@ -54,7 +52,6 @@ for i in {0..9}
 do
     echo -e "\nConfig directory for sn ${i}:"
     echo "${main_cfg_dir}/storagenode/${i}"
-    # storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_${i}_DIR
     echo "Shasum for sn ${i} binary:"
     shasum ${main_cfg_dir}/storagenode/${i}/storagenode
 done
@@ -140,6 +137,8 @@ if [[ "$command" == "download" ]]; then
             echo "download test on current branch: multisegment upload testfile does not match uploaded file"
             exit 1
         fi
+
+        rm -rf ${download_dst_dir}
     done
 fi
 
