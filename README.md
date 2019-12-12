@@ -5,6 +5,7 @@
 0. Create `ci` for linters, Dockerfile and Jenkins setup.
 0. Start using `ci` for some repository.
 
+1. Make changes to ensure core integration tests are outside core. This significantly simplifies changing dependencies.
 2. Move `storj.io/storj/private/*` to `storj.io/core/*`.
 3. Move `storj.io/storj/pkg/*` to `storj.io/core/*` (only uplink dependencies).
 4. Move `storj.io/storj/uplink/*` to `storj.io/uplink/*`
