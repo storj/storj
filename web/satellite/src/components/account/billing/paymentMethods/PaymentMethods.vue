@@ -178,6 +178,10 @@ export default class PaymentMethods extends Vue {
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
+            const depositWindow = window.open(tokenResponse.link, '_blank');
+            if (depositWindow) {
+                depositWindow.focus();
+            }
         } catch (error) {
             await this.$notify.error(error.message);
         }
