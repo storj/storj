@@ -362,6 +362,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 		for _, path := range filePaths {
 			upload(ctx, t, db, streams, bucket, path, nil)
 		}
+		sort.Strings(filePaths)
 
 		// Enable encryption bypass
 		encStore.EncryptionBypass = true
@@ -391,7 +392,6 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 			require.NoError(t, err)
 
 			// NB: require decrypted path is a member of `filePaths`.
-			sort.Strings(filePaths)
 			result := sort.Search(len(filePaths), func(i int) bool {
 				return !paths.NewUnencrypted(filePaths[i]).Less(decryptedPath)
 			})
