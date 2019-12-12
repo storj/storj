@@ -54,6 +54,7 @@ type Transaction struct {
 	Address   string
 	Status    TransactionStatus
 	Timeout   time.Duration
+	Link      string
 	CreatedAt time.Time
 }
 
