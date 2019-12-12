@@ -10,8 +10,8 @@ import (
 
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
 )
 
 var (
