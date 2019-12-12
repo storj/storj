@@ -12,6 +12,65 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 )
 
+//export new_scope
+// new_scope creates new Scope
+func new_scope(satelliteAddress *C.char, apikeyRef C.APIKeyRef, encAccessRef C.EncryptionAccessRef, cerr **C.char) C.ScopeRef {
+	apikey, ok := universe.Get(apikeyRef._handle).(libuplink.APIKey)
+	if !ok {
+		*cerr = C.CString("invalid apikey")
+		return C.ScopeRef{}
+	}
+
+	encAccess, ok := universe.Get(encAccessRef._handle).(*libuplink.EncryptionAccess)
+	if !ok {
+		*cerr = C.CString("invalid encryption access")
+		return C.ScopeRef{}
+	}
+
+	scope := &libuplink.Scope{
+		SatelliteAddr:    C.GoString(satelliteAddress),
+		APIKey:           apikey,
+		EncryptionAccess: encAccess,
+	}
+	return C.ScopeRef{_handle: universe.Add(scope)}
+}
+
+//export get_scope_satellite_address
+// get_scope_satellite_address gets Scope satellite address
+func get_scope_satellite_address(scopeRef C.ScopeRef, cerr **C.char) *C.char {
+	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
+	if !ok {
+		*cerr = C.CString("invalid scope")
+		return nil
+	}
+
+	return C.CString(scope.SatelliteAddr)
+}
+
+//export get_scope_api_key
+// get_scope_api_key gets Scope APIKey
+func get_scope_api_key(scopeRef C.ScopeRef, cerr **C.char) C.APIKeyRef {
+	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
+	if !ok {
+		*cerr = C.CString("invalid scope")
+		return C.APIKeyRef{}
+	}
+
+	return C.APIKeyRef{_handle: universe.Add(scope.APIKey)}
+}
+
+//export get_scope_enc_access
+// get_scope_enc_access gets Scope encryption access
+func get_scope_enc_access(scopeRef C.ScopeRef, cerr **C.char) C.EncryptionAccessRef {
+	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
+	if !ok {
+		*cerr = C.CString("invalid scope")
+		return C.EncryptionAccessRef{}
+	}
+
+	return C.EncryptionAccessRef{_handle: universe.Add(scope.EncryptionAccess)}
+}
+
 //export parse_scope
 // parse_scope parses an Scope
 func parse_scope(val *C.char, cerr **C.char) C.ScopeRef {
@@ -26,8 +85,8 @@ func parse_scope(val *C.char, cerr **C.char) C.ScopeRef {
 
 //export serialize_scope
 // serialize_scope serializes the Scope to a string
-func serialize_scope(scopeHandle C.ScopeRef, cerr **C.char) *C.char {
-	scope, ok := universe.Get(scopeHandle._handle).(*libuplink.Scope)
+func serialize_scope(scopeRef C.ScopeRef, cerr **C.char) *C.char {
+	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
 	if !ok {
 		*cerr = C.CString("invalid scope")
 		return nil
@@ -44,6 +103,6 @@ func serialize_scope(scopeHandle C.ScopeRef, cerr **C.char) *C.char {
 
 //export free_scope
 // free_scope frees an scope
-func free_scope(scopeHandle C.ScopeRef) {
-	universe.Del(scopeHandle._handle)
+func free_scope(scopeRef C.ScopeRef) {
+	universe.Del(scopeRef._handle)
 }

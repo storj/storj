@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -166,29 +167,20 @@ func openTestData(tb testing.TB) *KVInputIterator {
 	return inputIter
 }
 
-// BulkImporter identifies KV storage facilities that can do bulk importing of items more
-// efficiently than inserting one-by-one.
-type BulkImporter interface {
-	BulkImport(storage.Iterator) error
-}
-
-// BulkCleaner identifies KV storage facilities that can delete all items efficiently.
-type BulkCleaner interface {
-	BulkDelete() error
-}
-
 // BenchmarkPathOperationsInLargeDb runs the "long benchmarks" suite for KeyValueStore instances.
 func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore) {
 	if *longBenchmarksData == "" {
 		b.Skip("Long benchmarks not enabled.")
 	}
 
-	initStore(b, store)
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	initStore(b, ctx, store)
 
-	doTest := func(name string, testFunc func(*testing.B, storage.KeyValueStore)) {
+	doTest := func(name string, testFunc func(*testing.B, *testcontext.Context, storage.KeyValueStore)) {
 		b.Run(name, func(bb *testing.B) {
 			for i := 0; i < bb.N; i++ {
-				testFunc(bb, store)
+				testFunc(bb, ctx, store)
 			}
 		})
 	}
@@ -201,12 +193,12 @@ func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore)
 	doTest("TopRecursiveStartAt", topRecursiveStartAt)
 	doTest("TopNonRecursive", topNonRecursive)
 
-	cleanupStore(b, store)
+	cleanupStore(b, ctx, store)
 }
 
-func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
+func importBigPathset(tb testing.TB, ctx *testcontext.Context, store storage.KeyValueStore) {
 	// make sure this is an empty db, or else refuse to run
-	if !isEmptyKVStore(tb, store) {
+	if !isEmptyKVStore(tb, ctx, store) {
 		tb.Fatal("Provided KeyValueStore is not empty. The long benchmarks are destructive. Not running!")
 	}
 
@@ -220,7 +212,7 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	importer, ok := store.(BulkImporter)
 	if ok {
 		tb.Log("Performing bulk import...")
-		err := importer.BulkImport(inputIter)
+		err := importer.BulkImport(ctx, inputIter)
 
 		if err != nil {
 			errStr := "Provided KeyValueStore failed to import data"
@@ -249,7 +241,7 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	}
 }
 
-func initStore(b *testing.B, store storage.KeyValueStore) {
+func initStore(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	b.Helper()
 
 	if !*noInitDb {
@@ -260,17 +252,17 @@ func initStore(b *testing.B, store storage.KeyValueStore) {
 		// so we'll at least log it.
 		b.StopTimer()
 		tStart := time.Now()
-		importBigPathset(b, store)
+		importBigPathset(b, ctx, store)
 		b.Logf("importing took %s", time.Since(tStart).String())
 		b.StartTimer()
 	}
 }
 
-func cleanupStore(b *testing.B, store storage.KeyValueStore) {
+func cleanupStore(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	b.Helper()
 	if !*noCleanDb {
 		tStart := time.Now()
-		cleanupBigPathset(b, store)
+		cleanupBigPathset(b, ctx, store)
 		b.Logf("cleanup took %s", time.Since(tStart).String())
 	}
 }
@@ -283,7 +275,7 @@ type verifyOpts struct {
 	expectLastKey storage.Key
 }
 
-func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *verifyOpts) {
+func benchAndVerifyIteration(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore, opts *verifyOpts) {
 	problems := 0
 	iteration := 0
 
@@ -311,7 +303,7 @@ func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *ve
 	lookupSize := opts.batchSize
 
 	for iteration = 1; iteration <= opts.doIterations; iteration++ {
-		results, err := iterateItems(store, opts.iterateOpts, lookupSize)
+		results, err := iterateItems(ctx, store, opts.iterateOpts, lookupSize)
 		if err != nil {
 			fatalf("Failed to call iterateItems(): %v", err)
 		}
@@ -377,7 +369,7 @@ func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *ve
 	}
 }
 
-func deepRecursive(b *testing.B, store storage.KeyValueStore) {
+func deepRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestLevel2Directory),
@@ -397,10 +389,10 @@ func deepRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = largestLevel2Directory, $2 = doIterations, and $3 = batchSize
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/extrastate/firewood/renomination/cletch/herotheism/aluminiferous/nub")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func deepNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func deepNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestLevel2Directory),
@@ -422,10 +414,10 @@ func deepNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 is largestLevel2Directory
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/xerophily/")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func shallowRecursive(b *testing.B, store storage.KeyValueStore) {
+func shallowRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestSingleDirectory),
@@ -451,10 +443,10 @@ func shallowRecursive(b *testing.B, store storage.KeyValueStore) {
 	opts.doIterations = 74
 	opts.batchSize = 251
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func shallowNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func shallowNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestSingleDirectory),
@@ -476,10 +468,10 @@ func shallowNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = largestSingleDirectory
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/unricht/sniveling/Puyallup/élite")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topRecursiveLimit(b *testing.B, store storage.KeyValueStore) {
+func topRecursiveLimit(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: true,
@@ -498,10 +490,10 @@ func topRecursiveLimit(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = expectCount
 	opts.expectLastKey = storage.Key("nonresuscitation/synchronically/bechern/hemangiomatosis")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topRecursiveStartAt(b *testing.B, store storage.KeyValueStore) {
+func topRecursiveStartAt(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: true,
@@ -523,10 +515,10 @@ func topRecursiveStartAt(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = iterateOpts.First and $2 = expectCount
 	opts.expectLastKey = storage.Key("raptured/heathbird/histrionism/vermifugous/barefaced/beechdrops/lamber/phlegmatic/blended/Gershon/scallop/burglarproof/incompensated/allanite/alehouse/embroilment/lienotoxin/monotonically/cumbersomeness")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func topNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: false,
@@ -545,10 +537,10 @@ func topNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	//     ) x order by fp desc limit 1;
 	opts.expectLastKey = storage.Key("vejoces")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
+func cleanupBigPathset(tb testing.TB, ctx *testcontext.Context, store storage.KeyValueStore) {
 	if *noCleanDb {
 		tb.Skip("Instructed not to clean up this KeyValueStore after long benchmarks are complete.")
 	}
@@ -556,7 +548,7 @@ func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	cleaner, ok := store.(BulkCleaner)
 	if ok {
 		tb.Log("Performing bulk cleanup...")
-		err := cleaner.BulkDelete()
+		err := cleaner.BulkDeleteAll(ctx)
 
 		if err != nil {
 			tb.Fatalf("Provided KeyValueStore failed to perform bulk delete: %v", err)

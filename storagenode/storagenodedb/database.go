@@ -41,14 +41,33 @@ var (
 
 var _ storagenode.DB = (*DB)(nil)
 
-// SQLDB defines an interface to allow accessing and setting an sql.DB
+// SQLDB is an abstract database so that we can mock out what database
+// implementation we're using.
 type SQLDB interface {
-	Configure(sqlDB *sql.DB)
-	GetDB() *sql.DB
+	Close() error
+
+	Begin() (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+
+	Conn(ctx context.Context) (*sql.Conn, error)
+
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// DBContainer defines an interface to allow accessing and setting a SQLDB
+type DBContainer interface {
+	Configure(sqlDB SQLDB)
+	GetDB() SQLDB
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db *sql.DB, cb func(tx *sql.Tx) error) error {
+func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -70,13 +89,14 @@ type Config struct {
 	Storage string
 	Info    string
 	Info2   string
-
-	Pieces string
+	Driver  string // if unset, uses sqlite3
+	Pieces  string
 }
 
 // DB contains access to different database tables
 type DB struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config Config
 
 	pieces storage.Blobs
 
@@ -93,7 +113,7 @@ type DB struct {
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 
-	sqlDatabases map[string]SQLDB
+	SQLDBs map[string]DBContainer
 }
 
 // New creates a new master database for storage node
@@ -117,6 +137,8 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 	db := &DB{
 		log:    log,
+		config: config,
+
 		pieces: pieces,
 
 		dbDirectory: filepath.Dir(config.Info2),
@@ -132,7 +154,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
 
-		sqlDatabases: map[string]SQLDB{
+		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
 			PieceInfoDBName:       v0PieceInfoDB,
 			BandwidthDBName:       bandwidthDB,
@@ -211,8 +233,8 @@ func (db *DB) openDatabases() error {
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
-	return db.sqlDatabases[dbName].GetDB()
+func (db *DB) rawDatabaseFromName(dbName string) SQLDB {
+	return db.SQLDBs[dbName].GetDB()
 }
 
 // openDatabase opens or creates a database at the specified path.
@@ -222,12 +244,17 @@ func (db *DB) openDatabase(dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	driver := db.config.Driver
+	if driver == "" {
+		driver = "sqlite3"
+	}
+
+	sqlDB, err := sql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
-	mDB := db.sqlDatabases[dbName]
+	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
 	dbutil.Configure(sqlDB, mon)
@@ -259,7 +286,7 @@ func (db *DB) Close() error {
 func (db *DB) closeDatabases() error {
 	var errlist errs.Group
 
-	for k := range db.sqlDatabases {
+	for k := range db.SQLDBs {
 		errlist.Add(db.closeDatabase(k))
 	}
 	return errlist.Err()
@@ -267,7 +294,7 @@ func (db *DB) closeDatabases() error {
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabase(dbName string) (err error) {
-	mdb, ok := db.sqlDatabases[dbName]
+	mdb, ok := db.SQLDBs[dbName]
 	if !ok {
 		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
 	}
@@ -325,8 +352,8 @@ func (db *DB) Satellites() satellites.DB {
 }
 
 // RawDatabases are required for testing purposes
-func (db *DB) RawDatabases() map[string]SQLDB {
-	return db.sqlDatabases
+func (db *DB) RawDatabases() map[string]DBContainer {
+	return db.SQLDBs
 }
 
 // migrateToDB is a helper method that performs the migration from the

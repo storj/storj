@@ -116,7 +116,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 		segmentsDeleted++
 	}
 
-	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped), zap.Int("errored", segmentsSkipped))
+	log.Info("summary", zap.Int("deleted", segmentsDeleted), zap.Int("skipped", segmentsSkipped), zap.Int("errored", segmentsErrored))
 
 	return nil
 }
