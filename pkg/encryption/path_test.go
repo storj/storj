@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,18 +54,6 @@ func TestStoreEncryption(t *testing.T) {
 			}
 
 			assert.Equal(t, rawPath, decPath.Raw(), errTag)
-
-			// test storj.EncURLSafeBase64 cipher
-			urlEncPath, err := DecryptPath("bucket", encPath, storj.EncURLSafeBase64, store)
-			require.NoError(t, err)
-			require.NotNil(t, urlEncPath)
-			t.Logf("encPath: %s", encPath)
-			t.Logf("urlEncPath: %s", urlEncPath)
-
-			encPath2, err := EncryptPath("bucket", urlEncPath, storj.EncURLSafeBase64, store)
-			require.NoError(t, err)
-			require.Equal(t, encPath, encPath2)
-			t.Logf("encPath2: %s", encPath2)
 		}
 	})
 }
@@ -168,6 +157,68 @@ func TestEncodingDecodingStress(t *testing.T) {
 		segment := testrand.BytesInt(testrand.Intn(256))
 		_ = encodeSegment(segment)
 		_, _ = decodeSegment(segment)
+	}
+}
+
+func TestDecryptPath_EncryptionBypass(t *testing.T) {
+	encStore := NewStore()
+	encStore.SetDefaultKey(&storj.Key{})
+
+	bucketName := "test-bucket"
+
+	filePaths := []string{
+		"a", "aa", "b", "bb", "c",
+		"a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc",
+		"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
+	}
+
+	for _, path := range filePaths {
+		encryptedPath, err := EncryptPath(bucketName, paths.NewUnencrypted(path), storj.EncAESGCM, encStore)
+		require.NoError(t, err)
+
+		var expectedPath, next string
+		iterator := encryptedPath.Iterator()
+		for !iterator.Done() {
+			next = iterator.Next()
+			expectedPath += base64.URLEncoding.EncodeToString([]byte(next)) + "/"
+		}
+		expectedPath = strings.TrimRight(expectedPath, "/")
+
+		actualPath, err := DecryptPath(bucketName, encryptedPath, storj.EncURLSafeBase64, encStore)
+		require.NoError(t, err)
+
+		require.Equal(t, paths.NewUnencrypted(expectedPath), actualPath)
+	}
+}
+
+func TestEncryptPath_EncryptionBypass(t *testing.T) {
+	encStore := NewStore()
+	encStore.SetDefaultKey(&storj.Key{})
+
+	bucketName := "test-bucket"
+
+	filePaths := []string{
+		"a", "aa", "b", "bb", "c",
+		"a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc",
+		"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
+	}
+
+	for _, path := range filePaths {
+		encryptedPath, err := EncryptPath(bucketName, paths.NewUnencrypted(path), storj.EncAESGCM, encStore)
+		require.NoError(t, err)
+
+		var encodedPath, next string
+		iterator := encryptedPath.Iterator()
+		for !iterator.Done() {
+			next = iterator.Next()
+			encodedPath += base64.URLEncoding.EncodeToString([]byte(next)) + "/"
+		}
+		encodedPath = strings.TrimRight(encodedPath, "/")
+
+		actualPath, err := EncryptPath(bucketName, paths.NewUnencrypted(encodedPath), storj.EncURLSafeBase64, encStore)
+		require.NoError(t, err)
+
+		require.Equal(t, encryptedPath.String(), actualPath.String())
 	}
 }
 
