@@ -87,6 +87,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
 		Timeout:   tx.Timeout,
+		Link:      tx.CheckoutURL,
 		CreatedAt: cpTX.CreatedAt,
 	}, nil
 }
