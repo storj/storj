@@ -57,20 +57,16 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 	var group errgroup.Group
 	var bandwidthGetTotal int64
-	limit = usage.maxAlphaUsage
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectBandwidthLimit(ctx, projectID)
-		if projectLimit > 0 {
-			limit = projectLimit
-		}
+		var err error
+		limit, err = usage.GetProjectBandwidthLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
 		var err error
-		from := time.Now().AddDate(0, 0, -AverageDaysInMonth) // past 30 days
-		bandwidthGetTotal, err = usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+		bandwidthGetTotal, err = usage.GetProjectBandwidthTotals(ctx, projectID)
 		return err
 	})
 
@@ -96,21 +92,19 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 
 	var group errgroup.Group
 	var totalUsed int64
-	limit = usage.maxAlphaUsage
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectStorageLimit(ctx, projectID)
-		if projectLimit > 0 {
-			limit = projectLimit
-		}
+		var err error
+		limit, err = usage.GetProjectStorageLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
 		var err error
-		totalUsed, err = usage.getProjectStorageTotals(ctx, projectID)
+		totalUsed, err = usage.GetProjectStorageTotals(ctx, projectID)
 		return err
 	})
+
 	err = group.Wait()
 	if err != nil {
 		return false, 0, ErrProjectUsage.Wrap(err)
@@ -124,18 +118,59 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 	return false, limit, nil
 }
 
-func (usage *Service) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+// GetProjectStorageTotals returns total amount of storage used by project.
+func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
 
 	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
 	if err != nil {
-		return 0, err
+		return 0, ErrProjectUsage.Wrap(err)
 	}
 	cachedTotal, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
 	if err != nil {
-		return 0, err
+		return 0, ErrProjectUsage.Wrap(err)
 	}
 	return lastCountInline + lastCountRemote + cachedTotal, nil
+}
+
+// GetProjectBandwidthTotals returns total amount of allocated bandwidth used for past 30 days.
+func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	from := time.Now().AddDate(0, 0, -AverageDaysInMonth) // past 30 days
+
+	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectStorageLimit returns current project storage limit.
+func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	limit, err := usage.projectAccountingDB.GetProjectStorageLimit(ctx, projectID)
+	if err != nil {
+		return 0, ErrProjectUsage.Wrap(err)
+	}
+	if limit == 0 {
+		return usage.maxAlphaUsage, nil
+	}
+
+	return limit, nil
+}
+
+// GetProjectBandwidthLimit returns current project bandwidth limit.
+func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	limit, err := usage.projectAccountingDB.GetProjectBandwidthLimit(ctx, projectID)
+	if err != nil {
+		return 0, ErrProjectUsage.Wrap(err)
+	}
+	if limit == 0 {
+		return usage.maxAlphaUsage, nil
+	}
+
+	return limit, nil
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
