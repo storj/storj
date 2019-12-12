@@ -33,11 +33,15 @@ type Config struct {
 //
 // architecture: Endpoint
 type Server struct {
-	log         *zap.Logger
-	config      Config
-	listener    net.Listener
-	server      http.Server
-	db          rewards.DB
+	log    *zap.Logger
+	config Config
+
+	listener net.Listener
+	server   http.Server
+
+	rewards  rewards.DB
+	partners *rewards.PartnersService
+
 	templateDir string
 	templates   struct {
 		home          *template.Template
@@ -58,12 +62,14 @@ func (s *Server) commonPages() []string {
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, db rewards.DB, listener net.Listener) (*Server, error) {
+func NewServer(logger *zap.Logger, config Config, rewards rewards.DB, partners *rewards.PartnersService, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
-		db:       db,
+
+		rewards:  rewards,
+		partners: partners,
 	}
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
@@ -93,14 +99,14 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	offers, err := s.db.ListAll(req.Context())
+	offers, err := s.rewards.ListAll(req.Context())
 	if err != nil {
 		s.log.Error("failed to retrieve all offers", zap.Error(err))
 		s.serveInternalError(w, req, err)
 		return
 	}
 
-	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
+	if err := s.templates.home.ExecuteTemplate(w, "base", s.OrganizeOffersByType(offers)); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -135,7 +141,7 @@ func (s *Server) parseTemplates() (err error) {
 
 	s.templates.home, err = template.New("home-page").Funcs(template.FuncMap{
 		"BaseURL":      s.GetBaseURL,
-		"ReferralLink": rewards.GeneratePartnerLink,
+		"ReferralLink": s.generatePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -165,6 +171,10 @@ func (s *Server) parseTemplates() (err error) {
 	return nil
 }
 
+func (s *Server) generatePartnerLink(offerName string) ([]string, error) {
+	return s.partners.GeneratePartnerLink(context.TODO(), offerName)
+}
+
 // CreateOffer handles requests to create new offers.
 func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	offer, err := parseOfferForm(w, req)
@@ -190,7 +200,7 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if _, err := s.db.Create(req.Context(), &offer); err != nil {
+	if _, err := s.rewards.Create(req.Context(), &offer); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveBadRequest(w, req, err)
 		return
@@ -208,7 +218,7 @@ func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := s.db.Finish(req.Context(), offerID); err != nil {
+	if err := s.rewards.Finish(req.Context(), offerID); err != nil {
 		s.log.Error("failed to stop offer", zap.Error(err))
 		s.serveInternalError(w, req, err)
 		return

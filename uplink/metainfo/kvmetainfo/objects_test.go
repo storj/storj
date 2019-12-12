@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
 	"storj.io/storj/uplink/stream"
@@ -76,7 +76,7 @@ func TestCreateObject(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			obj, err := db.CreateObject(ctx, bucket.Name, TestFile, tt.create)
+			obj, err := db.CreateObject(ctx, bucket, TestFile, tt.create)
 			require.NoError(t, err)
 
 			info := obj.Info()
@@ -97,19 +97,23 @@ func TestGetObject(t *testing.T) {
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
-		_, err = db.GetObject(ctx, "", "")
+		_, err = db.GetObject(ctx, storj.Bucket{}, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = db.GetObject(ctx, bucket.Name, "")
+		_, err = db.GetObject(ctx, bucket, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		_, err = db.GetObject(ctx, "non-existing-bucket", TestFile)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
-
-		_, err = db.GetObject(ctx, bucket.Name, "non-existing-file")
+		nonExistingBucket := storj.Bucket{
+			Name:       "non-existing-bucket",
+			PathCipher: storj.EncNull,
+		}
+		_, err = db.GetObject(ctx, nonExistingBucket, TestFile)
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		object, err := db.GetObject(ctx, bucket.Name, TestFile)
+		_, err = db.GetObject(ctx, bucket, "non-existing-file")
+		assert.True(t, storj.ErrObjectNotFound.Has(err))
+
+		object, err := db.GetObject(ctx, bucket, TestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, object.Path)
 			assert.Equal(t, TestBucket, object.Bucket.Name)
@@ -125,25 +129,37 @@ func TestGetObjectStream(t *testing.T) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
-		upload(ctx, t, db, streams, bucket, "empty-file", nil)
-		upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
-		upload(ctx, t, db, streams, bucket, "large-file", data)
+		emptyFile := upload(ctx, t, db, streams, bucket, "empty-file", nil)
+		smallFile := upload(ctx, t, db, streams, bucket, "small-file", []byte("test"))
+		largeFile := upload(ctx, t, db, streams, bucket, "large-file", data)
 
-		_, err = db.GetObjectStream(ctx, "", "")
+		emptyBucket := storj.Bucket{
+			PathCipher: storj.EncNull,
+		}
+		_, err = db.GetObjectStream(ctx, emptyBucket, storj.Object{})
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = db.GetObjectStream(ctx, bucket.Name, "")
+		_, err = db.GetObjectStream(ctx, bucket, storj.Object{})
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "small-file")
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		nonExistingBucket := storj.Bucket{
+			Name:       "non-existing-bucket",
+			PathCipher: storj.EncNull,
+		}
 
-		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
-		assert.True(t, storj.ErrObjectNotFound.Has(err))
+		// no error because we are not doing satellite connection with this method
+		_, err = db.GetObjectStream(ctx, nonExistingBucket, smallFile)
+		assert.NoError(t, err)
 
-		assertStream(ctx, t, db, streams, bucket, "empty-file", []byte{})
-		assertStream(ctx, t, db, streams, bucket, "small-file", []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", data)
+		// no error because we are not doing satellite connection with this method
+		_, err = db.GetObjectStream(ctx, bucket, storj.Object{
+			Path: "non-existing-file",
+		})
+		assert.NoError(t, err)
+
+		assertStream(ctx, t, db, streams, bucket, emptyFile, []byte{})
+		assertStream(ctx, t, db, streams, bucket, smallFile, []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, largeFile, data)
 
 		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay
@@ -160,8 +176,8 @@ func TestGetObjectStream(t *testing.T) {
 	})
 }
 
-func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) {
-	obj, err := db.CreateObject(ctx, bucket.Name, path, nil)
+func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, data []byte) storj.Object {
+	obj, err := db.CreateObject(ctx, bucket, path, nil)
 	require.NoError(t, err)
 
 	str, err := obj.CreateStream(ctx)
@@ -177,13 +193,15 @@ func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams stream
 
 	err = obj.Commit(ctx)
 	require.NoError(t, err)
+
+	return obj.Info()
 }
 
-func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, content []byte) {
-	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
+func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, object storj.Object, content []byte) {
+	readOnly, err := db.GetObjectStream(ctx, bucket, object)
 	require.NoError(t, err)
 
-	assert.Equal(t, path, readOnly.Info().Path)
+	assert.Equal(t, object.Path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
 	assert.Equal(t, storj.EncAESGCM, readOnly.Info().Bucket.PathCipher)
 
@@ -226,7 +244,6 @@ func assertInlineSegment(t *testing.T, segment storj.Segment, content []byte) {
 func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 	assert.Nil(t, segment.Inline)
 	assert.NotNil(t, segment.PieceID)
-	assert.NotEqual(t, 0, len(segment.Pieces))
 
 	// check that piece numbers and nodes are unique
 	nums := make(map[byte]struct{})
@@ -254,42 +271,55 @@ func TestDeleteObject(t *testing.T) {
 
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
-		err = db.DeleteObject(ctx, "", "")
+		err = db.DeleteObject(ctx, storj.Bucket{}, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		err = db.DeleteObject(ctx, bucket.Name, "")
+		err = db.DeleteObject(ctx, bucket, "")
 		assert.True(t, storj.ErrNoPath.Has(err))
 
-		err = db.DeleteObject(ctx, "non-existing-bucket", TestFile)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
+		{
+			unexistingBucket := storj.Bucket{
+				Name:       bucket.Name + "-not-exist",
+				PathCipher: bucket.PathCipher,
+			}
+			err = db.DeleteObject(ctx, unexistingBucket, TestFile)
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+		}
 
-		err = db.DeleteObject(ctx, bucket.Name, "non-existing-file")
+		err = db.DeleteObject(ctx, bucket, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		err = db.DeleteObject(ctx, bucket.Name, TestFile)
+		{
+			invalidPathCipherBucket := storj.Bucket{
+				Name:       bucket.Name,
+				PathCipher: bucket.PathCipher + 1,
+			}
+			err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+		}
+
+		err = db.DeleteObject(ctx, bucket, TestFile)
 		assert.NoError(t, err)
 	})
 }
 
 func TestListObjectsEmpty(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
-		_, err = db.ListObjects(ctx, "", storj.ListOptions{})
+		_, err = db.ListObjects(ctx, storj.Bucket{}, storj.ListOptions{})
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = db.ListObjects(ctx, bucket.Name, storj.ListOptions{})
+		_, err = db.ListObjects(ctx, testBucketInfo, storj.ListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
 		// TODO for now we are supporting only storj.After
 		for _, direction := range []storj.ListDirection{
-			// storj.Before,
-			// storj.Backward,
 			// storj.Forward,
 			storj.After,
 		} {
-			list, err := db.ListObjects(ctx, bucket.Name, storj.ListOptions{Direction: direction})
+			list, err := db.ListObjects(ctx, testBucketInfo, storj.ListOptions{Direction: direction})
 			if assert.NoError(t, err) {
 				assert.False(t, list.More)
 				assert.Equal(t, 0, len(list.Items))
@@ -388,315 +418,84 @@ func TestListObjects(t *testing.T) {
 			result  []string
 		}{
 			{
-				options: options("", "", storj.After, 0),
+				options: options("", "", 0),
 				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
 			}, {
-				options: options("", "`", storj.After, 0),
+				options: options("", "`", 0),
 				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
 			}, {
-				options: options("", "b", storj.After, 0),
+				options: options("", "b", 0),
 				result:  []string{"b/", "bb", "c"},
 			}, {
-				options: options("", "c", storj.After, 0),
+				options: options("", "c", 0),
 				result:  []string{},
 			}, {
-				options: options("", "ca", storj.After, 0),
+				options: options("", "ca", 0),
 				result:  []string{},
 			}, {
-				options: options("", "", storj.After, 1),
+				options: options("", "", 1),
 				more:    true,
 				result:  []string{"a"},
 			}, {
-				options: options("", "`", storj.After, 1),
+				options: options("", "`", 1),
 				more:    true,
 				result:  []string{"a"},
 			}, {
-				options: options("", "aa", storj.After, 1),
+				options: options("", "aa", 1),
 				more:    true,
 				result:  []string{"b"},
 			}, {
-				options: options("", "c", storj.After, 1),
+				options: options("", "c", 1),
 				result:  []string{},
 			}, {
-				options: options("", "ca", storj.After, 1),
+				options: options("", "ca", 1),
 				result:  []string{},
 			}, {
-				options: options("", "", storj.After, 2),
+				options: options("", "", 2),
 				more:    true,
 				result:  []string{"a", "a/"},
 			}, {
-				options: options("", "`", storj.After, 2),
+				options: options("", "`", 2),
 				more:    true,
 				result:  []string{"a", "a/"},
 			}, {
-				options: options("", "aa", storj.After, 2),
+				options: options("", "aa", 2),
 				more:    true,
 				result:  []string{"b", "b/"},
 			}, {
-				options: options("", "bb", storj.After, 2),
+				options: options("", "bb", 2),
 				result:  []string{"c"},
 			}, {
-				options: options("", "c", storj.After, 2),
+				options: options("", "c", 2),
 				result:  []string{},
 			}, {
-				options: options("", "ca", storj.After, 2),
+				options: options("", "ca", 2),
 				result:  []string{},
 			}, {
-				options: optionsRecursive("", "", storj.After, 0),
+				options: optionsRecursive("", "", 0),
 				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
 			}, {
-				options: options("a", "", storj.After, 0),
+				options: options("a", "", 0),
 				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
 			}, {
-				options: options("a/", "", storj.After, 0),
+				options: options("a/", "", 0),
 				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
 			}, {
-				options: options("a/", "xb", storj.After, 0),
+				options: options("a/", "xb", 0),
 				result:  []string{"xbb", "xc"},
 			}, {
-				options: optionsRecursive("", "a/xbb", storj.After, 5),
+				options: optionsRecursive("", "a/xbb", 5),
 				more:    true,
 				result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
 			}, {
-				options: options("a/", "xaa", storj.After, 2),
+				options: options("a/", "xaa", 2),
 				more:    true,
 				result:  []string{"xb", "xbb"},
 			},
-			// TODO commented until we will decide if we will support direction for object listing
-			//
-			// {
-			// 	options: options("", "", storj.Forward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "`", storj.Forward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "b", storj.Forward, 0),
-			// 	result:  []string{"b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "c", storj.Forward, 0),
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "ca", storj.Forward, 0),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "", storj.Forward, 1),
-			// 	more:    true,
-			// 	result:  []string{"a"},
-			// }, {
-			// 	options: options("", "`", storj.Forward, 1),
-			// 	more:    true,
-			// 	result:  []string{"a"},
-			// }, {
-			// 	options: options("", "aa", storj.Forward, 1),
-			// 	more:    true,
-			// 	result:  []string{"aa"},
-			// }, {
-			// 	options: options("", "c", storj.Forward, 1),
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "ca", storj.Forward, 1),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "", storj.Forward, 2),
-			// 	more:    true,
-			// 	result:  []string{"a", "a/"},
-			// }, {
-			// 	options: options("", "`", storj.Forward, 2),
-			// 	more:    true,
-			// 	result:  []string{"a", "a/"},
-			// }, {
-			// 	options: options("", "aa", storj.Forward, 2),
-			// 	more:    true,
-			// 	result:  []string{"aa", "b"},
-			// }, {
-			// 	options: options("", "bb", storj.Forward, 2),
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: options("", "c", storj.Forward, 2),
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "ca", storj.Forward, 2),
-			// 	result:  []string{},
-			// }, {
-			// 	options: optionsRecursive("", "", storj.Forward, 0),
-			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			// }, {
-			// 	options: options("a", "", storj.Forward, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "", storj.Forward, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "xb", storj.Forward, 0),
-			// 	result:  []string{"xb", "xbb", "xc"},
-			// }, {
-			// 	options: optionsRecursive("", "a/xbb", storj.Forward, 5),
-			// 	more:    true,
-			// 	result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			// }, {
-			// 	options: options("a/", "xaa", storj.Forward, 2),
-			// 	more:    true,
-			// 	result:  []string{"xaa", "xb"},
-			// }, {
-			// 	options: options("", "", storj.Backward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "`", storj.Backward, 0),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "b", storj.Backward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b"},
-			// }, {
-			// 	options: options("", "c", storj.Backward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "ca", storj.Backward, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "", storj.Backward, 1),
-			// 	more:    true,
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "`", storj.Backward, 1),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "aa", storj.Backward, 1),
-			// 	more:    true,
-			// 	result:  []string{"aa"},
-			// }, {
-			// 	options: options("", "c", storj.Backward, 1),
-			// 	more:    true,
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "ca", storj.Backward, 1),
-			// 	more:    true,
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "", storj.Backward, 2),
-			// 	more:    true,
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: options("", "`", storj.Backward, 2),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "a/", storj.Backward, 2),
-			// 	result:  []string{"a"},
-			// }, {
-			// 	options: options("", "bb", storj.Backward, 2),
-			// 	more:    true,
-			// 	result:  []string{"b/", "bb"},
-			// }, {
-			// 	options: options("", "c", storj.Backward, 2),
-			// 	more:    true,
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: options("", "ca", storj.Backward, 2),
-			// 	more:    true,
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: optionsRecursive("", "", storj.Backward, 0),
-			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			// }, {
-			// 	options: options("a", "", storj.Backward, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "", storj.Backward, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "xb", storj.Backward, 0),
-			// 	result:  []string{"xa", "xaa", "xb"},
-			// }, {
-			// 	options: optionsRecursive("", "b/yaa", storj.Backward, 5),
-			// 	more:    true,
-			// 	result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
-			// }, {
-			// 	options: options("a/", "xbb", storj.Backward, 2),
-			// 	more:    true,
-			// 	result:  []string{"xb", "xbb"},
-			// }, {
-			// 	options: options("", "", storj.Before, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "`", storj.Before, 0),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "a", storj.Before, 0),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "b", storj.Before, 0),
-			// 	result:  []string{"a", "a/", "aa"},
-			// }, {
-			// 	options: options("", "c", storj.Before, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb"},
-			// }, {
-			// 	options: options("", "ca", storj.Before, 0),
-			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			// }, {
-			// 	options: options("", "", storj.Before, 1),
-			// 	more:    true,
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "`", storj.Before, 1),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "a/", storj.Before, 1),
-			// 	result:  []string{"a"},
-			// }, {
-			// 	options: options("", "c", storj.Before, 1),
-			// 	more:    true,
-			// 	result:  []string{"bb"},
-			// }, {
-			// 	options: options("", "ca", storj.Before, 1),
-			// 	more:    true,
-			// 	result:  []string{"c"},
-			// }, {
-			// 	options: options("", "", storj.Before, 2),
-			// 	more:    true,
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: options("", "`", storj.Before, 2),
-			// 	result:  []string{},
-			// }, {
-			// 	options: options("", "a/", storj.Before, 2),
-			// 	result:  []string{"a"},
-			// }, {
-			// 	options: options("", "bb", storj.Before, 2),
-			// 	more:    true,
-			// 	result:  []string{"b", "b/"},
-			// }, {
-			// 	options: options("", "c", storj.Before, 2),
-			// 	more:    true,
-			// 	result:  []string{"b/", "bb"},
-			// }, {
-			// 	options: options("", "ca", storj.Before, 2),
-			// 	more:    true,
-			// 	result:  []string{"bb", "c"},
-			// }, {
-			// 	options: optionsRecursive("", "", storj.Before, 0),
-			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			// }, {
-			// 	options: options("a", "", storj.Before, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "", storj.Before, 0),
-			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			// }, {
-			// 	options: options("a/", "xb", storj.Before, 0),
-			// 	result:  []string{"xa", "xaa"},
-			// }, {
-			// 	options: optionsRecursive("", "b/yaa", storj.Before, 5),
-			// 	more:    true,
-			// 	result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			// }, {
-			// 	options: options("a/", "xbb", storj.Before, 2),
-			// 	more:    true,
-			// 	result:  []string{"xaa", "xb"},
-			// },
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			list, err := db.ListObjects(ctx, bucket.Name, tt.options)
+			list, err := db.ListObjects(ctx, bucket, tt.options)
 
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, list.More, errTag)
@@ -709,20 +508,20 @@ func TestListObjects(t *testing.T) {
 		}
 	})
 }
-func options(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
+func options(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
 		Cursor:    cursor,
-		Direction: direction,
+		Direction: storj.After,
 		Limit:     limit,
 	}
 }
 
-func optionsRecursive(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
+func optionsRecursive(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
 		Cursor:    cursor,
-		Direction: direction,
+		Direction: storj.After,
 		Limit:     limit,
 		Recursive: true,
 	}

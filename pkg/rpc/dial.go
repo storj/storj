@@ -11,21 +11,31 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/drpc/drpcconn"
+	"storj.io/drpc/drpcmanager"
+	"storj.io/drpc/drpcstream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc/rpcpool"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 )
+
+// NewDefaultManagerOptions returns the default options we use for drpc managers.
+func NewDefaultManagerOptions() drpcmanager.Options {
+	return drpcmanager.Options{
+		WriterBufferSize: 1024,
+		Stream: drpcstream.Options{
+			SplitSize: (4096 * 2) - 256,
+		},
+	}
+}
 
 // Dialer holds configuration for dialing.
 type Dialer struct {
 	// TLSOptions controls the tls options for dialing. If it is nil, only
 	// insecure connections can be made.
 	TLSOptions *tlsopts.Options
-
-	// RequestTimeout causes any read/write operations on the raw socket
-	// to error if they take longer than it if it is non-zero.
-	RequestTimeout time.Duration
 
 	// DialTimeout causes all the tcp dials to error if they take longer
 	// than it if it is non-zero.
@@ -38,14 +48,26 @@ type Dialer struct {
 	// TransferRate limits all read/write operations to go slower than
 	// the size per second if it is non-zero.
 	TransferRate memory.Size
+
+	// PoolOptions controls options for the connection pool.
+	PoolOptions rpcpool.Options
+
+	// ConnectionOptions controls the options that we pass to drpc connections.
+	ConnectionOptions drpcconn.Options
 }
 
 // NewDefaultDialer returns a Dialer with default timeouts set.
 func NewDefaultDialer(tlsOptions *tlsopts.Options) Dialer {
 	return Dialer{
-		TLSOptions:     tlsOptions,
-		RequestTimeout: 10 * time.Minute,
-		DialTimeout:    20 * time.Second,
+		TLSOptions:  tlsOptions,
+		DialTimeout: 20 * time.Second,
+		PoolOptions: rpcpool.Options{
+			Capacity:       5,
+			IdleExpiration: 2 * time.Minute,
+		},
+		ConnectionOptions: drpcconn.Options{
+			Manager: NewDefaultManagerOptions(),
+		},
 	}
 }
 
@@ -86,15 +108,14 @@ func (d Dialer) dialContext(ctx context.Context, address string) (net.Conn, erro
 	}
 
 	return &timedConn{
-		Conn:    conn,
-		timeout: d.RequestTimeout,
-		rate:    d.TransferRate,
+		Conn: conn,
+		rate: d.TransferRate,
 	}, nil
 }
 
 // DialNode creates an rpc connection to the specified node.
 func (d Dialer) DialNode(ctx context.Context, node *pb.Node) (_ *Conn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
 	if d.TLSOptions == nil {
 		return nil, Error.New("tls options not set when required for this dial")
@@ -177,5 +198,5 @@ func (d Dialer) DialAddressInsecure(ctx context.Context, address string) (_ *Con
 func (d Dialer) DialAddressUnencrypted(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return d.dialInsecure(ctx, address)
+	return d.dialUnencrypted(ctx, address)
 }

@@ -12,9 +12,9 @@ import (
 	"time"
 	"unsafe"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
 )
 
 // Object is a scoped uplink.Object
@@ -278,7 +278,37 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 	})}
 }
 
+//export download_range
+// download_range returns an Object's data from specified range
+func download_range(bucketRef C.BucketRef, path *C.char, start, limit int64, cErr **C.char) C.DownloaderRef {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return C.DownloaderRef{}
+	}
+
+	scope := bucket.scope.child()
+
+	rc, err := bucket.DownloadRange(scope.ctx, C.GoString(path), start, limit)
+	if err != nil {
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return C.DownloaderRef{}
+	}
+
+	return C.DownloaderRef{universe.Add(&Download{
+		scope: scope,
+		rc:    rc,
+	})}
+}
+
 //export download_read
+// download_read reads data upto `length` bytes into `bytes` buffer and returns
+// the count of bytes read. The exact number of bytes returned depends on different
+// buffers and what is currently available.
+// When there is no more data available function returns 0.
+// On an error cErr is set, however some data may still be returned.
 func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) C.size_t {
 	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {

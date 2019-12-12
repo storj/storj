@@ -45,6 +45,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 id
                 description
                 createdAt
+                ownerId
             }
         }`;
 

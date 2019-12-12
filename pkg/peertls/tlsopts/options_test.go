@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -21,6 +18,9 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testidentity"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -122,29 +122,24 @@ func TestNewOptions(t *testing.T) {
 }
 
 func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
-	ctx := testcontext.New(t)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		target := planet.StorageNodes[1].Local()
+		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
+			tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
+				PeerIDVersions: "*",
+			}, nil)
+			require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 0, 2, 0)
-	require.NoError(t, err)
+			dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	planet.Start(ctx)
-	defer ctx.Check(planet.Shutdown)
+			conn, err := dialer.DialNode(ctx, &target.Node)
+			assert.NotNil(t, conn)
+			assert.NoError(t, err)
 
-	target := planet.StorageNodes[1].Local()
-
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
-			PeerIDVersions: "*",
-		}, nil)
-		require.NoError(t, err)
-
-		dialer := rpc.NewDefaultDialer(tlsOptions)
-
-		conn, err := dialer.DialNode(ctx, &target.Node)
-		assert.NotNil(t, conn)
-		assert.NoError(t, err)
-
-		assert.NoError(t, conn.Close())
+			assert.NoError(t, conn.Close())
+		})
 	})
 }
 

@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/currency"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/currency"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -62,6 +62,8 @@ func TestOffer_Database(t *testing.T) {
 		for i := range validOffers {
 			new, err := planet.Satellites[0].DB.Rewards().Create(ctx, &validOffers[i])
 			require.NoError(t, err)
+			new.ExpiresAt = new.ExpiresAt.Round(time.Microsecond)
+			new.CreatedAt = new.CreatedAt.Round(time.Microsecond)
 
 			all, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
@@ -71,10 +73,11 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			var pID string
 			if new.Type == rewards.Partner {
-				pID, err = rewards.GetPartnerID(new.Name)
+				partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, new.Name)
 				require.NoError(t, err)
+				pID = partner.ID
 			}
-			c, err := offers.GetActiveOffer(new.Type, pID)
+			c, err := planet.Satellites[0].API.Marketing.PartnersService.GetActiveOffer(ctx, offers, new.Type, pID)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 

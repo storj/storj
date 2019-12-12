@@ -11,7 +11,16 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <router-view/>
+                    <div class="dashboard-container__main-area__banner-area">
+                        <VBanner
+                            v-if="isBannerShown"
+                            text="You have no payment method added."
+                            additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
+                        />
+                    </div>
+                    <div class="dashboard-container__main-area__content">
+                        <router-view/>
+                    </div>
                 </div>
             </div>
         </div>
@@ -21,11 +30,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import VBanner from '@/components/common/VBanner.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
@@ -34,16 +46,24 @@ import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
     PM_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { LocalData } from '@/utils/localData';
+
+const {
+    SETUP_ACCOUNT,
+    GET_BALANCE,
+    GET_CREDIT_CARDS,
+    GET_BILLING_HISTORY,
+    GET_PROJECT_CHARGES,
+} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
         NavigationArea,
         DashboardHeader,
+        VBanner,
     },
 })
 export default class DashboardArea extends Vue {
@@ -53,11 +73,28 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-            await this.$router.push(RouteConfig.Login.path);
+            await this.$notify.error(error.message);
             AuthToken.remove();
+            await this.$router.push(RouteConfig.Login.path);
 
             return;
+        }
+
+        try {
+            await this.$store.dispatch(SETUP_ACCOUNT);
+            await this.$store.dispatch(GET_BALANCE);
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+            await this.$store.dispatch(GET_PROJECT_CHARGES);
+        } catch (error) {
+            if (error instanceof ErrorUnauthorized) {
+                AuthToken.remove();
+                await this.$router.push(RouteConfig.Login.path);
+
+                return;
+            }
+
+            await this.$notify.error(error.message);
         }
 
         let projects: Project[] = [];
@@ -65,7 +102,7 @@ export default class DashboardArea extends Vue {
         try {
             projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             return;
         }
@@ -84,34 +121,45 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        const selectedProjectId: string | null = LocalData.getSelectedProjectId();
+
+        if (selectedProjectId) {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
+        } else {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
+        }
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public get isLoading(): boolean {
@@ -122,26 +170,26 @@ export default class DashboardArea extends Vue {
      * This method checks if current route is available when user has no created projects
      */
     private isRouteAccessibleWithoutProject(): boolean {
-        const awailableRoutes = [
+        const availableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
             RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
         ];
 
-        return awailableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
+        return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
     }
 }
 </script>
 
 <style scoped lang="scss">
-	.dashboard-container {
+    .dashboard-container {
         position: fixed;
         max-width: 100%;
-		width: 100%;
-		height: 100%;
-		left: 0;
-		top: 0;
-        background-color: #F5F6FA;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        background-color: #f5f6fa;
         z-index: 10;
 
         &__wrap {
@@ -157,20 +205,33 @@ export default class DashboardArea extends Vue {
         &__main-area {
             position: relative;
             width: 100%;
-            height: 100%;
+            height: calc(100vh - 50px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+
+            &__banner-area {
+                flex: 0 1 auto;
+            }
+
+            &__content {
+                flex: 1 1 auto;
+            }
         }
     }
 
-    @media screen and (max-width: 1024px)  {
+    @media screen and (max-width: 1024px) {
+
         .regular-navigation {
             display: none;
         }
     }
 
     @media screen and (max-width: 720px) {
+
         .dashboard-container {
 
-            &__main-area{
+            &__main-area {
                 left: 60px;
             }
         }

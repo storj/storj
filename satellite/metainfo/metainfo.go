@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -27,13 +28,13 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
 )
 
 const (
-	pieceHashExpiration = 2 * time.Hour
+	pieceHashExpiration = 24 * time.Hour
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000
@@ -43,6 +44,8 @@ var (
 	mon = monkit.Package()
 	// Error general metainfo error
 	Error = errs.Class("metainfo error")
+	// ErrNodeAlreadyExists pointer already has a piece for a node err
+	ErrNodeAlreadyExists = errs.Class("metainfo error: node already exists")
 )
 
 // APIKeys is api keys store methods used by endpoint
@@ -67,9 +70,10 @@ type Endpoint struct {
 	metainfo          *Service
 	orders            *orders.Service
 	overlay           *overlay.Service
-	partnerinfo       attribution.DB
+	attributions      attribution.DB
+	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
-	projectUsage      *accounting.ProjectUsage
+	projectUsage      *accounting.Service
 	apiKeys           APIKeys
 	createRequests    *createRequests
 	requiredRSConfig  RSConfig
@@ -78,15 +82,17 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service,
+	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
+	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,
 		metainfo:          metainfo,
 		orders:            orders,
 		overlay:           cache,
-		partnerinfo:       partnerinfo,
+		attributions:      attributions,
+		partners:          partners,
 		peerIdentities:    peerIdentities,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
@@ -241,7 +247,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 
 	err = endpoint.filterValidPieces(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
@@ -356,6 +362,9 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits, PrivateKey: privateKey}, nil
@@ -391,13 +400,13 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	// TODO refactor to use []byte directly
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -435,7 +444,7 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -459,78 +468,173 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
+// filterValidPieces filter out the invalid remote pieces held by pointer.
+//
+// This method expect the pointer to be valid, so it has to be validated before
+// calling it.
+//
+// The method always return a gRPC status error so the caller can directly
+// return it to the client.
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if pointer.Type == pb.Pointer_REMOTE {
-		remote := pointer.Remote
-
-		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
-		if err != nil {
-			return err
-		}
-
-		var remotePieces []*pb.RemotePiece
-		allSizesValid := true
-		lastPieceSize := int64(0)
-		for _, piece := range remote.RemotePieces {
-
-			// Verify storagenode signature on piecehash
-			peerID, ok := peerIDMap[piece.NodeId]
-			if !ok {
-				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
-				continue
-			}
-			signee := signing.SigneeFromPeerIdentity(peerID)
-
-			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
-			if err != nil {
-				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
-				continue
-			}
-
-			if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
-				allSizesValid = false
-				break
-			}
-			lastPieceSize = piece.Hash.PieceSize
-
-			remotePieces = append(remotePieces, piece)
-		}
-
-		if allSizesValid {
-			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
-			if expectedPieceSize != lastPieceSize {
-				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, lastPieceSize)
-			}
-		} else {
-			return Error.New("all pieces needs to have the same size")
-		}
-
-		// We repair when the number of healthy files is less than or equal to the repair threshold
-		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
-				len(remotePieces),
-				remote.Redundancy.RepairThreshold,
-			)
-		}
-
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
-				len(remotePieces),
-				remote.Redundancy.SuccessThreshold,
-			)
-		}
-
-		remote.RemotePieces = remotePieces
+	if pointer.Type != pb.Pointer_REMOTE {
+		return nil
 	}
+
+	remote := pointer.Remote
+
+	peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+	if err != nil {
+		return err
+	}
+
+	type invalidPiece struct {
+		NodeID   storj.NodeID
+		PieceNum int32
+		Reason   string
+	}
+
+	var (
+		remotePieces  []*pb.RemotePiece
+		invalidPieces []invalidPiece
+		lastPieceSize int64
+		allSizesValid = true
+	)
+	for _, piece := range remote.RemotePieces {
+		// Verify storagenode signature on piecehash
+		peerID, ok := peerIDMap[piece.NodeId]
+		if !ok {
+			endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
+				zap.Stringer("Node ID", piece.NodeId),
+				zap.Int32("Piece ID", piece.PieceNum),
+			)
+
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   "Identity chain unknown for node",
+			})
+			continue
+		}
+		signee := signing.SigneeFromPeerIdentity(peerID)
+
+		limit := originalLimits[piece.PieceNum]
+		if limit == nil {
+			endpoint.log.Warn("There is not limit for the piece.  Piece removed from pointer",
+				zap.Int32("Piece ID", piece.PieceNum),
+			)
+
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   "No order limit for validating the piece hash",
+			})
+			continue
+		}
+
+		err = endpoint.validatePieceHash(ctx, piece, limit, signee)
+		if err != nil {
+			endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
+			invalidPieces = append(invalidPieces, invalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   err.Error(),
+			})
+			continue
+		}
+
+		if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
+			allSizesValid = false
+			break
+		}
+		lastPieceSize = piece.Hash.PieceSize
+
+		remotePieces = append(remotePieces, piece)
+	}
+
+	if allSizesValid {
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+		if err != nil {
+			endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
+			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
+			)
+		}
+
+		expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
+		if expectedPieceSize != lastPieceSize {
+			endpoint.log.Debug("expected piece size is different from provided",
+				zap.Int64("expectedSize", expectedPieceSize),
+				zap.Int64("actualSize", lastPieceSize),
+			)
+			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"expected piece size is different from provided (%d != %d)",
+				expectedPieceSize, lastPieceSize,
+			)
+		}
+	} else {
+		errMsg := "all pieces needs to have the same size"
+		endpoint.log.Debug(errMsg)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	// We repair when the number of healthy files is less than or equal to the repair threshold
+	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
+	if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+		endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
+			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("invalidPieces", len(invalidPieces)),
+			zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
+		)
+
+		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
+			len(remotePieces),
+			remote.Redundancy.RepairThreshold,
+			len(remote.RemotePieces),
+		)
+		if len(invalidPieces) > 0 {
+			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+			for _, p := range invalidPieces {
+				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				)
+			}
+		}
+
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("invalidPieces", len(invalidPieces)),
+			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
+		)
+
+		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
+			len(remotePieces),
+			remote.Redundancy.SuccessThreshold,
+			len(remote.RemotePieces),
+		)
+		if len(invalidPieces) > 0 {
+			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+			for _, p := range invalidPieces {
+				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				)
+			}
+		}
+
+		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	remote.RemotePieces = remotePieces
+
 	return nil
 }
 
@@ -541,7 +645,8 @@ func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePi
 	}
 	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("retrieving batch of the peer identities of nodes", zap.Error(Error.Wrap(err)))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "retrieving nodes peer identities")
 	}
 	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
 	for _, peerID := range peerIDList {
@@ -664,62 +769,40 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// TODO set default Redundancy if not set
-
 	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
-		var partnerID uuid.UUID
-		err = partnerID.UnmarshalJSON(req.GetPartnerId())
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		// partnerID not set
-		if partnerID.IsZero() {
-			return resp, rpcstatus.Error(rpcstatus.AlreadyExists, "Bucket already exists")
-		}
-
-		//update the bucket
-		bucket.PartnerID = partnerID
-		bucket, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
-
-		pbBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return resp, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: pbBucket,
-		}, nil
+		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
+	}
+	if !storj.ErrBucketNotFound.Has(err) {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	// create the bucket
-	if storj.ErrBucketNotFound.Has(err) {
-		bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		convBucket, err := convertBucketToProto(ctx, bucket)
-		if err != nil {
-			return resp, err
-		}
-
-		return &pb.BucketCreateResponse{
-			Bucket: convBucket,
-		}, nil
+	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-	return nil, Error.Wrap(err)
+
+	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+	}
+
+	convBucket, err := convertBucketToProto(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+	}
+
+	return &pb.BucketCreateResponse{
+		Bucket: convBucket,
+	}, nil
 }
 
 // DeleteBucket deletes a bucket
@@ -810,7 +893,30 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, parterID []byte) error {
+// resolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
+// returns empty uuid when neither is defined.
+func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
+	if len(partnerIDBytes) > 0 {
+		partnerID, err := bytesToUUID(partnerIDBytes)
+		if err != nil {
+			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		}
+		return partnerID, nil
+	}
+
+	if len(header.UserAgent) == 0 {
+		return uuid.UUID{}, nil
+	}
+
+	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
+	if err != nil || partner.UUID == nil {
+		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
+	}
+
+	return *partner.UUID, nil
+}
+
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
 	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
@@ -821,15 +927,18 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	partnerID, err := bytesToUUID(parterID)
+	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+	if partnerID.IsZero() {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
 	}
 
 	// check if attribution is set for given bucket
-	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, bucketName)
+	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
-		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.String("partnerID", partnerID.String()))
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
 		return nil
 	}
 
@@ -844,17 +953,40 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", true, 1, 0)
 	if err != nil {
 		endpoint.log.Error("error while listing segments", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	if len(items) > 0 {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
-	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+	// checks if bucket exists before updates it or makes a new entry
+	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
+		}
+		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+	}
+	if !bucket.PartnerID.IsZero() {
+		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
+		return nil
+	}
+
+	// update bucket information
+	bucket.PartnerID = partnerID
+	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
+	if err != nil {
+		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+	}
+
+	// update attribution table
+	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: bucketName,
 		PartnerID:  partnerID,
@@ -863,6 +995,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
 	return nil
 }
 
@@ -875,6 +1008,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	defaultRS := req.GetDefaultRedundancyScheme()
 	defaultEP := req.GetDefaultEncryptionParameters()
 
+	// TODO: resolve partner id
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
 
@@ -1008,7 +1142,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits object when all segments are also committed
+// CommitObject commits an object when all its segments have already been
+// committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1037,26 +1172,22 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	segmentIndex := int64(0)
-	var lastSegmentPointer *pb.Pointer
-	var lastSegmentPath string
-	for {
-		path, err := CreatePath(ctx, keyInfo.ProjectID, segmentIndex, streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %v", err)
-		}
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(req.EncryptedMetadata, &streamMeta)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
+	}
 
-		pointer, err := endpoint.metainfo.Get(ctx, path)
-		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
-				break
-			}
-			return nil, rpcstatus.Errorf(rpcstatus.Internal, "unable to create get segment: %v", err)
-		}
+	lastSegmentIndex := streamMeta.NumberOfSegments - 1
+	lastSegmentPath, err := CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %s", err.Error())
+	}
 
-		lastSegmentPointer = pointer
-		lastSegmentPath = path
-		segmentIndex++
+	lastSegmentPointerBytes, lastSegmentPointer, err := endpoint.metainfo.GetWithBytes(ctx, lastSegmentPath)
+	if err != nil {
+		endpoint.log.Error("unable to get pointer", zap.String("segmentPath", lastSegmentPath), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 	if lastSegmentPointer == nil {
 		return nil, rpcstatus.Errorf(rpcstatus.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
@@ -1069,19 +1200,23 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
-	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
+	err = endpoint.metainfo.Delete(ctx, lastSegmentPath, lastSegmentPointerBytes)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("unable to delete pointer", zap.String("segmentPath", lastSegmentPath), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 
-	lastSegmentPath, err = CreatePath(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
+	lastSegmentIndex = -1
+	lastSegmentPath, err = CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		endpoint.log.Error("unable to create path", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 
 	err = endpoint.metainfo.Put(ctx, lastSegmentPath, lastSegmentPointer)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("unable to put pointer", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 
 	return &pb.ObjectCommitResponse{}, nil
@@ -1164,7 +1299,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 			pointer, err = endpoint.metainfo.Get(ctx, path)
 			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
+				if storj.ErrObjectNotFound.Has(err) {
 					break
 				}
 
@@ -1178,6 +1313,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
+	endpoint.log.Info("Get Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1191,7 +1327,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
-		EncryptedPath: []byte{},
+		EncryptedPath: req.EncryptedPrefix,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -1210,8 +1346,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	metaflags := meta.All
 	// TODO use flags
-	// TODO find out how EncryptedCursor -> startAfter/endAfter
-	segments, more, err := endpoint.metainfo.List(ctx, prefix, string(req.EncryptedCursor), "", req.Recursive, req.Limit, metaflags)
+	segments, more, err := endpoint.metainfo.List(ctx, prefix, string(req.EncryptedCursor), req.Recursive, req.Limit, metaflags)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1227,6 +1362,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
+	endpoint.log.Info("List Objects", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1280,6 +1416,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, err
 	}
 
+	endpoint.log.Info("Delete Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1386,6 +1523,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		CreationDate:        time.Now(),
 	})
 
+	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID))
+
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
 		AddressedLimits: addressedLimits,
@@ -1412,6 +1551,18 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	})
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
+			zap.Int("upload pieces results", numResults),
+			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.Stringer("Segment ID", req.SegmentId),
+		)
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
+			numResults, streamID.Redundancy.GetSuccessThreshold(),
+		)
 	}
 
 	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
@@ -1461,7 +1612,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
@@ -1474,8 +1625,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
+			zap.Int64("limit", limit.Int64()),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1492,13 +1644,21 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
 		if float64(remoteUsed) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", pointer.SegmentSize, remoteUsed, pointer.Remote.Redundancy.MinReq, pointer.Remote.Redundancy.Total)
+			endpoint.log.Debug("data size mismatch",
+				zap.Int64("segment", pointer.SegmentSize),
+				zap.Int64("pieces", remoteUsed),
+				zap.Int32("redundancy minimum requested", pointer.Remote.Redundancy.MinReq),
+				zap.Int32("redundancy total", pointer.Remote.Redundancy.Total),
+			)
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		endpoint.log.Error("Could not track new storage usage by project",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
@@ -1584,6 +1744,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("Make Inline Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
@@ -1623,7 +1785,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 
 	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
 	// call FinishDeleteSegment on uplink side
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1634,6 +1796,8 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		Index:               req.Position.Index,
 		CreationDate:        time.Now(),
 	})
+
+	endpoint.log.Info("Delete Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1699,7 +1863,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1711,23 +1875,45 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("List Segments", zap.Stringer("Project ID", keyInfo.ProjectID))
+
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
 		// TODO cleanup int32 vs int64
-		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+		return endpoint.listSegmentsFromNumberOfSegments(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
 	}
 
 	// list segments by requesting each segment from cursor index to n until n segment is not found
 	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
 }
 
-func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, numberOfSegments, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+	if numberOfSegments <= 0 {
+		endpoint.log.Error(
+			"Invalid number of segments; this function requires the value to be greater than 0",
+			zap.Int32("numberOfSegments", numberOfSegments),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
+	if cursorIndex > numberOfSegments {
+		endpoint.log.Error(
+			"Invalid number cursor index; the index cannot be greater than the total number of segments",
+			zap.Int32("numberOfSegments", numberOfSegments),
+			zap.Int32("cursorIndex", cursorIndex),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
 	numberOfSegments -= cursorIndex
 
-	segmentItems := make([]*pb.SegmentListItem, 0)
-	more := false
-
+	var (
+		segmentItems = make([]*pb.SegmentListItem, 0)
+		more         = false
+	)
 	if numberOfSegments > 0 {
+		segmentItems = make([]*pb.SegmentListItem, 0, int(numberOfSegments))
+
 		if numberOfSegments > limit {
 			more = true
 			numberOfSegments = limit
@@ -1736,6 +1922,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 			// last segment will be added manually at the end of this block
 			numberOfSegments--
 		}
+
 		for index := int32(0); index < numberOfSegments; index++ {
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
 				Position: &pb.SegmentPosition{
@@ -1743,6 +1930,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 				},
 			})
 		}
+
 		if !more {
 			// last segment is always the last one
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
@@ -1772,7 +1960,7 @@ func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uu
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
+			if storj.ErrObjectNotFound.Has(err) {
 				break
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1879,6 +2067,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -1890,6 +2079,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
@@ -1901,6 +2093,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				limits[i] = &pb.AddressedOrderLimit{}
 			}
 		}
+
+		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
@@ -1924,7 +2118,7 @@ func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, s
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, "", rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, "", rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2018,6 +2212,9 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	err = proto.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
+	}
+	if satSegmentID.StreamId == nil {
+		return nil, errs.New("stream ID missing")
 	}
 
 	err = signing.VerifySegmentID(ctx, endpoint.satellite, satSegmentID)

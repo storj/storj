@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -166,54 +167,38 @@ func openTestData(tb testing.TB) *KVInputIterator {
 	return inputIter
 }
 
-// BulkImporter identifies KV storage facilities that can do bulk importing of items more
-// efficiently than inserting one-by-one.
-type BulkImporter interface {
-	BulkImport(storage.Iterator) error
-}
-
-// BulkCleaner identifies KV storage facilities that can delete all items efficiently.
-type BulkCleaner interface {
-	BulkDelete() error
-}
-
 // BenchmarkPathOperationsInLargeDb runs the "long benchmarks" suite for KeyValueStore instances.
 func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore) {
 	if *longBenchmarksData == "" {
 		b.Skip("Long benchmarks not enabled.")
 	}
 
-	initStore(b, store)
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+	initStore(b, ctx, store)
 
-	doTest := func(name string, testFunc func(*testing.B, storage.KeyValueStore)) {
+	doTest := func(name string, testFunc func(*testing.B, *testcontext.Context, storage.KeyValueStore)) {
 		b.Run(name, func(bb *testing.B) {
 			for i := 0; i < bb.N; i++ {
-				testFunc(bb, store)
+				testFunc(bb, ctx, store)
 			}
 		})
 	}
 
 	doTest("DeepRecursive", deepRecursive)
-	doTest("DeepRecursiveReverse", deepRecursiveReverse)
 	doTest("DeepNonRecursive", deepNonRecursive)
-	doTest("DeepNonRecursiveReverse", deepNonRecursiveReverse)
 	doTest("ShallowRecursive", shallowRecursive)
-	doTest("ShallowRecursiveReverse", shallowRecursiveReverse)
 	doTest("ShallowNonRecursive", shallowNonRecursive)
-	doTest("ShallowNonRecursiveReverse", shallowNonRecursiveReverse)
 	doTest("TopRecursiveLimit", topRecursiveLimit)
-	doTest("TopRecursiveLimitReverse", topRecursiveLimitReverse)
 	doTest("TopRecursiveStartAt", topRecursiveStartAt)
-	doTest("TopRecursiveStartAtReverse", topRecursiveStartAtReverse)
 	doTest("TopNonRecursive", topNonRecursive)
-	doTest("TopNonRecursiveReverse", topNonRecursiveReverse)
 
-	cleanupStore(b, store)
+	cleanupStore(b, ctx, store)
 }
 
-func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
+func importBigPathset(tb testing.TB, ctx *testcontext.Context, store storage.KeyValueStore) {
 	// make sure this is an empty db, or else refuse to run
-	if !isEmptyKVStore(tb, store) {
+	if !isEmptyKVStore(tb, ctx, store) {
 		tb.Fatal("Provided KeyValueStore is not empty. The long benchmarks are destructive. Not running!")
 	}
 
@@ -227,7 +212,7 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	importer, ok := store.(BulkImporter)
 	if ok {
 		tb.Log("Performing bulk import...")
-		err := importer.BulkImport(inputIter)
+		err := importer.BulkImport(ctx, inputIter)
 
 		if err != nil {
 			errStr := "Provided KeyValueStore failed to import data"
@@ -256,7 +241,7 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	}
 }
 
-func initStore(b *testing.B, store storage.KeyValueStore) {
+func initStore(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	b.Helper()
 
 	if !*noInitDb {
@@ -267,17 +252,17 @@ func initStore(b *testing.B, store storage.KeyValueStore) {
 		// so we'll at least log it.
 		b.StopTimer()
 		tStart := time.Now()
-		importBigPathset(b, store)
+		importBigPathset(b, ctx, store)
 		b.Logf("importing took %s", time.Since(tStart).String())
 		b.StartTimer()
 	}
 }
 
-func cleanupStore(b *testing.B, store storage.KeyValueStore) {
+func cleanupStore(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	b.Helper()
 	if !*noCleanDb {
 		tStart := time.Now()
-		cleanupBigPathset(b, store)
+		cleanupBigPathset(b, ctx, store)
 		b.Logf("cleanup took %s", time.Since(tStart).String())
 	}
 }
@@ -290,7 +275,7 @@ type verifyOpts struct {
 	expectLastKey storage.Key
 }
 
-func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *verifyOpts) {
+func benchAndVerifyIteration(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore, opts *verifyOpts) {
 	problems := 0
 	iteration := 0
 
@@ -318,7 +303,7 @@ func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *ve
 	lookupSize := opts.batchSize
 
 	for iteration = 1; iteration <= opts.doIterations; iteration++ {
-		results, err := iterateItems(store, opts.iterateOpts, lookupSize)
+		results, err := iterateItems(ctx, store, opts.iterateOpts, lookupSize)
 		if err != nil {
 			fatalf("Failed to call iterateItems(): %v", err)
 		}
@@ -347,10 +332,7 @@ func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *ve
 			if result.Key.Equal(lastKey) {
 				errorf("got the same key (%q) twice in a row, not on a lookup boundary!", lastKey)
 			}
-			if opts.iterateOpts.Reverse && !lastKey.IsZero() && lastKey.Less(result.Key) {
-				errorf("KeyValueStore returned items out of order! %q > %q", result.Key, lastKey)
-			}
-			if !opts.iterateOpts.Reverse && result.Key.Less(lastKey) {
+			if result.Key.Less(lastKey) {
 				errorf("KeyValueStore returned items out of order! %q < %q", result.Key, lastKey)
 			}
 			if result.IsPrefix {
@@ -387,7 +369,7 @@ func benchAndVerifyIteration(b *testing.B, store storage.KeyValueStore, opts *ve
 	}
 }
 
-func deepRecursive(b *testing.B, store storage.KeyValueStore) {
+func deepRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestLevel2Directory),
@@ -407,35 +389,10 @@ func deepRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = largestLevel2Directory, $2 = doIterations, and $3 = batchSize
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/extrastate/firewood/renomination/cletch/herotheism/aluminiferous/nub")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func deepRecursiveReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Prefix:  storage.Key(largestLevel2Directory),
-			Recurse: true,
-			Reverse: true,
-		},
-	}
-
-	// these are not expected to exhaust all available items
-	opts.doIterations = 500
-	opts.batchSize = storage.LookupLimit
-	opts.expectCount = opts.doIterations * opts.batchSize
-
-	// verify with:
-	//     select encode(fullpath, 'escape') from (
-	//         select rank() over (order by fullpath desc), fullpath from pathdata
-	//             where fullpath < bytea_increment($1::bytea)
-	//     ) x where rank = ($2 * $3);
-	// where $1 = largestLevel2Directory, $2 = doIterations, and $3 = batchSize
-	opts.expectLastKey = storage.Key("Peronosporales/hateless/apetaly/poikilocythemia/capped/abrash/dugout/notodontid/jasponyx/cassican/brunelliaceous")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func deepNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func deepNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestLevel2Directory),
@@ -457,36 +414,10 @@ func deepNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 is largestLevel2Directory
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/xerophily/")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func deepNonRecursiveReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Prefix:  storage.Key(largestLevel2Directory),
-			Recurse: false,
-			Reverse: true,
-		},
-		doIterations: 1,
-		batchSize:    10000,
-	}
-
-	// verify with:
-	//     select count(*) from list_directory(''::bytea, $1::bytea) ld(fp, md);
-	// where $1 is largestLevel2Directory
-	opts.expectCount = 119
-
-	// verify with:
-	//     select encode(fp, 'escape') from (
-	//         select * from list_directory(''::bytea, $1::bytea) ld(fp, md)
-	//     ) x order by fp limit 1;
-	// where $1 is largestLevel2Directory
-	opts.expectLastKey = storage.Key("Peronosporales/hateless/Absyrtus")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func shallowRecursive(b *testing.B, store storage.KeyValueStore) {
+func shallowRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestSingleDirectory),
@@ -512,40 +443,10 @@ func shallowRecursive(b *testing.B, store storage.KeyValueStore) {
 	opts.doIterations = 74
 	opts.batchSize = 251
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func shallowRecursiveReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Prefix:  storage.Key(largestSingleDirectory),
-			Recurse: true,
-			Reverse: true,
-		},
-	}
-
-	// verify with:
-	//     select count(*) from pathdata
-	//         where fullpath > $1::bytea and fullpath < bytea_increment($1::bytea);
-	// where $1 = largestSingleDirectory
-	opts.expectCount = 18574
-
-	// verify with:
-	//     select convert_from(fullpath, 'UTF8') from pathdata
-	//         where fullpath > $1::bytea and fullpath < bytea_increment($1::bytea)
-	//         order by fullpath limit 1;
-	// where $1 = largestSingleDirectory
-	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/unricht/sniveling/Puyallup/Aaronite")
-
-	// i didn't plan it this way, but expectedCount happens to have some nicely-sized factors for
-	// our purposes with no messy remainder. 74 * 251 = 18574
-	opts.doIterations = 74
-	opts.batchSize = 251
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func shallowNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func shallowNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Prefix:  storage.Key(largestSingleDirectory),
@@ -567,36 +468,10 @@ func shallowNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = largestSingleDirectory
 	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/unricht/sniveling/Puyallup/élite")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func shallowNonRecursiveReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Prefix:  storage.Key(largestSingleDirectory),
-			Recurse: false,
-			Reverse: true,
-		},
-		doIterations: 2,
-		batchSize:    10000,
-	}
-
-	// verify with:
-	//     select count(*) from list_directory(''::bytea, $1::bytea) ld(fp, md);
-	// where $1 is largestSingleDirectory
-	opts.expectCount = 18574
-
-	// verify with:
-	//     select encode(fp, 'escape') from (
-	//         select * from list_directory(''::bytea, $1::bytea) ld(fp, md)
-	//     ) x order by fp limit 1;
-	// where $1 = largestSingleDirectory
-	opts.expectLastKey = storage.Key("Peronosporales/hateless/tod/unricht/sniveling/Puyallup/Aaronite")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func topRecursiveLimit(b *testing.B, store storage.KeyValueStore) {
+func topRecursiveLimit(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: true,
@@ -615,33 +490,10 @@ func topRecursiveLimit(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = expectCount
 	opts.expectLastKey = storage.Key("nonresuscitation/synchronically/bechern/hemangiomatosis")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topRecursiveLimitReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Recurse: true,
-			Reverse: true,
-		},
-		doIterations: 100,
-		batchSize:    10000,
-	}
-
-	// not expected to exhaust items
-	opts.expectCount = opts.doIterations * opts.batchSize
-
-	// verify with:
-	//     select encode(fullpath, 'escape') from (
-	//         select rank() over (order by fullpath desc), fullpath from pathdata
-	//     ) x where rank = $1;
-	// where $1 = expectCount
-	opts.expectLastKey = storage.Key("nonresuscitation/synchronically/cabook/homeozoic/inclinatorium/iguanodont/thiophenol/congeliturbation/Alaric")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func topRecursiveStartAt(b *testing.B, store storage.KeyValueStore) {
+func topRecursiveStartAt(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: true,
@@ -663,40 +515,10 @@ func topRecursiveStartAt(b *testing.B, store storage.KeyValueStore) {
 	// where $1 = iterateOpts.First and $2 = expectCount
 	opts.expectLastKey = storage.Key("raptured/heathbird/histrionism/vermifugous/barefaced/beechdrops/lamber/phlegmatic/blended/Gershon/scallop/burglarproof/incompensated/allanite/alehouse/embroilment/lienotoxin/monotonically/cumbersomeness")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topRecursiveStartAtReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Recurse: true,
-			Reverse: true,
-		},
-		doIterations: 61,
-		batchSize:    10000,
-	}
-
-	// this is pretty arbitrary. just the key 100 positions before the end of the Peronosporales/hateless/ dir.
-	opts.iterateOpts.First = storage.Key("Peronosporales/hateless/warrener/anthropomancy/geisotherm/wickerwork")
-
-	// we *do* expect to exhaust the available items this time.
-	// verify with:
-	//     select count(*) from (
-	//         select fullpath from pathdata where fullpath <= $1::bytea order by fullpath desc limit $2
-	//     ) x;
-	// where $1 = iterateOpts.First and $2 = (doIterations * batchSize)
-	opts.expectCount = 608405
-
-	// since expectCount < (doIterations * batchSize), and we're going in reverse, the last key read
-	// should be the first one lexicographically.
-	// verify with:
-	//     select encode(fullpath, 'escape') from pathdata order by fullpath limit 1;
-	opts.expectLastKey = storage.Key("Lissamphibia")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func topNonRecursive(b *testing.B, store storage.KeyValueStore) {
+func topNonRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValueStore) {
 	opts := &verifyOpts{
 		iterateOpts: storage.IterateOptions{
 			Recurse: false,
@@ -715,31 +537,10 @@ func topNonRecursive(b *testing.B, store storage.KeyValueStore) {
 	//     ) x order by fp desc limit 1;
 	opts.expectLastKey = storage.Key("vejoces")
 
-	benchAndVerifyIteration(b, store, opts)
+	benchAndVerifyIteration(b, ctx, store, opts)
 }
 
-func topNonRecursiveReverse(b *testing.B, store storage.KeyValueStore) {
-	opts := &verifyOpts{
-		iterateOpts: storage.IterateOptions{
-			Recurse: false,
-			Reverse: true,
-		},
-		doIterations: 1,
-		batchSize:    10000,
-	}
-
-	// verify with:
-	//     select count(*) from list_directory(''::bytea, ''::bytea);
-	opts.expectCount = 21
-
-	// verify with:
-	//     select encode(fullpath, 'escape') from pathdata order by fullpath limit 1;
-	opts.expectLastKey = storage.Key("Lissamphibia")
-
-	benchAndVerifyIteration(b, store, opts)
-}
-
-func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
+func cleanupBigPathset(tb testing.TB, ctx *testcontext.Context, store storage.KeyValueStore) {
 	if *noCleanDb {
 		tb.Skip("Instructed not to clean up this KeyValueStore after long benchmarks are complete.")
 	}
@@ -747,7 +548,7 @@ func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	cleaner, ok := store.(BulkCleaner)
 	if ok {
 		tb.Log("Performing bulk cleanup...")
-		err := cleaner.BulkDelete()
+		err := cleaner.BulkDeleteAll(ctx)
 
 		if err != nil {
 			tb.Fatalf("Provided KeyValueStore failed to perform bulk delete: %v", err)

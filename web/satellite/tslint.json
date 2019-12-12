@@ -51,14 +51,18 @@
           "name": "external",
           "match": "^[A-Za-z]",
           "order": 1
-         }, {
+        }, {
           "name": "internal components",
           "match": "^@/components",
           "order": 2
         }, {
+          "name": "internal images",
+          "match": "^@/../static/images",
+          "order": 3
+        }, {
           "name": "internal else",
           "match": "^@",
-          "order": 3
+          "order": 4
         }]
     }],
     "prefer-const": true,

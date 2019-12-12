@@ -3,9 +3,9 @@
 
 import sinon from 'sinon';
 
-import TestList from '@/components/common/test/TestList.vue';
-
 import { mount } from '@vue/test-utils';
+
+import TestList from '../mock/components/TestList.vue';
 
 describe('TestList.vue', () => {
     it('should render list of primitive types', function () {

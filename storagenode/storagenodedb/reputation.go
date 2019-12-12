@@ -21,7 +21,7 @@ const ReputationDBName = "reputation"
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Store inserts or updates reputation stats into the db.
@@ -29,7 +29,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO reputation (
-			satellite_id, 
+			satellite_id,
 			uptime_success_count,
 			uptime_total_count,
 			uptime_reputation_alpha,
@@ -120,7 +120,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT satellite_id, 
+	query := `SELECT satellite_id,
 			uptime_success_count,
 			uptime_total_count,
 			uptime_reputation_alpha,

@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-        <h1 class="label" :class="{'white': isWhite}">{{label}}</h1>
+        <h1 class="label">{{label}}</h1>
     </div>
 </template>
 
@@ -49,70 +49,71 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .white,
+    .red {
+        background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
+        .label {
+            color: #354049 !important;
+        }
+    }
+
+    .disabled {
+        background-color: #dadde5 !important;
+        border-color: #dadde5 !important;
+
+        .label {
+            color: #acb0bc !important;
+        }
+    }
+
     .container {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2683FF;
+        background-color: #2683ff;
         border-radius: 6px;
         cursor: pointer;
+        user-select: none;
+
+        .label {
+            font-family: 'font_medium', sans-serif;
+            font-size: 16px;
+            line-height: 23px;
+            color: #fff;
+        }
 
         &:hover {
-            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
             &.white {
-                box-shadow: none;
-                background-color: #2683FF;
-                border: 1px solid #2683FF;
+                box-shadow: none !important;
+                background-color: #2683ff !important;
+                border: 1px solid #2683ff !important;
 
                 .label {
-                    color: white;
+                    color: white !important;
                 }
             }
 
             &.red {
-                box-shadow: none;
-                background-color: transparent;
+                box-shadow: none !important;
+                background-color: transparent !important;
 
                 .label {
-                    color: #EB5757;
+                    color: #eb5757 !important;
                 }
             }
 
             &.disabled {
-                box-shadow: none;
-                background-color: #DADDE5 !important;
+                box-shadow: none !important;
+                background-color: #dadde5 !important;
 
                 .label {
-                    color: #ACB0BC !important;
+                    color: #acb0bc !important;
                 }
             }
-        }
-
-        .label {
-            font-family: 'font_medium';
-			font-size: 16px;
-			line-height: 23px;
-            color: #fff;
-        }
-    }
-
-    .container.white,
-    .container.red {
-        background-color: transparent;
-        border: 1px solid #AFB7C1;
-
-        .label {
-            color: #354049;
-        }
-    }
-
-    .container.disabled {
-        background-color: #DADDE5;
-        border-color: #DADDE5;
-
-        .label {
-            color: #ACB0BC;
         }
     }
 </style>

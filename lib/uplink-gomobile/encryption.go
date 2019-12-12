@@ -70,3 +70,57 @@ func NewEncryptionAccessWithDefaultKey(defaultKey []byte) (_ *EncryptionAccess, 
 	}
 	return &EncryptionAccess{lib: libuplink.NewEncryptionAccessWithDefaultKey(*key)}, nil
 }
+
+// Restrict creates a new EncryptionAccess with no default key, where the key material
+// in the new access is just enough to allow someone to access all of the given
+// restrictions but no more.
+func (e *EncryptionAccess) Restrict(satelliteAddr string, apiKey *APIKey, restrictions *EncryptionRestrictions) (_ *Scope, err error) {
+	libAPIKey, ea, err := e.lib.Restrict(*apiKey.lib, restrictions.restrictions...)
+	return &Scope{
+		lib: &libuplink.Scope{
+			SatelliteAddr:    satelliteAddr,
+			APIKey:           libAPIKey,
+			EncryptionAccess: ea,
+		},
+	}, err
+}
+
+// Import merges the other encryption access context into this one. In cases
+// of conflicting path decryption settings (including if both accesses have
+// a default key), the new settings are kept.
+func (e *EncryptionAccess) Import(other *EncryptionAccess) error {
+	return e.lib.Import(other.lib)
+}
+
+// EncryptionRestriction represents a scenario where some set of objects
+// may need to be encrypted/decrypted
+type EncryptionRestriction struct {
+	lib *libuplink.EncryptionRestriction
+}
+
+// NewEncryptionRestriction creates new EncryptionRestriction
+func NewEncryptionRestriction(bucket, path string) *EncryptionRestriction {
+	return &EncryptionRestriction{
+		lib: &libuplink.EncryptionRestriction{
+			Bucket:     bucket,
+			PathPrefix: path,
+		},
+	}
+}
+
+// EncryptionRestrictions combines EncryptionRestriction to overcome gomobile limitation (no arrays)
+type EncryptionRestrictions struct {
+	restrictions []libuplink.EncryptionRestriction
+}
+
+// NewEncryptionRestrictions creates new EncryptionRestrictions
+func NewEncryptionRestrictions() *EncryptionRestrictions {
+	return &EncryptionRestrictions{
+		restrictions: make([]libuplink.EncryptionRestriction, 0),
+	}
+}
+
+// Add adds EncryptionRestriction
+func (e *EncryptionRestrictions) Add(restriction *EncryptionRestriction) {
+	e.restrictions = append(e.restrictions, *restriction.lib)
+}

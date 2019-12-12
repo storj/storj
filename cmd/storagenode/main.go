@@ -15,13 +15,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/memory"
+	"storj.io/storj/private/version"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -75,6 +75,12 @@ var (
 		RunE:        cmdGracefulExitInit,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	gracefulExitStatusCmd = &cobra.Command{
+		Use:         "exit-status",
+		Short:       "Display graceful exit status",
+		RunE:        cmdGracefulExitStatus,
+		Annotations: map[string]string{"type": "helper"},
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
@@ -107,12 +113,14 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(gracefulExitInitCmd)
+	rootCmd.AddCommand(gracefulExitStatusCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {

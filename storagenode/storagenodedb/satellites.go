@@ -22,7 +22,26 @@ const SatellitesDBName = "satellites"
 
 // reputation works with node reputation DB
 type satellitesDB struct {
-	migratableDB
+	dbContainerImpl
+}
+
+// GetSatellite retrieves that satellite by ID
+func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := db.QueryContext(ctx, "SELECT node_id, added_at, status from satellites where node_id = ?", satelliteID)
+	if err != nil {
+		return satellite, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	if rows.Next() {
+		err := rows.Scan(&satellite.SatelliteID, &satellite.AddedAt, &satellite.Status)
+		if err != nil {
+			return satellite, err
+		}
+	}
+	return satellite, nil
 }
 
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
@@ -53,7 +72,7 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
 		query := `UPDATE satellites SET status = ? WHERE node_id = ?`
-		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
+		_, err = tx.ExecContext(ctx, query, exitStatus, satelliteID)
 		if err != nil {
 			return err
 		}

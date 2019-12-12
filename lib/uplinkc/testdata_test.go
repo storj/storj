@@ -11,38 +11,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/private/testcontext"
+	"storj.io/storj/private/testplanet"
 )
-
-func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.NewCustom(
-		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
-		testplanet.Config{
-			SatelliteCount:   1,
-			StorageNodeCount: 5,
-			UplinkCount:      1,
-			Reconfigure:      testplanet.DisablePeerCAWhitelist,
-		},
-	)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-	planet.Start(ctx)
-
-	run(ctx, planet)
-}
 
 func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplinkInclude := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -65,13 +43,16 @@ func TestC(t *testing.T) {
 					Dest:    testName,
 					Sources: []string{ctest},
 					Includes: []testcontext.Include{
-						libuplink_include,
+						libuplinkInclude,
 						definition,
 						testcontext.CLibMath,
 					},
 				})
 
-				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+					Reconfigure: testplanet.DisablePeerCAWhitelist,
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)
 					cmd.Dir = filepath.Dir(testexe)
 					cmd.Env = append(os.Environ(),

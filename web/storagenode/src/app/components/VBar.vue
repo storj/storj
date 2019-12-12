@@ -46,7 +46,7 @@ export default class VBar extends Vue {
         height: 8px;
         margin-top: 10px;
         border-radius: 4px;
-        background-color: #F4F6F9;
+        background-color: #f4f6f9;
         position: relative;
 
         &__fill {

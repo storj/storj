@@ -9,10 +9,9 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/segments"
 	"storj.io/storj/uplink/storage/streams"
@@ -49,10 +48,13 @@ func New(project *Project, metainfo *metainfo.Client, streams streams.Store, seg
 	}
 }
 
+const defaultLookupLimit = 1000
+
 // Limits returns limits for this metainfo database
 func (db *DB) Limits() (storj.MetainfoLimits, error) {
+	// TODO: fetch this information from satellite
 	return storj.MetainfoLimits{
-		ListLimit:                storage.LookupLimit,
+		ListLimit:                defaultLookupLimit,
 		MinimumRemoteSegmentSize: memory.KiB.Int64(), // TODO: is this needed here?
 		MaximumInlineSegmentSize: memory.MiB.Int64(),
 	}, nil

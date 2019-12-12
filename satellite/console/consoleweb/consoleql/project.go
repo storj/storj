@@ -8,6 +8,7 @@ import (
 
 	"github.com/graphql-go/graphql"
 
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
 
@@ -33,6 +34,8 @@ const (
 	APIKeysPageType = "apiKeysPage"
 	// APIKeysCursorInputType is a graphql type name for api keys
 	APIKeysCursorInputType = "apiKeysCursor"
+	// FieldOwnerID is a field name for "ownerId"
+	FieldOwnerID = "ownerId"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -90,6 +93,9 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.String,
 			},
 			FieldName: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldOwnerID: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldDescription: &graphql.Field{
@@ -357,7 +363,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 }
 
 // fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
-func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.BucketUsageCursor) {
+func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 

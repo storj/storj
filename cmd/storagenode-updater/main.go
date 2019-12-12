@@ -8,9 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,16 +22,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/errs2"
+	"storj.io/storj/private/fpath"
+	"storj.io/storj/private/sync2"
+	"storj.io/storj/private/version"
+	"storj.io/storj/private/version/checker"
+)
+
+const (
+	updaterServiceName = "storagenode-updater"
+	minCheckInterval   = time.Minute
 )
 
 var (
 	cancel context.CancelFunc
+	// TODO: replace with config value of random bytes in storagenode config.
+	nodeID storj.NodeID
 
 	rootCmd = &cobra.Command{
 		Use:   "storagenode-updater",
@@ -43,50 +55,58 @@ var (
 		Use:   "run",
 		Short: "Run the storagenode-updater for storage node",
 		Args:  cobra.OnlyValidArgs,
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			err = cmdRun(cmd, args)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			return nil
-		},
+		RunE:  cmdRun,
 	}
 
-	interval       string
-	versionURL     string
-	binaryLocation string
-	snServiceName  string
-	logPath        string
+	runCfg struct {
+		// TODO: check interval default has changed from 6 hours to 15 min.
+		checker.Config
+		Identity identity.Config
+
+		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
+		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		// deprecated
+		Log string `help:"deprecated, use --log.output" default:""`
+	}
+
+	confDir     string
+	identityDir string
 )
 
 func init() {
+	// TODO: this will probably generate warnings for mismatched config fields.
+	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
+	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for storagenode configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for storagenode identity credentials")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
+
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version, 0 or less value will execute version check only once")
-	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
-	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
-
-	runCmd.Flags().StringVar(&snServiceName, "service-name", "storagenode", "storage node OS service name")
-	runCmd.Flags().StringVar(&logPath, "log", "", "path to log file, if empty standard output will be used")
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if logPath != "" {
-		logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			return errs.New("error opening log file: %v", err)
-		}
-		defer func() { err = errs.Combine(err, logFile.Close()) }()
-		log.SetOutput(logFile)
+	err = openLog()
+	if err != nil {
+		zap.S().Errorf("Error creating new logger: %v", err)
 	}
 
-	if !fileExists(binaryLocation) {
-		return errs.New("unable to find storage node executable binary")
+	if !fileExists(runCfg.BinaryLocation) {
+		zap.S().Fatal("Unable to find storage node executable binary")
+	}
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatalf("Error loading identity: %v", err)
+	}
+	nodeID = ident.ID
+	if nodeID.IsZero() {
+		zap.S().Fatal("Empty node ID")
 	}
 
 	var ctx context.Context
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = process.Ctx(cmd)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
@@ -97,103 +117,159 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		cancel()
 	}()
 
-	update := func(ctx context.Context) (err error) {
-		currentVersion, err := binaryVersion(binaryLocation)
-		if err != nil {
-			return err
-		}
-		log.Println("downloading versions from", versionURL)
-		suggestedVersion, downloadURL, err := suggestedVersion()
-		if err != nil {
-			return err
-		}
-
-		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
-		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
-
-		if currentVersion.Compare(suggestedVersion) < 0 {
-			tempArchive, err := ioutil.TempFile(os.TempDir(), "storagenode")
-			if err != nil {
-				return errs.New("cannot create temporary archive: %v", err)
-			}
-			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
-
-			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
-			err = downloadArchive(ctx, tempArchive, downloadURL)
-			if err != nil {
-				return err
-			}
-			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
-
-			extension := filepath.Ext(binaryLocation)
-			if extension != "" {
-				extension = "." + extension
-			}
-
-			dir := filepath.Dir(binaryLocation)
-			backupExec := filepath.Join(dir, "storagenode.old."+currentVersion.String()+extension)
-
-			if err = os.Rename(binaryLocation, backupExec); err != nil {
-				return err
-			}
-
-			err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
-			if err != nil {
-				return err
-			}
-
-			downloadedVersion, err := binaryVersion(binaryLocation)
-			if err != nil {
-				return err
-			}
-
-			if suggestedVersion.Compare(downloadedVersion) != 0 {
-				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
-			}
-
-			log.Println("restarting service", snServiceName)
-			err = restartSNService(snServiceName)
-			if err != nil {
-				return errs.New("unable to restart service: %v", err)
-			}
-			log.Println("service", snServiceName, "restarted successfully")
-
-			// TODO remove old binary ??
-		} else {
-			log.Println("storage node version is up to date")
-		}
-		return nil
-	}
-
-	loopInterval, err := time.ParseDuration(interval)
-	if err != nil {
-		return errs.New("unable to parse interval parameter: %v", err)
-	}
-
 	loopFunc := func(ctx context.Context) (err error) {
-		if err := update(ctx); err != nil {
+		if err := update(ctx, runCfg.BinaryLocation, runCfg.ServiceName); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
+			zap.S().Errorf("Error updating %s: %v", runCfg.ServiceName, err)
+		}
+
+		updaterBinName := os.Args[0]
+		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
+			// don't finish loop in case of error just wait for another execution
+			zap.S().Errorf("Error updating %s: %v", updaterServiceName, err)
 		}
 		return nil
 	}
 
-	if loopInterval <= 0 {
+	switch {
+	case runCfg.CheckInterval <= 0:
 		err = loopFunc(ctx)
-	} else {
-		loop := sync2.NewCycle(loopInterval)
+	case runCfg.CheckInterval < minCheckInterval:
+		zap.S().Errorf("Check interval below minimum: %s, setting to %s", runCfg.CheckInterval, minCheckInterval)
+		runCfg.CheckInterval = minCheckInterval
+		fallthrough
+	default:
+		loop := sync2.NewCycle(runCfg.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
-	if err != context.Canceled {
-		return err
+	if err != nil && !errs2.IsCanceled(err) {
+		log.Fatal(err)
 	}
 	return nil
 }
 
-func binaryVersion(location string) (semver.Version, error) {
-	out, err := exec.Command(location, "version").Output()
+func update(ctx context.Context, binPath, serviceName string) (err error) {
+	if nodeID.IsZero() {
+		zap.S().Fatal("Empty node ID")
+	}
+
+	var currentVersion version.SemVer
+	if serviceName == updaterServiceName {
+		// TODO: find better way to check this binary version
+		currentVersion = version.Build.Version
+	} else {
+		currentVersion, err = binaryVersion(binPath)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	client := checker.New(runCfg.ClientConfig)
+	zap.S().Infof("Downloading versions from %s", runCfg.ServerAddress)
+	processVersion, err := client.Process(ctx, serviceName)
 	if err != nil {
-		return semver.Version{}, err
+		return errs.Wrap(err)
+	}
+
+	// TODO: consolidate semver.Version and version.SemVer
+	suggestedVersion, err := processVersion.Suggested.SemVer()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if currentVersion.Compare(suggestedVersion) >= 0 {
+		zap.S().Infof("%s version is up to date", serviceName)
+		return nil
+	}
+
+	if !version.ShouldUpdate(processVersion.Rollout, nodeID) {
+		zap.S().Infof("New %s version available but not rolled out to this nodeID yet", serviceName)
+		return nil
+	}
+
+	tempArchive, err := ioutil.TempFile("", serviceName)
+	if err != nil {
+		return errs.New("cannot create temporary archive: %v", err)
+	}
+	defer func() {
+		err = errs.Combine(err,
+			tempArchive.Close(),
+			os.Remove(tempArchive.Name()),
+		)
+	}()
+
+	downloadURL := parseDownloadURL(processVersion.Suggested.URL)
+	zap.S().Infof("Start downloading %s to %s", downloadURL, tempArchive.Name())
+	err = downloadArchive(ctx, tempArchive, downloadURL)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	zap.S().Infof("Finished downloading %s to %s", downloadURL, tempArchive.Name())
+
+	newVersionPath := prependExtension(binPath, suggestedVersion.String())
+	err = unpackBinary(ctx, tempArchive.Name(), newVersionPath)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// TODO add here recovery even before starting service (if version command cannot be executed)
+
+	downloadedVersion, err := binaryVersion(newVersionPath)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if suggestedVersion.Compare(downloadedVersion) != 0 {
+		return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
+	}
+
+	// backup original binary
+	var backupPath string
+	if serviceName == updaterServiceName {
+		// NB: don't include old version number for updater binary backup
+		backupPath = prependExtension(binPath, "old")
+	} else {
+		backupPath = prependExtension(binPath, "old."+currentVersion.String())
+	}
+	if err := os.Rename(binPath, backupPath); err != nil {
+		return errs.Wrap(err)
+	}
+
+	// rename new binary to replace original
+	if err := os.Rename(newVersionPath, binPath); err != nil {
+		return errs.Wrap(err)
+	}
+
+	zap.S().Infof("Restarting service %s", serviceName)
+	err = restartService(serviceName)
+	if err != nil {
+		// TODO: should we try to recover from this?
+		return errs.New("Unable to restart service: %v", err)
+	}
+	zap.S().Infof("Service %s restarted successfully", serviceName)
+
+	// TODO remove old binary ??
+	return nil
+}
+
+func prependExtension(path, ext string) string {
+	originalExt := filepath.Ext(path)
+	dir, base := filepath.Split(path)
+	base = base[:len(base)-len(originalExt)]
+	return filepath.Join(dir, base+"."+ext+originalExt)
+}
+
+func parseDownloadURL(template string) string {
+	url := strings.Replace(template, "{os}", runtime.GOOS, 1)
+	url = strings.Replace(url, "{arch}", runtime.GOARCH, 1)
+	return url
+}
+
+func binaryVersion(location string) (version.SemVer, error) {
+	out, err := exec.Command(location, "version").CombinedOutput()
+	if err != nil {
+		zap.S().Infof("Command output: %s", out)
+		return version.SemVer{}, err
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
@@ -202,39 +278,10 @@ func binaryVersion(location string) (semver.Version, error) {
 		prefix := "Version: "
 		if strings.HasPrefix(line, prefix) {
 			line = line[len(prefix):]
-			if strings.HasPrefix(line, "v") {
-				line = line[1:]
-			}
-			return semver.Make(line)
+			return version.NewSemVer(line)
 		}
 	}
-	return semver.Version{}, errs.New("unable to determine binary version")
-}
-
-func suggestedVersion() (ver semver.Version, url string, err error) {
-	resp, err := http.Get(versionURL)
-	if err != nil {
-		return ver, url, err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return ver, url, err
-	}
-
-	var response version.AllowedVersions
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return ver, url, err
-	}
-
-	suggestedVersion := response.Processes.Storagenode.Suggested
-	ver, err = semver.Make(suggestedVersion.Version)
-	if err != nil {
-		return ver, url, err
-	}
-	return ver, suggestedVersion.URL, nil
+	return version.SemVer{}, errs.New("unable to determine binary version")
 }
 
 func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {
@@ -285,24 +332,6 @@ func unpackBinary(ctx context.Context, archive, target string) (err error) {
 	return nil
 }
 
-func restartSNService(name string) error {
-	switch runtime.GOOS {
-	case "windows":
-		// TODO how run this as one command `net stop servicename && net start servicename`?
-		_, err := exec.Command("net", "stop", name).Output()
-		if err != nil {
-			return err
-		}
-		_, err = exec.Command("net", "start", name).Output()
-		if err != nil {
-			return err
-		}
-	default:
-		return nil
-	}
-	return nil
-}
-
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -311,6 +340,21 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
+func openLog() error {
+	if runCfg.Log != "" {
+		logPath := runCfg.Log
+		if runtime.GOOS == "windows" && !strings.HasPrefix(logPath, "winfile:///") {
+			logPath = "winfile:///" + logPath
+		}
+		logger, err := process.NewLoggerWithOutputPaths(logPath)
+		if err != nil {
+			return err
+		}
+		zap.ReplaceGlobals(logger)
+	}
+	return nil
+}
+
 func main() {
-	_ = rootCmd.Execute()
+	process.Exec(rootCmd)
 }

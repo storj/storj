@@ -7,8 +7,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -29,25 +29,27 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
-//go:generate go run ../../scripts/lockedgen.go -o locked.go -p satellitedb -i storj.io/storj/satellite.DB
-
 // DB contains access to different database tables
 type DB struct {
-	log    *zap.Logger
-	db     *dbx.DB
-	driver string
-	source string
+	log            *zap.Logger
+	db             *dbx.DB
+	driver         string
+	implementation dbutil.Implementation
+	source         string
 }
 
-// New creates instance of database (supports: postgres, sqlite3)
+// New creates instance of database supports postgres
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
-	driver, source, err := dbutil.SplitConnstr(databaseURL)
+	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	if driver == "postgres" {
-		source = pgutil.CheckApplicationName(source)
+	if driver != "postgres" {
+		return nil, Error.New("unsupported driver %q", driver)
 	}
+
+	source = pgutil.CheckApplicationName(source)
+
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database %q, %q: %v",
@@ -57,16 +59,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 	dbutil.Configure(db.DB, mon)
 
-	core := &DB{log: log, db: db, driver: driver, source: source}
-	if driver == "sqlite3" {
-		return newLocked(core), nil
-	}
+	core := &DB{log: log, db: db, driver: driver, source: source, implementation: implementation}
 	return core, nil
-}
-
-// NewInMemory creates instance of Sqlite in memory satellite database
-func NewInMemory(log *zap.Logger) (satellite.DB, error) {
-	return New(log, "sqlite3://file::memory:?mode=memory")
 }
 
 // Close is used to close db connection
@@ -74,31 +68,9 @@ func (db *DB) Close() error {
 	return db.db.Close()
 }
 
-// CreateSchema creates a schema if it doesn't exist.
-func (db *DB) CreateSchema(schema string) error {
-	if db.driver == "postgres" {
-		return pgutil.CreateSchema(db.db, schema)
-	}
-	return nil
-}
-
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
-
-// TestDBAccess for raw database access,
-// should not be used outside of tests.
-func (db *locked) TestDBAccess() *dbx.DB {
-	return db.db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-}
-
-// DropSchema drops the named schema
-func (db *DB) DropSchema(schema string) error {
-	if db.driver == "postgres" {
-		return pgutil.DropSchema(db.db, schema)
-	}
-	return nil
-}
 
 // PeerIdentities returns a storage for peer identities
 func (db *DB) PeerIdentities() overlay.PeerIdentities {
@@ -117,7 +89,7 @@ func (db *DB) OverlayCache() overlay.DB {
 
 // RepairQueue is a getter for RepairQueue repository
 func (db *DB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db.db}
+	return &repairQueue{db: db.db, dbType: db.implementation}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage
@@ -163,7 +135,7 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
 }
 
-// Customers returns database for dealing with stripe customers.
-func (db *DB) Customers() stripecoinpayments.CustomersDB {
-	return &customers{db: db.db}
+// StripeCoinPayments returns database for stripecoinpayments.
+func (db *DB) StripeCoinPayments() stripecoinpayments.DB {
+	return &stripeCoinPaymentsDB{db: db.db}
 }
