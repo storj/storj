@@ -311,7 +311,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.S
 		Expires:  lastSegment.Expiration, // TODO: use correct field
 
 		Stream: storj.Stream{
-			ID:   streamID,
+			ID: streamID,
 			// Checksum: []byte(object.Checksum),
 
 			RedundancyScheme: redundancyScheme,
