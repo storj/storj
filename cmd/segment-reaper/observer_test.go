@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/storage"
 )
 
 func TestMain(m *testing.M) {
@@ -278,6 +279,152 @@ func TestObserver_processSegment_from_to(t *testing.T) {
 		require.True(t, ok)
 
 		require.Equal(t, tt.skipObject, object.skip)
+	}
+}
+
+func TestObserver_processSegment_switch_project(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// need bolddb to have DB with concurrent access support
+	db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	buffer := new(bytes.Buffer)
+	writer := csv.NewWriter(buffer)
+	defer ctx.Check(writer.Error)
+
+	observer, err := newObserver(db, writer, nil, nil)
+	require.NoError(t, err)
+
+	// project IDs are pregenerated to avoid issues with iteration order
+	now := time.Now()
+	project1 := "7176d6a8-3a83-7ae7-e084-5fdbb1a17ac1"
+	project2 := "890dd9f9-6461-eb1b-c3d1-73af7252b9a4"
+
+	// zombie segment for project 1
+	_, err = makeSegment(ctx, db, storj.JoinPaths(project1, "s0", "bucket1", "path1"), now)
+	require.NoError(t, err)
+
+	// zombie segment for project 2
+	_, err = makeSegment(ctx, db, storj.JoinPaths(project2, "s0", "bucket1", "path1"), now)
+	require.NoError(t, err)
+
+	err = observer.detectZombieSegments(ctx)
+	require.NoError(t, err)
+
+	writer.Flush()
+
+	result := buffer.String()
+	for _, projectID := range []string{project1, project2} {
+		encodedPath := base64.StdEncoding.EncodeToString([]byte("path1"))
+		pathPrefix := strings.Join([]string{projectID, "s0", "bucket1", encodedPath, now.UTC().Format(time.RFC3339Nano)}, ",")
+		assert.Containsf(t, result, pathPrefix, "entry for projectID %s not found: %s", projectID)
+	}
+}
+
+func TestObserver_processSegment_single_project(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	type object struct {
+		bucket           string
+		segments         []int
+		numberOfSegments int
+		expected         string
+	}
+
+	project1 := testrand.UUID().String()
+	tests := []struct {
+		objects []object
+	}{
+		// expected = `object.expectedNumberOfSegments`_`object.segments`_`object.hasLastSegment`
+		{
+			objects: []object{},
+		},
+		{
+			objects: []object{
+				{bucket: "b1", segments: []int{lastSegment}, numberOfSegments: 0, expected: "0_000_l"},
+				{bucket: "b1", segments: []int{lastSegment}, numberOfSegments: 1, expected: "1_000_l"},
+				{bucket: "b2", segments: []int{0}, numberOfSegments: 0, expected: "0_100_0"},
+				{bucket: "b1", segments: []int{0}, numberOfSegments: 5, expected: "0_100_0"},
+				{bucket: "b3", segments: []int{0, 1, 2, lastSegment}, numberOfSegments: 4, expected: "4_111_l"},
+				{bucket: "b1", segments: []int{0, 1, 2}, numberOfSegments: 0, expected: "0_111_0"},
+				{bucket: "b5", segments: []int{2, lastSegment}, numberOfSegments: 1, expected: "1_001_l"},
+				{bucket: "b1", segments: []int{2}, numberOfSegments: 1, expected: "0_001_0"},
+				{bucket: "b1", segments: []int{0, lastSegment}, numberOfSegments: 3, expected: "3_100_l"},
+			},
+		},
+	}
+
+	for i, tt := range tests {
+		i := i
+		tt := tt
+		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
+			// need boltdb to have DB with concurrent access support
+			db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
+			require.NoError(t, err)
+			defer ctx.Check(db.Close)
+
+			for i, ttObject := range tt.objects {
+				for _, segment := range ttObject.segments {
+					streamMeta := &pb.StreamMeta{}
+
+					segmentIndex := "s" + strconv.Itoa(segment)
+					if segment == lastSegment {
+						segmentIndex = "l"
+						streamMeta.NumberOfSegments = int64(ttObject.numberOfSegments)
+					}
+					path := storj.JoinPaths(project1, segmentIndex, ttObject.bucket, "path"+strconv.Itoa(i))
+					metadata, err := proto.Marshal(streamMeta)
+					require.NoError(t, err)
+
+					pointerBytes, err := proto.Marshal(&pb.Pointer{
+						Metadata: metadata,
+					})
+					require.NoError(t, err)
+					err = db.Put(ctx, storage.Key(path), storage.Value(pointerBytes))
+					require.NoError(t, err)
+				}
+			}
+
+			observer := &observer{
+				db:      db,
+				objects: make(bucketsObjects),
+				writer:  csv.NewWriter(new(bytes.Buffer)),
+			}
+			err = observer.detectZombieSegments(ctx)
+			require.NoError(t, err)
+
+			for i, ttObject := range tt.objects {
+				objectsMap, ok := observer.objects[ttObject.bucket]
+				require.True(t, ok)
+
+				object, ok := objectsMap["path"+strconv.Itoa(i)]
+				require.True(t, ok)
+
+				expectedParts := strings.Split(ttObject.expected, "_")
+				expectedNumberOfSegments, err := strconv.Atoi(expectedParts[0])
+				require.NoError(t, err)
+				assert.Equal(t, expectedNumberOfSegments, int(object.expectedNumberOfSegments))
+
+				expectedSegments := bitmask(0)
+				for i, char := range expectedParts[1] {
+					if char == '_' {
+						break
+					}
+					if char == '1' {
+						err := expectedSegments.Set(i)
+						require.NoError(t, err)
+					}
+				}
+				assert.Equal(t, expectedSegments, object.segments)
+
+				expectedLastSegment := expectedParts[2] == "l"
+				assert.Equal(t, expectedLastSegment, object.hasLastSegment)
+			}
+		})
 	}
 }
 
@@ -604,47 +751,5 @@ func assertObserver(t *testing.T, obsvr *observer, testdata testdataObjects) {
 				}
 			}
 		}
-	}
-}
-
-func TestObserver_processSegment_switch_project(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	// need bolddb to have DB with concurrent access support
-	db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
-	require.NoError(t, err)
-	defer ctx.Check(db.Close)
-
-	buffer := new(bytes.Buffer)
-	writer := csv.NewWriter(buffer)
-	defer ctx.Check(writer.Error)
-
-	observer, err := newObserver(db, writer, nil, nil)
-	require.NoError(t, err)
-
-	// project IDs are pregenerated to avoid issues with iteration order
-	now := time.Now()
-	project1 := "7176d6a8-3a83-7ae7-e084-5fdbb1a17ac1"
-	project2 := "890dd9f9-6461-eb1b-c3d1-73af7252b9a4"
-
-	// zombie segment for project 1
-	_, err = makeSegment(ctx, db, storj.JoinPaths(project1, "s0", "bucket1", "path1"), now)
-	require.NoError(t, err)
-
-	// zombie segment for project 2
-	_, err = makeSegment(ctx, db, storj.JoinPaths(project2, "s0", "bucket1", "path1"), now)
-	require.NoError(t, err)
-
-	err = observer.detectZombieSegments(ctx)
-	require.NoError(t, err)
-
-	writer.Flush()
-
-	result := buffer.String()
-	for _, projectID := range []string{project1, project2} {
-		encodedPath := base64.StdEncoding.EncodeToString([]byte("path1"))
-		pathPrefix := strings.Join([]string{projectID, "s0", "bucket1", encodedPath, now.UTC().Format(time.RFC3339Nano)}, ",")
-		assert.Containsf(t, result, pathPrefix, "entry for projectID %s not found: %s", projectID)
 	}
 }
