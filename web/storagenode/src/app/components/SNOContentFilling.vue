@@ -36,10 +36,10 @@
                 </div>
             </div>
             <div class="chart-container">
-                <div class="chart-container__title-area">
+                <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount"><b>{{storageSummary}}*h</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{storageSummary}}*h</b></p>
                 <div class="chart-container__chart">
                     <DiskSpaceChart/>
                 </div>
@@ -62,6 +62,9 @@
                     :max-bar-amount="diskSpace.available"
                 />
             </div>
+        </div>
+        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
+            <p class="info-area__blurred-checks__title">Select A Specific Satellite To View Audit And Uptime Percentages</p>
         </div>
         <div v-if="selectedSatellite.id">
             <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
@@ -330,6 +333,25 @@ export default class SNOContentFilling extends Vue {
             user-select: none;
         }
 
+        &__blurred-checks {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 224px;
+            background-image: url('../../../static/images/BlurredChecks.png');
+            background-size: contain;
+            margin: 35px 0;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 49px;
+                color: #4a4a4a;
+                user-select: none;
+            }
+        }
+
         &__chart-area,
         &__remaining-space-area,
         &__checks-area {
@@ -392,5 +414,10 @@ export default class SNOContentFilling extends Vue {
     .ingress-chart-shown {
         background-color: #ffeac2;
         color: #c48c4b;
+    }
+
+    .disk-space-title,
+    .disk-space-amount {
+        margin-top: 5px;
     }
 </style>

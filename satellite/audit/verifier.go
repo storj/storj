@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -89,7 +88,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 
 	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return Report{}, ErrSegmentDeleted.New("%q", path)
 		}
 		return Report{}, err
@@ -375,7 +374,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 
 	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return Report{}, ErrSegmentDeleted.New("%q", path)
 		}
 		return Report{}, err
@@ -434,7 +433,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		go func(pending *PendingAudit) {
 			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, pending.Path)
 			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
+				if storj.ErrObjectNotFound.Has(err) {
 					// segment has been deleted since node was contained
 					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
 					if errDelete != nil {
@@ -726,7 +725,7 @@ func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath
 
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, ErrSegmentDeleted.New("%q", segmentPath)
 		}
 		return nil, err

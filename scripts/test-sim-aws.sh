@@ -12,6 +12,10 @@ SRC_DIR=$TMPDIR/source
 DST_DIR=$TMPDIR/dst
 mkdir -p "$SRC_DIR" "$DST_DIR"
 
+
+export AWS_CONFIG_FILE=$TMPDIR/.aws/config
+export AWS_SHARED_CREDENTIALS_FILE=$TMPDIR/.aws/credentials
+
 aws configure set aws_access_key_id     "$GATEWAY_0_ACCESS_KEY"
 aws configure set aws_secret_access_key "$GATEWAY_0_SECRET_KEY"
 aws configure set default.region        us-east-1

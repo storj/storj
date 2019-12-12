@@ -62,6 +62,8 @@ func TestOffer_Database(t *testing.T) {
 		for i := range validOffers {
 			new, err := planet.Satellites[0].DB.Rewards().Create(ctx, &validOffers[i])
 			require.NoError(t, err)
+			new.ExpiresAt = new.ExpiresAt.Round(time.Microsecond)
+			new.CreatedAt = new.CreatedAt.Round(time.Microsecond)
 
 			all, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)

@@ -29,11 +29,11 @@
         <div class="usage-report-container__main-area">
             <div class="usage-report-container__main-area__info-area">
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, GBh</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, {{storageDataDimension}}*h</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{storage}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, GB</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Egress, {{egressDataDimension}}</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{egress}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
@@ -66,6 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -104,22 +105,33 @@ export default class UsageReport extends Vue {
         return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
-    // TODO: update bytes to GB
     public get storage(): string {
-        return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+        return this.$store.state.usageModule.projectUsage.storage.formattedBytes;
     }
 
-    // TODO: update bytes to GB
     public get egress(): string {
-        return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+        return this.$store.state.usageModule.projectUsage.egress.formattedBytes;
     }
 
     public get objectsCount(): string {
         return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
     }
 
+    public get storageDataDimension(): string {
+        return this.$store.state.usageModule.projectUsage.storage.label;
+    }
+
+    public get egressDataDimension(): string {
+        return this.$store.state.usageModule.projectUsage.egress.label;
+    }
+
     public async mounted(): Promise<void> {
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -150,6 +162,11 @@ export default class UsageReport extends Vue {
         this.onButtonClickAction(event);
 
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -160,6 +177,11 @@ export default class UsageReport extends Vue {
         this.onButtonClickAction(event);
 
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -169,6 +191,11 @@ export default class UsageReport extends Vue {
     public onCustomDateClick(event: any): void {
         (this as any).$refs.datePicker.showCheck();
         this.onButtonClickAction(event);
+        this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            start_date: this.dateRange.startDate,
+            end_date: this.dateRange.endDate,
+        });
     }
 
     public onReportClick(): void {
@@ -182,6 +209,12 @@ export default class UsageReport extends Vue {
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+
+        this.$segment.track(SegmentEvent.REPORT_DOWNLOADED, {
+            start_date: startDate,
+            end_date: endDate,
+            project_id: projectID,
+        });
 
         window.open(url.href, '_blank');
     }
