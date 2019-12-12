@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { RouteConfig } from '@/router';
-import { makeProjectsModule } from '@/store/modules/projects';
+import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
@@ -51,7 +51,7 @@ describe('NavigationArea', () => {
 
     it('snapshot not changed with project', async () => {
         const projects = await store.dispatch('fetchProjects');
-        await store.dispatch('selectProject', projects[0].id);
+        store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, projects[0].id);
 
         const wrapper = shallowMount(NavigationArea, {
             store,
