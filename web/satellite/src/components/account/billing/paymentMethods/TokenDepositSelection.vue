@@ -17,10 +17,11 @@
             <input
                 v-number
                 class="custom-input"
-                placeholder="Enter Amount"
+                placeholder="Enter Amount in USD"
                 v-model="customAmount"
                 @input="onCustomAmountChange"
             >
+            <p class="label__sign" v-if="customAmount">$</p>
             <div class="input-svg" @click.self.stop="closeCustomAmountSelection">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
@@ -143,10 +144,10 @@ export default class TokenDepositSelection extends Vue {
         border: 1px solid #afb7c1;
         border-radius: 8px;
         background-color: transparent;
-        padding: 0 36px 0 20px;
+        padding: 0 36px 0 25px;
         font-family: 'font_medium', sans-serif;
         font-size: 16px;
-        line-height: 28px;
+        line-height: 19px;
         color: #354049;
         -moz-appearance: textfield;
     }
@@ -163,11 +164,24 @@ export default class TokenDepositSelection extends Vue {
 
     .label {
         position: relative;
+        height: 21px;
+
+        &__sign {
+            position: absolute;
+            top: 50%;
+            left: 15px;
+            transform: translate(0, -50%);
+            font-family: 'font_bold', sans-serif;
+            font-size: 16px;
+            line-height: 19px;
+            color: #354049;
+            margin: 0;
+        }
     }
 
     .input-svg {
         position: absolute;
-        top: 50%;
+        top: 49%;
         right: 20px;
         transform: translate(0, -50%);
         cursor: pointer;
@@ -192,7 +206,7 @@ export default class TokenDepositSelection extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 25px;
             width: calc(100% - 40px);
             height: 100%;
 
@@ -231,7 +245,7 @@ export default class TokenDepositSelection extends Vue {
             justify-content: flex-start;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
-            padding: 0 20px;
+            padding: 0 30px;
             cursor: pointer;
 
             &:hover {
@@ -242,7 +256,7 @@ export default class TokenDepositSelection extends Vue {
         &__item {
             display: flex;
             align-items: center;
-            padding: 0 20px;
+            padding: 0 30px;
             cursor: pointer;
 
             &__svg {
