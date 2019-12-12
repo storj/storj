@@ -11,10 +11,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testListV2(t *testing.T, store storage.KeyValueStore) {
+func testListV2(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("music/a-song1.mp3", "1", false),
 		newItem("music/a-song2.mp3", "2", false),
@@ -25,7 +26,8 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		newItem("videos/movie.mkv", "7", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
+
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}

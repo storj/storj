@@ -16,6 +16,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
@@ -78,6 +79,9 @@ export default class Login extends Vue {
         try {
             this.authToken = await this.auth.token(this.email, this.password);
             AuthToken.set(this.authToken);
+            this.$segment.track(SegmentEvent.USER_LOGGED_IN, {
+                email: this.email,
+            });
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

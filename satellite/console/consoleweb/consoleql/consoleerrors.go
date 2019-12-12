@@ -12,7 +12,7 @@ import (
 // Error messages
 const (
 	internalErrDetailedMsg = "It looks like we had a problem on our end. Please try again"
-	projectLimitErrMsg     = "Sorry, during the Vanguard release you have a limited number of projects"
+	projectLimitErrMsg     = "Sorry, during the Pioneer release you have a limited number of projects"
 )
 
 // errConsoleInternalDetailed describes detailed error message for internal error

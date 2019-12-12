@@ -19,7 +19,7 @@ const StorageUsageDBName = "storage_usage"
 
 // storageUsageDB storage usage DB
 type storageUsageDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Store stores storage usage stamps to db replacing conflicting entries
@@ -30,7 +30,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		return nil
 	}
 
-	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start) 
+	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start)
 			VALUES(?,?,?)`
 
 	return withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
@@ -95,7 +95,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT SUM(at_rest_total), interval_start 
+	query := `SELECT SUM(at_rest_total), interval_start
 				FROM storage_usage
 				WHERE ? <= interval_start AND interval_start <= ?
 				GROUP BY DATE(interval_start)
@@ -134,7 +134,7 @@ func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 	defer mon.Task()(&ctx, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total) 
+	query := `SELECT SUM(at_rest_total)
 				FROM storage_usage
 				WHERE ? <= interval_start AND interval_start <= ?`
 
@@ -147,7 +147,7 @@ func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total) 
+	query := `SELECT SUM(at_rest_total)
 				FROM storage_usage
 				WHERE satellite_id = ?
 				AND ? <= interval_start AND interval_start <= ?`

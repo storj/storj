@@ -14,26 +14,29 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
 // RunTests runs common storage.KeyValueStore tests
 func RunTests(t *testing.T, store storage.KeyValueStore) {
 	// store = storelogger.NewTest(t, store)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
-	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
-	t.Run("Iterate", func(t *testing.T) { testIterate(t, store) })
-	t.Run("IterateAll", func(t *testing.T) { testIterateAll(t, store) })
-	t.Run("Prefix", func(t *testing.T) { testPrefix(t, store) })
+	t.Run("CRUD", func(t *testing.T) { testCRUD(t, ctx, store) })
+	t.Run("Constraints", func(t *testing.T) { testConstraints(t, ctx, store) })
+	t.Run("Iterate", func(t *testing.T) { testIterate(t, ctx, store) })
+	t.Run("IterateAll", func(t *testing.T) { testIterateAll(t, ctx, store) })
+	t.Run("Prefix", func(t *testing.T) { testPrefix(t, ctx, store) })
 
-	t.Run("List", func(t *testing.T) { testList(t, store) })
-	t.Run("ListV2", func(t *testing.T) { testListV2(t, store) })
+	t.Run("List", func(t *testing.T) { testList(t, ctx, store) })
+	t.Run("ListV2", func(t *testing.T) { testListV2(t, ctx, store) })
 
-	t.Run("Parallel", func(t *testing.T) { testParallel(t, store) })
+	t.Run("Parallel", func(t *testing.T) { testParallel(t, ctx, store) })
 }
 
-func testConstraints(t *testing.T, store storage.KeyValueStore) {
+func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	var items storage.Items
 	for i := 0; i < storage.LookupLimit+5; i++ {
 		items = append(items, storage.ListItem{
@@ -53,7 +56,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	if err := group.Wait(); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key

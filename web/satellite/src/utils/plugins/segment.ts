@@ -9,7 +9,7 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
  * Segmentio is a wrapper around segment.io analytics package
  */
 export class Segmentio {
-    analytics: SegmentAnalytics.AnalyticsJS;
+    private analytics: SegmentAnalytics.AnalyticsJS;
     public init(key: string) {
         if (this.analytics || key.length === 0 || key.includes('SegmentIOPublicKey')) {
             return;
@@ -34,12 +34,12 @@ export class Segmentio {
         this.analytics.page();
     }
 
-    public identify() {
+    public identify(userId: string, traits?: Object, options?: SegmentAnalytics.SegmentOpts, callback?: () => void) {
         if (!this.analytics) {
             return;
         }
 
-        this.analytics.identify();
+        this.analytics.identify(userId, traits, options, callback);
     }
 
     public track(event: SegmentEvent, properties?: Object, options?: SegmentAnalytics.SegmentOpts, callback?: () => void) {
