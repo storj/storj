@@ -71,6 +71,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		// read the pointer
 		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 
@@ -154,6 +157,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			continue
 		}
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 		return pointer, nil
@@ -165,6 +171,9 @@ func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, er
 	defer mon.Task()(&ctx)(&err)
 	pointerBytes, err := s.db.Get(ctx, []byte(path))
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrObjectNotFound.Wrap(err)
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -183,6 +192,9 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 
 	pointerBytes, err = s.db.Get(ctx, []byte(path))
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrObjectNotFound.Wrap(err)
+		}
 		return nil, nil, Error.Wrap(err)
 	}
 
@@ -280,13 +292,22 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil))
+	err = s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil)
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+	return Error.Wrap(err)
 }
 
 // UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
 func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.db.Delete(ctx, []byte(path))
+
+	err = s.db.Delete(ctx, []byte(path))
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+	return Error.Wrap(err)
 }
 
 // CreateBucket creates a new bucket in the buckets db

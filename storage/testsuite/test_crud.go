@@ -8,10 +8,11 @@ import (
 	"math/rand"
 	"testing"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testCRUD(t *testing.T, store storage.KeyValueStore) {
+func testCRUD(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		// newItem("0", "", false), //TODO: broken
 		newItem("\x00", "\x00", false),
@@ -25,7 +26,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 		newItem("öö", "üü", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
 
 	t.Run("Put", func(t *testing.T) {
 		for _, item := range items {

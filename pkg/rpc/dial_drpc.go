@@ -23,7 +23,7 @@ const drpcHeader = "DRPC!!!1"
 func (d Dialer) dial(ctx context.Context, address string, tlsConfig *tls.Config) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pool := rpcpool.New(d.PoolCapacity, func(ctx context.Context) (drpc.Transport, error) {
+	pool := rpcpool.New(d.PoolOptions, func(ctx context.Context) (drpc.Transport, error) {
 		return d.dialTransport(ctx, address, tlsConfig)
 	})
 
@@ -89,7 +89,7 @@ func (d Dialer) dialUnencrypted(ctx context.Context, address string) (_ *Conn, e
 	defer mon.Task()(&ctx)(&err)
 
 	return &Conn{
-		raw: rpcpool.New(d.PoolCapacity, func(ctx context.Context) (drpc.Transport, error) {
+		raw: rpcpool.New(d.PoolOptions, func(ctx context.Context) (drpc.Transport, error) {
 			return d.dialTransportUnencrypted(ctx, address)
 		}),
 	}, nil

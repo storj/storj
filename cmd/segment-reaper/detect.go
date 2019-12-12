@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-const maxNumOfSegments = 64
-
 var (
 	detectCmd = &cobra.Command{
 		Use:   "detect",
@@ -90,7 +88,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = metainfo.IterateDatabase(ctx, db, observer)
+	err = observer.detectZombieSegments(ctx)
 	if err != nil {
 		return err
 	}

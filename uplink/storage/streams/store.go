@@ -463,6 +463,9 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 		Bucket:        []byte(path.Bucket()),
 		EncryptedPath: []byte(encPath.Raw()),
 	})
+	if err != nil {
+		return Meta{}, err
+	}
 
 	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
 	if err != nil {

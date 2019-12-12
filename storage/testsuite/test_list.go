@@ -10,10 +10,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testList(t *testing.T, store storage.KeyValueStore) {
+func testList(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("path/0", "\x00\xFF\x00", false),
 		newItem("path/1", "\x01\xFF\x01", false),
@@ -23,8 +24,8 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		newItem("path/5", "\x05\xFF\x05", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
+	defer cleanupItems(t, ctx, store, items)
 
-	defer cleanupItems(store, items)
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}

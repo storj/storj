@@ -48,6 +48,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     FETCH,
@@ -82,6 +83,10 @@ export default class ProjectMembersArea extends Vue {
 
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
+        this.$segment.track(SegmentEvent.TEAM_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            team_member_count: this.projectMembersTotalCount,
+        });
     }
 
     public onMemberClick(member: ProjectMember): void {
