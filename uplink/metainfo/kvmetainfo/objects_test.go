@@ -263,43 +263,57 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(&storj.Key{})
+
+	runTestWithEncStore(t, encStore, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		upload(ctx, t, db, streams, bucket, TestFile, nil)
+		unencryptedPath := paths.NewUnencrypted(TestFile)
+		encryptedPath, err := encryption.EncryptPath(bucket.Name, unencryptedPath, storj.EncAESGCM, encStore)
+		require.NoError(t, err)
 
-		err = db.DeleteObject(ctx, storj.Bucket{}, "")
-		assert.True(t, storj.ErrNoBucket.Has(err))
+		for i, path := range []string{unencryptedPath.String(), encryptedPath.String()} {
+			upload(ctx, t, db, streams, bucket, path, nil)
 
-		err = db.DeleteObject(ctx, bucket, "")
-		assert.True(t, storj.ErrNoPath.Has(err))
-
-		{
-			unexistingBucket := storj.Bucket{
-				Name:       bucket.Name + "-not-exist",
-				PathCipher: bucket.PathCipher,
+			if i < 0 {
+				// Enable encryption bypass
+				encStore.EncryptionBypass = true
 			}
-			err = db.DeleteObject(ctx, unexistingBucket, TestFile)
-			assert.True(t, storj.ErrObjectNotFound.Has(err))
-		}
 
-		err = db.DeleteObject(ctx, bucket, "non-existing-file")
-		assert.True(t, storj.ErrObjectNotFound.Has(err))
+			err = db.DeleteObject(ctx, storj.Bucket{}, "")
+			assert.True(t, storj.ErrNoBucket.Has(err))
 
-		{
-			invalidPathCipherBucket := storj.Bucket{
-				Name:       bucket.Name,
-				PathCipher: bucket.PathCipher + 1,
+			err = db.DeleteObject(ctx, bucket, "")
+			assert.True(t, storj.ErrNoPath.Has(err))
+
+			{
+				unexistingBucket := storj.Bucket{
+					Name:       bucket.Name + "-not-exist",
+					PathCipher: bucket.PathCipher,
+				}
+				err = db.DeleteObject(ctx, unexistingBucket, TestFile)
+				assert.True(t, storj.ErrObjectNotFound.Has(err))
 			}
-			err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
-			assert.True(t, storj.ErrObjectNotFound.Has(err))
-		}
 
-		err = db.DeleteObject(ctx, bucket, TestFile)
-		assert.NoError(t, err)
+			err = db.DeleteObject(ctx, bucket, "non-existing-file")
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+
+			{
+				invalidPathCipherBucket := storj.Bucket{
+					Name:       bucket.Name,
+					PathCipher: bucket.PathCipher + 1,
+				}
+				err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
+				assert.True(t, storj.ErrObjectNotFound.Has(err))
+			}
+
+			err = db.DeleteObject(ctx, bucket, path)
+			assert.NoError(t, err)
+		}
 	})
 }
 
@@ -352,9 +366,9 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 		// Enable encryption bypass
 		encStore.EncryptionBypass = true
 
-		opts := options("", "", storj.After, 0)
+		opts := options("", "", 0)
 		opts.Recursive = true
-		encodedList, err := db.ListObjects(ctx, bucket.Name, opts)
+		encodedList, err := db.ListObjects(ctx, bucket, opts)
 		require.NoError(t, err)
 		require.Equal(t, len(filePaths), len(encodedList.Items))
 
@@ -508,6 +522,7 @@ func TestListObjects(t *testing.T) {
 		}
 	})
 }
+
 func options(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
