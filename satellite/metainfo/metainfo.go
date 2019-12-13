@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
@@ -688,18 +689,6 @@ func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttr
 	return &pb.SetAttributionResponseOld{}, err
 }
 
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
-}
-
 // ProjectInfo returns allowed ProjectInfo for the provided API key
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -897,7 +886,7 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 // returns empty uuid when neither is defined.
 func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
 	if len(partnerIDBytes) > 0 {
-		partnerID, err := bytesToUUID(partnerIDBytes)
+		partnerID, err := dbutil.BytesToUUID(partnerIDBytes)
 		if err != nil {
 			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
 		}

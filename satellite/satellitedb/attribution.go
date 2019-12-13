@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/attribution"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -169,11 +170,11 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
-	partnerID, err := bytesToUUID(info.PartnerId)
+	partnerID, err := dbutil.BytesToUUID(info.PartnerId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID, err := bytesToUUID(info.ProjectId)
+	projectID, err := dbutil.BytesToUUID(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

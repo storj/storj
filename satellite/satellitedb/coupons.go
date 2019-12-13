@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -129,17 +130,17 @@ func (coupons *coupons) ListPaged(ctx context.Context, offset int64, limit int, 
 
 // fromDBXCoupon converts *dbx.Coupon to *payments.Coupon.
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
-	coupon.UserID, err = bytesToUUID(dbxCoupon.UserId)
+	coupon.UserID, err = dbutil.BytesToUUID(dbxCoupon.UserId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
 
-	coupon.ProjectID, err = bytesToUUID(dbxCoupon.ProjectId)
+	coupon.ProjectID, err = dbutil.BytesToUUID(dbxCoupon.ProjectId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
 
-	coupon.ID, err = bytesToUUID(dbxCoupon.Id)
+	coupon.ID, err = dbutil.BytesToUUID(dbxCoupon.Id)
 	if err != nil {
 		return payments.Coupon{}, err
 	}

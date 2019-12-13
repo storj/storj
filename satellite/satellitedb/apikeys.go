@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -103,7 +104,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		}
 
 		if partnerIDBytes != nil {
-			partnerID, err = bytesToUUID(partnerIDBytes)
+			partnerID, err = dbutil.BytesToUUID(partnerIDBytes)
 			if err != nil {
 				return nil, err
 			}
@@ -219,12 +220,12 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 // fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo
 func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	id, err := bytesToUUID(key.Id)
+	id, err := dbutil.BytesToUUID(key.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	projectID, err := bytesToUUID(key.ProjectId)
+	projectID, err := dbutil.BytesToUUID(key.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +239,7 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 	}
 
 	if key.PartnerId != nil {
-		result.PartnerID, err = bytesToUUID(key.PartnerId)
+		result.PartnerID, err = dbutil.BytesToUUID(key.PartnerId)
 		if err != nil {
 			return nil, err
 		}
