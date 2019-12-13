@@ -73,6 +73,10 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 
 	checksumLen := len(object.Meta.Checksum)
 	checksumPtr := C.malloc(C.size_t(checksumLen))
+	if checksumPtr == nil {
+		*cErr = C.CString("unable to allocate")
+		return C.ObjectMeta{}
+	}
 
 	checksum := *(*[]byte)(unsafe.Pointer(
 		&reflect.SliceHeader{
@@ -100,7 +104,7 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 // Upload stores writecloser and context scope for uploading
 type Upload struct {
 	scope
-	wc io.WriteCloser // 🚽
+	wc io.WriteCloser
 }
 
 //export upload
@@ -145,6 +149,12 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
+	ilength, ok := safeConvertToInt(length)
+	if !ok || ilength < 0 {
+		*cErr = C.CString("invalid length: too large or negative")
+		return C.size_t(0)
+	}
+
 	if err := upload.ctx.Err(); err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
@@ -155,8 +165,8 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	buf := *(*[]byte)(unsafe.Pointer(
 		&reflect.SliceHeader{
 			Data: uintptr(unsafe.Pointer(bytes)),
-			Len:  int(length),
-			Cap:  int(length),
+			Len:  ilength,
+			Cap:  ilength,
 		},
 	))
 
@@ -231,7 +241,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 			Delimiter: rune(cListOpts.delimiter),
 			Recursive: bool(cListOpts.recursive),
 			Direction: storj.ListDirection(cListOpts.direction),
-			Limit:     int(cListOpts.limit),
+			Limit:     int(cListOpts.limit), // sadly this is an int64_t
 		}
 	}
 
@@ -240,29 +250,38 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return cObjList
 	}
-	objListLen := len(objectList.Items)
 
-	objectSize := int(C.sizeof_ObjectInfo)
-	ptr := C.malloc(C.size_t(objectSize * objListLen))
-	cObjectsPtr := *(*[]C.ObjectInfo)(unsafe.Pointer(
+	listLen := len(objectList.Items)
+	if C.size_t(listLen) > C.SIZE_MAX/C.sizeof_ObjectInfo || int(int32(listLen)) != listLen {
+		*cErr = C.CString("elements too large to be allocated")
+		return cObjList
+	}
+
+	itemsPtr := C.calloc(C.size_t(listLen), C.sizeof_ObjectInfo)
+	if itemsPtr == nil {
+		*cErr = C.CString("unable to allocate")
+		return cObjList
+	}
+
+	items := *(*[]C.ObjectInfo)(unsafe.Pointer(
 		&reflect.SliceHeader{
-			Data: uintptr(ptr),
-			Len:  objListLen,
-			Cap:  objListLen,
+			Data: uintptr(itemsPtr),
+			Len:  listLen,
+			Cap:  listLen,
 		},
 	))
 
 	for i, object := range objectList.Items {
 		object := object
-		cObjectsPtr[i] = newObjectInfo(&object)
+		items[i] = newObjectInfo(&object)
 	}
 
 	return C.ObjectList{
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more:   C.bool(objectList.More),
-		items:  (*C.ObjectInfo)(ptr),
-		length: C.int32_t(objListLen),
+		items:  (*C.ObjectInfo)(itemsPtr),
+		length: C.int32_t(listLen),
 	}
 }
 
@@ -336,6 +355,12 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
+	ilength, ok := safeConvertToInt(length)
+	if !ok || ilength < 0 {
+		*cErr = C.CString("invalid length: too large or negative")
+		return C.size_t(0)
+	}
+
 	if err := download.ctx.Err(); err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
@@ -346,8 +371,8 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	buf := *(*[]byte)(unsafe.Pointer(
 		&reflect.SliceHeader{
 			Data: uintptr(unsafe.Pointer(bytes)),
-			Len:  int(length),
-			Cap:  int(length),
+			Len:  ilength,
+			Cap:  ilength,
 		},
 	))
 
@@ -475,8 +500,8 @@ func free_list_objects(objectList *C.ObjectList) {
 	items := *(*[]C.ObjectInfo)(unsafe.Pointer(
 		&reflect.SliceHeader{
 			Data: uintptr(unsafe.Pointer(objectList.items)),
-			Len:  int(objectList.length),
-			Cap:  int(objectList.length),
+			Len:  int(objectList.length), // int32_t => int is safe
+			Cap:  int(objectList.length), // int32_t => int is safe
 		},
 	))
 	for i := range items {

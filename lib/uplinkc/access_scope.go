@@ -113,8 +113,9 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 		return C.ScopeRef{}
 	}
 
-	if int(restrictionsLen) < 0 {
-		*cerr = C.CString("restrictionsLen must be equal or greater than 0")
+	irestrictionsLen, ok := safeConvertToInt(restrictionsLen)
+	if !ok || irestrictionsLen < 0 {
+		*cerr = C.CString("invalid restrictionsLen: too large or negative")
 		return C.ScopeRef{}
 	}
 
@@ -131,13 +132,13 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 		return C.ScopeRef{}
 	}
 
-	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, int(restrictionsLen))
+	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, irestrictionsLen)
 	if restrictions != nil {
 		restrictionsArray := *(*[]C.EncryptionRestriction)(unsafe.Pointer(
 			&reflect.SliceHeader{
 				Data: uintptr(unsafe.Pointer(restrictions)),
-				Len:  int(restrictionsLen),
-				Cap:  int(restrictionsLen),
+				Len:  irestrictionsLen,
+				Cap:  irestrictionsLen,
 			},
 		))
 

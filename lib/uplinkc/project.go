@@ -61,6 +61,11 @@ func project_salted_key_from_passphrase(projectHandle C.ProjectRef, passphrase *
 	}
 
 	ptr := C.malloc(storj.KeySize)
+	if ptr == nil {
+		*cerr = C.CString("unable to allocate")
+		return nil
+	}
+
 	key := (*storj.Key)(ptr)
 	copy(key[:], saltedKey[:])
 	return (*C.uint8_t)(ptr)
