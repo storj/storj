@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	libuplink "storj.io/storj/lib/uplink"
@@ -127,10 +128,15 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 
 	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, numberOfRestrictions)
 	if restrictions != nil {
-		restrictionsArray := (*[1 << 30 / unsafe.Sizeof(C.EncryptionRestriction{})]C.EncryptionRestriction)(unsafe.Pointer(restrictions))
+		restrictionsArray := *(*[]C.EncryptionRestriction)(unsafe.Pointer(
+			&reflect.SliceHeader{
+				Data: uintptr(unsafe.Pointer(restrictions)),
+				Len:  int(numberOfRestrictions),
+				Cap:  int(numberOfRestrictions),
+			},
+		))
 
-		for i := 0; i < numberOfRestrictions; i++ {
-			restriction := restrictionsArray[i]
+		for _, restriction := range restrictionsArray {
 			restrictionsGo = append(restrictionsGo, libuplink.EncryptionRestriction{
 				Bucket:     C.GoString(restriction.bucket),
 				PathPrefix: C.GoString(restriction.path_prefix),
