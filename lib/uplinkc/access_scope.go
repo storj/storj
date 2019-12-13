@@ -131,8 +131,8 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 		restrictionsArray := *(*[]C.EncryptionRestriction)(unsafe.Pointer(
 			&reflect.SliceHeader{
 				Data: uintptr(unsafe.Pointer(restrictions)),
-				Len:  int(numberOfRestrictions),
-				Cap:  int(numberOfRestrictions),
+				Len:  numberOfRestrictions,
+				Cap:  numberOfRestrictions,
 			},
 		))
 
