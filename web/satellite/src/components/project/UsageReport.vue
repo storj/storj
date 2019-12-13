@@ -66,6 +66,7 @@ import DownloadReportIcon from '@/../static/images/project/downloadReport.svg';
 import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { DateFormat } from '@/utils/datepicker';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -126,6 +127,11 @@ export default class UsageReport extends Vue {
 
     public async mounted(): Promise<void> {
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -156,6 +162,11 @@ export default class UsageReport extends Vue {
         this.onButtonClickAction(event);
 
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -166,6 +177,11 @@ export default class UsageReport extends Vue {
         this.onButtonClickAction(event);
 
         try {
+            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+                start_date: this.dateRange.startDate,
+                end_date: this.dateRange.endDate,
+            });
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
@@ -175,6 +191,11 @@ export default class UsageReport extends Vue {
     public onCustomDateClick(event: any): void {
         (this as any).$refs.datePicker.showCheck();
         this.onButtonClickAction(event);
+        this.$segment.track(SegmentEvent.REPORT_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            start_date: this.dateRange.startDate,
+            end_date: this.dateRange.endDate,
+        });
     }
 
     public onReportClick(): void {
@@ -188,6 +209,12 @@ export default class UsageReport extends Vue {
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+
+        this.$segment.track(SegmentEvent.REPORT_DOWNLOADED, {
+            start_date: startDate,
+            end_date: endDate,
+            project_id: projectID,
+        });
 
         window.open(url.href, '_blank');
     }

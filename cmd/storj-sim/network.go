@@ -442,8 +442,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {},
 		})
 
-		process.ExecBefore["run"] = func(process *Process) error {
-			err := readConfigString(&process.Address, process.Directory, "server.address")
+		process.ExecBefore["run"] = func(process *Process) (err error) {
+			err = readConfigString(&process.Address, process.Directory, "server.address")
 			if err != nil {
 				return err
 			}
@@ -466,22 +466,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				host := "http://" + consoleAddress
-
-				endpoints := map[string]string{
-					"regtoken":   host + "/registrationToken/?projectsLimit=1",
-					"register":   host + "/api/v0/auth/register",
-					"activation": host + "/activation/?token=",
-					"token":      host + "/api/v0/auth/token",
-					"graphql":    host + "/api/v0/graphql",
-				}
-
-				// wait for console server to start
-				time.Sleep(3 * time.Second)
-
-				var apiKey string
-				if err := addExampleProjectWithKey(&apiKey, endpoints); err != nil {
-					return err
+				// try with 100ms delays until we hit 3s
+				apiKey, start := "", time.Now()
+				for apiKey == "" {
+					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey()
+					if err != nil && time.Since(start) > 3*time.Second {
+						return err
+					}
+					time.Sleep(100 * time.Millisecond)
 				}
 
 				scope, err := uplink.ParseScope(runScopeData)

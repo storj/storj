@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/storage/streams"
 )
 
@@ -64,11 +63,6 @@ func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err er
 	}
 
 	m, err := o.store.Meta(ctx, path, o.pathCipher)
-
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
 	return convertMeta(m), err
 }
 
@@ -81,10 +75,6 @@ func (o *objStore) Get(ctx context.Context, path storj.Path, object storj.Object
 	}
 
 	rr, err = o.store.Get(ctx, path, object, o.pathCipher)
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
 	return rr, err
 }
 
@@ -113,13 +103,7 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 		return storj.ErrNoPath.New("")
 	}
 
-	err = o.store.Delete(ctx, path, o.pathCipher)
-
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
-	return err
+	return o.store.Delete(ctx, path, o.pathCipher)
 }
 
 func (o *objStore) List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (

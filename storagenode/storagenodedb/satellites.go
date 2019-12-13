@@ -22,7 +22,7 @@ const SatellitesDBName = "satellites"
 
 // reputation works with node reputation DB
 type satellitesDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // GetSatellite retrieves that satellite by ID

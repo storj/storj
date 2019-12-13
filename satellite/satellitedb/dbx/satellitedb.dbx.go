@@ -448,17 +448,11 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
+	usage_limit bigint NOT NULL,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE project_limits (
-	project_id bytea NOT NULL,
-	usage_limit bigint NOT NULL,
-	limit_type integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( project_id, limit_type )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -3748,6 +3742,7 @@ type Project struct {
 	Id          []byte
 	Name        string
 	Description string
+	UsageLimit  int64
 	PartnerId   []byte
 	OwnerId     []byte
 	CreatedAt   time.Time
@@ -3761,6 +3756,7 @@ type Project_Create_Fields struct {
 
 type Project_Update_Fields struct {
 	Description Project_Description_Field
+	UsageLimit  Project_UsageLimit_Field
 }
 
 type Project_Id_Field struct {
@@ -3819,6 +3815,25 @@ func (f Project_Description_Field) value() interface{} {
 }
 
 func (Project_Description_Field) _Column() string { return "description" }
+
+type Project_UsageLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Project_UsageLimit(v int64) Project_UsageLimit_Field {
+	return Project_UsageLimit_Field{_set: true, _value: v}
+}
+
+func (f Project_UsageLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
 
 type Project_PartnerId_Field struct {
 	_set   bool
@@ -3889,94 +3904,6 @@ func (f Project_CreatedAt_Field) value() interface{} {
 }
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
-
-type ProjectLimit struct {
-	ProjectId  []byte
-	UsageLimit uint64
-	LimitType  int
-	CreatedAt  time.Time
-}
-
-func (ProjectLimit) _Table() string { return "project_limits" }
-
-type ProjectLimit_Update_Fields struct {
-}
-
-type ProjectLimit_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectLimit_ProjectId(v []byte) ProjectLimit_ProjectId_Field {
-	return ProjectLimit_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f ProjectLimit_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectLimit_ProjectId_Field) _Column() string { return "project_id" }
-
-type ProjectLimit_UsageLimit_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func ProjectLimit_UsageLimit(v uint64) ProjectLimit_UsageLimit_Field {
-	return ProjectLimit_UsageLimit_Field{_set: true, _value: v}
-}
-
-func (f ProjectLimit_UsageLimit_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectLimit_UsageLimit_Field) _Column() string { return "usage_limit" }
-
-type ProjectLimit_LimitType_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func ProjectLimit_LimitType(v int) ProjectLimit_LimitType_Field {
-	return ProjectLimit_LimitType_Field{_set: true, _value: v}
-}
-
-func (f ProjectLimit_LimitType_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectLimit_LimitType_Field) _Column() string { return "limit_type" }
-
-type ProjectLimit_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func ProjectLimit_CreatedAt(v time.Time) ProjectLimit_CreatedAt_Field {
-	return ProjectLimit_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f ProjectLimit_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectLimit_CreatedAt_Field) _Column() string { return "created_at" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -6363,6 +6290,10 @@ type LeafSerialNumber_Row struct {
 	LeafSerialNumber []byte
 }
 
+type UsageLimit_Row struct {
+	UsageLimit int64
+}
+
 type Value_Row struct {
 	Value time.Time
 }
@@ -6622,6 +6553,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field,
 	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
@@ -6630,17 +6562,18 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := project_usage_limit.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __partner_id_val, __owner_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7690,7 +7623,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -7699,7 +7632,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7707,10 +7640,31 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UsageLimit_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UsageLimit_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.UsageLimit)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *postgresImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -7726,7 +7680,7 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7743,7 +7697,7 @@ func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx
 	project_created_at_less Project_CreatedAt_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -7759,7 +7713,7 @@ func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7776,7 +7730,7 @@ func (obj *postgresImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx contex
 	project_owner_id Project_OwnerId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -7792,7 +7746,7 @@ func (obj *postgresImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx contex
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7809,7 +7763,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -7825,7 +7779,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7843,7 +7797,7 @@ func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 	limit int, offset int64) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -7861,7 +7815,7 @@ func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8432,28 +8386,6 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_ProjectLimit_By_ProjectId_And_LimitType(ctx context.Context,
-	project_limit_project_id ProjectLimit_ProjectId_Field,
-	project_limit_limit_type ProjectLimit_LimitType_Field) (
-	project_limit *ProjectLimit, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_limits.project_id, project_limits.usage_limit, project_limits.limit_type, project_limits.created_at FROM project_limits WHERE project_limits.project_id = ? AND project_limits.limit_type = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_limit_project_id.value(), project_limit_limit_type.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_limit = &ProjectLimit{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_limit.ProjectId, &project_limit.UsageLimit, &project_limit.LimitType, &project_limit.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_limit, nil
 
 }
 
@@ -9742,7 +9674,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9751,6 +9683,11 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -9766,7 +9703,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11049,16 +10986,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_limits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -11784,6 +11711,7 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field,
 	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
@@ -11791,7 +11719,7 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description, project_owner_id, optional)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit, project_owner_id, optional)
 
 }
 
@@ -12354,17 +12282,6 @@ func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Con
 	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
 }
 
-func (rx *Rx) Get_ProjectLimit_By_ProjectId_And_LimitType(ctx context.Context,
-	project_limit_project_id ProjectLimit_ProjectId_Field,
-	project_limit_limit_type ProjectLimit_LimitType_Field) (
-	project_limit *ProjectLimit, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectLimit_By_ProjectId_And_LimitType(ctx, project_limit_project_id, project_limit_limit_type)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -12373,6 +12290,16 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Get_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UsageLimit_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_UsageLimit_By_Id(ctx, project_id)
 }
 
 func (rx *Rx) Get_RegistrationToken_By_OwnerId(ctx context.Context,
@@ -13082,6 +13009,7 @@ type Methods interface {
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
 		project_description Project_Description_Field,
+		project_usage_limit Project_UsageLimit_Field,
 		project_owner_id Project_OwnerId_Field,
 		optional Project_Create_Fields) (
 		project *Project, err error)
@@ -13331,14 +13259,13 @@ type Methods interface {
 		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
 		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
-	Get_ProjectLimit_By_ProjectId_And_LimitType(ctx context.Context,
-		project_limit_project_id ProjectLimit_ProjectId_Field,
-		project_limit_limit_type ProjectLimit_LimitType_Field) (
-		project_limit *ProjectLimit, err error)
-
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
+
+	Get_Project_UsageLimit_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *UsageLimit_Row, err error)
 
 	Get_RegistrationToken_By_OwnerId(ctx context.Context,
 		registration_token_owner_id RegistrationToken_OwnerId_Field) (

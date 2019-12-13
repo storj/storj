@@ -10,13 +10,16 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ApiKeysMock } from '../mock/api/apiKeys';
 import { ProjectsApiMock } from '../mock/api/projects';
 
 const localVue = createLocalVue();
+const segmentioPlugin = new SegmentioPlugin();
 localVue.use(Vuex);
+localVue.use(segmentioPlugin);
 
 const apiKeysApi = new ApiKeysMock();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);

@@ -22,10 +22,10 @@ random_bytes_file () {
     head -c $size </dev/urandom > $output
 }
 
-random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
-random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-random_bytes_file "12MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 2 x 6mb file of random bytes (remote) 
-random_bytes_file "9MiB"    "$SRC_DIR/diff-size-segments"             # create 9mb file of random bytes (remote)
+random_bytes_file "2048"       "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
+random_bytes_file "5242880"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
+random_bytes_file "12582912"   "$SRC_DIR/multisegment-upload-testfile"   # create 2 x 6mb file of random bytes (remote)
+random_bytes_file "9437184"    "$SRC_DIR/diff-size-segments"             # create 9mb file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 

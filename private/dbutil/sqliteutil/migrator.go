@@ -6,11 +6,19 @@ package sqliteutil
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 )
+
+// DB is the minimal interface required to perform migrations.
+type DB interface {
+	Conn(ctx context.Context) (*sql.Conn, error)
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+}
 
 var (
 	// ErrMigrateTables is error class for MigrateTables
@@ -20,10 +28,24 @@ var (
 	ErrKeepTables = errs.Class("keep tables:")
 )
 
+// getSqlite3Conn attempts to get a *sqlite3.SQLiteConn from the connection.
+func getSqlite3Conn(conn interface{}) (*sqlite3.SQLiteConn, error) {
+	for {
+		switch c := conn.(type) {
+		case *sqlite3.SQLiteConn:
+			return c, nil
+		case interface{ Unwrap() driver.Conn }:
+			conn = c.Unwrap()
+		default:
+			return nil, ErrMigrateTables.New("unable to get raw database connection")
+		}
+	}
+}
+
 // MigrateTablesToDatabase copies the specified tables from srcDB into destDB.
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
-func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
+func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB DB, tablesToKeep ...string) error {
 	err := backupDBs(ctx, srcDB, destDB)
 	if err != nil {
 		return ErrMigrateTables.Wrap(err)
@@ -33,7 +55,7 @@ func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesT
 	return ErrMigrateTables.Wrap(KeepTables(ctx, destDB, tablesToKeep...))
 }
 
-func backupDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
+func backupDBs(ctx context.Context, srcDB, destDB DB) error {
 	// Retrieve the raw Sqlite3 driver connections for the src and dest so that
 	// we can execute the backup API for a corruption safe clone.
 	srcConn, err := srcDB.Conn(ctx)
@@ -57,15 +79,15 @@ func backupDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
 	// The references to the driver connections are only guaranteed to be valid
 	// for the life of the callback so we must do the work within both callbacks.
 	err = srcConn.Raw(func(srcDriverConn interface{}) error {
-		srcSqliteConn, ok := srcDriverConn.(*sqlite3.SQLiteConn)
-		if !ok {
-			return ErrMigrateTables.New("unable to get database driver")
+		srcSqliteConn, err := getSqlite3Conn(srcDriverConn)
+		if err != nil {
+			return err
 		}
 
-		err := destConn.Raw(func(destDriverConn interface{}) error {
-			destSqliteConn, ok := destDriverConn.(*sqlite3.SQLiteConn)
-			if !ok {
-				return ErrMigrateTables.New("unable to get database driver")
+		err = destConn.Raw(func(destDriverConn interface{}) error {
+			destSqliteConn, err := getSqlite3Conn(destDriverConn)
+			if err != nil {
+				return err
 			}
 
 			return ErrMigrateTables.Wrap(backupConns(ctx, srcSqliteConn, destSqliteConn))
@@ -138,7 +160,7 @@ func backupConns(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqli
 }
 
 // KeepTables drops all the tables except the specified tables to keep.
-func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err error) {
+func KeepTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) {
 	err = dropTables(ctx, db, tablesToKeep...)
 	if err != nil {
 		return ErrKeepTables.Wrap(err)
@@ -156,7 +178,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err er
 }
 
 // dropTables performs the table drops in a single transaction
-func dropTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err error) {
+func dropTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrKeepTables.Wrap(err)

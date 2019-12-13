@@ -46,7 +46,13 @@ func init() {
 
 func isDev() bool { return cfgstruct.DefaultsType() != "release" }
 
-func newLogger() (*zap.Logger, error) {
+// NewLogger creates new logger configured by the process flags.
+func NewLogger() (*zap.Logger, error) {
+	return NewLoggerWithOutputPaths(*logOutput)
+}
+
+// NewLoggerWithOutputPaths is the same as NewLogger, but overrides the log output paths.
+func NewLoggerWithOutputPaths(outputPaths ...string) (*zap.Logger, error) {
 	levelEncoder := zapcore.CapitalColorLevelEncoder
 	if runtime.GOOS == "windows" {
 		levelEncoder = zapcore.CapitalLevelEncoder
@@ -77,7 +83,7 @@ func newLogger() (*zap.Logger, error) {
 			EncodeDuration: zapcore.StringDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
 		},
-		OutputPaths:      []string{*logOutput},
-		ErrorOutputPaths: []string{*logOutput},
+		OutputPaths:      outputPaths,
+		ErrorOutputPaths: outputPaths,
 	}.Build()
 }
