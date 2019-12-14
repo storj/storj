@@ -21,7 +21,9 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // loadSnapshots loads all the dbschemas from testdata/postgres.* caching the result
@@ -136,6 +138,13 @@ func TestMigratePostgres(t *testing.T) {
 	pgMigrateTest(t, *pgtest.ConnStr)
 }
 
+// satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
+// instance, since that type is not exported.
+type satelliteDB interface {
+	TestDBAccess() *dbx.DB
+	PostgresMigration() *migrate.Migration
+}
+
 func pgMigrateTest(t *testing.T, connStr string) {
 	log := zaptest.NewLogger(t)
 
@@ -153,12 +162,12 @@ func pgMigrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	rawdb := db.(*satellitedb.DB).TestDBAccess()
+	rawdb := db.(satelliteDB).TestDBAccess()
 
 	var finalSchema *dbschema.Schema
 
 	// get migration for this database
-	migrations := db.(*satellitedb.DB).PostgresMigration()
+	migrations := db.(satelliteDB).PostgresMigration()
 	for i, step := range migrations.Steps {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 

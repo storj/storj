@@ -18,12 +18,12 @@ import (
 )
 
 type bucketsDB struct {
-	db dbx.Methods
+	db *satelliteDB
 }
 
 // Buckets returns database for interacting with buckets
-func (db *DB) Buckets() metainfo.BucketsDB {
-	return &bucketsDB{db: db.db}
+func (db *satelliteDB) Buckets() metainfo.BucketsDB {
+	return &bucketsDB{db: db}
 }
 
 // CreateBucket creates a new bucket

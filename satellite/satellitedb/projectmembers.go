@@ -21,7 +21,7 @@ var _ console.ProjectMembers = (*projectMembers)(nil)
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
 type projectMembers struct {
 	methods dbx.Methods
-	db      *dbx.DB
+	db      *satelliteDB
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.

@@ -110,7 +110,7 @@ const (
 )
 
 type attributionDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Get reads the partner info

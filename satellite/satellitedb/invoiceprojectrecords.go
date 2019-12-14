@@ -38,7 +38,7 @@ func (intent invoiceProjectRecordState) Int() int {
 //
 // architecture: Database
 type invoiceProjectRecords struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Create creates new invoice project record in the DB.

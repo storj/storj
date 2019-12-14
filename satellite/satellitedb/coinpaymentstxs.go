@@ -39,7 +39,7 @@ func (intent applyBalanceIntentState) Int() int {
 //
 // architecture: Database
 type coinPaymentsTransactions struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Insert inserts new coinpayments transaction into DB.

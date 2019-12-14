@@ -24,7 +24,7 @@ var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
 // ProjectAccounting implements the accounting/db ProjectAccounting interface
 type ProjectAccounting struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // SaveTallies saves the latest bucket info

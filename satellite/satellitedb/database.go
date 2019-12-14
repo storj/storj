@@ -29,14 +29,17 @@ var (
 	Error = errs.Class("satellitedb")
 )
 
-// DB contains access to different database tables
-type DB struct {
+// satelliteDB combines access to different database tables with a record
+// of the db driver, db implementation, and db source URL.
+type satelliteDB struct {
+	*dbx.DB
 	log            *zap.Logger
-	db             *dbx.DB
 	driver         string
 	implementation dbutil.Implementation
 	source         string
 }
+
+var _ dbx.DBMethods = &satelliteDB{}
 
 // New creates instance of database supports postgres
 func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
@@ -50,92 +53,93 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 
 	source = pgutil.CheckApplicationName(source)
 
-	db, err := dbx.Open(driver, source)
+	dbxDB, err := dbx.Open("postgres", source)
 	if err != nil {
-		return nil, Error.New("failed opening database %q, %q: %v",
-			driver, source, err)
+		return nil, Error.New("failed opening database via DBX at %q: %v",
+			source, err)
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	dbutil.Configure(db.DB, mon)
+	dbutil.Configure(dbxDB.DB, mon)
 
-	core := &DB{log: log, db: db, driver: driver, source: source, implementation: implementation}
+	core := &satelliteDB{
+		DB:             dbxDB,
+		log:            log,
+		driver:         driver,
+		source:         source,
+		implementation: implementation,
+	}
 	return core, nil
-}
-
-// Close is used to close db connection
-func (db *DB) Close() error {
-	return db.db.Close()
 }
 
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
-func (db *DB) TestDBAccess() *dbx.DB { return db.db }
+func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
 
 // PeerIdentities returns a storage for peer identities
-func (db *DB) PeerIdentities() overlay.PeerIdentities {
-	return &peerIdentities{db: db.db}
+func (db *satelliteDB) PeerIdentities() overlay.PeerIdentities {
+	return &peerIdentities{db: db}
 }
 
 // Attribution is a getter for value attribution repository
-func (db *DB) Attribution() attribution.DB {
-	return &attributionDB{db: db.db}
+func (db *satelliteDB) Attribution() attribution.DB {
+	return &attributionDB{db: db}
 }
 
 // OverlayCache is a getter for overlay cache repository
-func (db *DB) OverlayCache() overlay.DB {
-	return &overlaycache{db: db.db}
+func (db *satelliteDB) OverlayCache() overlay.DB {
+	return &overlaycache{db: db}
 }
 
 // RepairQueue is a getter for RepairQueue repository
-func (db *DB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db.db, dbType: db.implementation}
+func (db *satelliteDB) RepairQueue() queue.RepairQueue {
+	return &repairQueue{db: db}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage
-func (db *DB) StoragenodeAccounting() accounting.StoragenodeAccounting {
-	return &StoragenodeAccounting{db: db.db}
+func (db *satelliteDB) StoragenodeAccounting() accounting.StoragenodeAccounting {
+	return &StoragenodeAccounting{db: db}
 }
 
 // ProjectAccounting returns database for tracking project data use
-func (db *DB) ProjectAccounting() accounting.ProjectAccounting {
-	return &ProjectAccounting{db: db.db}
+func (db *satelliteDB) ProjectAccounting() accounting.ProjectAccounting {
+	return &ProjectAccounting{db: db}
 }
 
 // Irreparable returns database for storing segments that failed repair
-func (db *DB) Irreparable() irreparable.DB {
-	return &irreparableDB{db: db.db}
+func (db *satelliteDB) Irreparable() irreparable.DB {
+	return &irreparableDB{db: db}
 }
 
 // Console returns database for storing users, projects and api keys
-func (db *DB) Console() console.DB {
+func (db *satelliteDB) Console() console.DB {
 	return &ConsoleDB{
-		db:      db.db,
-		methods: db.db,
+		db:      db,
+		methods: db,
 	}
 }
 
 // Rewards returns database for storing offers
-func (db *DB) Rewards() rewards.DB {
-	return &offersDB{db: db.db}
+func (db *satelliteDB) Rewards() rewards.DB {
+	return &offersDB{db: db}
 }
 
 // Orders returns database for storing orders
-func (db *DB) Orders() orders.DB {
-	return &ordersDB{db: db.db}
+func (db *satelliteDB) Orders() orders.DB {
+	return &ordersDB{db: db}
 }
 
 // Containment returns database for storing pending audit info
-func (db *DB) Containment() audit.Containment {
-	return &containment{db: db.db}
+func (db *satelliteDB) Containment() audit.Containment {
+	return &containment{db: db}
 }
 
 // GracefulExit returns database for graceful exit
-func (db *DB) GracefulExit() gracefulexit.DB {
-	return &gracefulexitDB{db: db.db}
+func (db *satelliteDB) GracefulExit() gracefulexit.DB {
+	return &gracefulexitDB{db: db}
 }
 
 // StripeCoinPayments returns database for stripecoinpayments.
-func (db *DB) StripeCoinPayments() stripecoinpayments.DB {
-	return &stripeCoinPaymentsDB{db: db.db}
+func (db *satelliteDB) StripeCoinPayments() stripecoinpayments.DB {
+	return &stripeCoinPaymentsDB{db: db}
 }

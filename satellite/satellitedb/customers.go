@@ -22,7 +22,7 @@ var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 //
 // architecture: Database
 type customers struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Insert inserts a stripe customer into the database.

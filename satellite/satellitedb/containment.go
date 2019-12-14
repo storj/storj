@@ -17,7 +17,7 @@ import (
 )
 
 type containment struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Get gets the pending audit by node id
