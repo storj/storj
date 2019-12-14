@@ -25,7 +25,7 @@ var _ stripecoinpayments.CouponsDB = (*coupons)(nil)
 //
 // architecture: Database
 type coupons struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Insert inserts a coupon into the database.

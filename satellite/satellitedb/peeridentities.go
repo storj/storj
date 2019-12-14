@@ -17,7 +17,7 @@ import (
 )
 
 type peerIdentities struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Set adds a peer identity entry
