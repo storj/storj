@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -265,7 +266,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 			return stripecoinpayments.TransactionsPage{}, err
 		}
 
-		userID, err := bytesToUUID(userIDB)
+		userID, err := dbutil.BytesToUUID(userIDB)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
@@ -307,7 +308,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 // fromDBXCoinpaymentsTransaction converts *dbx.CoinpaymentsTransaction to *stripecoinpayments.Transaction.
 func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripecoinpayments.Transaction, error) {
-	userID, err := bytesToUUID(dbxCPTX.UserId)
+	userID, err := dbutil.BytesToUUID(dbxCPTX.UserId)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

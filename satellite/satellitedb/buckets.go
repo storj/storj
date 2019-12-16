@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -188,11 +189,11 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 }
 
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
-	id, err := bytesToUUID(dbxBucket.Id)
+	id, err := dbutil.BytesToUUID(dbxBucket.Id)
 	if err != nil {
 		return bucket, storj.ErrBucket.Wrap(err)
 	}
-	project, err := bytesToUUID(dbxBucket.ProjectId)
+	project, err := dbutil.BytesToUUID(dbxBucket.ProjectId)
 	if err != nil {
 		return bucket, storj.ErrBucket.Wrap(err)
 	}
@@ -219,7 +220,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	}
 
 	if dbxBucket.PartnerId != nil {
-		partnerID, err := bytesToUUID(dbxBucket.PartnerId)
+		partnerID, err := dbutil.BytesToUUID(dbxBucket.PartnerId)
 		if err != nil {
 			return bucket, storj.ErrBucket.Wrap(err)
 		}

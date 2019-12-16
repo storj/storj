@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -37,6 +38,8 @@ var (
 
 	// ErrDatabase represents errors from the databases.
 	ErrDatabase = errs.Class("storage node database error")
+	// ErrNoRows represents database error if rows weren't affected.
+	ErrNoRows = errs.New("no rows affected")
 )
 
 var _ storagenode.DB = (*DB)(nil)
@@ -112,6 +115,7 @@ type DB struct {
 	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
+	notificationsDB   *notificationDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -134,6 +138,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	storageUsageDB := &storageUsageDB{}
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
 
 	db := &DB{
 		log:    log,
@@ -153,6 +158,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		storageUsageDB:    storageUsageDB,
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -165,6 +171,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			StorageUsageDBName:    storageUsageDB,
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
 		},
 	}
 
@@ -227,6 +234,11 @@ func (db *DB) openDatabases() error {
 	}
 
 	err = db.openDatabase(SatellitesDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(NotificationsDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
@@ -349,6 +361,11 @@ func (db *DB) UsedSerials() piecestore.UsedSerials {
 // Satellites returns the instance of the Satellites database.
 func (db *DB) Satellites() satellites.DB {
 	return db.satellitesDB
+}
+
+// Notifications returns the instance of the Notifications database.
+func (db *DB) Notifications() notifications.DB {
+	return db.notificationsDB
 }
 
 // RawDatabases are required for testing purposes
@@ -918,6 +935,23 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     27,
 				Action: migrate.SQL{
 					`CREATE INDEX idx_order_archived_at ON order_archive_(archived_at)`,
+				},
+			},
+			{
+				DB:          db.notificationsDB,
+				Description: "Create notifications table",
+				Version:     28,
+				Action: migrate.SQL{
+					`CREATE TABLE notifications (
+						id         BLOB NOT NULL,
+						sender_id  BLOB NOT NULL,
+						type       INTEGER NOT NULL,
+						title      TEXT NOT NULL,
+						message    TEXT NOT NULL,
+						read_at    TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (id)
+					);`,
 				},
 			},
 		},

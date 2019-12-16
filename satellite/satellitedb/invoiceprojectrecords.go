@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -142,11 +143,11 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 
 // fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord
 func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripecoinpayments.ProjectRecord, error) {
-	id, err := bytesToUUID(dbxRecord.Id)
+	id, err := dbutil.BytesToUUID(dbxRecord.Id)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	projectID, err := bytesToUUID(dbxRecord.ProjectId)
+	projectID, err := dbutil.BytesToUUID(dbxRecord.ProjectId)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
