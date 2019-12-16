@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -124,12 +125,12 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 			return nil, err
 		}
 
-		memberID, err := bytesToUUID(memberIDBytes)
+		memberID, err := dbutil.BytesToUUID(memberIDBytes)
 		if err != nil {
 			return nil, err
 		}
 
-		projectID, err = bytesToUUID(projectIDBytes)
+		projectID, err = dbutil.BytesToUUID(projectIDBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -185,12 +186,12 @@ func projectMemberFromDBX(ctx context.Context, projectMember *dbx.ProjectMember)
 		return nil, errs.New("projectMember parameter is nil")
 	}
 
-	memberID, err := bytesToUUID(projectMember.MemberId)
+	memberID, err := dbutil.BytesToUUID(projectMember.MemberId)
 	if err != nil {
 		return nil, err
 	}
 
-	projectID, err := bytesToUUID(projectMember.ProjectId)
+	projectID, err := dbutil.BytesToUUID(projectMember.ProjectId)
 	if err != nil {
 		return nil, err
 	}

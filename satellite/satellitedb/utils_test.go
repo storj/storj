@@ -14,25 +14,6 @@ import (
 	"storj.io/storj/private/testrand"
 )
 
-func TestBytesToUUID(t *testing.T) {
-	t.Run("Invalid input", func(t *testing.T) {
-		str := "not UUID string"
-		bytes := []byte(str)
-
-		_, err := bytesToUUID(bytes)
-
-		assert.NotNil(t, err)
-		assert.Error(t, err)
-	})
-
-	t.Run("Valid input", func(t *testing.T) {
-		id := testrand.UUID()
-		result, err := bytesToUUID(id[:])
-		assert.NoError(t, err)
-		assert.Equal(t, result, id)
-	})
-}
-
 func TestPostgresNodeIDsArray(t *testing.T) {
 	ids := make(storj.NodeIDList, 10)
 	for i := range ids {

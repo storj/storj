@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -122,7 +123,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		return nil, errs.New("user parameter is nil")
 	}
 
-	id, err := bytesToUUID(user.Id)
+	id, err := dbutil.BytesToUUID(user.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	if user.PartnerId != nil {
-		result.PartnerID, err = bytesToUUID(user.PartnerId)
+		result.PartnerID, err = dbutil.BytesToUUID(user.PartnerId)
 		if err != nil {
 			return nil, err
 		}

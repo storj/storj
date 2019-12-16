@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -66,7 +67,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	}
 
 	for _, dbxTally := range dbxTallies {
-		projectID, err := bytesToUUID(dbxTally.ProjectId)
+		projectID, err := dbutil.BytesToUUID(dbxTally.ProjectId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

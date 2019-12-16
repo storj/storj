@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -174,20 +175,20 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, errs.New("project parameter is nil")
 	}
 
-	id, err := bytesToUUID(project.Id)
+	id, err := dbutil.BytesToUUID(project.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	var partnerID uuid.UUID
 	if len(project.PartnerId) > 0 {
-		partnerID, err = bytesToUUID(project.PartnerId)
+		partnerID, err = dbutil.BytesToUUID(project.PartnerId)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ownerID, err := bytesToUUID(project.OwnerId)
+	ownerID, err := dbutil.BytesToUUID(project.OwnerId)
 	if err != nil {
 		return nil, err
 	}
