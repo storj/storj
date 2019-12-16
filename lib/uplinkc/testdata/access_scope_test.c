@@ -65,7 +65,13 @@ int main(int argc, char *argv[])
              "path1"},
             {"bucket2",
              "path2"}};
-        ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
+
+        // invalid restrictionsLen
+        ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], -1, err);
+        require_error(*err);
+        *err = "";
+
+        restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
         require_noerror(*err);
         requiref(restrictedScope._handle != 0, "got empty scope\n");
 
