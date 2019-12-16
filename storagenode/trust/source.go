@@ -41,14 +41,14 @@ func NewSource(config string) (Source, error) {
 		case "http", "https":
 			return NewHTTPSource(config)
 		case "storj":
-			return NewStaticSource(config)
+			return NewStaticURLSource(config)
 		default:
 			return nil, errs.New("unsupported schema %q", schema)
 		}
 	}
 
 	if isProbablySatelliteURL(config) {
-		return NewStaticSource(config)
+		return NewStaticURLSource(config)
 	}
 
 	return NewFileSource(config), nil

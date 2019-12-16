@@ -46,6 +46,7 @@ fi
 
 # setup the network
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
@@ -78,6 +79,15 @@ ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_1_DIR`/storag
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_2_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_3_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_4_DIR`/storagenode
+
+# upgrade the trust configuration on the other half as the old configuration is
+# most certainly not being used outside of test environments and is not
+# backwards compatible (i.e. ignored)
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_5_DIR`/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_6_DIR`/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_7_DIR`/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_8_DIR`/config.yaml
+sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_9_DIR`/config.yaml
 
 # run download part of backward compatibility tests from the current branch, using new uplink
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
