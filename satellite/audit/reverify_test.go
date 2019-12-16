@@ -226,7 +226,6 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
-		origNumPieces := len(pieces)
 		rootPieceID := pointer.GetRemote().RootPieceId
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
@@ -269,14 +268,6 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		// expect no failed audit
 		require.Len(t, report.Fails, 0)
-
-		// expect that bad node is no longer in the pointer
-		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
-		for _, p := range pointer.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, p.NodeId, pieces[0].NodeId)
-		}
 	})
 }
 
