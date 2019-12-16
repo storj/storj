@@ -51,14 +51,9 @@ build-dev-deps: ## Install dependencies for builds
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
-lint: check-copyrights ## Analyze and find programs in source code
+lint: ## Analyze and find programs in source code
 	@echo "Running ${@}"
 	@golangci-lint run
-
-.PHONY: check-copyrights
-check-copyrights: ## Check source files for copyright headers
-	@echo "Running ${@}"
-	@go run ./scripts/check-copyright.go
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -155,8 +150,8 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
-	@go run ./scripts/check-monitoring.go | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go generate ./scripts/check-monitoring.go\` to update monkit.lock file." \
+	@check-monitoring ./... | diff -U0 ./monkit.lock - \
+	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
 ##@ Build
