@@ -930,9 +930,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.ordersDB,
+				Description: "Add index archived_at to ordersDB",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX idx_order_archived_at ON order_archive_(archived_at)`,
+				},
+			},
+			{
 				DB:          db.notificationsDB,
 				Description: "Create notifications table",
-				Version:     27,
+				Version:     28,
 				Action: migrate.SQL{
 					`CREATE TABLE notifications (
 						id         BLOB NOT NULL,
