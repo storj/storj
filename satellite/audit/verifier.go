@@ -243,11 +243,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
-	// remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	err = verifier.removeFailedPieces(ctx, path, pointer, failedNodes)
-	if err != nil {
-		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Binary("Segment", []byte(path)), zap.Error(err))
-	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
 
@@ -551,16 +546,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 				if errs2.IsRPC(err, rpcstatus.NotFound) {
 					// Get the original segment pointer in the metainfo
-					oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
+					_, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
 					if err != nil {
 						ch <- result{nodeID: pending.NodeID, status: success}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
-					}
-					// remove failed audit pieces from the pointer so as to only penalize once for failed audits
-					err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
-					if err != nil {
-						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					}
 					// missing share
 					ch <- result{nodeID: pending.NodeID, status: failed}
@@ -583,16 +573,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: pending.NodeID, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID))
 			} else {
-				oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
+				_, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
 				if err != nil {
 					ch <- result{nodeID: pending.NodeID, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
-				}
-				// remove failed audit pieces from the pointer so as to only penalize once for failed audits
-				err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
-				if err != nil {
-					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				}
 				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
@@ -690,29 +675,6 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		NodeID:   storageNodeID,
 		Data:     buf,
 	}, nil
-}
-
-// removeFailedPieces removes lost pieces from a pointer
-func (verifier *Verifier) removeFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if len(failedNodes) == 0 {
-		return nil
-	}
-
-	var toRemove []*pb.RemotePiece
-OUTER:
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		for _, failedNode := range failedNodes {
-			if piece.NodeId == failedNode {
-				toRemove = append(toRemove, piece)
-				continue OUTER
-			}
-		}
-	}
-
-	// Update the segment pointer in the metainfo
-	_, err = verifier.metainfo.UpdatePieces(ctx, path, pointer, nil, toRemove)
-	return err
 }
 
 // checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
