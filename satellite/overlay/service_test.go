@@ -5,11 +5,13 @@ package overlay_test
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/pkg/pb"
@@ -309,6 +311,68 @@ func TestNodeInfo(t *testing.T) {
 		assert.Equal(t, planet.StorageNodes[0].Local().Capacity, node.Capacity)
 		assert.NotEmpty(t, node.Version.Version)
 		assert.Equal(t, planet.StorageNodes[0].Local().Version.Version, node.Version.Version)
+	})
+}
+
+func TestKnownReliable(t *testing.T) {
+	onlineWindow := 500 * time.Millisecond
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = onlineWindow
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+
+		// Disqualify storage node #0
+		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[0].ID(),
+			AuditSuccess: false,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, stats.Disqualified)
+
+		// Stop storage node #1
+		err = planet.StopPeer(planet.StorageNodes[1])
+		require.NoError(t, err)
+		_, err = service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
+		require.NoError(t, err)
+
+		// Sleep for the duration of the online window and check that storage node #1 is offline
+		time.Sleep(onlineWindow)
+		node, err := service.Get(ctx, planet.StorageNodes[1].ID())
+		require.NoError(t, err)
+		require.False(t, service.IsOnline(node))
+
+		// Force storage node #2 and #3 ping the satellite, so they can maintain their online status
+		planet.StorageNodes[2].Contact.Chore.TriggerWait(ctx)
+		planet.StorageNodes[3].Contact.Chore.TriggerWait(ctx)
+
+		// Check that only storage nodes #2 and #3 are reliable
+		result, err := service.KnownReliable(ctx, []storj.NodeID{
+			planet.StorageNodes[0].ID(),
+			planet.StorageNodes[1].ID(),
+			planet.StorageNodes[2].ID(),
+			planet.StorageNodes[3].ID(),
+		})
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+
+		// Sort the storage nodes for predictable checks
+		expectedReliable := []pb.Node{planet.StorageNodes[2].Local().Node, planet.StorageNodes[3].Local().Node}
+		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].Id.Less(expectedReliable[j].Id) })
+		sort.Slice(result, func(i, j int) bool { return result[i].Id.Less(result[j].Id) })
+
+		// Assert the reliable nodes are the expected ones
+		for i, node := range result {
+			assert.Equal(t, expectedReliable[i].Id, node.Id)
+			assert.Equal(t, expectedReliable[i].Address, node.Address)
+			assert.NotNil(t, node.LastIp)
+		}
 	})
 }
 
