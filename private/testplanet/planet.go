@@ -90,8 +90,16 @@ type closablePeer struct {
 	ctx    context.Context
 	cancel func()
 
-	close sync.Once
-	err   error
+	close  sync.Once
+	closed chan error
+	err    error
+}
+
+func newClosablePeer(peer Peer) closablePeer {
+	return closablePeer{
+		peer:   peer,
+		closed: make(chan error, 1),
+	}
 }
 
 // Close closes safely the peer.
@@ -99,7 +107,9 @@ func (peer *closablePeer) Close() error {
 	peer.cancel()
 	peer.close.Do(func() {
 		peer.err = peer.peer.Close()
+		<-peer.closed
 	})
+
 	return peer.err
 }
 
@@ -228,7 +238,11 @@ func (planet *Planet) Start(ctx context.Context) {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
 		planet.run.Go(func() error {
-			return peer.peer.Run(peer.ctx)
+			err := peer.peer.Run(peer.ctx)
+			peer.closed <- err
+			close(peer.closed)
+
+			return err
 		})
 	}
 

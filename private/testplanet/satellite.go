@@ -207,7 +207,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+			planet.peers = append(planet.peers, newClosablePeer(x))
 		}
 	}()
 

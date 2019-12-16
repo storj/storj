@@ -40,7 +40,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+			planet.peers = append(planet.peers, newClosablePeer(x))
 		}
 	}()
 
