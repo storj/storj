@@ -188,7 +188,11 @@ export class AuthHttpApi {
             throw new Error('can not register user');
         }
 
-        return await response.json();
+        const resp = await response.text();
+
+        console.log(resp)
+
+        return resp;
     }
 
     /**

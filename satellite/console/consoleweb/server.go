@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/csrf"
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -123,6 +124,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
+	csrfMiddleware := csrf.Protect(
+		[]byte("32-byte-long-auth-key"),
+		csrf.ErrorHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			err := csrf.FailureReason(r)
+			server.log.Error("", zap.Error(err))
+		})),
+	)
+
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
@@ -137,6 +146,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
+	authRouter.Use(csrfMiddleware)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
@@ -149,6 +159,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 	paymentsRouter.Use(server.withAuth)
+	paymentsRouter.Use(csrfMiddleware)
 	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
@@ -165,7 +176,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
-		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
+		router.PathPrefix("/").Handler(csrfMiddleware(http.HandlerFunc(server.appHandler)))
 	}
 
 	server.server = http.Server{
@@ -232,11 +243,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		SatelliteName      string
 		SegmentIOPublicKey string
 		StripePublicKey    string
+		CsrfTag            template.HTML
 	}
 
 	data.SatelliteName = server.config.SatelliteName
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
+	data.CsrfTag = csrf.TemplateField(r)
+
+	server.log.Error(string(data.CsrfTag))
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
@@ -396,6 +411,7 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	csrfToken := map[string]interface{}{csrf.TemplateTag: csrf.TemplateField(r)}
 	switch r.Method {
 	case http.MethodPost:
 		err := r.ParseForm()
@@ -417,12 +433,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if err := server.templates.success.Execute(w, nil); err != nil {
+		if err := server.templates.success.Execute(w, csrfToken); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
 	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+		if err := server.templates.resetPassword.Execute(w, csrfToken); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
@@ -440,8 +456,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	// No need to check error as we anyway redirect user to support page
 	_ = server.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
-	// TODO: Should place this link to config
-	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
+	http.Redirect(w, r, server.config.LetUsKnowURL, http.StatusSeeOther)
 }
 
 func (server *Server) serveError(w http.ResponseWriter, status int) {
@@ -466,6 +481,11 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
+
+	err := csrf.FailureReason(r)
+	if err != nil {
+		server.log.Error("AAAAAAAAAAAAAAAA", zap.Error(err))
+	}
 
 	token := getToken(r)
 	query, err := getQuery(w, r)

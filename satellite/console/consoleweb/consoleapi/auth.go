@@ -141,6 +141,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
+	a.log.Error("QQQQQQQQQQQQQQQQ" + user.ID.String())
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(user.ID)
 	if err != nil {

@@ -21,8 +21,11 @@ export class HttpClient {
             body: body,
         };
 
+        const csrfToken = (document.getElementsByName("gorilla.csrf.Token")[0] as any).value;
+        console.log(csrfToken);
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
         };
 
         if (auth) {
