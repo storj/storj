@@ -4,12 +4,7 @@
 <template>
     <div class="payment-methods-area">
         <div class="payment-methods-area__top-container">
-            <div>
-                <h1 class="payment-methods-area__title text">Payment Methods</h1>
-                <h2 v-if="isBonusInfoShown" class="payment-methods-area__bonus-info">
-                    You have a chance to get bonus credits!
-                </h2>
-            </div>
+            <h1 class="payment-methods-area__title text">Payment Methods</h1>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
                     <VButton
@@ -32,6 +27,10 @@
                 </div>
             </div>
         </div>
+        <PaymentsBonus
+            v-if="isDefaultState && isBonusInfoShown"
+            class="payment-methods-area__bonus"
+        />
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
@@ -72,6 +71,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
+import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,6 +99,7 @@ interface StripeForm {
         CardComponent,
         TokenDepositSelection,
         StripeCardInput,
+        PaymentsBonus,
     },
 })
 export default class PaymentMethods extends Vue {
@@ -277,18 +278,15 @@ export default class PaymentMethods extends Vue {
             justify-content: space-between;
         }
 
+        &__bonus {
+            margin-top: 50px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
             user-select: none;
-        }
-
-        &__bonus-info {
-            font-family: 'font_regular', sans-serif;
-            font-size: 16px;
-            line-height: 21px;
-            color: #7889a1;
         }
 
         &__button-area {

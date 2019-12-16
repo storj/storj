@@ -14,8 +14,9 @@
                     <div class="dashboard-container__main-area__banner-area">
                         <VBanner
                             v-if="isBannerShown"
-                            text="You have no payment method added."
-                            additional-text="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."
+                            text="We’ve Now Added Billing!"
+                            additional-text="Your attention is required. Add a credit card to set up your account."
+                            :path="billingPath"
                         />
                     </div>
                     <div class="dashboard-container__main-area__content">
@@ -67,6 +68,8 @@ const {
     },
 })
 export default class DashboardArea extends Vue {
+    private readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+
     public async mounted(): Promise<void> {
         // TODO: combine all project related requests in one
         try {
