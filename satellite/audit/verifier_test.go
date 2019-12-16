@@ -565,14 +565,6 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
-
-		// expect that bad node is no longer in the pointer
-		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
-		for _, p := range pointer.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, p.NodeId, piece.NodeId)
-		}
 	})
 }
 
@@ -733,23 +725,6 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Equal(t, report.Fails[0], piece.NodeId)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
-
-		// refetch the pointer
-		pointerAgain, err := satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-
-		report, err = audits.Verifier.Verify(ctx, path, nil)
-		require.NoError(t, err)
-
-		//verify no failures because that segment is gone
-		assert.Len(t, report.Successes, origNumPieces-1)
-		assert.Len(t, report.Fails, 0)
-		assert.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 0)
-
-		for _, newPiece := range pointerAgain.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
-		}
 	})
 }
 

@@ -10,7 +10,7 @@ enum Memory {
     PB = 1e15,
 }
 
-enum Dimensions {
+export enum Dimensions {
     Bytes = 'Bytes',
     KB = 'KB',
     MB = 'MB',
@@ -20,14 +20,15 @@ enum Dimensions {
 }
 
 export class Size {
-    private readonly precision: number = 4;
+    private readonly precision: number;
     public readonly bytes: number;
     public readonly formattedBytes: string;
     public readonly label: Dimensions;
 
-    public constructor(bytes: number) {
+    public constructor(bytes: number, precision: number = 0) {
         const _bytes = Math.ceil(bytes);
         this.bytes = bytes;
+        this.precision = precision;
 
         switch (true) {
             case _bytes === 0:

@@ -38,7 +38,6 @@ type ListItem struct {
 
 // Store for objects
 type Store interface {
-	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error)
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
@@ -53,17 +52,6 @@ type objStore struct {
 // NewStore for objects
 func NewStore(store streams.Store, pathCipher storj.CipherSuite) Store {
 	return &objStore{store: store, pathCipher: pathCipher}
-}
-
-func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(path) == 0 {
-		return Meta{}, storj.ErrNoPath.New("")
-	}
-
-	m, err := o.store.Meta(ctx, path, o.pathCipher)
-	return convertMeta(m), err
 }
 
 func (o *objStore) Get(ctx context.Context, path storj.Path, object storj.Object) (
