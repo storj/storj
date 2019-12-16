@@ -1408,12 +1408,11 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	_, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, satStreamID.Bucket, satStreamID.EncryptedPath)
+	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath)
 	if err != nil {
 		return nil, err
 	}
 
-	endpoint.log.Info("Delete Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1855,6 +1854,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.NotFound {
+			return &pb.SegmentListResponse{}, nil
+		}
 		return nil, err
 	}
 
@@ -2283,29 +2285,58 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		nodeIDs     storj.NodeIDList
 	)
 
-	for i := int64(lastSegment); i < (numOfSegments - 1); i++ {
-		pointer, _, err := endpoint.getPointer(ctx, projectID, i, bucket, encryptedPath)
+	for segmentIdx := int64(lastSegment); segmentIdx < (numOfSegments - 1); segmentIdx++ {
+		pointer, err := endpoint.deletePointer(ctx, projectID, segmentIdx, bucket, encryptedPath)
 		if err != nil {
-			if rpcstatus.Code(err) != rpcstatus.NotFound {
-				return err
-			}
-			if !knownNumOfSegments {
-				// Because we don't know the number of segments, we assume that if the
-				// pointer isn't found then we reached in the previous iteration the
-				// segment before the last one.
-				break
+			// Only return the error for aborting the operation if it happens on the
+			// first iteration
+			if segmentIdx == int64(lastSegment) {
+				if storj.ErrObjectNotFound.Has(err) {
+					return rpcstatus.Error(rpcstatus.NotFound, "object doesn't exist")
+				}
+
+				endpoint.log.Error("unexpected error while deleting object pieces",
+					zap.Stringer("project_id", projectID),
+					zap.ByteString("bucket_name", bucket),
+					zap.Binary("encrypted_path", encryptedPath),
+					zap.Error(err),
+				)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
-			segment := "l"
-			if i != lastSegment {
-				segment = "s" + strconv.FormatInt(i, 10)
+			if storj.ErrObjectNotFound.Has(err) {
+				if !knownNumOfSegments {
+					// Because we don't know the number of segments, we assume that if the
+					// pointer isn't found then we reached in the previous iteration the
+					// segment before the last one.
+					break
+				}
+
+				segment := "s" + strconv.FormatInt(segmentIdx, 10)
+				endpoint.log.Warn(
+					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
+					zap.String("pointer_path",
+						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
+					),
+					zap.String("segment", segment),
+				)
+			} else {
+				segment := "s" + strconv.FormatInt(segmentIdx, 10)
+				endpoint.log.Warn(
+					"unexpected error while deleting a pointer",
+					zap.String("pointer_path",
+						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
+					),
+					zap.String("segment", segment),
+					zap.Error(err),
+				)
 			}
-			endpoint.log.Warn(
-				"expected pointer not found, it may have been deleted concurrently",
-				zap.String("pointer_path",
-					fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
-				),
-			)
+
+			// We continue with the next segment for not deleting the pieces of this
+			// pointer and avoiding that some storage nodes fail audits due to a
+			// missing piece.
+			// If it was not found them we assume that the pieces were deleted by
+			// another request running concurrently.
 			continue
 		}
 
@@ -2375,4 +2406,26 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 
 	limiter.Wait()
 	return nil
+}
+
+// deletePointer deletes a pointer returning the deleted pointer.
+//
+// If the pointer isn't found when getting or deleting it, it returns
+// storj.ErrObjectNotFound error.
+func (endpoint *Endpoint) deletePointer(
+	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
+) (_ *pb.Pointer, err error) {
+	defer mon.Task()(&ctx, projectID, segmentIndex, bucket, encryptedPath)(&err)
+
+	pointer, path, err := endpoint.getPointer(ctx, projectID, segmentIndex, bucket, encryptedPath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return pointer, nil
 }

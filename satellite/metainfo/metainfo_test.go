@@ -1365,32 +1365,12 @@ func TestInlineSegment(t *testing.T) {
 				EncryptedPath: params.EncryptedPath,
 			})
 			require.NoError(t, err)
-
-			items, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			segments, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
-			for _, item := range items {
-				segmentID, limits, _, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
-					StreamID: streamID,
-					Position: storj.SegmentPosition{
-						Index: item.Position.Index,
-					},
-				})
-				require.NoError(t, err)
-				require.Nil(t, limits)
-
-				err = metainfoClient.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
-					SegmentID: segmentID,
-				})
-				require.NoError(t, err)
-			}
-
-			_, _, err = metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
-			})
-			require.Error(t, err)
-			require.True(t, storj.ErrObjectNotFound.Has(err))
+			require.Empty(t, segments)
+			require.False(t, more)
 
 			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
 				StreamID: streamID,
@@ -1460,26 +1440,12 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			segments, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
-
-			for _, segment := range segments {
-				segmentID, limits, _, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
-					StreamID: streamID,
-					Position: storj.SegmentPosition{
-						Index: segment.Position.Index,
-					},
-				})
-				require.NoError(t, err)
-				require.NotEmpty(t, limits)
-
-				err = metainfoClient.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
-					SegmentID: segmentID,
-				})
-				require.NoError(t, err)
-			}
+			require.Empty(t, segments)
+			require.False(t, more)
 
 			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
 				StreamID: streamID,

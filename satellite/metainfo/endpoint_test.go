@@ -92,7 +92,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
-		t.Skip("TODO: v3-3364")
 		t.Parallel()
 
 		var testCases = []struct {
@@ -100,7 +99,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			objData         []byte
 		}{
 			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
 			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
@@ -177,7 +175,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	})
 
 	t.Run("all nodes down", func(t *testing.T) {
-		t.Skip("TODO: v3-3364")
 		t.Parallel()
 
 		var testCases = []struct {
@@ -185,7 +182,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			objData         []byte
 		}{
 			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
 			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}

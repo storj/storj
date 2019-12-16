@@ -17,7 +17,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/ecclient"
@@ -31,72 +30,6 @@ import (
 const (
 	TestEncKey = "test-encryption-key"
 )
-
-// TestStreamsInterruptedDelete tests a special case where the delete command is
-// interrupted before all segments are deleted. On subsequent calls to
-// streamStore.Delete we want to ensure it completes the delete without error,
-// even though some segments have already been deleted.
-func TestStreamsInterruptedDelete(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		metainfoClient, segmentStore, streamStore := storeTestSetup(t, ctx, planet, memory.KiB.Int64())
-		defer ctx.Check(metainfoClient.Close)
-
-		bucketName := "bucket-name"
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-		require.NoError(t, err)
-
-		content := testrand.Bytes(2 * memory.KiB)
-		path := "mypath"
-		fullPath := storj.JoinPaths(bucketName, "mypath")
-
-		_, err = streamStore.Put(ctx, fullPath, storj.EncNull, bytes.NewReader(content), nil, time.Time{})
-		require.NoError(t, err)
-
-		// Ensure the item shows when we list
-		listItems, _, err := streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
-		require.NoError(t, err)
-		require.True(t, len(listItems) == 1)
-
-		streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
-			Bucket:        []byte(bucketName),
-			EncryptedPath: []byte(path),
-		})
-		require.NoError(t, err)
-
-		segmentItems, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-			StreamID: streamID,
-			CursorPosition: storj.SegmentPosition{
-				Index: 0,
-			},
-		})
-		require.NoError(t, err)
-
-		// We need at least 2 items to do this test
-		require.True(t, len(segmentItems) > 1)
-
-		// Delete just the first item
-		require.NoError(t, segmentStore.Delete(ctx, streamID, segmentItems[0].Position.Index))
-
-		// It should *still* show when we list, as we've only deleted one
-		// segment
-		listItems, _, err = streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
-		require.NoError(t, err)
-		require.True(t, len(listItems) == 1)
-
-		// Now call the streamStore delete method. This should delete all
-		// remaining segments and the file pointer itself without failing
-		// because of the missing first segment.
-		_ = streamStore.Delete(ctx, fullPath, storj.EncNull)
-
-		// Now it should have 0 list items
-		listItems, _, err = streamStore.List(ctx, bucketName, "", storj.EncNull, true, 10, meta.None)
-		require.NoError(t, err)
-		require.True(t, len(listItems) == 0)
-	})
-}
 
 func TestStreamStoreList(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
