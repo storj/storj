@@ -106,14 +106,14 @@ func serialize_scope(scopeRef C.ScopeRef, cerr **C.char) *C.char {
 
 //export restrict_scope
 // restrict_scope restricts a given scope with the provided caveat and encryption restrictions
-func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.EncryptionRestriction, restrictionsLen int, cerr **C.char) C.ScopeRef {
+func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.EncryptionRestriction, restrictionsLen C.size_t, cerr **C.char) C.ScopeRef {
 	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
 	if !ok {
 		*cerr = C.CString("invalid scope")
 		return C.ScopeRef{}
 	}
 
-	if restrictionsLen < 0 {
+	if int(restrictionsLen) < 0 {
 		*cerr = C.CString("restrictionsLen must be equal or greater than 0")
 		return C.ScopeRef{}
 	}
@@ -131,13 +131,13 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 		return C.ScopeRef{}
 	}
 
-	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, restrictionsLen)
+	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, int(restrictionsLen))
 	if restrictions != nil {
 		restrictionsArray := *(*[]C.EncryptionRestriction)(unsafe.Pointer(
 			&reflect.SliceHeader{
 				Data: uintptr(unsafe.Pointer(restrictions)),
-				Len:  restrictionsLen,
-				Cap:  restrictionsLen,
+				Len:  int(restrictionsLen),
+				Cap:  int(restrictionsLen),
 			},
 		))
 
