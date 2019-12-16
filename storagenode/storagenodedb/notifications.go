@@ -27,7 +27,7 @@ var ErrNotificationsDB = errs.Class("notificationsDB error")
 //
 // architecture: Database
 type notificationDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Insert puts new notification to database.
@@ -53,7 +53,7 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 		return notifications.Notification{}, ErrNotificationsDB.Wrap(err)
 	}
 
-	return notifications.Notification{
+	return notifications.Notification {
 		ID:        *id,
 		SenderID:  notification.SenderID,
 		Type:      notification.Type,
@@ -76,7 +76,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page can not be 0"))
 	}
 
-	page := notifications.NotificationPage{
+	page := notifications.NotificationPage {
 		Limit:  cursor.Limit,
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
