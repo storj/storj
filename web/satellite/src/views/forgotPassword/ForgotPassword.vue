@@ -13,6 +13,7 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
@@ -51,11 +52,11 @@ export default class ForgotPassword extends Vue {
     }
 
     public onBackToLoginClick(): void {
-        this.$router.push(RouteConfig.Login.path);
+      this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-        location.reload();
+      location.reload();
     }
 
     private validateFields(): boolean {

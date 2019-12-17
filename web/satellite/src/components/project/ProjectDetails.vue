@@ -49,6 +49,18 @@
                     </div>
                 </div>
             </div>
+            <div class="project-details-info-container">
+                <ProjectLimitsArea />
+            </div>
+            <p class="project-details__limits-increase-text">
+                To increase your limits please contact us at
+                <a
+                    href="mailto:support@tardigrade.io"
+                    class="project-details__limits-increase-text__link"
+                >
+                    support@tardigrade.io
+                </a>
+            </p>
         </div>
     </div>
 </template>
@@ -60,6 +72,7 @@ import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
+import ProjectLimitsArea from '@/components/project/ProjectLimitsArea.vue';
 
 import EditIcon from '@/../static/images/project/edit.svg';
 
@@ -67,6 +80,7 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -76,6 +90,7 @@ import { LocalData } from '@/utils/localData';
         EmptyState,
         DeleteProjectPopup,
         EditIcon,
+        ProjectLimitsArea,
     },
 })
 export default class ProjectDetailsArea extends Vue {
@@ -85,6 +100,9 @@ export default class ProjectDetailsArea extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -169,6 +187,18 @@ export default class ProjectDetailsArea extends Vue {
         &__button-area {
             margin-top: 3vh;
             margin-bottom: 100px;
+        }
+
+        &__limits-increase-text {
+            font-family: 'font_regular', sans-serif;
+            font-size: 16px;
+            color: #afb7c1;
+            margin-top: 42px;
+
+            &__link {
+                text-decoration: underline;
+                color: #2683ff;
+            }
         }
     }
 

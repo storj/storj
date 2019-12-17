@@ -74,7 +74,6 @@ func DecodeReaders(ctx context.Context, cancel func(), log *zap.Logger, rs map[i
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
 	ctx := dr.ctx
-	defer mon.Task()(&ctx)(&err)
 
 	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again

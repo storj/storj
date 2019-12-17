@@ -19,16 +19,6 @@ type prefixedObjStore struct {
 	prefix string
 }
 
-func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta objects.Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(path) == 0 {
-		return objects.Meta{}, storj.ErrNoPath.New("")
-	}
-
-	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
-}
-
 func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 

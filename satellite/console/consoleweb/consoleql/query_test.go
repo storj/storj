@@ -16,6 +16,8 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -42,14 +44,26 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects(), db.ProjectAccounting(), 0, 0, 0)
+		payments := stripecoinpayments.NewService(
+			log.Named("payments"),
+			stripecoinpayments.Config{},
+			db.StripeCoinPayments(),
+			db.Console().Projects(),
+			db.ProjectAccounting(),
+			0, 0, 0,
+		)
+
+		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "memory"})
+		require.NoError(t, err)
+
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)
 
 		service, err := console.NewService(
-			log,
+			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.ProjectAccounting(),
+			projectUsage,
 			db.Rewards(),
 			partnersService,
 			payments.Accounts(),

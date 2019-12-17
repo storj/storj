@@ -48,25 +48,20 @@ func (db *DB) GetObject(ctx context.Context, bucket storj.Bucket, path storj.Pat
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, path storj.Path) (stream storj.ReadOnlyStream, err error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, object storj.Object) (stream storj.ReadOnlyStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	meta, info, err := db.getInfo(ctx, bucket, path)
-	if err != nil {
-		return nil, err
+	if bucket.Name == "" {
+		return nil, storj.ErrNoBucket.New("")
 	}
 
-	streamKey, err := encryption.DeriveContentKey(bucket.Name, meta.fullpath.UnencryptedPath(), db.encStore)
-	if err != nil {
-		return nil, err
+	if object.Path == "" {
+		return nil, storj.ErrNoPath.New("")
 	}
 
 	return &readonlyStream{
-		db:        db,
-		info:      info,
-		bucket:    meta.bucket,
-		encPath:   meta.encPath.Raw(),
-		streamKey: streamKey,
+		db:   db,
+		info: object,
 	}, nil
 }
 
@@ -254,7 +249,7 @@ func (db *DB) getInfo(ctx context.Context, bucket storj.Bucket, path storj.Path)
 		return object{}, storj.Object{}, err
 	}
 
-	info, err = objectStreamFromMeta(bucket, objectInfo.StreamID, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info, err = objectStreamFromMeta(bucket, path, objectInfo.StreamID, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -290,7 +285,7 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 	}
 }
 
-func objectStreamFromMeta(bucket storj.Bucket, streamID storj.StreamID, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
+func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.StreamID, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
 	var encryptedKey storj.EncryptedPrivateKey
 	if streamMeta.LastSegmentMeta != nil {

@@ -18,7 +18,7 @@ import (
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface
 type StoragenodeAccounting struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // SaveTallies records raw tallies of at rest data to the database

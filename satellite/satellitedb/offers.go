@@ -22,7 +22,7 @@ var (
 )
 
 type offersDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // ListAll returns all offersDB from the db
@@ -108,7 +108,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	var id int64
 
-	err := crdb.ExecuteTx(ctx, db.db.DB, nil, func(tx *sql.Tx) error {
+	err := crdb.ExecuteTx(ctx, db.db.DB.DB, nil, func(tx *sql.Tx) error {
 		// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
 		switch o.Type {
 		case rewards.Partner:

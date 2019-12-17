@@ -9,17 +9,18 @@ import (
 	"strconv"
 	"testing"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
-func testParallel(t *testing.T, store storage.KeyValueStore) {
+func testParallel(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
 		newItem("a", "1", false),
 		newItem("b", "2", false),
 		newItem("c", "3", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, ctx, store, items)
 
 	for idx := range items {
 		i := idx

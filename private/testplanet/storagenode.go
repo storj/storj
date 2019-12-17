@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/trust"
 )
 
 // newStorageNodes initializes storage nodes
@@ -42,6 +43,15 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			planet.peers = append(planet.peers, closablePeer{peer: x})
 		}
 	}()
+
+	var sources []trust.Source
+	for _, u := range whitelistedSatellites {
+		source, err := trust.NewStaticURLSource(u.String())
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
 
 	for i := 0; i < count; i++ {
 		prefix := "storage" + strconv.Itoa(i)
@@ -82,7 +92,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: defaultInterval,
-				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
 				Interval: defaultInterval,
@@ -110,6 +119,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
+				},
+				Trust: trust.Config{
+					Sources:         sources,
+					CachePath:       filepath.Join(storageDir, "trust-cache.json"),
+					RefreshInterval: defaultInterval,
 				},
 			},
 			Retain: retain.Config{

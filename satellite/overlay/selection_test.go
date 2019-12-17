@@ -475,6 +475,7 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 func TestAddrtoNetwork_Conversion(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
 	network, err := overlay.GetNetwork(ctx, ip)

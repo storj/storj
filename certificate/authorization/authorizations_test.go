@@ -188,6 +188,7 @@ func TestNewClient(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 	require.NotNil(t, ident)

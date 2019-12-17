@@ -20,4 +20,4 @@ var CrdbConnStr = flag.String("cockroach-test-db", os.Getenv("STORJ_COCKROACH_TE
 const DefaultConnStr = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
 // DefaultCrdbConnStr is expected to work when a local cockroachDB instance is running
-const DefaultCrdbConnStr = "postgres://root@localhost:26257/master?sslmode=disable"
+const DefaultCrdbConnStr = "cockroach://root@localhost:26257/master?sslmode=disable"

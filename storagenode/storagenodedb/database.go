@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -37,18 +38,39 @@ var (
 
 	// ErrDatabase represents errors from the databases.
 	ErrDatabase = errs.Class("storage node database error")
+	// ErrNoRows represents database error if rows weren't affected.
+	ErrNoRows = errs.New("no rows affected")
 )
 
 var _ storagenode.DB = (*DB)(nil)
 
-// SQLDB defines an interface to allow accessing and setting an sql.DB
+// SQLDB is an abstract database so that we can mock out what database
+// implementation we're using.
 type SQLDB interface {
-	Configure(sqlDB *sql.DB)
-	GetDB() *sql.DB
+	Close() error
+
+	Begin() (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+
+	Conn(ctx context.Context) (*sql.Conn, error)
+
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// DBContainer defines an interface to allow accessing and setting a SQLDB
+type DBContainer interface {
+	Configure(sqlDB SQLDB)
+	GetDB() SQLDB
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db *sql.DB, cb func(tx *sql.Tx) error) error {
+func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -70,13 +92,14 @@ type Config struct {
 	Storage string
 	Info    string
 	Info2   string
-
-	Pieces string
+	Driver  string // if unset, uses sqlite3
+	Pieces  string
 }
 
 // DB contains access to different database tables
 type DB struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config Config
 
 	pieces storage.Blobs
 
@@ -92,8 +115,9 @@ type DB struct {
 	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
+	notificationsDB   *notificationDB
 
-	sqlDatabases map[string]SQLDB
+	SQLDBs map[string]DBContainer
 }
 
 // New creates a new master database for storage node
@@ -114,9 +138,12 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	storageUsageDB := &storageUsageDB{}
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
 
 	db := &DB{
 		log:    log,
+		config: config,
+
 		pieces: pieces,
 
 		dbDirectory: filepath.Dir(config.Info2),
@@ -131,8 +158,9 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		storageUsageDB:    storageUsageDB,
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
 
-		sqlDatabases: map[string]SQLDB{
+		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
 			PieceInfoDBName:       v0PieceInfoDB,
 			BandwidthDBName:       bandwidthDB,
@@ -143,6 +171,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			StorageUsageDBName:    storageUsageDB,
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
 		},
 	}
 
@@ -208,11 +237,16 @@ func (db *DB) openDatabases() error {
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
+
+	err = db.openDatabase(NotificationsDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
-	return db.sqlDatabases[dbName].GetDB()
+func (db *DB) rawDatabaseFromName(dbName string) SQLDB {
+	return db.SQLDBs[dbName].GetDB()
 }
 
 // openDatabase opens or creates a database at the specified path.
@@ -222,12 +256,17 @@ func (db *DB) openDatabase(dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	driver := db.config.Driver
+	if driver == "" {
+		driver = "sqlite3"
+	}
+
+	sqlDB, err := sql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
-	mDB := db.sqlDatabases[dbName]
+	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
 	dbutil.Configure(sqlDB, mon)
@@ -259,7 +298,7 @@ func (db *DB) Close() error {
 func (db *DB) closeDatabases() error {
 	var errlist errs.Group
 
-	for k := range db.sqlDatabases {
+	for k := range db.SQLDBs {
 		errlist.Add(db.closeDatabase(k))
 	}
 	return errlist.Err()
@@ -267,7 +306,7 @@ func (db *DB) closeDatabases() error {
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabase(dbName string) (err error) {
-	mdb, ok := db.sqlDatabases[dbName]
+	mdb, ok := db.SQLDBs[dbName]
 	if !ok {
 		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
 	}
@@ -324,9 +363,14 @@ func (db *DB) Satellites() satellites.DB {
 	return db.satellitesDB
 }
 
+// Notifications returns the instance of the Notifications database.
+func (db *DB) Notifications() notifications.DB {
+	return db.notificationsDB
+}
+
 // RawDatabases are required for testing purposes
-func (db *DB) RawDatabases() map[string]SQLDB {
-	return db.sqlDatabases
+func (db *DB) RawDatabases() map[string]DBContainer {
+	return db.SQLDBs
 }
 
 // migrateToDB is a helper method that performs the migration from the
@@ -883,6 +927,31 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`CREATE INDEX idx_piece_expirations_trashed
 						ON piece_expirations(satellite_id, trash)
 						WHERE trash = 1`,
+				},
+			},
+			{
+				DB:          db.ordersDB,
+				Description: "Add index archived_at to ordersDB",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX idx_order_archived_at ON order_archive_(archived_at)`,
+				},
+			},
+			{
+				DB:          db.notificationsDB,
+				Description: "Create notifications table",
+				Version:     28,
+				Action: migrate.SQL{
+					`CREATE TABLE notifications (
+						id         BLOB NOT NULL,
+						sender_id  BLOB NOT NULL,
+						type       INTEGER NOT NULL,
+						title      TEXT NOT NULL,
+						message    TEXT NOT NULL,
+						read_at    TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (id)
+					);`,
 				},
 			},
 		},

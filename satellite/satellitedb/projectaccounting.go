@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -23,22 +24,7 @@ var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
 // ProjectAccounting implements the accounting/db ProjectAccounting interface
 type ProjectAccounting struct {
-	db *dbx.DB
-}
-
-// projectLimitType represents project limit types.
-type projectLimitType int
-
-const (
-	// projectLimitTypeStorage defines project storage limit type.
-	projectLimitTypeStorage = 0
-	// projectLimitTypeBandwidth defines project bandwidth limit type.
-	projectLimitTypeBandwidth = 1
-)
-
-// Int returns int value of project limit type.
-func (limitType projectLimitType) Int() int {
-	return int(limitType)
+	db *satelliteDB
 }
 
 // SaveTallies saves the latest bucket info
@@ -81,7 +67,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	}
 
 	for _, dbxTally := range dbxTallies {
-		projectID, err := bytesToUUID(dbxTally.ProjectId)
+		projectID, err := dbutil.BytesToUUID(dbxTally.ProjectId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -154,77 +140,47 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 	return inlineSum.Int64, remoteSum.Int64, err
 }
 
-// UpdateProjectStorageLimit updates project storage usage limit.
-func (db *ProjectAccounting) UpdateProjectStorageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+// UpdateProjectUsageLimit updates project usage limit.
+func (db *ProjectAccounting) UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return db.updateProjectLimit(ctx, projectID, projectLimitTypeStorage, limit)
-}
 
-// UpdateProjectBandwidthLimit updates project bandwidth usage limit.
-func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.updateProjectLimit(ctx, projectID, projectLimitTypeBandwidth, limit)
+	_, err = db.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+		dbx.Project_Update_Fields{
+			UsageLimit: dbx.Project_UsageLimit(limit.Int64()),
+		},
+	)
+
+	return err
 }
 
 // GetProjectStorageLimit returns project storage usage limit.
 func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return db.getProjectLimit(ctx, projectID, projectLimitTypeStorage)
+	return db.getProjectUsageLimit(ctx, projectID)
 }
 
 // GetProjectBandwidthLimit returns project bandwidth usage limit.
 func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return db.getProjectLimit(ctx, projectID, projectLimitTypeBandwidth)
+	return db.getProjectUsageLimit(ctx, projectID)
 }
 
-// updateProjectLimit updates project limit by project id and project limit type.
-// Returns error if no rows were affected.
-func (db *ProjectAccounting) updateProjectLimit(ctx context.Context, projectID uuid.UUID, limitType projectLimitType, limit memory.Size) (err error) {
+// getProjectUsageLimit returns project usage limit.
+func (db *ProjectAccounting) getProjectUsageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.db.Rebind(`INSERT INTO project_limits (project_id, limit_type, usage_limit, created_at) 
-				VALUES (?, ?, ?, ?)
-				ON CONFLICT (project_id, limit_type)
-				DO UPDATE SET usage_limit = ?;`)
-
-	result, err := db.db.ExecContext(ctx, query, projectID[:], limitType.Int(), limit, time.Now().UTC(), limit)
-	if err != nil {
-		return err
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return Error.New("no rows were affected")
-	}
-
-	return nil
-}
-
-// getProjectLimit returns project limit by type and project id.
-// Returns 0 if there is no such limit.
-func (db *ProjectAccounting) getProjectLimit(ctx context.Context, projectID uuid.UUID, limitType projectLimitType) (_ memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbxLimit, err := db.db.Get_ProjectLimit_By_ProjectId_And_LimitType(ctx,
-		dbx.ProjectLimit_ProjectId(projectID[:]),
-		dbx.ProjectLimit_LimitType(limitType.Int()),
+	row, err := db.db.Get_Project_UsageLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, nil
-		}
-
 		return 0, err
 	}
 
-	return memory.Size(dbxLimit.UsageLimit), nil
+	return memory.Size(row.UsageLimit), nil
 }
 
-// GetProjectTotal retrieves project usage for a given period
+// GetProjectTotal retrieves project usage for a given period.
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
@@ -416,11 +372,68 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 	return bucketUsageRollups, nil
 }
 
+// prefixIncrement returns the lexicographically lowest byte string which is
+// greater than origPrefix and does not have origPrefix as a prefix. If no such
+// byte string exists (origPrefix is empty, or origPrefix contains only 0xff
+// bytes), returns false for ok.
+//
+// examples: prefixIncrement([]byte("abc"))          -> ([]byte("abd", true)
+//           prefixIncrement([]byte("ab\xff\xff"))   -> ([]byte("ac", true)
+//           prefixIncrement([]byte(""))             -> (nil, false)
+//           prefixIncrement([]byte("\x00"))         -> ([]byte("\x01", true)
+//           prefixIncrement([]byte("\xff\xff\xff")) -> (nil, false)
+//
+func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
+	incremented = make([]byte, len(origPrefix))
+	copy(incremented, origPrefix)
+	i := len(incremented) - 1
+	for i >= 0 {
+		if incremented[i] != 0xff {
+			incremented[i]++
+			return incremented[:i+1], true
+		}
+		i--
+	}
+
+	// there is no byte string which is greater than origPrefix and which does
+	// not have origPrefix as a prefix.
+	return nil, false
+}
+
+// prefixMatch creates a SQL expression which
+// will evaluate to true if and only if the value of expr starts with the value
+// of prefix.
+//
+// Returns also a slice of arguments that should be passed to the corresponding
+// db.Query* or db.Exec* to fill in parameters in the returned SQL expression.
+//
+// The returned SQL expression needs to be passed through Rebind(), as it uses
+// `?` markers instead of `$N`, because we don't know what N we would need to
+// use.
+func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []byte, error) {
+	incrementedPrefix, ok := prefixIncrement(prefix)
+	switch db.db.implementation {
+	case dbutil.Postgres:
+		if !ok {
+			return fmt.Sprintf(`(%s >= ?)`, expr), nil, nil
+		}
+		return fmt.Sprintf(`(%s >= ? AND %s < ?)`, expr, expr), incrementedPrefix, nil
+	case dbutil.Cockroach:
+		if !ok {
+			return fmt.Sprintf(`(%s >= ?:::BYTEA)`, expr), nil, nil
+		}
+		return fmt.Sprintf(`(%s >= ?:::BYTEA AND %s < ?:::BYTEA)`, expr, expr), incrementedPrefix, nil
+	default:
+		return "", nil, errs.New("invalid dbType: %v", db.db.driver)
+	}
+
+}
+
 // GetBucketTotals retrieves bucket usage totals for period of time
 func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	search := cursor.Search + "%"
+	bucketPrefix := []byte(cursor.Search)
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50
@@ -435,21 +448,32 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
 
+	bucketNameRange, incrPrefix, err := db.prefixMatch("bucket_name", bucketPrefix)
+	if err != nil {
+		return nil, err
+	}
 	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name)
-		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?`)
+	FROM bucket_bandwidth_rollups
+	WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+	AND ` + bucketNameRange)
 
-	countRow := db.db.QueryRowContext(ctx,
-		countQuery,
+	args := []interface{}{
 		projectID[:],
-		since, before,
-		search)
+		since,
+		before,
+		bucketPrefix,
+	}
+	if incrPrefix != nil {
+		args = append(args, incrPrefix)
+	}
+
+	countRow := db.db.QueryRowContext(ctx, countQuery, args...)
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
 		return nil, err
 	}
+
 	if page.TotalCount == 0 {
 		return page, nil
 	}
@@ -457,27 +481,30 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
+	var buckets []string
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
-		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-		AND CAST(bucket_name as TEXT) LIKE ?
-		ORDER BY bucket_name ASC
-		LIMIT ? OFFSET ?`)
+	FROM bucket_bandwidth_rollups
+	WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
+	AND ` + bucketNameRange + ` ORDER BY bucket_name ASC
+	LIMIT ? OFFSET ?`)
 
-	bucketRows, err := db.db.QueryContext(ctx,
-		bucketsQuery,
+	args = []interface{}{
 		projectID[:],
-		since, before,
-		search,
-		page.Limit,
-		page.Offset)
+		since,
+		before,
+		bucketPrefix,
+	}
+	if incrPrefix != nil {
+		args = append(args, incrPrefix)
+	}
+	args = append(args, page.Limit, page.Offset)
 
+	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
-	var buckets []string
+	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 	for bucketRows.Next() {
 		var bucket string
 		err = bucketRows.Scan(&bucket)
@@ -488,7 +515,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		buckets = append(buckets, bucket)
 	}
 
-	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
+	rollupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
@@ -509,7 +536,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
+		rollupsRows, err := db.db.QueryContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}

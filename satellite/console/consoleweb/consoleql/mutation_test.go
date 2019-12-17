@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,10 +15,11 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/private/currency"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -59,14 +59,26 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 		)
 
-		paymentsConfig := stripecoinpayments.Config{}
-		payments := stripecoinpayments.NewService(log, paymentsConfig, db.StripeCoinPayments(), db.Console().Projects(), db.ProjectAccounting(), 0, 0, 0)
+		payments := stripecoinpayments.NewService(
+			log.Named("payments"),
+			stripecoinpayments.Config{},
+			db.StripeCoinPayments(),
+			db.Console().Projects(),
+			db.ProjectAccounting(),
+			0, 0, 0,
+		)
+
+		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "memory"})
+		require.NoError(t, err)
+
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)
 
 		service, err := console.NewService(
-			log,
+			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.ProjectAccounting(),
+			projectUsage,
 			db.Rewards(),
 			partnersService,
 			payments.Accounts(),
@@ -97,20 +109,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			Password:  "123a123",
 		}
 		refUserID := ""
-
-		_, err = db.Rewards().Create(ctx, &rewards.NewOffer{
-			Name:                      "Couchbase",
-			Description:               "",
-			AwardCredit:               currency.Cents(0),
-			InviteeCredit:             currency.Cents(20),
-			RedeemableCap:             10,
-			AwardCreditDurationDays:   0,
-			InviteeCreditDurationDays: 14,
-			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-			Status:                    rewards.Active,
-			Type:                      rewards.Partner,
-		})
-		require.NoError(t, err)
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)

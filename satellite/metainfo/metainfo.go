@@ -23,13 +23,13 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
 )
@@ -63,7 +63,7 @@ type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
-// Endpoint metainfo endpoint
+// Endpoint metainfo endpoint.
 //
 // architecture: Endpoint
 type Endpoint struct {
@@ -401,7 +401,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	// TODO refactor to use []byte directly
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -657,7 +657,7 @@ func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePi
 	return peerIDMap, nil
 }
 
-// CreatePath will create a Segment path
+// CreatePath creates a Segment path.
 func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if segmentIndex < -1 {
@@ -687,18 +687,6 @@ func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttr
 	err = endpoint.setBucketAttribution(ctx, req.Header, req.BucketName, req.PartnerId)
 
 	return &pb.SetAttributionResponseOld{}, err
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key
@@ -898,7 +886,7 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 // returns empty uuid when neither is defined.
 func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
 	if len(partnerIDBytes) > 0 {
-		partnerID, err := bytesToUUID(partnerIDBytes)
+		partnerID, err := dbutil.BytesToUUID(partnerIDBytes)
 		if err != nil {
 			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
 		}
@@ -1143,7 +1131,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits object when all segments are also committed
+// CommitObject commits an object when all its segments have already been
+// committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1299,7 +1288,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 			pointer, err = endpoint.metainfo.Get(ctx, path)
 			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
+				if storj.ErrObjectNotFound.Has(err) {
 					break
 				}
 
@@ -1370,7 +1359,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}, nil
 }
 
-// BeginDeleteObject begins object deletion process
+// BeginDeleteObject begins object deletion process.
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1411,7 +1400,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	_, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, -1, satStreamID.Bucket, satStreamID.EncryptedPath)
+	_, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, satStreamID.Bucket, satStreamID.EncryptedPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1856,17 +1845,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		limit = listLimit
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	streamMeta := &pb.StreamMeta{}
@@ -1880,20 +1861,40 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
 		// TODO cleanup int32 vs int64
-		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+		return endpoint.listSegmentsFromNumberOfSegments(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
 	}
 
 	// list segments by requesting each segment from cursor index to n until n segment is not found
 	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
 }
 
-func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, numberOfSegments, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+	if numberOfSegments <= 0 {
+		endpoint.log.Error(
+			"Invalid number of segments; this function requires the value to be greater than 0",
+			zap.Int32("numberOfSegments", numberOfSegments),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
+	if cursorIndex > numberOfSegments {
+		endpoint.log.Error(
+			"Invalid number cursor index; the index cannot be greater than the total number of segments",
+			zap.Int32("numberOfSegments", numberOfSegments),
+			zap.Int32("cursorIndex", cursorIndex),
+		)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to list segments")
+	}
+
 	numberOfSegments -= cursorIndex
 
-	segmentItems := make([]*pb.SegmentListItem, 0)
-	more := false
-
+	var (
+		segmentItems = make([]*pb.SegmentListItem, 0)
+		more         = false
+	)
 	if numberOfSegments > 0 {
+		segmentItems = make([]*pb.SegmentListItem, 0, int(numberOfSegments))
+
 		if numberOfSegments > limit {
 			more = true
 			numberOfSegments = limit
@@ -1902,6 +1903,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 			// last segment will be added manually at the end of this block
 			numberOfSegments--
 		}
+
 		for index := int32(0); index < numberOfSegments; index++ {
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
 				Position: &pb.SegmentPosition{
@@ -1909,6 +1911,7 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, n
 				},
 			})
 		}
+
 		if !more {
 			// last segment is always the last one
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
@@ -1938,7 +1941,7 @@ func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uu
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
+			if storj.ErrObjectNotFound.Has(err) {
 				break
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2088,7 +2091,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	return &pb.SegmentDownloadResponse{}, rpcstatus.Error(rpcstatus.Internal, "invalid type of pointer")
 }
 
-func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte) (*pb.Pointer, string, error) {
+// getPointer returns the pointer and the segment path projectID, bucket and
+// encryptedPath. It returns an error with a specific RPC status.
+func (endpoint *Endpoint) getPointer(
+	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
+) (_ *pb.Pointer, _ string, err error) {
+	defer mon.Task()(&ctx, projectID.String(), segmentIndex, bucket, encryptedPath)(&err)
 	path, err := CreatePath(ctx, projectID, segmentIndex, bucket, encryptedPath)
 	if err != nil {
 		return nil, "", rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -2096,9 +2104,11 @@ func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, s
 
 	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, "", rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
+
+		endpoint.log.Error("error getting the pointer from metainfo service", zap.Error(err))
 		return nil, "", rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	return pointer, path, nil
