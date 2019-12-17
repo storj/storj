@@ -17,6 +17,8 @@ import (
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consolenotifications"
+	"storj.io/storj/storagenode/notifications"
 )
 
 const (
@@ -43,22 +45,26 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	service  *console.Service
-	listener net.Listener
+	service       *console.Service
+	notifications *notifications.Service
+	listener      net.Listener
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, listener net.Listener) *Server {
 	server := Server{
-		log:      logger,
-		service:  service,
-		listener: listener,
+		log:           logger,
+		service:       service,
+		listener:      listener,
+		notifications: notifications,
 	}
 
 	router := mux.NewRouter()
 	apiRouter := router.PathPrefix("/api").Subrouter()
+	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
+	notificationController := consolenotifications.NewNotifications(server.log, server.notifications)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
@@ -74,6 +80,9 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Serv
 	apiRouter.Handle("/dashboard", http.HandlerFunc(server.dashboardHandler)).Methods(http.MethodGet)
 	apiRouter.Handle("/satellites", http.HandlerFunc(server.satellitesHandler)).Methods(http.MethodGet)
 	apiRouter.Handle("/satellite/{id}", http.HandlerFunc(server.satelliteHandler)).Methods(http.MethodGet)
+	notificationRouter.Handle("/list", http.HandlerFunc(notificationController.ListNotifications)).Methods(http.MethodGet)
+	notificationRouter.Handle("/{id}/read", http.HandlerFunc(notificationController.ReadNotification)).Methods(http.MethodPost)
+	notificationRouter.Handle("/readall", http.HandlerFunc(notificationController.ReadAllNotifications)).Methods(http.MethodPost)
 
 	server.server = http.Server{
 		Handler: router,

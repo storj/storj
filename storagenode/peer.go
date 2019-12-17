@@ -165,6 +165,10 @@ type Peer struct {
 		Chore    *gracefulexit.Chore
 	}
 
+	Notifications struct {
+		Service *notifications.Service
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -207,6 +211,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
 	{ // setup contact service
@@ -375,6 +383,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
 			assets,
+			peer.Notifications.Service,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)

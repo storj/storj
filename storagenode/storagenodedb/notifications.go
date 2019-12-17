@@ -65,7 +65,7 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 }
 
 // List returns listed page of notifications from database.
-func (db *notificationDB) List(ctx context.Context, cursor notifications.NotificationCursor) (_ notifications.NotificationPage, err error) {
+func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor) (_ notifications.Page, err error) {
 	defer mon.Task()(&ctx, cursor)(&err)
 
 	if cursor.Limit > 50 {
@@ -73,10 +73,10 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 	}
 
 	if cursor.Page == 0 {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page can not be 0"))
+		return notifications.Page{}, ErrNotificationsDB.Wrap(errs.New("page can not be 0"))
 	}
 
-	page := notifications.NotificationPage{
+	page := notifications.Page{
 		Limit:  cursor.Limit,
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
@@ -90,13 +90,13 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 
 	err = db.QueryRowContext(ctx, countQuery).Scan(&page.TotalCount)
 	if err != nil {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+		return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 	}
 	if page.TotalCount == 0 {
 		return page, nil
 	}
 	if page.Offset > page.TotalCount-1 {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(errs.New("page is out of range"))
+		return notifications.Page{}, ErrNotificationsDB.Wrap(errs.New("page is out of range"))
 	}
 
 	query := `
@@ -109,7 +109,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 
 	rows, err := db.QueryContext(ctx, query, page.Limit, page.Offset)
 	if err != nil {
-		return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+		return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 	}
 
 	defer func() {
@@ -131,12 +131,12 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Notific
 			&notification.CreatedAt,
 		)
 		if err = rows.Err(); err != nil {
-			return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 		}
 
 		notificationID, err = dbutil.BytesToUUID(notificationIDBytes)
 		if err != nil {
-			return notifications.NotificationPage{}, ErrNotificationsDB.Wrap(err)
+			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 		}
 
 		notification.ID = notificationID
