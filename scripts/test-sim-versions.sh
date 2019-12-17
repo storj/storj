@@ -118,14 +118,14 @@ fi
 echo "Setting up environments for versions" ${unique_versions}
 
 # Get latest release tags and clean up git worktree
-git fetch origin master
+git fetch
 git worktree prune
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
     bin_dir=${dir}/bin
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
-    git worktree add -f ${dir} ${version}
+    git worktree add -f ${dir} "v0.15.4"
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
     if [[ $version = $current_release_version || $version = "master" ]]
