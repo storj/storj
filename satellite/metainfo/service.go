@@ -42,6 +42,10 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := sanityCheckPointer(path, pointer); err != nil {
+		return Error.Wrap(err)
+	}
+
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
 
@@ -58,6 +62,10 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 // UnsynchronizedPut puts pointer to db under specific path without verifying for existing pointer under the same path.
 func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := sanityCheckPointer(path, pointer); err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
@@ -88,6 +96,16 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 // piece to both toAdd and toRemove.
 func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := sanityCheckPointer(path, ref); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		if err == nil {
+			err = sanityCheckPointer(path, pointer)
+		}
+	}()
 
 	for {
 		// read the pointer

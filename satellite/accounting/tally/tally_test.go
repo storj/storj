@@ -403,5 +403,6 @@ func satelliteRS(satellite *testplanet.Satellite) storj.RedundancyScheme {
 		RepairShares:   int16(satellite.Config.Metainfo.RS.RepairThreshold),
 		OptimalShares:  int16(satellite.Config.Metainfo.RS.SuccessThreshold),
 		TotalShares:    int16(satellite.Config.Metainfo.RS.TotalThreshold),
+		ShareSize:      satellite.Config.Metainfo.RS.ErasureShareSize.Int32(),
 	}
 }
