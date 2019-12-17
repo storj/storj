@@ -28,6 +28,7 @@ func TestDBInit(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		spaceUsedDB := db.PieceSpaceUsedDB()
 		total, err := spaceUsedDB.GetTotal(ctx)
 		require.NoError(t, err)
@@ -57,6 +58,7 @@ func TestCacheInit(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		spaceUsedDB := db.PieceSpaceUsedDB()
 		err := spaceUsedDB.Init(ctx)
 		require.NoError(t, err)
@@ -197,6 +199,7 @@ func TestRecalculateCache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
+
 			ID1 := storj.NodeID{1, 1}
 			cache := pieces.NewBlobsUsageCacheTest(nil,
 				tt.end,
@@ -226,6 +229,7 @@ func TestRecalculateCache(t *testing.T) {
 func TestRecalculateCacheMissed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	ID1 := storj.NodeID{1}
 	ID2 := storj.NodeID{2}
 

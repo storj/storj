@@ -48,6 +48,8 @@ func TestNewCA(t *testing.T) {
 
 func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	ca, err := identity.NewCA(ctx, identity.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,
@@ -70,6 +72,8 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 
 func TestFullCertificateAuthority_Sign(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	caOpts := identity.NewCAOptions{
 		Difficulty:  12,
 		Concurrency: 4,

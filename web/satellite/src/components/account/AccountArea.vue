@@ -19,7 +19,6 @@ export default class AccountArea extends Vue {}
     ::-webkit-scrollbar-track,
     ::-webkit-scrollbar-thumb {
         width: 4px;
-        margin-top: 55px;
         background-color: #f5f6fa;
     }
 
