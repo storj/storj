@@ -54,5 +54,30 @@ int main(int argc, char *argv[])
         free_encryption_access(ea);
     }
 
+    {
+        ScopeRef scope = parse_scope(scopeStr, err);
+        require_noerror(*err);
+        requiref(scope._handle != 0, "got empty scope\n");
+
+        Caveat caveat = {disallow_writes : true};
+        EncryptionRestriction restrictions[] = {
+            {"bucket1",
+             "path1"},
+            {"bucket2",
+             "path2"}};
+
+        // invalid restrictionsLen
+        ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], -1, err);
+        require_error(*err);
+        *err = "";
+
+        restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
+        require_noerror(*err);
+        requiref(restrictedScope._handle != 0, "got empty scope\n");
+
+        free_scope(scope);
+        free_scope(restrictedScope);
+    }
+
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }

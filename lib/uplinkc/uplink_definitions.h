@@ -133,3 +133,15 @@ typedef struct ObjectMeta {
     uint8_t  *checksum_bytes;
     uint64_t checksum_length;
 } ObjectMeta;
+
+typedef struct EncryptionRestriction {
+    char *bucket;
+    char *path_prefix;
+} EncryptionRestriction;
+
+typedef struct Caveat { 
+	bool disallow_reads;
+	bool disallow_writes;
+	bool disallow_lists;
+	bool disallow_deletes;
+} Caveat;

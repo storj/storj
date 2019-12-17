@@ -8,8 +8,11 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
+	"unsafe"
 
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/macaroon"
 )
 
 //export new_scope
@@ -99,6 +102,65 @@ func serialize_scope(scopeRef C.ScopeRef, cerr **C.char) *C.char {
 	}
 
 	return C.CString(serializedScope)
+}
+
+//export restrict_scope
+// restrict_scope restricts a given scope with the provided caveat and encryption restrictions
+func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.EncryptionRestriction, restrictionsLen C.size_t, cerr **C.char) C.ScopeRef {
+	scope, ok := universe.Get(scopeRef._handle).(*libuplink.Scope)
+	if !ok {
+		*cerr = C.CString("invalid scope")
+		return C.ScopeRef{}
+	}
+
+	if int(restrictionsLen) < 0 {
+		*cerr = C.CString("restrictionsLen must be equal or greater than 0")
+		return C.ScopeRef{}
+	}
+
+	caveatGo := macaroon.Caveat{
+		DisallowReads:   bool(caveat.disallow_reads),
+		DisallowWrites:  bool(caveat.disallow_writes),
+		DisallowLists:   bool(caveat.disallow_lists),
+		DisallowDeletes: bool(caveat.disallow_deletes),
+	}
+
+	apiKeyRestricted, err := scope.APIKey.Restrict(caveatGo)
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return C.ScopeRef{}
+	}
+
+	restrictionsGo := make([]libuplink.EncryptionRestriction, 0, int(restrictionsLen))
+	if restrictions != nil {
+		restrictionsArray := *(*[]C.EncryptionRestriction)(unsafe.Pointer(
+			&reflect.SliceHeader{
+				Data: uintptr(unsafe.Pointer(restrictions)),
+				Len:  int(restrictionsLen),
+				Cap:  int(restrictionsLen),
+			},
+		))
+
+		for _, restriction := range restrictionsArray {
+			restrictionsGo = append(restrictionsGo, libuplink.EncryptionRestriction{
+				Bucket:     C.GoString(restriction.bucket),
+				PathPrefix: C.GoString(restriction.path_prefix),
+			})
+		}
+	}
+
+	apiKeyRestricted, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return C.ScopeRef{}
+	}
+
+	scopeRestricted := &libuplink.Scope{
+		SatelliteAddr:    scope.SatelliteAddr,
+		APIKey:           apiKeyRestricted,
+		EncryptionAccess: encAccessRestricted,
+	}
+	return C.ScopeRef{_handle: universe.Add(scopeRestricted)}
 }
 
 //export free_scope
