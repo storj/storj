@@ -125,7 +125,8 @@ for version in ${unique_versions}; do
     bin_dir=${dir}/bin
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
-    git worktree add -f ${dir} ${version}
+    latestCommit=$(git rev-list -n 1 "$version")
+    git worktree add -f ${dir} $latestCommit
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
     if [[ $version = $current_release_version || $version = "master" ]]
