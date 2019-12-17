@@ -4,7 +4,9 @@
 // Package date contains various date-related utilities
 package date
 
-import "time"
+import (
+	"time"
+)
 
 // MonthBoundary extract month from the provided date and returns its edges
 func MonthBoundary(t time.Time) (time.Time, time.Time) {
@@ -17,4 +19,9 @@ func MonthBoundary(t time.Time) (time.Time, time.Time) {
 func DayBoundary(t time.Time) (time.Time, time.Time) {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()),
 		time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, -1, t.Location())
+}
+
+// TimeTruncateDown truncates down to the hour before.
+func TimeTruncateDown(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }

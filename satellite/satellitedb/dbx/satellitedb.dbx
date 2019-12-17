@@ -998,7 +998,7 @@ model coupon (
     field status           int   ( updatable )
     field duration         int64
 
-    field created_at timestamp ( autoinsert )
+    field created_at timestamp
 )
 
 create coupon ()

@@ -92,12 +92,16 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 		return 0, Error.Wrap(err)
 	}
 
-	var couponAmount int64 = 0
+	var remaining int64 = 0
 	for _, coupon := range coupons {
-		couponAmount += coupon.Amount
+		used, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil && !ErrNoCouponUsages.Has(err) {
+			return 0, Error.Wrap(err)
+		}
+		remaining += coupon.Amount - used
 	}
 
-	return c.Balance + couponAmount, nil
+	return -c.Balance + remaining, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.

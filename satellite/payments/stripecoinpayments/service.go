@@ -121,6 +121,7 @@ func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UU
 	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
 }
 
+// TODO: uncomment when coupons will be ready.
 // updateCouponUsageLoop updates all daily coupon usage in a loop.
 func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -167,9 +168,11 @@ func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	now := time.Now().UTC()
+
 	for _, coupon := range coupons {
 		// check if coupon expired
-		if coupon.Created.Add(coupon.Duration).After(time.Now().UTC()) {
+		if coupon.Created.Add(coupon.Duration).Before(now) {
 			if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 				return err
 			}
@@ -186,11 +189,21 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 			since = coupon.Created
 		}
 
-		start, end := date.DayBoundary(since)
-		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, start, end)
+		if now.Sub(since) <= time.Hour {
+			continue
+		}
+
+		end := date.TimeTruncateDown(now)
+
+		service.log.Error("charging for period " + since.String() + " - " + end.String())
+
+		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, since, end)
 		if err != nil {
 			return err
 		}
+
+		service.log.Error("project usage for period " + usage.Since.String() + " - " +  usage.Before.String())
+		service.log.Error(fmt.Sprintf("project usage for period objCount: %f, egress: %d, storage: %f", usage.ObjectCount, usage.Egress, usage.Storage))
 
 		// TODO: reuse this code fragment.
 		egressPrice := usage.Egress * service.EgressPrice / int64(memory.TB)
@@ -199,7 +212,7 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 
 		currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
 
-		service.log.Error(fmt.Sprintf("Should be charged usage %d", currentUsageAmount))
+		service.log.Error(fmt.Sprintf("Should be charged for period usage %d", currentUsageAmount))
 
 		// TODO: we should add caching for TotalUsage call
 		alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
@@ -218,7 +231,7 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 		}
 
 		couponUsage := CouponUsage{
-			End:      time.Now().UTC(),
+			End:      end,
 			Amount:   currentUsageAmount,
 			CouponID: coupon.ID,
 		}

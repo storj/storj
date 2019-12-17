@@ -7235,10 +7235,9 @@ func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 	coupon_amount Coupon_Amount_Field,
 	coupon_description Coupon_Description_Field,
 	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
+	coupon_duration Coupon_Duration_Field,
+	coupon_created_at Coupon_CreatedAt_Field) (
 	coupon *Coupon, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
 	__id_val := coupon_id.value()
 	__project_id_val := coupon_project_id.value()
 	__user_id_val := coupon_user_id.value()
@@ -7246,7 +7245,7 @@ func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 	__description_val := coupon_description.value()
 	__status_val := coupon_status.value()
 	__duration_val := coupon_duration.value()
-	__created_at_val := __now
+	__created_at_val := coupon_created_at.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, project_id, user_id, amount, description, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.status, coupons.duration, coupons.created_at")
 
@@ -11721,13 +11720,14 @@ func (rx *Rx) Create_Coupon(ctx context.Context,
 	coupon_amount Coupon_Amount_Field,
 	coupon_description Coupon_Description_Field,
 	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
+	coupon_duration Coupon_Duration_Field,
+	coupon_created_at Coupon_CreatedAt_Field) (
 	coupon *Coupon, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Coupon(ctx, coupon_id, coupon_project_id, coupon_user_id, coupon_amount, coupon_description, coupon_status, coupon_duration)
+	return tx.Create_Coupon(ctx, coupon_id, coupon_project_id, coupon_user_id, coupon_amount, coupon_description, coupon_status, coupon_duration, coupon_created_at)
 
 }
 
@@ -13047,7 +13047,8 @@ type Methods interface {
 		coupon_amount Coupon_Amount_Field,
 		coupon_description Coupon_Description_Field,
 		coupon_status Coupon_Status_Field,
-		coupon_duration Coupon_Duration_Field) (
+		coupon_duration Coupon_Duration_Field,
+		coupon_created_at Coupon_CreatedAt_Field) (
 		coupon *Coupon, err error)
 
 	Create_CouponUsage(ctx context.Context,

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"storj.io/storj/private/date"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -227,7 +229,8 @@ func (db *ProjectAccounting) getProjectLimit(ctx context.Context, projectID uuid
 // GetProjectTotal retrieves project usage for a given period
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
+	// to be in sync with orders endpoint.
+	since = date.TimeTruncateDown(since)
 
 	bucketNames, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
@@ -331,7 +334,8 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
 func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
+	// to be in sync with orders endpoint.
+	since = date.TimeTruncateDown(since)
 
 	buckets, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
@@ -419,7 +423,8 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 // GetBucketTotals retrieves bucket usage totals for period of time
 func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
+	// to be in sync with orders endpoint.
+	since = date.TimeTruncateDown(since)
 	search := cursor.Search + "%"
 
 	if cursor.Limit > 50 {
@@ -588,9 +593,4 @@ func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID
 	}
 
 	return buckets, nil
-}
-
-// timeTruncateDown truncates down to the hour before to be in sync with orders endpoint
-func timeTruncateDown(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
