@@ -118,7 +118,7 @@ fi
 echo "Setting up environments for versions" ${unique_versions}
 
 # Get latest release tags and clean up git worktree
-git fetch
+git fetch origin master
 git checkout -b master origin/master
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
