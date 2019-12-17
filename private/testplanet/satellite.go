@@ -427,14 +427,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		planet.databases = append(planet.databases, revocationDB)
 
-		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
 
-		planet.databases = append(planet.databases, liveAccountingCache)
+		planet.databases = append(planet.databases, liveAccounting)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccountingCache, versionInfo, &config)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
