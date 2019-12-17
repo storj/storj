@@ -94,6 +94,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("worker failed", zap.Error(err))
 				}
+
+				if err := worker.Close(); err != nil {
+					chore.log.Error("closing worker failed", zap.Error(err))
+				}
 			})
 		}
 		chore.limiter.Wait()

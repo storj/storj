@@ -240,7 +240,6 @@ func TestConcurrentConnections(t *testing.T) {
 }
 
 func TestRecvTimeout(t *testing.T) {
-	var geConfig gracefulexit.Config
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -254,9 +253,6 @@ func TestRecvTimeout(t *testing.T) {
 				// This config value will create a very short timeframe allowed for receiving
 				// data from storage nodes. This will cause context to cancel with timeout.
 				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
-			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				geConfig = config.GracefulExit
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -307,7 +303,16 @@ func TestRecvTimeout(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				MinBytesPerSecond:      128,
+				MinDownloadTimeout:     2 * time.Minute,
+			})
+		defer ctx.Check(worker.Close)
+
 		err = worker.Run(ctx, func() {})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))

@@ -341,6 +341,6 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 
 // Close halts the worker.
 func (worker *Worker) Close() error {
-	// TODO not sure this is needed yet.
+	worker.limiter.Wait()
 	return nil
 }

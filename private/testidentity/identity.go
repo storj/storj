@@ -48,7 +48,8 @@ func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 		versionNumber := vn
 		version := v
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
-			ident, err := IdentityVersions[versionNumber].NewIdentity()
+			idents := IdentityVersions[versionNumber].Clone()
+			ident, err := idents.NewIdentity()
 			require.NoError(t, err)
 
 			test(t, version, ident)
@@ -63,7 +64,8 @@ func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
 		versionNumber := vn
 		version := v
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
-			ident, err := SignedIdentityVersions[versionNumber].NewIdentity()
+			idents := SignedIdentityVersions[versionNumber].Clone()
+			ident, err := idents.NewIdentity()
 			require.NoError(t, err)
 
 			test(t, version, ident)
