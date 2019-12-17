@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
+import { CreateProjectModel, Project, ProjectLimits, ProjectsApi, UpdateProjectModel } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
@@ -11,6 +11,7 @@ export const PROJECTS_ACTIONS = {
     UPDATE: 'updateProject',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
+    GET_LIMITS: 'getProjectLimits',
 };
 
 export const PROJECTS_MUTATIONS = {
@@ -20,6 +21,7 @@ export const PROJECTS_MUTATIONS = {
     SET_PROJECTS: 'SET_PROJECTS',
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
+    SET_LIMITS: 'SET_PROJECT_LIMITS',
 };
 
 const defaultSelectedProject = new Project('', '', '', '', '', true);
@@ -36,6 +38,7 @@ const {
     UPDATE,
     DELETE,
     CLEAR,
+    GET_LIMITS,
 } = PROJECTS_ACTIONS;
 
 const {
@@ -45,6 +48,7 @@ const {
     SET_PROJECTS,
     SELECT_PROJECT,
     CLEAR_PROJECTS,
+    SET_LIMITS,
 } = PROJECTS_MUTATIONS;
 
 export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
@@ -101,16 +105,25 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                     state.selectedProject = new Project();
                 }
             },
+            [SET_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
+                state.selectedProject.setLimits(limits);
+            },
             [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
                 state.selectedProject = defaultSelectedProject;
             },
         },
         actions: {
-            [FETCH]: async function ({commit}: any): Promise<Project[]> {
+            [FETCH]: async function ({commit, state}: any): Promise<Project[]> {
                 const projects = await api.get();
 
                 commit(SET_PROJECTS, projects);
+
+                if (state.selectedProject.id) {
+                    const limits = await api.getLimits(state.selectedProject.id);
+
+                    commit(SET_LIMITS, limits);
+                }
 
                 return projects;
             },
@@ -121,8 +134,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return project;
             },
-            [SELECT]: function ({commit}: any, projectID: string): void {
+            [SELECT]: async function ({commit}: any, projectID: string): Promise<void> {
                 commit(SELECT_PROJECT, projectID);
+
+                const limits = await api.getLimits(projectID);
+
+                commit(SET_LIMITS, limits);
             },
             [UPDATE]: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<void> {
                 await api.update(updateProjectModel.id, updateProjectModel.description);
@@ -133,6 +150,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 await api.delete(projectID);
 
                 commit(REMOVE, projectID);
+            },
+            [GET_LIMITS]: async function ({commit}: any, projectID: string): Promise<ProjectLimits> {
+                const limits = await api.getLimits(projectID);
+
+                commit(SET_LIMITS, limits);
+
+                return limits;
             },
             [CLEAR]: function({commit}: any): void {
                 commit(CLEAR_PROJECTS);

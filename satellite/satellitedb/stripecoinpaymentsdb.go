@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that *stripeCoinPaymentsDB implements stripecoinpayments.DB.
@@ -15,7 +14,7 @@ var _ stripecoinpayments.DB = (*stripeCoinPaymentsDB)(nil)
 //
 // architecture: Database
 type stripeCoinPaymentsDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Customers is getter for customers db.

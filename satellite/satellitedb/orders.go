@@ -28,7 +28,7 @@ var (
 )
 
 type ordersDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // CreateSerialInfo creates serial number entry in database

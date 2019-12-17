@@ -14,7 +14,7 @@ import (
 )
 
 type irreparableDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field

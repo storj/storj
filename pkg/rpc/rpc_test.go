@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -19,6 +20,8 @@ import (
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testidentity"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode"
 )
 
 // TestRPCBuild prints a statement so that in test output you can know whether
@@ -167,8 +170,17 @@ func TestDialNode(t *testing.T) {
 func TestDialNode_BadServerCertificate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
-		Reconfigure: testplanet.DisablePeerCAWhitelist,
-		Identities:  testidentity.NewPregeneratedIdentities(storj.LatestIDVersion()),
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Server.UsePeerCAWhitelist = false
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Server.UsePeerCAWhitelist = false
+			},
+			Identities: func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities {
+				return testidentity.NewPregeneratedIdentities(version)
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		whitelistPath, err := planet.WriteWhitelist(storj.LatestIDVersion())

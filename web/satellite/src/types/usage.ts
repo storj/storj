@@ -12,8 +12,8 @@ export class ProjectUsage {
     public before: Date;
 
     public constructor(storage: number, egress: number, objectCount: number, since: Date, before: Date) {
-        this.storage = new Size(storage);
-        this.egress = new Size(egress);
+        this.storage = new Size(storage, 4);
+        this.egress = new Size(egress, 4);
         this.objectCount = objectCount;
         this.since = since;
         this.before = before;
