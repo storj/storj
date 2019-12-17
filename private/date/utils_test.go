@@ -27,3 +27,17 @@ func TestDayBoundary(t *testing.T) {
 	assert.Equal(t, start, time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
 	assert.Equal(t, end, time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, -1, time.UTC))
 }
+
+func TestTimeTruncateDown(t *testing.T) {
+	now := time.Now().UTC()
+
+	truncated := date.TimeTruncateDown(now)
+
+	assert.Equal(t, now.Year(), truncated.Year())
+	assert.Equal(t, now.Month(), truncated.Month())
+	assert.Equal(t, now.Day(), truncated.Day())
+	assert.Equal(t, now.Hour(), truncated.Hour())
+	assert.Equal(t, truncated.Minute(), 0)
+	assert.Equal(t, truncated.Second(), 0)
+	assert.Equal(t, truncated.Nanosecond(), 0)
+}

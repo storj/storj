@@ -46,7 +46,7 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err
 		dbx.Coupon_Description(coupon.Description),
 		dbx.Coupon_Status(int(coupon.Status)),
 		dbx.Coupon_Duration(int64(coupon.Duration)),
-		dbx.Coupon_CreatedAt(date.TimeTruncateDown(time.Now().Add(time.Hour))), // TODO: some magic.
+		dbx.Coupon_CreatedAt(date.TimeTruncateDown(time.Now().UTC().Add(time.Hour))), // TODO: some magic.
 	)
 
 	return err
