@@ -75,6 +75,7 @@ func getData(rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*db
 
 func TestMigrate(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
 
