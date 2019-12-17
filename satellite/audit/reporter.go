@@ -5,6 +5,11 @@ package audit
 
 import (
 	"context"
+	"time"
+
+	"storj.io/storj/pkg/pb"
+
+	"storj.io/storj/satellite/notifications"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +24,7 @@ import (
 type Reporter struct {
 	log              *zap.Logger
 	overlay          *overlay.Service
+	notifications    *notifications.Service
 	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
@@ -34,10 +40,11 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+func NewReporter(log *zap.Logger, overlay *overlay.Service, notifications *notifications.Service, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
 	return &Reporter{
 		log:              log,
 		overlay:          overlay,
+		notifications:    notifications,
 		containment:      containment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount}
@@ -167,6 +174,16 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 			IsUp:         true,
 			AuditSuccess: true,
 		}
+
+		notification := &pb.Notification{
+			Scope:     pb.Notification_AUDIT,
+			Level:     pb.Notification_INFO,
+			Tags:      nil,
+			Message:   "Successfully passed audit",
+			Timestamp: time.Now(),
+		}
+
+		reporter.notifications.Notify(ctx, nodeID, notification)
 	}
 
 	if len(updateRequests) > 0 {

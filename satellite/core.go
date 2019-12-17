@@ -5,6 +5,9 @@ package satellite
 
 import (
 	"context"
+	"time"
+
+	"storj.io/storj/satellite/notifications"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -109,6 +112,11 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	Notifications struct {
+		Service *notifications.Service
+		Chore   *notifications.Chore
+	}
 }
 
 // New creates a new satellite
@@ -146,6 +154,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+	}
+
+	{ // setup notifications
+		peer.Log.Debug("Setting up notifications")
+
+		peer.Notifications.Service = notifications.NewService(
+			peer.Log.Named("notifications:service"),
+			peer.Dialer,
+			peer.Overlay.Service,
+		)
+
+		peer.Notifications.Chore = notifications.NewChore(
+			peer.Log.Named("notifications:chore"),
+			peer.Dialer,
+			peer.Overlay.Service,
+			time.Second*10,
+		)
 	}
 
 	{ // setup live accounting
@@ -241,6 +266,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
 			peer.Overlay.Service,
+			peer.Notifications.Service,
 			peer.DB.Containment(),
 			config.MaxRetriesStatDB,
 			int32(config.MaxReverifyCount),
@@ -386,6 +412,9 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 			return errs2.IgnoreCanceled(peer.Payments.Chore.Run(ctx))
 		})
 	}
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Notifications.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -436,6 +465,12 @@ func (peer *Core) Close() error {
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())
+	}
+	if peer.Notifications.Service != nil {
+		errlist.Add(peer.Notifications.Service.Close())
+	}
+	if peer.Notifications.Chore != nil {
+		errlist.Add(peer.Notifications.Chore.Close())
 	}
 
 	return errlist.Err()

@@ -61,6 +61,12 @@ type (
 
 	// VouchersClient is an alias to the drpc client interface
 	VouchersClient = pb.DRPCVouchersClient
+
+	// NotificationReceiverClient is an alias to the drpc client interface.
+	NotificationReceiverClient = pb.DRPCNotificationReceiverClient
+
+	// NotificationsClient is an alias to the drpc client interface.
+	NotificationsClient = pb.DRPCNotificationsClient
 )
 
 // NewCertificatesClient returns the drpc version of a CertificatesClient
@@ -221,4 +227,24 @@ func NewVouchersClient(rc *RawConn) VouchersClient {
 // VouchersClient returns a VouchersClient for this connection
 func (c *Conn) VouchersClient() VouchersClient {
 	return NewVouchersClient(c.raw)
+}
+
+// NewNotificationReceiverClient returns the drpc version of a NotificationReceiverClient.
+func NewNotificationReceiverClient(rc *RawConn) NotificationReceiverClient {
+	return pb.NewDRPCNotificationReceiverClient(rc)
+}
+
+// NotificationReceiverClient returns a NotificationReceiverClient for this connection.
+func (c *Conn) NotificationReceiverClient() NotificationReceiverClient {
+	return NewNotificationReceiverClient(c.raw)
+}
+
+// NewNotificationsClient returns the drpc version of a NotificationsClient.
+func NewNotificationsClient(rc *RawConn) NotificationsClient {
+	return pb.NewDRPCNotificationsClient(rc)
+}
+
+// NotificationsClient returns a NotificationsClient for this connection.
+func (c *Conn) NotificationsClient() NotificationsClient {
+	return NewNotificationsClient(c.raw)
 }

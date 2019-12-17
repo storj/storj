@@ -410,6 +410,38 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, nil
 }
 
+// ReliableWithAddress returns map all reliable nodes to their addresses.
+func (cache *overlaycache) ReliableWithAddress(ctx context.Context, criteria *overlay.NodeCriteria) (_ map[storj.NodeID]string, err error) {
+	// get reliable and online nodes
+	query := cache.db.Rebind(`
+		SELECT id, address FROM nodes
+		WHERE disqualified IS NULL
+		AND last_contact_success > ?`)
+
+	rows, err := cache.db.Query(query, time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	nodes := make(map[storj.NodeID]string)
+	for rows.Next() {
+		var id storj.NodeID
+		var address string
+
+		if err = rows.Scan(&id, &address); err != nil {
+			return nil, err
+		}
+
+		nodes[id] = address
+	}
+
+	return nodes, nil
+}
+
 // Paginate will run through
 func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -471,6 +503,44 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 		}
 	}
 	return infos, more, nil
+}
+
+// PaginateReliable paginates through reliable nodes.
+func (cache *overlaycache) PaginateReliable(ctx context.Context, criteria *overlay.NodeCriteria, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
+	var more bool
+	var cursor storj.NodeID
+
+	dbxNodes, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_And_LastContactSuccess_Greater_OrderBy_Asc_Id(
+		ctx,
+		dbx.Node_Id(cursor.Bytes()),
+		dbx.Node_LastContactSuccess(time.Now().Add(-criteria.OnlineWindow)),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return nil, false, Error.Wrap(err)
+	}
+
+	if len(dbxNodes) > limit {
+		more = true
+		dbxNodes = dbxNodes[:len(dbxNodes)-1]
+	}
+
+	nodes := make([]*overlay.NodeDossier, len(dbxNodes))
+	for i, dbxNode := range dbxNodes {
+		nodes[i], err = convertDBNode(ctx, dbxNode)
+		if err != nil {
+			return nil, false, Error.Wrap(err)
+		}
+	}
+
+	return nodes, more, Error.Wrap(err)
 }
 
 // Update updates node address

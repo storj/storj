@@ -1,0 +1,80 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package notifications;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+message Notification{
+    enum Scope {
+        CUSTOM = 0;
+        AUDIT = 1;
+        UPTIME = 2;
+        REPAIR = 3;
+        DISQUALIFICATION = 4;
+        GRACEFUL_EXIT = 5;
+        VETTING = 6;
+    }
+
+    enum Level {
+        INFO = 0;
+        WARN = 1;
+        ERROR = 2;
+    }
+
+    Scope scope = 1;
+    Level level = 2;
+    repeated string tags = 3;
+    string message = 4;
+    google.protobuf.Timestamp timestamp = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message ReportRequest{
+    int64 audit_total_count = 1;
+    int64 audit_success_count = 2;
+    double audit_reputation_alpha = 3;
+    double audit_reputation_beta = 4;
+    double audit_reputation_score = 5;
+    int64 uptime_total_count = 6;
+    int64 uptime_success_count = 7;
+    double uptime_reputation_alpha = 8;
+    double uptime_reputation_beta = 9;
+    double uptime_reputation_score = 10;
+    google.protobuf.Timestamp last_contact_success = 11 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp last_contact_failure = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp exit_loop_completed_at = 13 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+    google.protobuf.Timestamp exit_initiated_at = 14 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+    google.protobuf.Timestamp exit_finished_at = 15 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+    bool exit_success = 16;
+    bool vetted = 17;
+}
+
+message NotifyRequest{
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    Notification notification = 2;
+}
+
+message NotifyResponse{}
+message ReportResponse{}
+
+message BroadcastResponse{
+    int32 success_count = 1;
+    repeated bytes failed = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    repeated bytes offline = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+// Notification RPC service which can send notifications over the network.
+service Notifications {
+    rpc Notify(NotifyRequest) returns (NotifyResponse);
+    rpc Broadcast(Notification) returns (BroadcastResponse);
+}
+
+// NotificationReceiver service listens for notifications.
+service NotificationReceiver {
+    rpc Notify(Notification) returns (NotifyResponse);
+    rpc Report(ReportRequest) returns (ReportResponse);
+}

@@ -49,10 +49,14 @@ type DB interface {
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
+	// ReliableWithAddress returns map all reliable nodes to their addresses.
+	ReliableWithAddress(ctx context.Context, criteria *NodeCriteria) (map[storj.NodeID]string, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
+	// PaginateReliable will page through the reliable nodes.
+	PaginateReliable(ctx context.Context, criteria *NodeCriteria, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -225,6 +229,15 @@ func (service *Service) PaginateQualified(ctx context.Context, offset int64, lim
 	return service.db.PaginateQualified(ctx, offset, limit)
 }
 
+// PaginateReliable returns a list of `limit` reliable nodes starting from `start` offset.
+func (service *Service) PaginateReliable(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		OnlineWindow: service.config.Node.OnlineWindow,
+	}
+	return service.db.PaginateReliable(ctx, criteria, offset, limit)
+}
+
 // Get looks up the provided nodeID from the overlay.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -236,6 +249,11 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
+	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
+}
+
+// IsOnline checks if a node is 'online' based on the collected statistics.
+func (service *Service) IsNew(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
@@ -346,6 +364,15 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 		OnlineWindow: service.config.Node.OnlineWindow,
 	}
 	return service.db.Reliable(ctx, criteria)
+}
+
+// Reliable filters a set of nodes with their addresses that are reliable, independent of new.
+func (service *Service) ReliableWithAddress(ctx context.Context) (_ map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		OnlineWindow: service.config.Node.OnlineWindow,
+	}
+	return service.db.ReliableWithAddress(ctx, criteria)
 }
 
 // Put adds a node id and proto definition into the overlay.

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"storj.io/storj/storagenode/notifications"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -164,6 +166,10 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Notifications struct {
+		Endpoint *notifications.Endpoint
+	}
 }
 
 // New creates a new Storage Node.
@@ -400,8 +406,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Storage2.BlobsCache,
 		)
-		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+		pb.RegisterNodeGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterNodeGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint)
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
@@ -411,6 +417,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			peer.DB.Satellites(),
 		)
+	}
+
+	{ // setup notifications
+		peer.Notifications.Endpoint = notifications.NewEndpoint(peer.Log.Named("notifications:endpoint"))
+
+		pb.RegisterNotificationReceiverServer(peer.Server.GRPC(), peer.Notifications.Endpoint)
+		pb.DRPCRegisterNotificationReceiver(peer.Server.DRPC(), peer.Notifications.Endpoint)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)

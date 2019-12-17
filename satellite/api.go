@@ -9,6 +9,8 @@ import (
 	"net/mail"
 	"net/smtp"
 
+	"storj.io/storj/satellite/notifications"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -137,6 +139,10 @@ type API struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Notifications struct {
+		Endpoint *notifications.Endpoint
 	}
 }
 
@@ -506,6 +512,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
 		}
+	}
+
+	{ // setup notifications
+		peer.Log.Debug("Setting up notifications")
+
+		peer.Notifications.Endpoint = notifications.NewEndpoint(
+			peer.Log.Named("notifications:endpoint"),
+			peer.Dialer,
+			peer.Overlay.Service,
+		)
+
+		pb.RegisterNotificationsServer(peer.Server.PrivateGRPC(), peer.Notifications.Endpoint)
+		pb.DRPCRegisterNotifications(peer.Server.PrivateDRPC(), peer.Notifications.Endpoint)
 	}
 
 	return peer, nil

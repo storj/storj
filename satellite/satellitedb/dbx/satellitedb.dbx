@@ -205,6 +205,14 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read limitoffset (
+	select node
+	where  node.id >= ?
+	where  node.disqualified = null
+	where  node.last_contact_success > ?
+	orderby asc node.id
+)
+
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
