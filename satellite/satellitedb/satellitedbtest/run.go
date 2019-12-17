@@ -6,7 +6,6 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
-	"flag"
 	"strconv"
 	"strings"
 	"testing"
@@ -38,8 +37,6 @@ type Database struct {
 	Message string
 }
 
-var runCockroachTests = flag.Bool("run-cockroach-tests", false, "If set, don't skip the CockroachDB-using tests, even though they are not yet fully supported")
-
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
@@ -49,7 +46,7 @@ func Databases() []SatelliteDatabases {
 		},
 		{
 			MasterDB:  Database{"Cockroach", *pgtest.CrdbConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr + " or use STORJ_COCKROACH_TEST environment variable."},
-			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
+			PointerDB: Database{"Cockroach", *pgtest.CrdbConnStr, ""},
 		},
 	}
 }
@@ -167,11 +164,6 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 		dbInfo := dbInfo
 		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
 			t.Parallel()
-
-			// TODO: remove this skip and this flag once all the sql is cockroachdb compatible
-			if dbInfo.MasterDB.Name == "Cockroach" && !*runCockroachTests {
-				t.Skip("CockroachDB not supported yet")
-			}
 
 			db, err := CreateMasterDB(t, "T", 0, dbInfo.MasterDB)
 			if err != nil {

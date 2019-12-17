@@ -88,7 +88,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = metainfo.IterateDatabase(ctx, db, observer)
+	err = observer.detectZombieSegments(ctx)
 	if err != nil {
 		return err
 	}

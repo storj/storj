@@ -29,7 +29,7 @@ var (
 // Config defines parameters for the retain service.
 type Config struct {
 	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"72h0m0s"`
-	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"enabled"`
 	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 }
 

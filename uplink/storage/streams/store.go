@@ -55,7 +55,6 @@ func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMet
 
 // Store interface methods for streams to satisfy to be a store
 type typedStore interface {
-	Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (Meta, error)
 	Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
@@ -448,36 +447,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, object storj.Object, p
 
 	rangers = append(rangers, decryptedLastSegmentRanger)
 	return ranger.Concat(rangers...), nil
-}
-
-// Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	object, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
-		Bucket:        []byte(path.Bucket()),
-		EncryptedPath: []byte(encPath.Raw()),
-	})
-	if err != nil {
-		return Meta{}, err
-	}
-
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	var stream pb.StreamInfo
-	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
-		return Meta{}, err
-	}
-
-	return convertMeta(object.Modified, object.Expires, stream, streamMeta), nil
 }
 
 // Delete all the segments, with the last one last

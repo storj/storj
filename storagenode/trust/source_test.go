@@ -57,7 +57,7 @@ func TestNewSource(t *testing.T) {
 		{
 			name:   "explicit satellite URL",
 			config: "storj://121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@domain.test:7777",
-			typ:    new(trust.StaticSource),
+			typ:    new(trust.StaticURLSource),
 		},
 		{
 			name:   "explicit bad satellite URL",
@@ -67,7 +67,7 @@ func TestNewSource(t *testing.T) {
 		{
 			name:   "satellite URL",
 			config: "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@domain.test:7777",
-			typ:    new(trust.StaticSource),
+			typ:    new(trust.StaticURLSource),
 		},
 		{
 			name:   "partial satellite URL",

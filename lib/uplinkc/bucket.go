@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
@@ -129,7 +130,13 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
 
 	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
-	items := (*[1 << 30 / unsafe.Sizeof(C.BucketInfo{})]C.BucketInfo)(itemsPtr)
+	items := *(*[]C.BucketInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(itemsPtr),
+			Len:  listLen,
+			Cap:  listLen,
+		},
+	))
 	for i, bucket := range bucketList.Items {
 		bucket := bucket
 		items[i] = newBucketInfo(&bucket)
@@ -186,10 +193,17 @@ func free_bucket_info(bucketInfo *C.BucketInfo) {
 //export free_bucket_list
 // free_bucket_list will free a list of buckets
 func free_bucket_list(bucketlist *C.BucketList) {
-	items := (*[1 << 30 / unsafe.Sizeof(C.BucketInfo{})]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
-	for i := 0; i < int(bucketlist.length); i++ {
+	items := *(*[]C.BucketInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bucketlist.items)),
+			Len:  int(bucketlist.length),
+			Cap:  int(bucketlist.length),
+		},
+	))
+	for i := range items {
 		free_bucket_info(&items[i])
 	}
 	C.free(unsafe.Pointer(bucketlist.items))
 	bucketlist.items = nil
+	bucketlist.length = 0
 }

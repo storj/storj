@@ -166,27 +166,18 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 	}
 }
 
-// Get gets pointer from db
-func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, err error) {
+// Get gets decoded pointer from DB.
+func (s *Service) Get(ctx context.Context, path string) (_ *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	pointerBytes, err := s.db.Get(ctx, []byte(path))
+	_, pointer, err := s.GetWithBytes(ctx, path)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrObjectNotFound.Wrap(err)
-		}
-		return nil, Error.Wrap(err)
-	}
-
-	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	return pointer, nil
 }
 
-// GetWithBytes gets pointer from db
+// GetWithBytes gets the protocol buffers encoded and decoded pointer from the DB.
 func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 

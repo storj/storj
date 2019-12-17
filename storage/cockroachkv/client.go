@@ -29,9 +29,9 @@ type Client struct {
 	db *sql.DB
 }
 
-// New instantiates a new postgreskv client given db URL
+// New instantiates a new cockroachkv client given db URL
 func New(dbURL string) (*Client, error) {
-	db, err := sql.Open("postgres", dbURL)
+	db, err := sql.Open("cockroach", dbURL)
 	if err != nil {
 		return nil, err
 	}

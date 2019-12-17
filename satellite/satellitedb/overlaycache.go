@@ -31,7 +31,7 @@ var (
 var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
@@ -586,7 +586,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 
 			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
-			sql := buildUpdateStatement(cache.db, updateNodeStats)
+			sql := buildUpdateStatement(updateNodeStats)
 
 			allSQL += sql
 		}
@@ -1120,7 +1120,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
+func buildUpdateStatement(update updateNodeStats) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}
