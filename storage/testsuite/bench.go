@@ -42,6 +42,7 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	defer cleanupItems(b, ctx, store, items)
 
 	b.Run("Put", func(b *testing.B) {

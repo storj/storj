@@ -175,6 +175,7 @@ func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore)
 
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	initStore(b, ctx, store)
 
 	doTest := func(name string, testFunc func(*testing.B, *testcontext.Context, storage.KeyValueStore)) {
