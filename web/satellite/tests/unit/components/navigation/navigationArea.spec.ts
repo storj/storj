@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { RouteConfig } from '@/router';
-import { makeProjectsModule } from '@/store/modules/projects';
+import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
@@ -41,7 +41,7 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(8);
+        expect(navigationElements.length).toBe(9);
         expect(disabledElements.length).toBe(4);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
@@ -51,7 +51,7 @@ describe('NavigationArea', () => {
 
     it('snapshot not changed with project', async () => {
         const projects = await store.dispatch('fetchProjects');
-        await store.dispatch('selectProject', projects[0].id);
+        store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, projects[0].id);
 
         const wrapper = shallowMount(NavigationArea, {
             store,
@@ -63,7 +63,7 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(8);
+        expect(navigationElements.length).toBe(9);
         expect(disabledElements.length).toBe(0);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
@@ -110,7 +110,7 @@ describe('NavigationArea', () => {
         wrapper.find('.navigation-area__resources-title__button').trigger('click');
         wrapper.find('.navigation-area__account-title__button').trigger('click');
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(8);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
 
         wrapper.find('.navigation-area__resources-title').trigger('mouseleave');
         wrapper.find('.navigation-area__account-title').trigger('mouseleave');
@@ -118,6 +118,6 @@ describe('NavigationArea', () => {
         expect(wrapper.findAll('.navigation-area__resources-title__button').length).toBe(0);
         expect(wrapper.findAll('.navigation-area__account-title__button').length).toBe(0);
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(8);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
     });
 });

@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -48,7 +49,7 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777"`
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -62,6 +63,8 @@ type Config struct {
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 
 	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+
+	Trust trust.Config
 
 	Monitor monitor.Config
 	Orders  orders.Config
@@ -134,7 +137,9 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 
 var monLiveRequests = mon.TaskNamed("live-request")
 
-// Delete handles deleting a piece on piece store.
+// Delete handles deleting a piece on piece store requested by uplink.
+//
+// DEPRECATED in favor of DeletePiece.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -155,15 +160,59 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
-		// TODO: add more debug info
+
+		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
+		// report rpc status of internal server error or not found error,
+		// e.g. not found might happen when we get a deletion request after garbage
+		// collection has deleted it
 		endpoint.log.Error("delete failed", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
-		// TODO: report rpc status of internal server error or missing error,
-		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
 		endpoint.log.Info("deleted", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
+}
+
+// DeletePiece handles deleting a piece on piece store requested by satellite.
+//
+// It doesn't return an error if the piece isn't found by any reason.
+func (endpoint *Endpoint) DeletePiece(
+	ctx context.Context, req *pb.PieceDeletePieceRequest,
+) (_ *pb.PieceDeletePieceResponse, err error) {
+	defer mon.Task()(&ctx, req.PieceId.String())(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied,
+			Error.New("%s", "delete piece called with untrusted ID").Error(),
+		)
+	}
+
+	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
+	if err != nil {
+		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
+		// Once this method returns error classes change the following conditional
+		if strings.Contains(err.Error(), "file does not exist") {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
+		}
+
+		endpoint.log.Error("delete piece failed",
+			zap.Error(Error.Wrap(err)),
+			zap.Stringer("Satellite ID", peer.ID),
+			zap.Stringer("Piece ID", req.PieceId),
+		)
+
+		return nil, rpcstatus.Error(rpcstatus.Internal,
+			Error.New("%s", "delete piece failed").Error(),
+		)
+	}
+
+	return &pb.PieceDeletePieceResponse{}, nil
 }
 
 // Upload handles uploading a piece on piece store.

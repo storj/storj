@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/errs2"
-	"storj.io/storj/storage"
 )
 
 // CreateSegmentOld requests the order limits for creating a new segment
@@ -67,7 +66,7 @@ func (client *Client) SegmentInfoOld(ctx context.Context, bucket string, path st
 	})
 	if err != nil {
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)
 	}
@@ -87,7 +86,7 @@ func (client *Client) ReadSegmentOld(ctx context.Context, bucket string, path st
 	})
 	if err != nil {
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
-			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
+			return nil, nil, piecePrivateKey, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return nil, nil, piecePrivateKey, Error.Wrap(err)
 	}
@@ -125,7 +124,7 @@ func (client *Client) DeleteSegmentOld(ctx context.Context, bucket string, path 
 	})
 	if err != nil {
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
-			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
+			return nil, piecePrivateKey, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return nil, piecePrivateKey, Error.Wrap(err)
 	}

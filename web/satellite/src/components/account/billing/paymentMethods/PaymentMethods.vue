@@ -27,10 +27,14 @@
                 </div>
             </div>
         </div>
+        <PaymentsBonus
+            v-if="isDefaultState && isBonusInfoShown"
+            class="payment-methods-area__bonus"
+        />
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
-                <StorjInput class="form"/>
+                <TokenDepositSelection class="form" @onChangeTokenValue="onChangeTokenValue"/>
             </div>
             <VButton
                 label="Continue to Coin Payments"
@@ -41,9 +45,9 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
-            <StripeInput
+            <StripeCardInput
                 class="payment-methods-area__adding-container__stripe"
-                ref="stripeInput"
+                ref="stripeCardInput"
                 :on-stripe-response-callback="addCard"
             />
             <VButton
@@ -67,18 +71,22 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
-import StorjInput from '@/components/account/billing/paymentMethods/StorjInput.vue';
-import StripeInput from '@/components/account/billing/paymentMethods/StripeInput.vue';
+import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
+    MAKE_TOKEN_DEPOSIT,
+    GET_BILLING_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 interface StripeForm {
@@ -89,16 +97,23 @@ interface StripeForm {
     components: {
         VButton,
         CardComponent,
-        StorjInput,
-        StripeInput,
+        TokenDepositSelection,
+        StripeCardInput,
+        PaymentsBonus,
     },
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
     private isLoading: boolean = false;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
+    private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
+    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public mounted() {
         try {
+            this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -106,7 +121,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public $refs!: {
-        stripeInput: StripeInput & StripeForm;
+        stripeCardInput: StripeCardInput & StripeForm;
     };
 
     public get creditCards(): CreditCard[] {
@@ -123,6 +138,14 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    public get isBonusInfoShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    public onChangeTokenValue(value: number): void {
+        this.tokenDepositValue = value;
+    }
+
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
 
@@ -135,16 +158,54 @@ export default class PaymentMethods extends Vue {
     }
     public onCancel(): void {
         this.areaState = PaymentMethodsBlockState.DEFAULT;
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
         return;
     }
 
-    public onConfirmAddSTORJ(): void {
+    /**
+     * onConfirmAddSTORJ checks if amount is valid and if so process token
+     * payment and return state to default
+     */
+    public async onConfirmAddSTORJ(): Promise<void> {
+        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
+            await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
+            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+            this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+            return;
+        }
+
+        try {
+            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
+            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
+            const depositWindow = window.open(tokenResponse.link, '_blank');
+            if (depositWindow) {
+                depositWindow.focus();
+            }
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
+
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+        try {
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
         this.areaState = PaymentMethodsBlockState.DEFAULT;
     }
 
     public async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeInput.onSubmit();
+        await this.$refs.stripeCardInput.onSubmit();
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
     }
 
     public async addCard(token: string) {
@@ -165,6 +226,9 @@ export default class PaymentMethods extends Vue {
         }
 
         await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
@@ -214,10 +278,15 @@ export default class PaymentMethods extends Vue {
             justify-content: space-between;
         }
 
+        &__bonus {
+            margin-top: 50px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
+            user-select: none;
         }
 
         &__button-area {

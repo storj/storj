@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/storage/streams"
 )
 
@@ -39,7 +38,6 @@ type ListItem struct {
 
 // Store for objects
 type Store interface {
-	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error)
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
@@ -56,22 +54,6 @@ func NewStore(store streams.Store, pathCipher storj.CipherSuite) Store {
 	return &objStore{store: store, pathCipher: pathCipher}
 }
 
-func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(path) == 0 {
-		return Meta{}, storj.ErrNoPath.New("")
-	}
-
-	m, err := o.store.Meta(ctx, path, o.pathCipher)
-
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
-	return convertMeta(m), err
-}
-
 func (o *objStore) Get(ctx context.Context, path storj.Path, object storj.Object) (
 	rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -81,10 +63,6 @@ func (o *objStore) Get(ctx context.Context, path storj.Path, object storj.Object
 	}
 
 	rr, err = o.store.Get(ctx, path, object, o.pathCipher)
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
 	return rr, err
 }
 
@@ -113,13 +91,7 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 		return storj.ErrNoPath.New("")
 	}
 
-	err = o.store.Delete(ctx, path, o.pathCipher)
-
-	if storage.ErrKeyNotFound.Has(err) {
-		err = storj.ErrObjectNotFound.Wrap(err)
-	}
-
-	return err
+	return o.store.Delete(ctx, path, o.pathCipher)
 }
 
 func (o *objStore) List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (

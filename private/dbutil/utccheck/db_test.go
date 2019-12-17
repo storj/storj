@@ -17,7 +17,7 @@ import (
 
 func TestUTCDB(t *testing.T) {
 	notUTC := time.FixedZone("not utc", -1)
-	db := utccheck.New(sql.OpenDB(emptyConnector{}))
+	db := sql.OpenDB(utccheck.WrapConnector(emptyConnector{}))
 
 	{ // time.Time not in UTC
 		_, err := db.Exec("", time.Now().In(notUTC))
@@ -58,9 +58,27 @@ func (emptyConnector) Driver() driver.Driver                        { return nil
 
 type emptyConn struct{}
 
+func (emptyConn) Close() error { return nil }
+
 func (emptyConn) Prepare(query string) (driver.Stmt, error) { return emptyStmt{}, nil }
-func (emptyConn) Close() error                              { return nil }
-func (emptyConn) Begin() (driver.Tx, error)                 { return emptyTx{}, nil }
+func (emptyConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	return emptyStmt{}, nil
+}
+
+func (emptyConn) Begin() (driver.Tx, error) { return emptyTx{}, nil }
+func (emptyConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return emptyTx{}, nil
+}
+
+func (emptyConn) Query(query string, args []driver.Value) (driver.Rows, error) { return nil, nil }
+func (emptyConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	return nil, nil
+}
+
+func (emptyConn) Exec(query string, args []driver.Value) (driver.Result, error) { return nil, nil }
+func (emptyConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	return nil, nil
+}
 
 type emptyTx struct{}
 

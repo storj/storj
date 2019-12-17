@@ -14,10 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -134,6 +136,42 @@ func TestStorageNodeUsage(t *testing.T) {
 					}
 				}
 			}
+		})
+	})
+}
+
+func TestProjectLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
+		require.NoError(t, err)
+
+		err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 1)
+		require.NoError(t, err)
+
+		t.Run("get", func(t *testing.T) {
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(1), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(1), bandwidthLimit)
+		})
+
+		t.Run("update", func(t *testing.T) {
+			err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 4)
+			require.NoError(t, err)
+
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(4), storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(4), bandwidthLimit)
 		})
 	})
 }

@@ -2,9 +2,14 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { CreateProjectModel, Project, ProjectLimits, ProjectsApi } from '@/types/projects';
+import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/projects';
+
     /**
      * Creates project
      *
@@ -51,7 +56,15 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const response = await this.query(query);
 
-        return response.data.myProjects;
+        return response.data.myProjects.map((project: Project) => {
+            return new Project(
+                project.id,
+                project.name,
+                project.description,
+                project.createdAt,
+                project.ownerId,
+            );
+        });
     }
 
     /**
@@ -98,5 +111,33 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         };
 
         await this.mutate(query, variables);
+    }
+
+    /**
+     * Get project limits
+     *
+     * @param projectId- project ID
+     * throws Error
+     */
+    public async getLimits(projectId): Promise<ProjectLimits> {
+        const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
+        const response = await this.http.get(path, true);
+
+        if (response.ok) {
+            const limits = await response.json();
+
+            return new ProjectLimits(
+                limits.bandwidthLimit,
+                limits.bandwidthUsed,
+                limits.storageLimit,
+                limits.storageUsed,
+            );
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not get usage limits');
     }
 }

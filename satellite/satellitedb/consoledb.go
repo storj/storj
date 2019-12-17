@@ -17,7 +17,7 @@ var _ console.DB = (*ConsoleDB)(nil)
 
 // ConsoleDB contains access to different satellite databases.
 type ConsoleDB struct {
-	db *dbx.DB
+	db *satelliteDB
 	tx *dbx.Tx
 
 	methods dbx.Methods

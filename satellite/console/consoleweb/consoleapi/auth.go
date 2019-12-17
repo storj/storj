@@ -89,7 +89,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		PartnerID      string `json:"partnerId"`
 		Password       string `json:"password"`
 		SecretInput    string `json:"secret"`
-		ReferrerUserID string `json:"referrerUserID"`
+		ReferrerUserID string `json:"referrerUserId"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -117,6 +117,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.serveJSONError(w, err)
+		return
 	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)

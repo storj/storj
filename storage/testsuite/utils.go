@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -21,10 +22,34 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 	}
 }
 
-func cleanupItems(store storage.KeyValueStore, items storage.Items) {
-	for _, item := range items {
-		_ = store.Delete(ctx, item.Key)
+func cleanupItems(t testing.TB, ctx *testcontext.Context, store storage.KeyValueStore, items storage.Items) {
+	bulkDeleter, ok := store.(BulkDeleter)
+	if ok {
+		err := bulkDeleter.BulkDelete(ctx, items)
+		if err != nil {
+			t.Fatalf("could not do bulk cleanup of items: %v", err)
+		}
+	} else {
+		for _, item := range items {
+			_ = store.Delete(ctx, item.Key)
+		}
 	}
+}
+
+// BulkImporter identifies KV storage facilities that can do bulk importing of items more
+// efficiently than inserting one-by-one.
+type BulkImporter interface {
+	BulkImport(context.Context, storage.Iterator) error
+}
+
+// BulkDeleter identifies KV storage facilities that can delete multiple items efficiently.
+type BulkDeleter interface {
+	BulkDelete(context.Context, storage.Items) error
+}
+
+// BulkCleaner identifies KV storage facilities that can delete all items efficiently.
+type BulkCleaner interface {
+	BulkDeleteAll(ctx context.Context) error
 }
 
 type iterationTest struct {
@@ -33,10 +58,10 @@ type iterationTest struct {
 	Expected storage.Items
 }
 
-func testIterations(t *testing.T, store storage.KeyValueStore, tests []iterationTest) {
+func testIterations(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore, tests []iterationTest) {
 	t.Helper()
 	for _, test := range tests {
-		items, err := iterateItems(store, test.Options, -1)
+		items, err := iterateItems(ctx, store, test.Options, -1)
 		if err != nil {
 			t.Errorf("%s: %v", test.Name, err)
 			continue
@@ -47,7 +72,7 @@ func testIterations(t *testing.T, store storage.KeyValueStore, tests []iteration
 	}
 }
 
-func isEmptyKVStore(tb testing.TB, store storage.KeyValueStore) bool {
+func isEmptyKVStore(tb testing.TB, ctx *testcontext.Context, store storage.KeyValueStore) bool {
 	tb.Helper()
 	keys, err := store.List(ctx, storage.Key(""), 1)
 	if err != nil {
@@ -69,7 +94,7 @@ func (collect *collector) include(ctx context.Context, it storage.Iterator) erro
 	return nil
 }
 
-func iterateItems(store storage.KeyValueStore, opts storage.IterateOptions, limit int) (storage.Items, error) {
+func iterateItems(ctx *testcontext.Context, store storage.KeyValueStore, opts storage.IterateOptions, limit int) (storage.Items, error) {
 	collect := &collector{Limit: limit}
 	err := store.Iterate(ctx, opts, collect.include)
 	if err != nil {

@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -49,11 +50,6 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	// CreateSchema sets the schema
-	CreateSchema(schema string) error
-	// DropSchema drops the schema
-	DropSchema(schema string) error
-
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
@@ -70,7 +66,7 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	//  returns database for marketing admin GUI
+	// Rewards returns database for marketing admin GUI
 	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
@@ -110,6 +106,8 @@ type Config struct {
 	Mail mailservice.Config
 
 	Payments paymentsconfig.Config
+
+	Referrals referrals.Config
 
 	Console consoleweb.Config
 

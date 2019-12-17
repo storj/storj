@@ -65,8 +65,8 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
-		// NB: can't use `log.output` because windows service command args containing "." are bugged.
-		Log string `help:"path to log file, if empty standard output will be used" default:""`
+		// deprecated
+		Log string `help:"deprecated, use --log.output" default:""`
 	}
 
 	confDir     string
@@ -87,20 +87,22 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	closeLog, err := openLog()
-	defer func() { err = errs.Combine(err, closeLog()) }()
+	err = openLog()
+	if err != nil {
+		zap.S().Errorf("Error creating new logger: %v", err)
+	}
 
 	if !fileExists(runCfg.BinaryLocation) {
-		log.Fatal("unable to find storage node executable binary")
+		zap.S().Fatal("Unable to find storage node executable binary")
 	}
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatalf("error loading identity: %s", err)
+		zap.S().Fatalf("Error loading identity: %v", err)
 	}
 	nodeID = ident.ID
 	if nodeID.IsZero() {
-		log.Fatal("empty node ID")
+		zap.S().Fatal("Empty node ID")
 	}
 
 	var ctx context.Context
@@ -118,13 +120,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	loopFunc := func(ctx context.Context) (err error) {
 		if err := update(ctx, runCfg.BinaryLocation, runCfg.ServiceName); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
+			zap.S().Errorf("Error updating %s: %v", runCfg.ServiceName, err)
 		}
 
 		updaterBinName := os.Args[0]
 		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			log.Println(err)
+			zap.S().Errorf("Error updating %s: %v", updaterServiceName, err)
 		}
 		return nil
 	}
@@ -133,7 +135,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	case runCfg.CheckInterval <= 0:
 		err = loopFunc(ctx)
 	case runCfg.CheckInterval < minCheckInterval:
-		log.Printf("check interval below minimum: \"%s\", setting to %s", runCfg.CheckInterval, minCheckInterval)
+		zap.S().Errorf("Check interval below minimum: %s, setting to %s", runCfg.CheckInterval, minCheckInterval)
 		runCfg.CheckInterval = minCheckInterval
 		fallthrough
 	default:
@@ -148,7 +150,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 func update(ctx context.Context, binPath, serviceName string) (err error) {
 	if nodeID.IsZero() {
-		log.Fatal("empty node ID")
+		zap.S().Fatal("Empty node ID")
 	}
 
 	var currentVersion version.SemVer
@@ -163,7 +165,7 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}
 
 	client := checker.New(runCfg.ClientConfig)
-	log.Println("downloading versions from", runCfg.ServerAddress)
+	zap.S().Infof("Downloading versions from %s", runCfg.ServerAddress)
 	processVersion, err := client.Process(ctx, serviceName)
 	if err != nil {
 		return errs.Wrap(err)
@@ -176,12 +178,12 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}
 
 	if currentVersion.Compare(suggestedVersion) >= 0 {
-		log.Printf("%s version is up to date\n", serviceName)
+		zap.S().Infof("%s version is up to date", serviceName)
 		return nil
 	}
 
 	if !version.ShouldUpdate(processVersion.Rollout, nodeID) {
-		log.Printf("new %s version available but not rolled out to this nodeID yet\n", serviceName)
+		zap.S().Infof("New %s version available but not rolled out to this nodeID yet", serviceName)
 		return nil
 	}
 
@@ -197,12 +199,12 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}()
 
 	downloadURL := parseDownloadURL(processVersion.Suggested.URL)
-	log.Println("start downloading", downloadURL, "to", tempArchive.Name())
+	zap.S().Infof("Start downloading %s to %s", downloadURL, tempArchive.Name())
 	err = downloadArchive(ctx, tempArchive, downloadURL)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
+	zap.S().Infof("Finished downloading %s to %s", downloadURL, tempArchive.Name())
 
 	newVersionPath := prependExtension(binPath, suggestedVersion.String())
 	err = unpackBinary(ctx, tempArchive.Name(), newVersionPath)
@@ -238,13 +240,13 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	log.Println("restarting service", serviceName)
+	zap.S().Infof("Restarting service %s", serviceName)
 	err = restartService(serviceName)
 	if err != nil {
 		// TODO: should we try to recover from this?
-		return errs.New("unable to restart service: %v", err)
+		return errs.New("Unable to restart service: %v", err)
 	}
-	log.Println("service", serviceName, "restarted successfully")
+	zap.S().Infof("Service %s restarted successfully", serviceName)
 
 	// TODO remove old binary ??
 	return nil
@@ -266,7 +268,7 @@ func parseDownloadURL(template string) string {
 func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
-		log.Printf("command output: %s", out)
+		zap.S().Infof("Command output: %s", out)
 		return version.SemVer{}, err
 	}
 
@@ -338,21 +340,19 @@ func fileExists(filename string) bool {
 	return info.Mode().IsRegular()
 }
 
-// TODO: improve logging; other commands use zap but due to an apparent
-// windows bug we're unable to use the existing process logging infrastructure.
-func openLog() (closeFunc func() error, err error) {
-	closeFunc = func() error { return nil }
-
+func openLog() error {
 	if runCfg.Log != "" {
-		logFile, err := os.OpenFile(runCfg.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			log.Printf("error opening log file: %s", err)
-			return closeFunc, err
+		logPath := runCfg.Log
+		if runtime.GOOS == "windows" && !strings.HasPrefix(logPath, "winfile:///") {
+			logPath = "winfile:///" + logPath
 		}
-		log.SetOutput(logFile)
-		return logFile.Close, nil
+		logger, err := process.NewLoggerWithOutputPaths(logPath)
+		if err != nil {
+			return err
+		}
+		zap.ReplaceGlobals(logger)
 	}
-	return closeFunc, nil
+	return nil
 }
 
 func main() {

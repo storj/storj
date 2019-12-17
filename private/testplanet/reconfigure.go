@@ -8,6 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testidentity"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storagenode"
@@ -18,10 +21,13 @@ type Reconfigure struct {
 	NewSatelliteDB        func(log *zap.Logger, index int) (satellite.DB, error)
 	NewSatellitePointerDB func(log *zap.Logger, index int) (metainfo.PointerDB, error)
 	Satellite             func(log *zap.Logger, index int, config *satellite.Config)
+	ReferralManagerServer func(log *zap.Logger) pb.ReferralManagerServer
 
 	NewStorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
 	UniqueIPCount    int
+
+	Identities func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities
 }
 
 // DisablePeerCAWhitelist returns a `Reconfigure` that sets `UsePeerCAWhitelist` for

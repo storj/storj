@@ -22,6 +22,7 @@ func TestProgress(t *testing.T) {
 	// test basic graceful exit progress crud
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
 		geDB := db.GracefulExit()
 
@@ -60,6 +61,7 @@ func TestTransferQueueItem(t *testing.T) {
 	// test basic graceful exit transfer queue crud
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
 		geDB := db.GracefulExit()
 

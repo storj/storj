@@ -91,8 +91,8 @@ export const appStateModule = {
         },
 
         // Mutation changing payment selection visibility
-        [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any): void {
-            state.appState.isPaymentSelectionShown = !state.appState.isPaymentSelectionShown;
+        [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any, value: boolean): void {
+            state.appState.isPaymentSelectionShown = value;
         },
         [APP_STATE_MUTATIONS.SET_NAME](state: any, satelliteName: string): void {
             state.satelliteName = satelliteName;
@@ -189,12 +189,8 @@ export const appStateModule = {
         [APP_STATE_ACTIONS.CHANGE_STATE]: function ({commit}: any, newFetchState: AppState): void {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
         },
-        [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({commit, state}: any): void {
-            if (!state.appState.isPaymentSelectionShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION);
+        [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({commit, state}: any, value: boolean): void {
+            commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION, value);
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: any, satelliteName: string): void {
             commit(APP_STATE_MUTATIONS.SET_NAME, satelliteName);

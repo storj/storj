@@ -20,86 +20,81 @@ import (
 )
 
 func TestInspectorStats(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 5, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	var availableBandwidth int64
-	var availableSpace int64
-	for _, storageNode := range planet.StorageNodes {
-		response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
-		require.NoError(t, err)
-
-		assert.Zero(t, response.UsedBandwidth)
-		assert.Zero(t, response.UsedSpace)
-		assert.Zero(t, response.UsedEgress)
-		assert.Zero(t, response.UsedIngress)
-		assert.True(t, response.AvailableBandwidth > 0)
-		assert.True(t, response.AvailableSpace > 0)
-
-		// assume that all storage node should have the same initial values
-		availableBandwidth = response.AvailableBandwidth
-		availableSpace = response.AvailableSpace
-	}
-
-	expectedData := testrand.Bytes(100 * memory.KiB)
-
-	rs := &uplink.RSConfig{
-		MinThreshold:     2,
-		RepairThreshold:  3,
-		SuccessThreshold: 4,
-		MaxThreshold:     5,
-	}
-
-	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
-	require.NoError(t, err)
-
-	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
-	assert.NoError(t, err)
-
-	// wait until all requests have been handled
-	for {
-		total := int32(0)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var availableBandwidth int64
+		var availableSpace int64
 		for _, storageNode := range planet.StorageNodes {
-			total += storageNode.Storage2.Endpoint.TestLiveRequestCount()
-		}
-		if total == 0 {
-			break
+			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+			require.NoError(t, err)
+
+			assert.Zero(t, response.UsedBandwidth)
+			assert.Zero(t, response.UsedSpace)
+			assert.Zero(t, response.UsedEgress)
+			assert.Zero(t, response.UsedIngress)
+			assert.True(t, response.AvailableBandwidth > 0)
+			assert.True(t, response.AvailableSpace > 0)
+
+			// assume that all storage node should have the same initial values
+			availableBandwidth = response.AvailableBandwidth
+			availableSpace = response.AvailableSpace
 		}
 
-		sync2.Sleep(ctx, 100*time.Millisecond)
-	}
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-	var downloaded int
-	for _, storageNode := range planet.StorageNodes {
-		response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+		rs := &uplink.RSConfig{
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
+		}
+
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		// TODO set more accurate assertions
-		if response.UsedSpace > 0 {
-			assert.NotZero(t, response.UsedBandwidth)
-			assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
-			assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
-			assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		assert.NoError(t, err)
 
-			assert.Equal(t, response.UsedSpace, response.UsedBandwidth-response.UsedEgress)
-			if response.UsedEgress > 0 {
-				downloaded++
-				assert.Equal(t, response.UsedBandwidth-response.UsedIngress, response.UsedEgress)
+		// wait until all requests have been handled
+		for {
+			total := int32(0)
+			for _, storageNode := range planet.StorageNodes {
+				total += storageNode.Storage2.Endpoint.TestLiveRequestCount()
 			}
-		} else {
-			assert.Zero(t, response.UsedSpace)
-			// TODO track why this is failing
-			//assert.Equal(t, availableBandwidth, response.AvailableBandwidth)
-			assert.Equal(t, availableSpace, response.AvailableSpace)
+			if total == 0 {
+				break
+			}
+
+			sync2.Sleep(ctx, 100*time.Millisecond)
 		}
-	}
-	assert.True(t, downloaded >= rs.MinThreshold, "downloaded=%v, rs.MinThreshold=%v", downloaded, rs.MinThreshold)
+
+		var downloaded int
+		for _, storageNode := range planet.StorageNodes {
+			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+			require.NoError(t, err)
+
+			// TODO set more accurate assertions
+			if response.UsedSpace > 0 {
+				assert.NotZero(t, response.UsedBandwidth)
+				assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
+				assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
+				assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
+
+				assert.Equal(t, response.UsedSpace, response.UsedBandwidth-response.UsedEgress)
+				if response.UsedEgress > 0 {
+					downloaded++
+					assert.Equal(t, response.UsedBandwidth-response.UsedIngress, response.UsedEgress)
+				}
+			} else {
+				assert.Zero(t, response.UsedSpace)
+				// TODO track why this is failing
+				//assert.Equal(t, availableBandwidth, response.AvailableBandwidth)
+				assert.Equal(t, availableSpace, response.AvailableSpace)
+			}
+		}
+		assert.True(t, downloaded >= rs.MinThreshold, "downloaded=%v, rs.MinThreshold=%v", downloaded, rs.MinThreshold)
+	})
 }
 
 func TestInspectorDashboard(t *testing.T) {

@@ -59,14 +59,10 @@ export default class AccountBalance extends Vue {
     }
 
     public get balanceStyle() {
-        let color: string = '#DBF1D3';
+        let color: string = '#000';
 
         if (this.$store.state.paymentsModule.balance < 0) {
             color = '#FF0000';
-        }
-
-        if (this.$store.state.paymentsModule.balance === 0) {
-            color = '#000';
         }
 
         return { color };
@@ -104,6 +100,7 @@ export default class AccountBalance extends Vue {
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
+                user-select: none;
             }
 
             &__info-button {

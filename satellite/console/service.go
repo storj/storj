@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -37,7 +37,6 @@ const (
 // Error messages
 const (
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
-	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	emailUsedErrMsg                      = "This email is already in use, try another"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
@@ -61,6 +60,9 @@ var ErrNoMembership = errs.Class("no membership error")
 // ErrTokenExpiration is error type of token reached expiration time.
 var ErrTokenExpiration = errs.Class("token expiration error")
 
+// ErrProjLimit is error type of project limit.
+var ErrProjLimit = errs.Class("project limit error")
+
 // Service is handling accounts related logic
 //
 // architecture: Service
@@ -70,6 +72,7 @@ type Service struct {
 	log               *zap.Logger
 	store             DB
 	projectAccounting accounting.ProjectAccounting
+	projectUsage      *accounting.Service
 	rewards           rewards.DB
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
@@ -83,7 +86,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -102,6 +105,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		Signer:            signer,
 		store:             store,
 		projectAccounting: projectAccounting,
+		projectUsage:      projectUsage,
 		rewards:           rewards,
 		partners:          partners,
 		accounts:          accounts,
@@ -231,18 +235,18 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, err
 	}
 
-	for _, tx := range txsInfos {
+	for _, info := range txsInfos {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID:            tx.ID.String(),
-				Description:   "STORJ Token Deposit",
-				TokenAmount:   tx.Amount.String(),
-				TokenReceived: tx.Received.String(),
-				Status:        tx.Status.String(),
-				Link:          tx.Link,
-				Start:         tx.CreatedAt,
-				End:           tx.ExpiresAt,
-				Type:          Transaction,
+				ID:          info.ID.String(),
+				Description: "STORJ Token Deposit",
+				Amount:      info.AmountCents,
+				Received:    info.ReceivedCents,
+				Status:      info.Status.String(),
+				Link:        info.Link,
+				Start:       info.CreatedAt,
+				End:         info.ExpiresAt,
+				Type:        Transaction,
 			},
 		)
 	}
@@ -257,7 +261,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount *payments.TokenAmount) (_ *payments.Transaction, err error) {
+func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -309,7 +313,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	} else {
 		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 		if err != nil {
-			return nil, errs.New(vanguardRegTokenErrMsg)
+			return nil, ErrUnauthorized.Wrap(err)
 		}
 		// if a registration token is already associated with an user ID, that means the token is already used
 		// we should terminate the account creation process and return an error
@@ -368,21 +372,23 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
-			var refID *uuid.UUID
-			if refUserID != "" {
-				refID, err = uuid.Parse(refUserID)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			}
-			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
-			if err != nil {
-				return err
-			}
-			err = tx.UserCredits().Create(ctx, *newCredit)
-			if err != nil {
-				return err
-			}
+			_ = currentReward
+			// NB: Uncomment this block when UserCredits().Create is cockroach compatible
+			// var refID *uuid.UUID
+			// if refUserID != "" {
+			// 	refID, err = uuid.Parse(refUserID)
+			// 	if err != nil {
+			// 		return Error.Wrap(err)
+			// 	}
+			// }
+			// newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
+			// if err != nil {
+			// 	return err
+			// }
+			// err = tx.UserCredits().Create(ctx, *newCredit)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 
 		return nil
@@ -495,7 +501,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if err := validatePassword(password); err != nil {
+	if err := ValidatePassword(password); err != nil {
 		return err
 	}
 
@@ -598,7 +604,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	}
 
 	// validate fullName
-	err = validateFullName(fullName)
+	err = ValidateFullName(fullName)
 	if err != nil {
 		return ErrValidation.Wrap(err)
 	}
@@ -635,7 +641,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
-	if err := validatePassword(newPass); err != nil {
+	if err := ValidatePassword(newPass); err != nil {
 		return err
 	}
 
@@ -755,7 +761,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	// TODO: remove after vanguard release
 	err = s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrProjLimit.Wrap(err)
 	}
 
 	tx, err := s.store.BeginTx(ctx)
@@ -1199,6 +1205,41 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	return result, nil
 }
 
+// GetProjectUsageLimits returns project limits and current usage.
+func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:   storageLimit.Int64(),
+		BandwidthLimit: bandwidthLimit.Int64(),
+		StorageUsed:    storageUsed,
+		BandwidthUsed:  bandwidthUsed,
+	}, nil
+}
+
 // Authorize validates token from context and returns authorized Authorization
 func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1245,7 +1286,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 		return Error.Wrap(err)
 	}
 	if len(projects) >= registrationToken.ProjectLimit {
-		return ErrUnauthorized.Wrap(errs.New(projLimitVanguardErrMsg))
+		return ErrProjLimit.Wrap(errs.New(projLimitVanguardErrMsg))
 	}
 
 	return nil

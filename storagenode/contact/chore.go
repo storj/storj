@@ -30,7 +30,7 @@ type Chore struct {
 	trust *trust.Pool
 
 	mu       sync.Mutex
-	cycles   []*sync2.Cycle
+	cycles   map[storj.NodeID]*sync2.Cycle
 	started  sync2.Fence
 	interval time.Duration
 }
@@ -50,6 +50,7 @@ func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer
 
 		trust: trust,
 
+		cycles:   make(map[storj.NodeID]*sync2.Cycle),
 		interval: interval,
 	}
 }
@@ -65,47 +66,85 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		return ctx.Err()
 	}
 
-	chore.mu.Lock()
-	for _, satellite := range chore.trust.GetSatellites(ctx) {
-		satellite := satellite
+	// configure the satellite ping cycles
+	chore.updateCycles(ctx, &group, chore.trust.GetSatellites(ctx))
 
-		cycle := sync2.NewCycle(chore.interval)
-		chore.cycles = append(chore.cycles, cycle)
+	// set up a cycle to update ping cycles on a frequent interval
+	refreshCycle := sync2.NewCycle(time.Minute)
+	refreshCycle.Start(ctx, &group, func(ctx context.Context) error {
+		chore.updateCycles(ctx, &group, chore.trust.GetSatellites(ctx))
+		return nil
+	})
 
-		cycle.Start(ctx, &group, func(ctx context.Context) error {
-			chore.log.Debug("starting cycle", zap.Stringer("Satellite ID", satellite))
-			interval := initialBackOff
-			attempts := 0
-			for {
+	defer refreshCycle.Close()
 
-				mon.Meter("satellite_contact_request").Mark(1) //locked
-
-				err := chore.pingSatellite(ctx, satellite)
-				attempts++
-				if err == nil {
-					return nil
-				}
-				chore.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
-
-				// Sleeps until interval times out, then continue. Returns if context is cancelled.
-				if !sync2.Sleep(ctx, interval) {
-					chore.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
-					return nil
-				}
-				interval *= 2
-				if interval >= chore.interval {
-					chore.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
-					return nil
-				}
-			}
-		})
-	}
-	chore.mu.Unlock()
 	chore.started.Release()
 	return group.Wait()
 }
 
-func (chore *Chore) pingSatellite(ctx context.Context, id storj.NodeID) (err error) {
+func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storj.NodeID) {
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+
+	trustedIDs := make(map[storj.NodeID]struct{})
+
+	for _, satellite := range satellites {
+		satellite := satellite // alias the loop var since it is captured below
+
+		trustedIDs[satellite] = struct{}{}
+		if _, ok := chore.cycles[satellite]; ok {
+			// Ping cycle has already been started for this satellite
+			continue
+		}
+
+		// Set up a new ping cycle for the newly trusted satellite
+		chore.log.Debug("Starting cycle", zap.Stringer("Satellite ID", satellite))
+		cycle := sync2.NewCycle(chore.interval)
+		chore.cycles[satellite] = cycle
+		cycle.Start(ctx, group, func(ctx context.Context) error {
+			return chore.pingSatellite(ctx, satellite)
+		})
+	}
+
+	// Stop the ping cycle for satellites that are no longer trusted
+	for satellite, cycle := range chore.cycles {
+		if _, ok := trustedIDs[satellite]; !ok {
+			chore.log.Debug("Stopping cycle", zap.Stringer("Satellite ID", satellite))
+			cycle.Close()
+			delete(chore.cycles, satellite)
+		}
+	}
+}
+
+func (chore *Chore) pingSatellite(ctx context.Context, satellite storj.NodeID) error {
+	interval := initialBackOff
+	attempts := 0
+	for {
+
+		mon.Meter("satellite_contact_request").Mark(1) //locked
+
+		err := chore.pingSatelliteOnce(ctx, satellite)
+		attempts++
+		if err == nil {
+			return nil
+		}
+		chore.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
+
+		// Sleeps until interval times out, then continue. Returns if context is cancelled.
+		if !sync2.Sleep(ctx, interval) {
+			chore.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
+			return nil
+		}
+		interval *= 2
+		if interval >= chore.interval {
+			chore.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
+			return nil
+		}
+	}
+
+}
+
+func (chore *Chore) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
 	self := chore.service.Local()

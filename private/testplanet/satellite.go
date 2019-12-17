@@ -5,6 +5,7 @@ package testplanet
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,6 +23,9 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
@@ -225,8 +229,19 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
-			db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+			// TODO: This is analogous to the way we worked prior to the advent of OpenUnique,
+			// but it seems wrong. Tests that use planet.Start() instead of testplanet.Run()
+			// will not get run against both types of DB.
+			connStr := *pgtest.ConnStr
+			if *pgtest.CrdbConnStr != "" {
+				connStr = *pgtest.CrdbConnStr
+			}
+			var tempDB *dbutil.TempDatabase
+			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
+			if err != nil {
+				return nil, err
+			}
+			db, err = satellitedbtest.CreateMasterDBOnTopOf(log.Named("db"), tempDB)
 		}
 		if err != nil {
 			return nil, err
@@ -381,6 +396,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
 			},
+		}
+
+		if planet.ReferralManager != nil {
+			config.Referrals.ReferralManagerURL = storj.NodeURL{
+				ID:      planet.ReferralManager.Identity().ID,
+				Address: planet.ReferralManager.Addr().String(),
+			}
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)

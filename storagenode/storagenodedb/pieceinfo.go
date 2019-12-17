@@ -25,7 +25,7 @@ var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 const PieceInfoDBName = "pieceinfo"
 
 type v0PieceInfoDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Add inserts piece information into the database.

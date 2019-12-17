@@ -49,6 +49,7 @@ message ExitProgress {
     bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     float percent_complete = 3;
     bool successful = 4;
+    bytes completion_receipt = 5;
 }
 
 service SatelliteGracefulExit {

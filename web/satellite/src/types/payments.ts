@@ -61,6 +61,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     billingHistory(): Promise<BillingHistoryItem[]>;
+
+    /**
+     * Creates token transaction in CoinPayments
+     *
+     * @param amount
+     * @throws Error
+     */
+    makeTokenDeposit(amount: number): Promise<TokenDeposit>;
 }
 
 export class CreditCard {
@@ -89,29 +97,38 @@ export class BillingHistoryItem {
         public readonly id: string = '',
         public readonly description: string = '',
         public readonly amount: number = 0,
+        public readonly received: number = 0,
         public readonly status: string = '',
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
-        public readonly type: BillingHistoryItemType = 0,
+        public readonly type: BillingHistoryItemType = BillingHistoryItemType.Invoice,
     ) {}
 
-    public date(): string {
-        if (this.type) {
-            return this.start.toLocaleDateString();
+    public get quantity(): Amount {
+        if (this.type === BillingHistoryItemType.Invoice) {
+            return new Amount('$', this.amountDollars(this.amount));
         }
 
-        return `${this.start.toLocaleDateString()} - ${this.end.toLocaleDateString()}`;
+        return new Amount('$', this.amountDollars(this.amount), this.amountDollars(this.received));
     }
 
-    public amountDollars(): string {
-        return `$${this.amount / 100}`;
+    public get formattedStatus(): string {
+        return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
+    private amountDollars(amount): number {
+        return amount / 100;
     }
 
     public downloadLinkHtml(): string {
-        const downloadLabel = this.type === 1 ? 'EtherScan' : 'PDF';
+        if (!this.link) {
+            return '';
+        }
 
-        return `<a class="download-link" href="${this.link}">${downloadLabel}</a>`;
+        const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'PDF';
+
+        return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 }
 
@@ -121,6 +138,24 @@ export enum BillingHistoryItemType {
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
+}
+
+// TokenDeposit holds public information about token deposit
+export class TokenDeposit {
+    constructor(
+        public amount: number,
+        public address: string,
+        public link: string,
+    ) {}
+}
+
+// Amount holds information for displaying billing item payment
+class Amount {
+    public constructor(
+        public currency: string = '',
+        public total: number = 0,
+        public received: number = 0,
+    ) {}
 }
 
 /**
