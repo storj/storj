@@ -7,22 +7,10 @@ import (
 	"database/sql/driver"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 )
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
-}
 
 type postgresNodeIDList storj.NodeIDList
 
@@ -74,11 +62,12 @@ type uuidScan struct {
 // Scan is used to wrap logic of db scan with uuid conversion
 func (s *uuidScan) Scan(src interface{}) (err error) {
 	b, ok := src.([]byte)
+
 	if !ok {
 		return Error.New("unexpected type %T for uuid", src)
 	}
 
-	*s.uuid, err = bytesToUUID(b)
+	*s.uuid, err = dbutil.BytesToUUID(b)
 	if err != nil {
 		return Error.Wrap(err)
 	}

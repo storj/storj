@@ -5,13 +5,13 @@ import Vuex from 'vuex';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project } from '@/types/projects';
+import { Project, ProjectLimits } from '@/types/projects';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectsApi = new ProjectsApiGql();
-const { FETCH, CREATE, SELECT, DELETE, CLEAR, UPDATE } = PROJECTS_ACTIONS;
-const { ADD, SET_PROJECTS, SELECT_PROJECT, UPDATE_PROJECT, REMOVE, CLEAR_PROJECTS } = PROJECTS_MUTATIONS;
+const { FETCH, CREATE, SELECT, DELETE, CLEAR, UPDATE, GET_LIMITS } = PROJECTS_ACTIONS;
+const { ADD, SET_PROJECTS, SELECT_PROJECT, UPDATE_PROJECT, REMOVE, CLEAR_PROJECTS, SET_LIMITS } = PROJECTS_MUTATIONS;
 
 const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project('1', '', '', '');
@@ -24,9 +24,27 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 const state = (store.state as any).projectsModule;
 
 const projects = [
-    new Project('11', 'name', 'descr', '23', 'testOwnerId'),
-    new Project('1', 'name2', 'descr2', '24', 'testOwnerId1'),
+    new Project(
+        '11',
+        'name',
+        'descr',
+        '23',
+        'testOwnerId',
+        false,
+        new ProjectLimits(1, 2, 3, 4),
+    ),
+    new Project(
+        '1',
+        'name2',
+        'descr2',
+        '24',
+        'testOwnerId1',
+        false,
+        new ProjectLimits(5, 6, 7, 8),
+    ),
 ];
+
+const limits = new ProjectLimits(15, 12, 14, 13);
 
 const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
 
@@ -58,6 +76,7 @@ describe('mutations', () => {
 
         store.commit(SELECT_PROJECT, '11');
         expect(state.selectedProject.id).toBe('11');
+        expect(state.selectedProject.limits.bandwidthLimit).toBe(1);
     });
 
     it('update project', () => {
@@ -77,6 +96,17 @@ describe('mutations', () => {
 
         expect(state.projects.length).toBe(1);
         expect(state.projects[0].id).toBe('1');
+    });
+
+    it('set limits', () => {
+        state.projects = projects;
+
+        store.commit(SET_LIMITS, limits);
+
+        expect(state.selectedProject.limits.bandwidthUsed).toBe(12);
+        expect(state.selectedProject.limits.bandwidthLimit).toBe(15);
+        expect(state.selectedProject.limits.storageUsed).toBe(13);
+        expect(state.selectedProject.limits.storageLimit).toBe(14);
     });
 
     it('clear projects', () => {
@@ -112,6 +142,7 @@ describe('actions', () => {
             await store.dispatch(FETCH);
         } catch (error) {
             expect(state.projects.length).toBe(0);
+            expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
         }
     });
 
@@ -123,6 +154,7 @@ describe('actions', () => {
 
         await store.dispatch(CREATE, {name: '', description: ''});
         expect(state.projects.length).toBe(1);
+        expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
     });
 
     it('create throws an error when create api call fails', async () => {
@@ -134,6 +166,7 @@ describe('actions', () => {
             expect(true).toBe(false);
         } catch (error) {
             expect(state.projects.length).toBe(0);
+            expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
         }
     });
 
@@ -169,6 +202,7 @@ describe('actions', () => {
         store.dispatch(SELECT, '1');
 
         expect(state.selectedProject.id).toEqual('1');
+        expect(state.selectedProject.limits.bandwidthLimit).toBe(5);
     });
 
     it('success update project', async () => {
@@ -196,6 +230,21 @@ describe('actions', () => {
         } catch (error) {
             expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe('newDescription1');
         }
+    });
+
+    it('success get project limits', async () => {
+        jest.spyOn(projectsApi, 'getLimits').mockReturnValue(
+            Promise.resolve(limits),
+        );
+
+        state.projects = projects;
+
+        await store.dispatch(GET_LIMITS, state.selectedProject.id);
+
+        expect(state.selectedProject.limits.bandwidthUsed).toBe(12);
+        expect(state.selectedProject.limits.bandwidthLimit).toBe(15);
+        expect(state.selectedProject.limits.storageUsed).toBe(13);
+        expect(state.selectedProject.limits.storageLimit).toBe(14);
     });
 
     it('success clearProjects', () => {

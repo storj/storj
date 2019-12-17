@@ -9,6 +9,7 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 	"unsafe"
 
@@ -72,8 +73,15 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 
 	checksumLen := len(object.Meta.Checksum)
 	checksumPtr := C.malloc(C.size_t(checksumLen))
-	checksum := (*[1 << 30]uint8)(checksumPtr)
-	copy((*checksum)[:], object.Meta.Checksum)
+
+	checksum := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(checksumPtr),
+			Len:  checksumLen,
+			Cap:  checksumLen,
+		},
+	))
+	copy(checksum, object.Meta.Checksum)
 
 	return C.ObjectMeta{
 		bucket:          C.CString(object.Meta.Bucket),
@@ -144,7 +152,13 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
-	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bytes)),
+			Len:  int(length),
+			Cap:  int(length),
+		},
+	))
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
@@ -230,7 +244,13 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 	objectSize := int(C.sizeof_ObjectInfo)
 	ptr := C.malloc(C.size_t(objectSize * objListLen))
-	cObjectsPtr := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(ptr)
+	cObjectsPtr := *(*[]C.ObjectInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(ptr),
+			Len:  objListLen,
+			Cap:  objListLen,
+		},
+	))
 
 	for i, object := range objectList.Items {
 		object := object
@@ -241,7 +261,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more:   C.bool(objectList.More),
-		items:  (*C.ObjectInfo)(unsafe.Pointer(cObjectsPtr)),
+		items:  (*C.ObjectInfo)(ptr),
 		length: C.int32_t(objListLen),
 	}
 }
@@ -323,7 +343,13 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
-	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bytes)),
+			Len:  int(length),
+			Cap:  int(length),
+		},
+	))
 
 	n, err := download.rc.Read(buf)
 	if err != nil && err != io.EOF && !errs2.IsCanceled(err) {
@@ -421,6 +447,7 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 
 	C.free(unsafe.Pointer(objectMeta.checksum_bytes))
 	objectMeta.checksum_bytes = nil
+	objectMeta.checksum_length = 0
 }
 
 //export free_object_info
@@ -445,9 +472,17 @@ func free_list_objects(objectList *C.ObjectList) {
 	C.free(unsafe.Pointer(objectList.prefix))
 	objectList.prefix = nil
 
-	items := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(unsafe.Pointer(objectList.items))[:objectList.length]
-	for _, item := range items {
-		item := item
-		free_object_info((*C.ObjectInfo)(unsafe.Pointer(&item)))
+	items := *(*[]C.ObjectInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(objectList.items)),
+			Len:  int(objectList.length),
+			Cap:  int(objectList.length),
+		},
+	))
+	for i := range items {
+		free_object_info(&items[i])
 	}
+	C.free(unsafe.Pointer(objectList.items))
+	objectList.items = nil
+	objectList.length = 0
 }

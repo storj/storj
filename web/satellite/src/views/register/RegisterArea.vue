@@ -17,6 +17,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
@@ -175,6 +176,11 @@ export default class RegisterArea extends Vue {
                 await this.auth.register(this.user, this.secret, this.refUserId);
 
             LocalData.setUserId(this.userId);
+
+            this.$segment.identify(this.userId, {
+                email: this.$store.getters.user.email,
+                referralToken: this.referralToken,
+            });
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);

@@ -4,12 +4,7 @@
 <template>
     <div class="payment-methods-area">
         <div class="payment-methods-area__top-container">
-            <div>
-                <h1 class="payment-methods-area__title text">Payment Methods</h1>
-                <h2 v-if="isBonusInfoShown" class="payment-methods-area__bonus-info">
-                    You have a chance to get bonus credits!
-                </h2>
-            </div>
+            <h1 class="payment-methods-area__title text">Payment Methods</h1>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
                     <VButton
@@ -32,6 +27,10 @@
                 </div>
             </div>
         </div>
+        <PaymentsBonus
+            v-if="isDefaultState && isBonusInfoShown"
+            class="payment-methods-area__bonus"
+        />
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
@@ -72,6 +71,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
+import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -79,6 +79,7 @@ import VButton from '@/components/common/VButton.vue';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
@@ -98,6 +99,7 @@ interface StripeForm {
         CardComponent,
         TokenDepositSelection,
         StripeCardInput,
+        PaymentsBonus,
     },
 })
 export default class PaymentMethods extends Vue {
@@ -109,6 +111,9 @@ export default class PaymentMethods extends Vue {
 
     public mounted() {
         try {
+            this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -174,9 +179,17 @@ export default class PaymentMethods extends Vue {
         try {
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
+            const depositWindow = window.open(tokenResponse.link, '_blank');
+            if (depositWindow) {
+                depositWindow.focus();
+            }
         } catch (error) {
             await this.$notify.error(error.message);
         }
+
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {
@@ -190,6 +203,9 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeCardInput.onSubmit();
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
     }
 
     public async addCard(token: string) {
@@ -210,6 +226,9 @@ export default class PaymentMethods extends Vue {
         }
 
         await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
@@ -259,18 +278,15 @@ export default class PaymentMethods extends Vue {
             justify-content: space-between;
         }
 
+        &__bonus {
+            margin-top: 50px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 48px;
             user-select: none;
-        }
-
-        &__bonus-info {
-            font-family: 'font_regular', sans-serif;
-            font-size: 16px;
-            line-height: 21px;
-            color: #7889a1;
         }
 
         &__button-area {

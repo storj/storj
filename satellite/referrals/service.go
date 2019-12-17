@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 )
 
@@ -87,7 +88,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 
 	tokens = make([]uuid.UUID, len(tokensInBytes))
 	for i := range tokensInBytes {
-		token, err := bytesToUUID(tokensInBytes[i])
+		token, err := dbutil.BytesToUUID(tokensInBytes[i])
 		if err != nil {
 			service.log.Debug("failed to convert bytes to UUID", zap.Error(err))
 			continue
@@ -184,16 +185,4 @@ func (service *Service) referralManagerConn(ctx context.Context) (*rpc.Conn, err
 	}
 
 	return service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }

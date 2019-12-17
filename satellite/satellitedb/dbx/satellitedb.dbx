@@ -687,6 +687,11 @@ create offer ( )
 
 model user_credit (
 	key	id
+	index (
+	    name credits_earned_user_id_offer_id
+	    fields id offer_id
+	    unique
+	)
 
 	field id				serial
 

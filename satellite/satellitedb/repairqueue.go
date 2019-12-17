@@ -13,13 +13,11 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
 type repairQueue struct {
-	db     *dbx.DB
-	dbType dbutil.Implementation
+	db *satelliteDB
 }
 
 func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err error) {
@@ -36,9 +34,9 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err e
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
-	switch r.dbType {
+	switch r.db.implementation {
 	case dbutil.Cockroach:
-		err = crdb.ExecuteTx(ctx, r.db.DB, nil, func(tx *sql.Tx) error {
+		err = crdb.ExecuteTx(ctx, r.db.DB.DB, nil, func(tx *sql.Tx) error {
 			return tx.QueryRowContext(ctx, `
 					UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
 						SELECT path FROM injuredsegments
@@ -54,7 +52,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 					ORDER BY attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
-		return seg, errs.New("invalid dbType: %v", r.dbType)
+		return seg, errs.New("invalid dbType: %v", r.db.implementation)
 	}
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")

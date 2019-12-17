@@ -187,6 +187,15 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 	return nil
 }
 
+func (obsvr *observer) detectZombieSegments(ctx context.Context) error {
+	err := metainfo.IterateDatabase(ctx, obsvr.db, obsvr)
+	if err != nil {
+		return err
+	}
+
+	return obsvr.analyzeProject(ctx)
+}
+
 // analyzeProject analyzes the objects in obsv.objects field for detecting bad
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {

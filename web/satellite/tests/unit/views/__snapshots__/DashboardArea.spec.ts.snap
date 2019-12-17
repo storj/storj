@@ -9,7 +9,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
       <dashboardheader-stub></dashboardheader-stub>
       <div class="dashboard-container__main-area">
         <div class="dashboard-container__main-area__banner-area">
-          <vbanner-stub text="You have no payment method added." additionaltext="To start work with your account please add Credit Card or add $50.00 or more worth of STORJ tokens to your balance."></vbanner-stub>
+          <vbanner-stub text="We’ve Now Added Billing!" additionaltext="Your attention is required. Add a credit card to set up your account." path="/account/billing"></vbanner-stub>
         </div>
         <div class="dashboard-container__main-area__content">
           <router-view-stub name="default"></router-view-stub>

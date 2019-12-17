@@ -37,6 +37,7 @@ import VPagination from '@/components/common/VPagination.vue';
 
 import { RouteConfig } from '@/router';
 import { BillingHistoryItem } from '@/types/payments';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -46,6 +47,13 @@ import { BillingHistoryItem } from '@/types/payments';
     },
 })
 export default class BillingHistory extends Vue {
+    public mounted(): void {
+        this.$segment.track(SegmentEvent.BILLING_HISTORY_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            invoice_count: this.$store.state.paymentsModule.billingHistory.length,
+        });
+    }
+
     public get billingHistoryItems(): BillingHistoryItem[] {
         return this.$store.state.paymentsModule.billingHistory;
     }

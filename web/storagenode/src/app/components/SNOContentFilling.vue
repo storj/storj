@@ -36,10 +36,10 @@
                 </div>
             </div>
             <div class="chart-container">
-                <div class="chart-container__title-area">
+                <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount"><b>{{storageSummary}}*h</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{storageSummary}}*h</b></p>
                 <div class="chart-container__chart">
                     <DiskSpaceChart/>
                 </div>
@@ -414,5 +414,10 @@ export default class SNOContentFilling extends Vue {
     .ingress-chart-shown {
         background-color: #ffeac2;
         color: #c48c4b;
+    }
+
+    .disk-space-title,
+    .disk-space-amount {
+        margin-top: 5px;
     }
 </style>

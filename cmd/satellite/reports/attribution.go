@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
@@ -77,7 +78,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 }
 
 func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
-	projectID, err := bytesToUUID(p.ProjectID)
+	projectID, err := dbutil.BytesToUUID(p.ProjectID)
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
@@ -92,16 +93,4 @@ func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 		strconv.FormatFloat(egressGBData, 'f', 4, 64),
 	}
 	return record, nil
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }
