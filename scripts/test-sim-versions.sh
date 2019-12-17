@@ -119,6 +119,7 @@ echo "Setting up environments for versions" ${unique_versions}
 
 # Get latest release tags and clean up git worktree
 git fetch
+git branch
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
     bin_dir=${dir}/bin
