@@ -263,10 +263,11 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(&storj.Key{})
+	runPlanet(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet) {
+		encStore := newTestEncStore(TestEncKey)
+		db, streams, err := newMetainfoParts(planet, encStore)
+		require.NoError(t, err)
 
-	runTestWithEncStore(t, encStore, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -343,13 +344,11 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects_EncryptionBypass(t *testing.T) {
-	key := new(storj.Key)
-	copy(key[:], TestEncKey)
+	runPlanet(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet) {
+		encStore := newTestEncStore(TestEncKey)
+		db, streams, err := newMetainfoParts(planet, encStore)
+		require.NoError(t, err)
 
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(key)
-
-	runTestWithEncStore(t, encStore, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncAESGCM})
 		require.NoError(t, err)
 
