@@ -1,10 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package extensions_test
+package revocation_test
 
 import (
-	"context"
 	"crypto/x509/pkix"
 	"testing"
 	"time"
@@ -17,14 +16,16 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testpeertls"
 	"storj.io/storj/private/testrevocation"
 	"storj.io/storj/storage"
 )
 
-var ctx = context.Background() // test context
-
 func TestRevocationCheckHandler(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
@@ -119,6 +120,9 @@ func TestRevocationCheckHandler(t *testing.T) {
 }
 
 func TestRevocationUpdateHandler(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
