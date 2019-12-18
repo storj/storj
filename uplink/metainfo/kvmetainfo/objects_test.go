@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
@@ -263,7 +264,9 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runPlanet(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
@@ -344,7 +347,9 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects_EncryptionBypass(t *testing.T) {
-	runPlanet(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)

@@ -213,13 +213,14 @@ func getBucketNames(bucketList storj.BucketList) []string {
 }
 
 func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
-	runPlanet(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db, streams, err := newMetainfoParts(planet, newTestEncStore(TestEncKey))
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
-
 }
 
 func newTestEncStore(keyStr string) *encryption.Store {
@@ -230,14 +231,6 @@ func newTestEncStore(keyStr string) *encryption.Store {
 	store.SetDefaultKey(key)
 
 	return store
-}
-
-func runPlanet(t *testing.T, test func(*testing.T, context.Context, *testplanet.Planet)) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test(t, ctx, planet)
-	})
 }
 
 func newMetainfoParts(planet *testplanet.Planet, encStore *encryption.Store) (*kvmetainfo.DB, streams.Store, error) {
