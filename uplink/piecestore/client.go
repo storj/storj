@@ -62,6 +62,8 @@ func Dial(ctx context.Context, dialer rpc.Dialer, target *pb.Node, log *zap.Logg
 }
 
 // Delete uses delete order limit to delete a piece on piece store.
+//
+// DEPRECATED in favor of DeletePieces.
 func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.Delete(ctx, &pb.PieceDeleteRequest{
@@ -71,10 +73,25 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateK
 }
 
 // DeletePiece deletes a piece.
+//
+// DEPRECATED in favor of DeletePieces.
 func (client *Client) DeletePiece(ctx context.Context, id storj.PieceID) (err error) {
 	defer mon.Task()(&ctx, id.String())(&err)
 	_, err = client.client.DeletePiece(ctx, &pb.PieceDeletePieceRequest{
 		PieceId: id,
+	})
+	return Error.Wrap(err)
+}
+
+// DeletePieces deletes a set of pieces.
+func (client *Client) DeletePieces(ctx context.Context, ids ...storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(ids) == 0 {
+		// Avoid RPC calls if no pieces to delete.
+		return nil
+	}
+	_, err = client.client.DeletePieces(ctx, &pb.DeletePiecesRequest{
+		PieceIds: ids,
 	})
 	return Error.Wrap(err)
 }

@@ -362,6 +362,96 @@ func TestDelete(t *testing.T) {
 	})
 }
 
+func TestDeletePieces(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var (
+			planetSat = planet.Satellites[0]
+			planetSN  = planet.StorageNodes[0]
+		)
+
+		var client *piecestore.Client
+		{
+			dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
+			require.NoError(t, err)
+
+			client, err = piecestore.Dial(
+				ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
+			)
+			require.NoError(t, err)
+		}
+
+		t.Run("Ok", func(t *testing.T) {
+			pieceIDs := []storj.PieceID{{1}, {2}, {3}, {4}}
+			dataArray := make([][]byte, len(pieceIDs))
+			for i, pieceID := range pieceIDs {
+				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+			}
+
+			err := client.DeletePieces(ctx.Context, pieceIDs...)
+			require.NoError(t, err)
+
+			for i, pieceID := range pieceIDs {
+				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), planetSN, planet.Uplinks[0], planetSat)
+				require.Error(t, err)
+			}
+			require.Condition(t, func() bool {
+				return strings.Contains(err.Error(), "file does not exist") ||
+					strings.Contains(err.Error(), "The system cannot find the path specified")
+			}, "unexpected error message")
+		})
+
+		t.Run("Ok: one piece to delete is missing", func(t *testing.T) {
+			missingPieceID := storj.PieceID{12}
+			pieceIDs := []storj.PieceID{{1}, {2}, {3}, {4}}
+			dataArray := make([][]byte, len(pieceIDs))
+			for i, pieceID := range pieceIDs {
+				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+			}
+
+			err := client.DeletePieces(ctx.Context, append(pieceIDs, missingPieceID)...)
+			require.NoError(t, err)
+
+			for i, pieceID := range pieceIDs {
+				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), planetSN, planet.Uplinks[0], planetSat)
+				require.Error(t, err)
+			}
+			require.Condition(t, func() bool {
+				return strings.Contains(err.Error(), "file does not exist") ||
+					strings.Contains(err.Error(), "The system cannot find the path specified")
+			}, "unexpected error message")
+		})
+
+		t.Run("Ok: no piece deleted", func(t *testing.T) {
+			pieceID := storj.PieceID{10}
+			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+
+			err := client.DeletePieces(ctx.Context)
+			require.NoError(t, err)
+
+			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			require.NoError(t, err)
+			require.Equal(t, data, downloaded)
+		})
+
+		t.Run("error: permission denied", func(t *testing.T) {
+			pieceID := storj.PieceID{11}
+			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+
+			client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
+			require.NoError(t, err)
+
+			err = client.DeletePieces(ctx.Context, pieceID)
+			require.Error(t, err)
+			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
+
+			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			require.NoError(t, err)
+			require.Equal(t, data, downloaded)
+		})
+	})
+}
 func TestDeletePiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,

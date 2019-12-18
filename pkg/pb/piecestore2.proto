@@ -17,7 +17,11 @@ service Piecestore {
       option deprecated = true;
     }
     // DeletePiece deletes a piece from a satellite request
-    rpc DeletePiece(PieceDeletePieceRequest) returns (PieceDeletePieceResponse);
+    rpc DeletePiece(PieceDeletePieceRequest) returns (PieceDeletePieceResponse) {
+      option deprecated = true;
+    }
+    // DeletePieces deletes a set of pieces on satellite request
+    rpc DeletePieces(DeletePiecesRequest) returns (DeletePiecesResponse);
     rpc Retain(RetainRequest) returns (RetainResponse);
     rpc RestoreTrash(RestoreTrashRequest) returns (RestoreTrashResponse) {}
 }
@@ -95,6 +99,13 @@ message PieceDeletePieceRequest {
 }
 
 message PieceDeletePieceResponse {
+}
+
+message DeletePiecesRequest {
+    repeated bytes piece_ids = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+}
+
+message DeletePiecesResponse {
 }
 
 message RetainRequest {
