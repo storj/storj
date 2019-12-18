@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storagenode"
 )
 
 func TestCache_Database(t *testing.T) {
@@ -323,6 +324,9 @@ func TestKnownReliable(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.OnlineWindow = onlineWindow
 			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Contact.Interval = onlineWindow / 2
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -347,10 +351,6 @@ func TestKnownReliable(t *testing.T) {
 		node, err := service.Get(ctx, planet.StorageNodes[1].ID())
 		require.NoError(t, err)
 		require.False(t, service.IsOnline(node))
-
-		// Force storage node #2 and #3 ping the satellite, so they can maintain their online status
-		planet.StorageNodes[2].Contact.Chore.TriggerWait(ctx)
-		planet.StorageNodes[3].Contact.Chore.TriggerWait(ctx)
 
 		// Check that only storage nodes #2 and #3 are reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{

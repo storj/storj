@@ -2270,10 +2270,14 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		knownNumOfSegments = true
 	}
 
-	// TODO: orange/v3-3184 initialize this map to an approximated number of nodes
-	// if it's possible. Also figure out how much memory is required for an object
-	// of a big size like 10GiB.
-	nodesPieces := make(map[storj.NodeID][]storj.PieceID)
+	var (
+		// TODO: orange/v3-3184 initialize this map to an approximated number of nodes
+		// if it's possible. Also figure out how much memory is required for an object
+		// of a big size like 10GiB.
+		nodesPieces = make(map[storj.NodeID][]storj.PieceID)
+		nodeIDs     storj.NodeIDList
+	)
+
 	for i := int64(lastSegment); i < (numOfSegments - 1); i++ {
 		pointer, _, err := endpoint.getPointer(ctx, projectID, i, bucket, encryptedPath)
 		if err != nil {
@@ -2310,6 +2314,7 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			pieces, ok := nodesPieces[piece.NodeId]
 			if !ok {
 				nodesPieces[piece.NodeId] = []storj.PieceID{pieceID}
+				nodeIDs = append(nodeIDs, piece.NodeId)
 				continue
 			}
 
@@ -2317,32 +2322,33 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		}
 	}
 
+	nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
+	if err != nil {
+		endpoint.log.Warn("unable to look up nodes from overlay",
+			zap.String("object_path",
+				fmt.Sprintf("%s/%s/%q", projectID, bucket, encryptedPath),
+			),
+			zap.Error(err),
+		)
+		// Pieces will be collected by garbage collector
+		return nil
+	}
+
 	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
-	for nodeID, nodePieces := range nodesPieces {
-		nodeID := nodeID
-		nodePieces := nodePieces
-
-		dossier, err := endpoint.overlay.Get(ctx, nodeID)
-		if err != nil {
-			endpoint.log.Warn("unable to get node dossier",
-				zap.Stringer("node_id", nodeID), zap.Error(err),
-			)
-
-			// Pieces will be collected by garbage collector
-			continue
-		}
+	for _, node := range nodes {
+		node := node
+		nodePieces := nodesPieces[node.Id]
 
 		limiter.Go(ctx, func() {
 			client, err := piecestore.Dial(
-				ctx, endpoint.dialer, &dossier.Node, endpoint.log, piecestore.Config{},
+				ctx, endpoint.dialer, node, endpoint.log, piecestore.Config{},
 			)
 			if err != nil {
 				endpoint.log.Warn("unable to dial storage node",
-					zap.Stringer("node_id", nodeID),
-					zap.Stringer("node_info", &dossier.Node),
+					zap.Stringer("node_id", node.Id),
+					zap.Stringer("node_info", node),
 					zap.Error(err),
 				)
-
 				// Pieces will be collected by garbage collector
 				return
 			}
@@ -2352,7 +2358,7 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 				if err != nil {
 					// piece will be collected by garbage collector
 					endpoint.log.Warn("unable to delete piece of a storage node",
-						zap.Stringer("node_id", nodeID),
+						zap.Stringer("node_id", node.Id),
 						zap.Stringer("piece_id", pieceID),
 						zap.Error(err),
 					)
