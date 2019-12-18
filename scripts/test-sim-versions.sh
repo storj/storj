@@ -4,11 +4,14 @@ set -ueo pipefail
 set +x
 
 cleanup(){
+    ret=$?
+    echo "EXIT STATUS: $ret"
     for version in ${unique_versions}; do
         git worktree remove --force $(version_dir $version)
     done
     rm -rf "$TMP"
     echo "cleaned up test successfully"
+    exit "$ret"
 }
 trap cleanup EXIT
 
@@ -148,9 +151,10 @@ for version in ${unique_versions}; do
     else
         echo "Installing uplink and gateway for ${version} in ${dir}."
         pushd ${dir}
-        ls $dir
-        GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
-        GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+        mkdir -p ${bin_dir}
+        ls -l ${bin_dir}
+        go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+        go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
