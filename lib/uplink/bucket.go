@@ -160,7 +160,7 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
 		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
 	}
-	createInfo := storj.CreateObject{
+	createInfo := kvmetainfo.CreateObject{
 		ContentType:          opts.ContentType,
 		Metadata:             opts.Metadata,
 		Expires:              opts.Expires,

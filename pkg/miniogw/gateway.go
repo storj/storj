@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
 	"storj.io/storj/uplink/stream"
 )
@@ -456,7 +457,7 @@ func (layer *gatewayLayer) putObject(ctx context.Context, bucketName, objectPath
 	}, nil
 }
 
-func upload(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
+func upload(ctx context.Context, streams streams.Store, mutableObject kvmetainfo.MutableObject, reader io.Reader) error {
 	mutableStream, err := mutableObject.CreateStream(ctx)
 	if err != nil {
 		return err
