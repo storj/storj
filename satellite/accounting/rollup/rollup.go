@@ -110,11 +110,11 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
 	if err != nil {
-		return time.Now(), Error.Wrap(err)
+		return lastRollup, Error.Wrap(err)
 	}
 	if len(tallies) == 0 {
 		r.logger.Info("Rollup found no new tallies")
-		return time.Now(), nil
+		return lastRollup, nil
 	}
 	//loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
