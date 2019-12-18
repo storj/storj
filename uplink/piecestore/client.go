@@ -79,6 +79,15 @@ func (client *Client) DeletePiece(ctx context.Context, id storj.PieceID) (err er
 	return Error.Wrap(err)
 }
 
+// DeletePieces deletes a set of pieces.
+func (client *Client) DeletePieces(ctx context.Context, ids []storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.DeletePieces(ctx, &pb.DeletePiecesRequest{
+		PieceIds: ids,
+	})
+	return Error.Wrap(err)
+}
+
 // Retain uses a bloom filter to tell the piece store which pieces to keep.
 func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)

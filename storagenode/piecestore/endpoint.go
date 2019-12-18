@@ -173,6 +173,37 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	return &pb.PieceDeleteResponse{}, nil
 }
 
+// DeletePieces delete a list of pieces on satellite request.
+func (endpoint *Endpoint) DeletePieces(
+	ctx context.Context, req *pb.DeletePiecesRequest,
+) (_ *pb.DeletePiecesResponse, err error) {
+	defer mon.Task()(&ctx, req.PieceIds)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied,
+			Error.New("%s", "delete pieces called with untrusted ID").Error(),
+		)
+	}
+
+	for _, pieceID := range req.PieceIds {
+		err = endpoint.store.Delete(ctx, peer.ID, pieceID)
+		if err != nil {
+			endpoint.log.Error("delete piece failed",
+				zap.Stringer("Satellite ID", peer.ID),
+				zap.Stringer("Piece ID", pieceID),
+				zap.Error(Error.Wrap(err)),
+			)
+		}
+	}
+	return &pb.DeletePiecesResponse{}, nil
+}
+
 // DeletePiece handles deleting a piece on piece store requested by satellite.
 //
 // It doesn't return an error if the piece isn't found by any reason.
