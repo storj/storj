@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -20,10 +21,12 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
@@ -31,6 +34,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/piecestore"
 	"storj.io/storj/uplink/storage/meta"
 )
 
@@ -39,6 +43,9 @@ const (
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000
+	// TODO: orange/v3-3184 no idea what value should be set here. In the future
+	// we may want to make this value configurable.
+	deleteObjectPiecesConcurrencyLimit = 10
 )
 
 var (
@@ -75,6 +82,7 @@ type Endpoint struct {
 	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
 	projectUsage      *accounting.Service
+	dialer            rpc.Dialer
 	apiKeys           APIKeys
 	createRequests    *createRequests
 	requiredRSConfig  RSConfig
@@ -82,10 +90,10 @@ type Endpoint struct {
 	maxCommitInterval time.Duration
 }
 
-// NewEndpoint creates new metainfo endpoint instance
+// NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service,
 	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
+	dialer rpc.Dialer, apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,
@@ -95,6 +103,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		attributions:      attributions,
 		partners:          partners,
 		peerIdentities:    peerIdentities,
+		dialer:            dialer,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
 		createRequests:    newCreateRequests(),
@@ -2114,6 +2123,28 @@ func (endpoint *Endpoint) getPointer(
 	return pointer, path, nil
 }
 
+// getObjectNumberOfSegments returns the number of segments of the indicated
+// object by projectID, bucket and encryptedPath.
+//
+// It returns 0 if the number is unknown.
+func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+
+	pointer, _, err := endpoint.getPointer(ctx, projectID, lastSegment, bucket, encryptedPath)
+	if err != nil {
+		return 0, err
+	}
+
+	meta := &pb.StreamMeta{}
+	err = proto.Unmarshal(pointer.Metadata, meta)
+	if err != nil {
+		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
+		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
+	}
+
+	return meta.NumberOfSegments, nil
+}
+
 // sortLimits sorts order limits and fill missing ones with nil values
 func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
 	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
@@ -2215,4 +2246,121 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	}
 
 	return satSegmentID, nil
+}
+
+// DeleteObjectPieces deletes all the pieces of the storage nodes that belongs
+// to the specified object.
+//
+// NOTE: this method is exported for being able to individually test it without
+// having import cycles.
+func (endpoint *Endpoint) DeleteObjectPieces(
+	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
+) (err error) {
+	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+
+	numOfSegments, err := endpoint.getObjectNumberOfSegments(ctx, projectID, bucket, encryptedPath)
+	if err != nil {
+		return err
+	}
+
+	knownNumOfSegments := false
+	if numOfSegments == 0 {
+		numOfSegments = math.MaxInt64
+	} else {
+		knownNumOfSegments = true
+	}
+
+	// TODO: orange/v3-3184 initialize this map to an approximated number of nodes
+	// if it's possible. Also figure out how much memory is required for an object
+	// of a big size like 10GiB.
+	nodesPieces := make(map[storj.NodeID][]storj.PieceID)
+	for i := int64(lastSegment); i < (numOfSegments - 1); i++ {
+		pointer, _, err := endpoint.getPointer(ctx, projectID, i, bucket, encryptedPath)
+		if err != nil {
+			if rpcstatus.Code(err) != rpcstatus.NotFound {
+				return err
+			}
+			if !knownNumOfSegments {
+				// Because we don't know the number of segments, we assume that if the
+				// pointer isn't found then we reached in the previous iteration the
+				// segment before the last one.
+				break
+			}
+
+			segment := "l"
+			if i != lastSegment {
+				segment = "s" + strconv.FormatInt(i, 10)
+			}
+			endpoint.log.Warn(
+				"expected pointer not found, it may have been deleted concurrently",
+				zap.String("pointer_path",
+					fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
+				),
+			)
+			continue
+		}
+
+		if pointer.Type != pb.Pointer_REMOTE {
+			continue
+		}
+
+		rootPieceID := pointer.GetRemote().RootPieceId
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			pieceID := rootPieceID.Derive(piece.NodeId, piece.PieceNum)
+			pieces, ok := nodesPieces[piece.NodeId]
+			if !ok {
+				nodesPieces[piece.NodeId] = []storj.PieceID{pieceID}
+				continue
+			}
+
+			nodesPieces[piece.NodeId] = append(pieces, pieceID)
+		}
+	}
+
+	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
+	for nodeID, nodePieces := range nodesPieces {
+		nodeID := nodeID
+		nodePieces := nodePieces
+
+		dossier, err := endpoint.overlay.Get(ctx, nodeID)
+		if err != nil {
+			endpoint.log.Warn("unable to get node dossier",
+				zap.Stringer("node_id", nodeID), zap.Error(err),
+			)
+
+			// Pieces will be collected by garbage collector
+			continue
+		}
+
+		limiter.Go(ctx, func() {
+			client, err := piecestore.Dial(
+				ctx, endpoint.dialer, &dossier.Node, endpoint.log, piecestore.Config{},
+			)
+			if err != nil {
+				endpoint.log.Warn("unable to dial storage node",
+					zap.Stringer("node_id", nodeID),
+					zap.Stringer("node_info", &dossier.Node),
+					zap.Error(err),
+				)
+
+				// Pieces will be collected by garbage collector
+				return
+			}
+
+			for _, pieceID := range nodePieces {
+				err := client.DeletePiece(ctx, pieceID)
+				if err != nil {
+					// piece will be collected by garbage collector
+					endpoint.log.Warn("unable to delete piece of a storage node",
+						zap.Stringer("node_id", nodeID),
+						zap.Stringer("piece_id", pieceID),
+						zap.Error(err),
+					)
+				}
+			}
+		})
+	}
+
+	limiter.Wait()
+	return nil
 }

@@ -306,6 +306,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.DB.Attribution(),
 			peer.Marketing.PartnersService,
 			peer.DB.PeerIdentities(),
+			peer.Dialer,
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
