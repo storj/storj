@@ -184,7 +184,7 @@ func TestDecryptPath_EncryptionBypass(t *testing.T) {
 		}
 		expectedPath = strings.TrimRight(expectedPath, "/")
 
-		actualPath, err := DecryptPath(bucketName, encryptedPath, storj.EncURLSafeBase64, encStore)
+		actualPath, err := DecryptPath(bucketName, encryptedPath, storj.EncNullBase64URL, encStore)
 		require.NoError(t, err)
 
 		require.Equal(t, paths.NewUnencrypted(expectedPath), actualPath)
@@ -215,7 +215,7 @@ func TestEncryptPath_EncryptionBypass(t *testing.T) {
 		}
 		encodedPath = strings.TrimRight(encodedPath, "/")
 
-		actualPath, err := EncryptPath(bucketName, paths.NewUnencrypted(encodedPath), storj.EncURLSafeBase64, encStore)
+		actualPath, err := EncryptPath(bucketName, paths.NewUnencrypted(encodedPath), storj.EncNullBase64URL, encStore)
 		require.NoError(t, err)
 
 		require.Equal(t, encryptedPath.String(), actualPath.String())

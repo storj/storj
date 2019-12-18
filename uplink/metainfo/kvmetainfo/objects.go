@@ -124,7 +124,7 @@ func (db *DB) ModifyObject(ctx context.Context, bucket storj.Bucket, path storj.
 
 func (db *DB) pathCipher(bucketInfo storj.Bucket) storj.CipherSuite {
 	if db.encStore.EncryptionBypass {
-		return storj.EncURLSafeBase64
+		return storj.EncNullBase64URL
 	}
 	return bucketInfo.PathCipher
 }
@@ -184,7 +184,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options stor
 
 	// TODO: we should let libuplink users be able to determine what metadata fields they request as well
 	metaFlags := meta.All
-	if db.pathCipher(bucket) == storj.EncNull || db.pathCipher(bucket) == storj.EncURLSafeBase64 {
+	if db.pathCipher(bucket) == storj.EncNull || db.pathCipher(bucket) == storj.EncNullBase64URL {
 		metaFlags = meta.None
 	}
 

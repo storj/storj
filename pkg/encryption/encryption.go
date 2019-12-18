@@ -46,7 +46,7 @@ func Encrypt(data []byte, cipher storj.CipherSuite, key *storj.Key, nonce *storj
 		return EncryptAESGCM(data, key, ToAESGCMNonce(nonce))
 	case storj.EncSecretBox:
 		return EncryptSecretBox(data, key, nonce)
-	case storj.EncURLSafeBase64:
+	case storj.EncNullBase64URL:
 		return nil, ErrInvalidConfig.New("base64 encoding not supported for this operation")
 	default:
 		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
@@ -67,7 +67,7 @@ func Decrypt(cipherData []byte, cipher storj.CipherSuite, key *storj.Key, nonce 
 		return DecryptAESGCM(cipherData, key, ToAESGCMNonce(nonce))
 	case storj.EncSecretBox:
 		return DecryptSecretBox(cipherData, key, nonce)
-	case storj.EncURLSafeBase64:
+	case storj.EncNullBase64URL:
 		return nil, ErrInvalidConfig.New("base64 encoding not supported for this operation")
 	default:
 		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
@@ -83,7 +83,7 @@ func NewEncrypter(cipher storj.CipherSuite, key *storj.Key, startingNonce *storj
 		return NewAESGCMEncrypter(key, ToAESGCMNonce(startingNonce), encryptedBlockSize)
 	case storj.EncSecretBox:
 		return NewSecretboxEncrypter(key, startingNonce, encryptedBlockSize)
-	case storj.EncURLSafeBase64:
+	case storj.EncNullBase64URL:
 		return nil, ErrInvalidConfig.New("base64 encoding not supported for this operation")
 	default:
 		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
@@ -99,7 +99,7 @@ func NewDecrypter(cipher storj.CipherSuite, key *storj.Key, startingNonce *storj
 		return NewAESGCMDecrypter(key, ToAESGCMNonce(startingNonce), encryptedBlockSize)
 	case storj.EncSecretBox:
 		return NewSecretboxDecrypter(key, startingNonce, encryptedBlockSize)
-	case storj.EncURLSafeBase64:
+	case storj.EncNullBase64URL:
 		return nil, ErrInvalidConfig.New("base64 encoding not supported for this operation")
 	default:
 		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)

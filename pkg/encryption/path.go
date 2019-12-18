@@ -243,7 +243,7 @@ func derivePathKeyComponent(key *storj.Key, component string) (*storj.Key, error
 // encryptPathComponent encrypts a single path component with the provided cipher and key.
 func encryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
 
-	if cipher == storj.EncURLSafeBase64 {
+	if cipher == storj.EncNullBase64URL {
 		decoded, err := base64.URLEncoding.DecodeString(comp)
 		if err != nil {
 			return "", Error.New("invalid base64 data: %v", err)
@@ -289,7 +289,7 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 		return "", nil
 	}
 
-	if cipher == storj.EncURLSafeBase64 {
+	if cipher == storj.EncNullBase64URL {
 		return base64.URLEncoding.EncodeToString([]byte(comp)), nil
 	}
 
