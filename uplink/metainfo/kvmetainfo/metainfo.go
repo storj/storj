@@ -23,8 +23,6 @@ var errClass = errs.Class("kvmetainfo")
 
 const defaultSegmentLimit = 8 // TODO
 
-var _ storj.Metainfo = (*DB)(nil)
-
 // DB implements metainfo database
 type DB struct {
 	project *Project

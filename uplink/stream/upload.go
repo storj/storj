@@ -13,13 +13,14 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
 )
 
 // Upload implements Writer and Closer for writing to stream.
 type Upload struct {
 	ctx      context.Context
-	stream   storj.MutableStream
+	stream   kvmetainfo.MutableStream
 	streams  streams.Store
 	writer   io.WriteCloser
 	closed   bool
@@ -27,7 +28,7 @@ type Upload struct {
 }
 
 // NewUpload creates new stream upload.
-func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store) *Upload {
+func NewUpload(ctx context.Context, stream kvmetainfo.MutableStream, streams streams.Store) *Upload {
 	reader, writer := io.Pipe()
 
 	upload := Upload{

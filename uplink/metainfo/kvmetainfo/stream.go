@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/uplink/metainfo"
 )
 
-var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
+var _ ReadOnlyStream = (*readonlyStream)(nil)
 
 type readonlyStream struct {
 	db *DB

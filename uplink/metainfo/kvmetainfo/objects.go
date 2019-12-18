@@ -48,7 +48,7 @@ func (db *DB) GetObject(ctx context.Context, bucket storj.Bucket, path storj.Pat
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, object storj.Object) (stream storj.ReadOnlyStream, err error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, object storj.Object) (stream ReadOnlyStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket.Name == "" {
@@ -66,7 +66,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, object s
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
+func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject) (object MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket.Name == "" {
@@ -117,7 +117,7 @@ func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.
 }
 
 // ModifyObject modifies a committed object
-func (db *DB) ModifyObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object storj.MutableObject, err error) {
+func (db *DB) ModifyObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
@@ -138,7 +138,7 @@ func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
-func (db *DB) ModifyPendingObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object storj.MutableObject, err error) {
+func (db *DB) ModifyPendingObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (object MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
@@ -346,7 +346,7 @@ type mutableObject struct {
 
 func (object *mutableObject) Info() storj.Object { return object.info }
 
-func (object *mutableObject) CreateStream(ctx context.Context) (_ storj.MutableStream, err error) {
+func (object *mutableObject) CreateStream(ctx context.Context) (_ MutableStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &mutableStream{
 		db:   object.db,
@@ -354,7 +354,7 @@ func (object *mutableObject) CreateStream(ctx context.Context) (_ storj.MutableS
 	}, nil
 }
 
-func (object *mutableObject) ContinueStream(ctx context.Context) (_ storj.MutableStream, err error) {
+func (object *mutableObject) ContinueStream(ctx context.Context) (_ MutableStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }

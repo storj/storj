@@ -45,7 +45,7 @@ const (
 var TestAPIKey = "test-api-key"
 
 func TestMakeBucketWithLocation(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when creating bucket with empty name
 		err := layer.MakeBucketWithLocation(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -68,7 +68,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 }
 
 func TestGetBucketInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting info about bucket with empty name
 		_, err := layer.GetBucketInfo(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -91,7 +91,7 @@ func TestGetBucketInfo(t *testing.T) {
 }
 
 func TestDeleteBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when deleting bucket with empty name
 		err := layer.DeleteBucket(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -126,7 +126,7 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check that empty list is return if no buckets exist yet
 		bucketInfos, err := layer.ListBuckets(ctx)
 		assert.NoError(t, err)
@@ -176,7 +176,7 @@ func TestPutObject(t *testing.T) {
 		},
 	}
 
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when putting an object to a bucket with empty name
 		_, err := layer.PutObject(ctx, "", "", nil, nil)
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -222,7 +222,7 @@ func TestPutObject(t *testing.T) {
 }
 
 func TestGetObjectInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		_, err := layer.GetObjectInfo(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -267,7 +267,7 @@ func TestGetObjectInfo(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		err := layer.GetObject(ctx, "", "", 0, 0, nil, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -330,7 +330,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestCopyObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when copying an object from a bucket with empty name
 		_, err := layer.CopyObject(ctx, "", TestFile, DestBucket, DestFile, minio.ObjectInfo{})
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -400,7 +400,7 @@ func TestCopyObject(t *testing.T) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when deleting an object from a bucket with empty name
 		err := layer.DeleteObject(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -456,7 +456,7 @@ func TestListObjectsV2(t *testing.T) {
 }
 
 func testListObjects(t *testing.T, listObjects func(context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when listing objects with unsupported delimiter
 		_, err := layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
 		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
@@ -636,7 +636,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 	})
 }
 
-func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.Metainfo, streams.Store)) {
+func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, *kvmetainfo.DB, streams.Store)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -657,7 +657,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, m, strms)
 }
 
-func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, *kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
@@ -766,7 +766,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 	return layer, kvm, strms, err
 }
 
-func createFile(ctx context.Context, m storj.Metainfo, strms streams.Store, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
+func createFile(ctx context.Context, m *kvmetainfo.DB, strms streams.Store, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
 	mutableObject, err := m.CreateObject(ctx, bucket, path, createInfo)
 	if err != nil {
 		return storj.Object{}, err

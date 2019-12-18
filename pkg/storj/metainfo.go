@@ -4,44 +4,8 @@
 package storj
 
 import (
-	"context"
 	"time"
 )
-
-// Metainfo represents a database for storing meta-info about objects
-type Metainfo interface {
-	// Limits returns limits for this metainfo database
-	Limits() (MetainfoLimits, error)
-
-	// CreateBucket creates a new bucket with the specified information
-	// Database automatically sets different values in the information
-	CreateBucket(ctx context.Context, bucket string, info *Bucket) (Bucket, error)
-	// DeleteBucket deletes bucket
-	DeleteBucket(ctx context.Context, bucket string) error
-	// GetBucket gets bucket information
-	GetBucket(ctx context.Context, bucket string) (Bucket, error)
-	// ListBuckets lists buckets starting from first
-	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
-
-	// GetObject returns information about an object
-	GetObject(ctx context.Context, bucket Bucket, path Path) (Object, error)
-	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket Bucket, object Object) (ReadOnlyStream, error)
-
-	// CreateObject creates a mutable object for uploading stream info
-	CreateObject(ctx context.Context, bucket Bucket, path Path, info *CreateObject) (MutableObject, error)
-	// ModifyObject creates a mutable object for updating a partially uploaded object
-	ModifyObject(ctx context.Context, bucket Bucket, path Path) (MutableObject, error)
-	// DeleteObject deletes an object from database
-	DeleteObject(ctx context.Context, bucket Bucket, path Path) error
-	// ListObjects lists objects in bucket based on the ListOptions
-	ListObjects(ctx context.Context, bucket Bucket, options ListOptions) (ObjectList, error)
-
-	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
-	ModifyPendingObject(ctx context.Context, bucket Bucket, path Path) (MutableObject, error)
-	// ListPendingObjects lists pending objects in bucket based on the ListOptions
-	ListPendingObjects(ctx context.Context, bucket Bucket, options ListOptions) (ObjectList, error)
-}
 
 // CreateObject has optional parameters that can be set
 type CreateObject struct {
@@ -157,43 +121,4 @@ type MetainfoLimits struct {
 	MinimumRemoteSegmentSize int64
 	// MaximumInlineSegmentSize specifies the maximum inline segment that is allowed to be stored.
 	MaximumInlineSegmentSize int64
-}
-
-// ReadOnlyStream is an interface for reading segment information
-type ReadOnlyStream interface {
-	Info() Object
-
-	// SegmentsAt returns the segment that contains the byteOffset and following segments.
-	// Limit specifies how much to return at most.
-	SegmentsAt(ctx context.Context, byteOffset int64, limit int64) (infos []Segment, more bool, err error)
-	// Segments returns the segment at index.
-	// Limit specifies how much to return at most.
-	Segments(ctx context.Context, index int64, limit int64) (infos []Segment, more bool, err error)
-}
-
-// MutableObject is an interface for manipulating creating/deleting object stream
-type MutableObject interface {
-	// Info gets the current information about the object
-	Info() Object
-
-	// CreateStream creates a new stream for the object
-	CreateStream(ctx context.Context) (MutableStream, error)
-	// ContinueStream starts to continue a partially uploaded stream.
-	ContinueStream(ctx context.Context) (MutableStream, error)
-	// DeleteStream deletes any information about this objects stream
-	DeleteStream(ctx context.Context) error
-
-	// Commit commits the changes to the database
-	Commit(ctx context.Context) error
-}
-
-// MutableStream is an interface for manipulating stream information
-type MutableStream interface {
-	// TODO: methods for finding partially uploaded segments
-
-	Info() Object
-	// AddSegments adds segments to the stream.
-	AddSegments(ctx context.Context, segments ...Segment) error
-	// UpdateSegments updates information about segments.
-	UpdateSegments(ctx context.Context, segments ...Segment) error
 }
