@@ -149,9 +149,11 @@ for version in ${unique_versions}; do
     else
         echo "Installing uplink and gateway for ${version} in ${dir}."
         pushd ${dir}
+        echo "inside $dir"
         GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
         GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
         popd
+        echo "outside $dir"
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
         shasum ${bin_dir}/uplink
