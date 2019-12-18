@@ -39,7 +39,7 @@ echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
 
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+TMP=$(mktemp -d -t $(pwd)/tmp.XXXXXXXXXX)
 
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
