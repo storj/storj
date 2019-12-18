@@ -22,7 +22,8 @@ node('node') {
             done
         '''
       sh 'docker exec postgres createdb -U postgres teststorj'
-      sh 'git worktree list'
+      sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
+      sh 'git branch -a -v --no-abbrev'
       sh './scripts/test-sim-versions.sh'
       sh 'docker rm -f postgres'
     }
