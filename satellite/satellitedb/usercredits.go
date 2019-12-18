@@ -22,7 +22,7 @@ import (
 var _ console.UserCredits = (*usercredits)(nil)
 
 type usercredits struct {
-	db *dbx.DB
+	db *satelliteDB
 	tx *dbx.Tx
 }
 

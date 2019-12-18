@@ -19,7 +19,7 @@ var ErrPieceSpaceUsed = errs.Class("piece space used error")
 const PieceSpaceUsedDBName = "piece_spaced_used"
 
 type pieceSpaceUsedDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Init creates the one total record if it doesn't already exist

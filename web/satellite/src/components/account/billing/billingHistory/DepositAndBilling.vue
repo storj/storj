@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="deposit-and-billing-area">
+    <div class="deposit-and-billing-area" v-if="billingHistoryItems.length > 0">
         <div class="deposit-and-billing-area__header">
             <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
             <div class="button" @click="onViewAllClick">View All</div>
@@ -66,6 +66,7 @@ export default class DepositAndBilling extends Vue {
             &__title {
                 font-size: 32px;
                 line-height: 48px;
+                user-select: none;
             }
 
             .button {

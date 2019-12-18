@@ -119,7 +119,7 @@ contact.external-address: ""
 # graceful-exit.chore-interval: 30s
 
 # whether or not graceful exit is enabled on the satellite side.
-# graceful-exit.enabled: false
+# graceful-exit.enabled: true
 
 # size of the buffer used to batch transfer queue reads and sends to the storage node.
 # graceful-exit.endpoint-batch-size: 100
@@ -128,7 +128,7 @@ contact.external-address: ""
 # graceful-exit.max-failures-per-piece: 3
 
 # maximum inactive time frame of transfer activities per node.
-# graceful-exit.max-inactive-time-frame: 500h0m0s
+# graceful-exit.max-inactive-time-frame: 168h0m0s
 
 # maximum number of order limits a satellite sends to a node before marking piece transfer failed
 # graceful-exit.max-order-limit-send-count: 5
@@ -379,7 +379,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.download-timeout: 5m0s
 
 # how frequently repairer should try and repair more data
-# repairer.interval: 1h0m0s
+# repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
@@ -394,7 +394,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.timeout: 5m0s
 
 # option for deleting tallies after they are rolled up
-# rollup.delete-tallies: false
+# rollup.delete-tallies: true
 
 # how frequently rollup should run
 # rollup.interval: 24h0m0s

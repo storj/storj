@@ -31,6 +31,21 @@ func (mask *bitmask) Set(index int) error {
 	return nil
 }
 
+// Unset removes bit from index in mask. It returns an error if index is negative or it's
+// greater than 63.
+func (mask *bitmask) Unset(index int) error {
+	switch {
+	case index < 0:
+		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
+	case index > 63:
+		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	}
+
+	bit := uint64(1) << index
+	*mask = bitmask(uint64(*mask) ^ bit)
+	return nil
+}
+
 // Has returns true if the index is tracked in mask otherwise false.
 // It returns an error if index is negative or it's greater than 63.
 func (mask *bitmask) Has(index int) (bool, error) {

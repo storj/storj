@@ -47,6 +47,8 @@ type DB interface {
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
@@ -337,6 +339,12 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 		OnlineWindow: service.config.Node.OnlineWindow,
 	}
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
+}
+
+// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.KnownReliable(ctx, service.config.Node.OnlineWindow, nodeIDs)
 }
 
 // Reliable filters a set of nodes that are reliable, independent of new.

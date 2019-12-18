@@ -31,7 +31,7 @@ var (
 var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
@@ -384,6 +384,42 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, nil
 }
 
+// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id, last_net, address, protocol FROM nodes
+			WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND last_contact_success > $2
+		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		row := &dbx.Id_LastNet_Address_Protocol_Row{}
+		err = rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		node, err := convertDBNodeToPBNode(ctx, row)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
 // Reliable returns all reliable nodes.
 func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
 	// get reliable and online nodes
@@ -586,7 +622,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 
 			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
-			sql := buildUpdateStatement(cache.db, updateNodeStats)
+			sql := buildUpdateStatement(updateNodeStats)
 
 			allSQL += sql
 		}
@@ -1120,7 +1156,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
+func buildUpdateStatement(update updateNodeStats) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}

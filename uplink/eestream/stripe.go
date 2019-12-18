@@ -92,7 +92,6 @@ func (r *StripeReader) Close() error {
 // ReadStripe reads and decodes the num-th stripe and concatenates it to p. The
 // return value is the updated byte slice.
 func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ []byte, err error) {
-	defer mon.Task()(&ctx)(&err)
 	for i := range r.inmap {
 		delete(r.inmap, i)
 	}
@@ -116,6 +115,7 @@ func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ [
 		}
 	}
 	// could not read enough shares to attempt a decode
+	mon.Meter("download_stripe_failed_not_enough_pieces_uplink").Mark(1) //locked
 	return nil, r.combineErrs(num)
 }
 
@@ -123,7 +123,6 @@ func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ [
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
 func (r *StripeReader) readAvailableShares(ctx context.Context, num int64) (n int) {
-	defer mon.Task()(&ctx)(nil)
 	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue

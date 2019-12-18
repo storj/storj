@@ -20,7 +20,7 @@ var ErrUsedSerials = errs.Class("usedserialsdb error")
 const UsedSerialsDBName = "used_serial"
 
 type usedSerialsDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Add adds a serial to the database.

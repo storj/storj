@@ -19,7 +19,7 @@ import (
 )
 
 type gracefulexitDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // IncrementProgress increments transfer stats for a node.

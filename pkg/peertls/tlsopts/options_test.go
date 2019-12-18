@@ -16,11 +16,9 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testplanet"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -119,33 +117,6 @@ func TestNewOptions(t *testing.T) {
 
 		require.NoError(t, revocationDB.Close())
 	}
-}
-
-func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
-	ctx := testcontext.New(t)
-
-	planet, err := testplanet.New(t, 0, 2, 0)
-	require.NoError(t, err)
-
-	planet.Start(ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	target := planet.StorageNodes[1].Local()
-
-	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
-			PeerIDVersions: "*",
-		}, nil)
-		require.NoError(t, err)
-
-		dialer := rpc.NewDefaultDialer(tlsOptions)
-
-		conn, err := dialer.DialNode(ctx, &target.Node)
-		assert.NotNil(t, conn)
-		assert.NoError(t, err)
-
-		assert.NoError(t, conn.Close())
-	})
 }
 
 func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {

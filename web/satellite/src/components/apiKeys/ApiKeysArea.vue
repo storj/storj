@@ -123,6 +123,7 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
@@ -179,6 +180,10 @@ export default class ApiKeysArea extends Vue {
 
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
+        this.$segment.track(SegmentEvent.API_KEYS_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+            api_keys_count: this.selectedAPIKeysCount,
+        });
     }
 
     public async beforeDestroy(): Promise<void> {
@@ -220,6 +225,9 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(DELETE);
             await this.$notify.success(`API keys deleted successfully`);
+            this.$segment.track(SegmentEvent.API_KEY_DELETED, {
+                project_id: this.$store.getters.selectedProject.id,
+            });
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -345,14 +353,14 @@ export default class ApiKeysArea extends Vue {
 <style scoped lang="scss">
     .api-keys-area {
         position: relative;
-        padding: 40px 65px 55px 64px;
-        height: 85vh;
+        padding: 40px 65px 55px 65px;
         font-family: 'font_regular', sans-serif;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
+            color: #263549;
             margin: 0;
             user-select: none;
         }

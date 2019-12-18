@@ -19,8 +19,6 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-var ctx = context.Background() // test context
-
 func TestSuite(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
@@ -93,7 +91,7 @@ type boltLongBenchmarkStore struct {
 	dirPath string
 }
 
-func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err error) {
+func (store *boltLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) (err error) {
 	// turn off syncing during import
 	oldval := store.db.NoSync
 	store.db.NoSync = true
@@ -109,13 +107,16 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	return store.db.Sync()
 }
 
-func (store *boltLongBenchmarkStore) BulkDelete() error {
+func (store *boltLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {
 	// do nothing here; everything will be cleaned up later after the test completes. it's not
 	// worth it to wait for BoltDB to remove every key, one by one, and we can't just
 	// os.RemoveAll() the whole test directory at this point because those files are still open
 	// and unremoveable on Windows.
 	return nil
 }
+
+var _ testsuite.BulkImporter = &boltLongBenchmarkStore{}
+var _ testsuite.BulkCleaner = &boltLongBenchmarkStore{}
 
 func BenchmarkSuiteLong(b *testing.B) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
@@ -150,6 +151,7 @@ func BenchmarkClientWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -187,6 +189,7 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -231,6 +234,7 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -270,6 +274,7 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {

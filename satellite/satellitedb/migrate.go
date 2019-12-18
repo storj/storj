@@ -4,8 +4,12 @@
 package satellitedb
 
 import (
+	"fmt"
+
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 )
@@ -18,25 +22,46 @@ var (
 )
 
 // CreateTables is a method for creating all tables for database
-func (db *DB) CreateTables() error {
-	switch db.driver {
-	case "postgres":
+func (db *satelliteDB) CreateTables() error {
+	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
+	// will need to create any schemas specified in the search path, and cockroach
+	// will need to create the database it was told to connect to. These things should
+	// not really be here, and instead should be assumed to exist.
+	// This is tracked in jira ticket #3338.
+	switch db.implementation {
+	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
 			return errs.New("error parsing schema: %+v", err)
 		}
 
 		if schema != "" {
-			err = db.CreateSchema(schema)
+			err = pgutil.CreateSchema(db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
 		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.QueryRow(`SELECT current_database();`).Scan(&dbName); err != nil {
+			return errs.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+			pq.QuoteIdentifier(dbName)))
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
-		dbVersion, err := migration.CurrentVersion(db.log, db.db)
+		dbVersion, err := migration.CurrentVersion(db.log, db.DB)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
 		}
@@ -48,29 +73,29 @@ func (db *DB) CreateTables() error {
 
 		return migration.Run(db.log.Named("migrate"))
 	default:
-		return migrate.Create("database", db.db)
+		return migrate.Create("database", db.DB)
 	}
 }
 
 // CheckVersion confirms the database is at the desired version
-func (db *DB) CheckVersion() error {
-	switch db.driver {
-	case "postgres":
+func (db *satelliteDB) CheckVersion() error {
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		return migration.ValidateVersions(db.log)
+
 	default:
 		return nil
 	}
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
-func (db *DB) PostgresMigration() *migrate.Migration {
+func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
-
 			{
-				DB:          db.db,
+				DB:          db.DB,
 				Description: "Initial setup",
 				Version:     69,
 				Action: migrate.SQL{
@@ -357,6 +382,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);`,
 
 					`INSERT INTO offers (
+						id,
 						name,
 						description,
 						award_credit_in_cents,
@@ -369,6 +395,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						invitee_credit_duration_days
 					)
 					VALUES (
+						1,
 						'Default referral offer',
 						'Is active when no other active referral offer',
 						300,
@@ -381,6 +408,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						14
 					),
 					(
+						2,
 						'Default free credit offer',
 						'Is active when no active free credit offer',
 						0,
@@ -467,24 +495,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.db,
-				Description: "Add project_limits table, remove usage_limit from project",
-				Version:     70,
-				Action: migrate.SQL{
-					`CREATE TABLE project_limits (
-						project_id bytea NOT NULL,
-						usage_limit bigint NOT NULL,
-						limit_type integer NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( project_id, limit_type )
-					);`,
-					`ALTER TABLE projects DROP COLUMN usage_limit;`,
-				},
-			},
-			{
-				DB:          db.db,
+				DB:          db.DB,
 				Description: "Add coupons and coupon_usage tables",
-				Version:     71,
+				Version:     70,
 				Action: migrate.SQL{
 					`CREATE TABLE coupons (
 						id bytea NOT NULL,
@@ -505,6 +518,22 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						interval_end timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Reset node reputations to re-enable disqualification",
+				Version:     71,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_beta = 0;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add unique to user_credits to match dbx schema",
+				Version:     72,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits ADD UNIQUE (id, offer_id);`,
 				},
 			},
 		},

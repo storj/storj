@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="buckets-area">
         <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
@@ -143,17 +143,22 @@ export default class BucketArea extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .buckets-area {
+        padding-bottom: 100px;
+        position: relative;
+    }
+
     .buckets-header {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        padding: 40px 60px 20px 60px;
+        padding: 32px 65px 20px 65px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
-            color: #384b65;
+            color: #263549;
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
@@ -214,42 +219,6 @@ export default class BucketArea extends Vue {
         .buckets-container,
         .buckets-notification-container {
             padding: 0 40px 0 40px;
-        }
-    }
-
-    @media screen and (max-height: 880px) {
-
-        .buckets-overflow {
-            overflow-y: scroll;
-            height: 750px;
-        }
-    }
-
-    @media screen and (max-height: 853px) {
-
-        .buckets-overflow {
-            height: 700px;
-        }
-    }
-
-    @media screen and (max-height: 805px) {
-
-        .buckets-overflow {
-            height: 630px;
-        }
-    }
-
-    @media screen and (max-height: 740px) {
-
-        .buckets-overflow {
-            height: 600px;
-        }
-    }
-
-    @media screen and (max-height: 700px) {
-
-        .buckets-overflow {
-            height: 570px;
         }
     }
 </style>

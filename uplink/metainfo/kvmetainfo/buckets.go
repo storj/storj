@@ -10,7 +10,6 @@ import (
 
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -106,9 +105,6 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 		Name: []byte(bucketName),
 	})
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
 		return storj.ErrBucket.Wrap(err)
 	}
 

@@ -92,6 +92,9 @@ func TestSequential(t *testing.T) {
 		list, err := q.SelectN(ctx, N)
 		require.NoError(t, err)
 		require.Len(t, list, N)
+
+		sort.SliceStable(list, func(i, j int) bool { return list[i].LostPieces[0] < list[j].LostPieces[0] })
+
 		for i := 0; i < N; i++ {
 			require.True(t, pb.Equal(addSegs[i], &list[i]))
 		}

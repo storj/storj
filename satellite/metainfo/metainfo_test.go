@@ -34,159 +34,149 @@ import (
 )
 
 func TestInvalidAPIKey(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet, err := testplanet.New(t, 1, 0, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
-	require.NoError(t, err)
-
-	planet.Start(ctx)
-
-	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
 		require.NoError(t, err)
-		defer ctx.Check(client.Close)
 
-		client.SetRawAPIKey([]byte(invalidAPIKey))
+		for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
+			client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+			require.NoError(t, err)
+			defer ctx.Check(client.Close)
 
-		_, _, _, err = client.CreateSegmentOld(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
-		assertUnauthenticated(t, err, false)
+			client.SetRawAPIKey([]byte(invalidAPIKey))
 
-		_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
-		assertUnauthenticated(t, err, false)
+			_, _, _, err = client.CreateSegmentOld(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+			assertUnauthenticated(t, err, false)
 
-		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, false)
+			_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+			assertUnauthenticated(t, err, false)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, false)
+			_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, false)
 
-		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, false)
+			_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, false)
 
-		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "", "", "", true, 1, 0)
-		assertUnauthenticated(t, err, false)
-	}
+			_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, false)
+
+			_, _, err = client.ListSegmentsOld(ctx, "testbucket", "", "", "", true, 1, 0)
+			assertUnauthenticated(t, err, false)
+		}
+	})
 }
 
 func TestRestrictedAPIKey(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-	planet, err := testplanet.New(t, 1, 0, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-	tests := []struct {
-		Caveat               macaroon.Caveat
-		CreateSegmentAllowed bool
-		CommitSegmentAllowed bool
-		SegmentInfoAllowed   bool
-		ReadSegmentAllowed   bool
-		DeleteSegmentAllowed bool
-		ListSegmentsAllowed  bool
-		ReadBucketAllowed    bool
-	}{
-		{ // Everything disallowed
-			Caveat: macaroon.Caveat{
-				DisallowReads:   true,
-				DisallowWrites:  true,
-				DisallowLists:   true,
-				DisallowDeletes: true,
+		tests := []struct {
+			Caveat               macaroon.Caveat
+			CreateSegmentAllowed bool
+			CommitSegmentAllowed bool
+			SegmentInfoAllowed   bool
+			ReadSegmentAllowed   bool
+			DeleteSegmentAllowed bool
+			ListSegmentsAllowed  bool
+			ReadBucketAllowed    bool
+		}{
+			{ // Everything disallowed
+				Caveat: macaroon.Caveat{
+					DisallowReads:   true,
+					DisallowWrites:  true,
+					DisallowLists:   true,
+					DisallowDeletes: true,
+				},
+				ReadBucketAllowed: true,
 			},
-			ReadBucketAllowed: true,
-		},
 
-		{ // Read only
-			Caveat: macaroon.Caveat{
-				DisallowWrites:  true,
-				DisallowDeletes: true,
+			{ // Read only
+				Caveat: macaroon.Caveat{
+					DisallowWrites:  true,
+					DisallowDeletes: true,
+				},
+				SegmentInfoAllowed:  true,
+				ReadSegmentAllowed:  true,
+				ListSegmentsAllowed: true,
+				ReadBucketAllowed:   true,
 			},
-			SegmentInfoAllowed:  true,
-			ReadSegmentAllowed:  true,
-			ListSegmentsAllowed: true,
-			ReadBucketAllowed:   true,
-		},
 
-		{ // Write only
-			Caveat: macaroon.Caveat{
-				DisallowReads: true,
-				DisallowLists: true,
+			{ // Write only
+				Caveat: macaroon.Caveat{
+					DisallowReads: true,
+					DisallowLists: true,
+				},
+				CreateSegmentAllowed: true,
+				CommitSegmentAllowed: true,
+				DeleteSegmentAllowed: true,
+				ReadBucketAllowed:    true,
 			},
-			CreateSegmentAllowed: true,
-			CommitSegmentAllowed: true,
-			DeleteSegmentAllowed: true,
-			ReadBucketAllowed:    true,
-		},
 
-		{ // Bucket restriction
-			Caveat: macaroon.Caveat{
-				AllowedPaths: []*macaroon.Caveat_Path{{
-					Bucket: []byte("otherbucket"),
-				}},
+			{ // Bucket restriction
+				Caveat: macaroon.Caveat{
+					AllowedPaths: []*macaroon.Caveat_Path{{
+						Bucket: []byte("otherbucket"),
+					}},
+				},
 			},
-		},
 
-		{ // Path restriction
-			Caveat: macaroon.Caveat{
-				AllowedPaths: []*macaroon.Caveat_Path{{
-					Bucket:              []byte("testbucket"),
-					EncryptedPathPrefix: []byte("otherpath"),
-				}},
+			{ // Path restriction
+				Caveat: macaroon.Caveat{
+					AllowedPaths: []*macaroon.Caveat_Path{{
+						Bucket:              []byte("testbucket"),
+						EncryptedPathPrefix: []byte("otherpath"),
+					}},
+				},
+				ReadBucketAllowed: true,
 			},
-			ReadBucketAllowed: true,
-		},
 
-		{ // Time restriction after
-			Caveat: macaroon.Caveat{
-				NotAfter: func(x time.Time) *time.Time { return &x }(time.Now()),
+			{ // Time restriction after
+				Caveat: macaroon.Caveat{
+					NotAfter: func(x time.Time) *time.Time { return &x }(time.Now()),
+				},
 			},
-		},
 
-		{ // Time restriction before
-			Caveat: macaroon.Caveat{
-				NotBefore: func(x time.Time) *time.Time { return &x }(time.Now().Add(time.Hour)),
+			{ // Time restriction before
+				Caveat: macaroon.Caveat{
+					NotBefore: func(x time.Time) *time.Time { return &x }(time.Now().Add(time.Hour)),
+				},
 			},
-		},
-	}
+		}
 
-	for _, test := range tests {
-		restrictedKey, err := key.Restrict(test.Caveat)
-		require.NoError(t, err)
+		for _, test := range tests {
+			restrictedKey, err := key.Restrict(test.Caveat)
+			require.NoError(t, err)
 
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey)
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
+			client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey)
+			require.NoError(t, err)
+			defer ctx.Check(client.Close)
 
-		_, _, _, err = client.CreateSegmentOld(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
-		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
+			_, _, _, err = client.CreateSegmentOld(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+			assertUnauthenticated(t, err, test.CreateSegmentAllowed)
 
-		_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
-		assertUnauthenticated(t, err, test.CommitSegmentAllowed)
+			_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+			assertUnauthenticated(t, err, test.CommitSegmentAllowed)
 
-		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
+			_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, test.SegmentInfoAllowed)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
+			_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, test.ReadSegmentAllowed)
 
-		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
-		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
+			_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
+			assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
 
-		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "testpath", "", "", true, 1, 0)
-		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
+			_, _, err = client.ListSegmentsOld(ctx, "testbucket", "testpath", "", "", true, 1, 0)
+			assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "", -1)
-		assertUnauthenticated(t, err, test.ReadBucketAllowed)
-	}
+			_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "", -1)
+			assertUnauthenticated(t, err, test.ReadBucketAllowed)
+		}
+	})
 }
 
 func assertUnauthenticated(t *testing.T, err error, allowed bool) {
@@ -200,79 +190,75 @@ func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 }
 
 func TestServiceList(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-	planet, err := testplanet.New(t, 1, 0, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+		items := []struct {
+			Key   string
+			Value []byte
+		}{
+			{Key: "sample.😶", Value: []byte{1}},
+			{Key: "müsic", Value: []byte{2}},
+			{Key: "müsic/söng1.mp3", Value: []byte{3}},
+			{Key: "müsic/söng2.mp3", Value: []byte{4}},
+			{Key: "müsic/album/söng3.mp3", Value: []byte{5}},
+			{Key: "müsic/söng4.mp3", Value: []byte{6}},
+			{Key: "ビデオ/movie.mkv", Value: []byte{7}},
+		}
 
-	planet.Start(ctx)
+		for _, item := range items {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", item.Key, item.Value)
+			assert.NoError(t, err)
+		}
 
-	items := []struct {
-		Key   string
-		Value []byte
-	}{
-		{Key: "sample.😶", Value: []byte{1}},
-		{Key: "müsic", Value: []byte{2}},
-		{Key: "müsic/söng1.mp3", Value: []byte{3}},
-		{Key: "müsic/söng2.mp3", Value: []byte{4}},
-		{Key: "müsic/album/söng3.mp3", Value: []byte{5}},
-		{Key: "müsic/söng4.mp3", Value: []byte{6}},
-		{Key: "ビデオ/movie.mkv", Value: []byte{7}},
-	}
+		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		project, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
+		require.NoError(t, err)
+		defer ctx.Check(bucket.Close)
+		defer ctx.Check(project.Close)
+		list, err := bucket.ListObjects(ctx, &storj.ListOptions{Recursive: true, Direction: storj.After})
+		require.NoError(t, err)
 
-	for _, item := range items {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", item.Key, item.Value)
-		assert.NoError(t, err)
-	}
+		expected := []storj.Object{
+			{Path: "müsic"},
+			{Path: "müsic/album/söng3.mp3"},
+			{Path: "müsic/söng1.mp3"},
+			{Path: "müsic/söng2.mp3"},
+			{Path: "müsic/söng4.mp3"},
+			{Path: "sample.😶"},
+			{Path: "ビデオ/movie.mkv"},
+		}
 
-	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	project, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
-	require.NoError(t, err)
-	defer ctx.Check(bucket.Close)
-	defer ctx.Check(project.Close)
-	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Recursive: true, Direction: storj.After})
-	require.NoError(t, err)
+		require.Equal(t, len(expected), len(list.Items))
+		sort.Slice(list.Items, func(i, k int) bool {
+			return list.Items[i].Path < list.Items[k].Path
+		})
+		for i, item := range expected {
+			require.Equal(t, item.Path, list.Items[i].Path)
+			require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
+		}
 
-	expected := []storj.Object{
-		{Path: "müsic"},
-		{Path: "müsic/album/söng3.mp3"},
-		{Path: "müsic/söng1.mp3"},
-		{Path: "müsic/söng2.mp3"},
-		{Path: "müsic/söng4.mp3"},
-		{Path: "sample.😶"},
-		{Path: "ビデオ/movie.mkv"},
-	}
+		list, err = bucket.ListObjects(ctx, &storj.ListOptions{Recursive: false, Direction: storj.After})
+		require.NoError(t, err)
 
-	require.Equal(t, len(expected), len(list.Items))
-	sort.Slice(list.Items, func(i, k int) bool {
-		return list.Items[i].Path < list.Items[k].Path
+		expected = []storj.Object{
+			{Path: "müsic"},
+			{Path: "müsic/", IsPrefix: true},
+			{Path: "sample.😶"},
+			{Path: "ビデオ/", IsPrefix: true},
+		}
+
+		require.Equal(t, len(expected), len(list.Items))
+		sort.Slice(list.Items, func(i, k int) bool {
+			return list.Items[i].Path < list.Items[k].Path
+		})
+		for i, item := range expected {
+			t.Log(item.Path, list.Items[i].Path)
+			require.Equal(t, item.Path, list.Items[i].Path)
+			require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
+		}
 	})
-	for i, item := range expected {
-		require.Equal(t, item.Path, list.Items[i].Path)
-		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
-	}
-
-	list, err = bucket.ListObjects(ctx, &storj.ListOptions{Recursive: false, Direction: storj.After})
-	require.NoError(t, err)
-
-	expected = []storj.Object{
-		{Path: "müsic"},
-		{Path: "müsic/", IsPrefix: true},
-		{Path: "sample.😶"},
-		{Path: "ビデオ/", IsPrefix: true},
-	}
-
-	require.Equal(t, len(expected), len(list.Items))
-	sort.Slice(list.Items, func(i, k int) bool {
-		return list.Items[i].Path < list.Items[k].Path
-	})
-	for i, item := range expected {
-		t.Log(item.Path, list.Items[i].Path)
-		require.Equal(t, item.Path, list.Items[i].Path)
-		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
-	}
 }
 
 func TestCommitSegment(t *testing.T) {
@@ -625,91 +611,90 @@ func TestCommitSegmentPointer(t *testing.T) {
 	// all tests needs to generate error
 	tests := []struct {
 		// defines how modify pointer before CommitSegment
-		Modify       func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit)
+		Modify       func(ctx context.Context, pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit)
 		ErrorMessage string
 	}{
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.ExpirationDate = pointer.ExpirationDate.Add(time.Second * 100)
 			},
 			ErrorMessage: "pointer expiration date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.MinReq += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.RepairThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.SuccessThreshold += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Total += 100
 			},
 			// this error is triggered earlier then Create/Commit RS comparison
 			ErrorMessage: "invalid no order limit for piece",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.ErasureShareSize += 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.Redundancy.Type = 100
 			},
 			ErrorMessage: "pointer redundancy scheme date does not match requested one",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Type = pb.Pointer_INLINE
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
 		{
 			// no piece hash removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// set piece number to be out of range of limit slice
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].PieceNum = int32(len(limits))
 			},
 			ErrorMessage: "invalid piece number",
 		},
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, fullIDMap map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
 
-				ctx := testcontext.New(t)
 				snFullID := fullIDMap[pointer.Remote.RemotePieces[0].NodeId]
 				require.NotNil(t, snFullID)
 				signer := signing.SignerFromFullIdentity(snFullID)
@@ -720,24 +705,23 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "all pieces needs to have the same size",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.SegmentSize = 100
 			},
 			ErrorMessage: "expected piece size is different from provided",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// nil piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 			},
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				// invalid piece hash signature removes piece from pointer, not enough pieces for successful upload
 				pointer.Remote.RemotePieces[0].Hash.Signature = nil
 
-				ctx := testcontext.New(t)
 				ca, err := testidentity.NewTestCA(ctx)
 				require.NoError(t, err)
 				badFullID, err := ca.NewIdentity()
@@ -751,7 +735,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				firstPiece := pointer.Remote.RemotePieces[0]
 				pointer.Remote.RemotePieces[1] = firstPiece
 				pointer.Remote.RemotePieces[2] = firstPiece
@@ -759,7 +743,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "piece num 0 is duplicated",
 		},
 		{
-			Modify: func(pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
+			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				firstNodeID := pointer.Remote.RemotePieces[0].NodeId
 				pointer.Remote.RemotePieces[1].NodeId = firstNodeID
 			},
@@ -783,7 +767,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
-			test.Modify(pointer, fullIDMap, limits)
+			test.Modify(ctx, pointer, fullIDMap, limits)
 
 			_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err, "Case #%v", i)
@@ -1175,7 +1159,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 	})
 }
 
-func TestListSegment(t *testing.T) {
+func TestListSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1207,7 +1191,7 @@ func TestListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, test := range []struct {
+		for i, test := range []struct {
 			Index  int32
 			Limit  int32
 			Result int
@@ -1227,11 +1211,11 @@ func TestListSegment(t *testing.T) {
 					Index: test.Index,
 				},
 			})
-			require.NoError(t, err)
-			require.Len(t, segments, test.Result)
-			require.Equal(t, test.More, more)
+			require.NoErrorf(t, err, "test case: %d", i)
+			require.Lenf(t, segments, test.Result, "test case: %d", i)
+			require.Equalf(t, test.More, more, "test case: %d", i)
 			if !more && test.Result > 0 {
-				require.Equal(t, int32(-1), segments[test.Result-1].Position.Index)
+				require.Equalf(t, int32(-1), segments[test.Result-1].Position.Index, "test case: %d", i)
 			}
 		}
 	})
