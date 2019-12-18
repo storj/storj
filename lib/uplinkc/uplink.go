@@ -45,6 +45,7 @@ func new_uplink(cfg C.UplinkConfig, tempDir *C.char, cerr **C.char) C.UplinkRef 
 	libcfg.Volatile.MaxInlineSize = memory.Size(cfg.Volatile.max_inline_size)
 	libcfg.Volatile.MaxMemory = memory.Size(cfg.Volatile.max_memory)
 	libcfg.Volatile.DialTimeout = time.Duration(cfg.Volatile.dial_timeout)
+	libcfg.Volatile.UserAgent = C.GoString(cfg.Volatile.user_agent)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
