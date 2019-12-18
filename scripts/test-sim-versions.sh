@@ -118,15 +118,19 @@ fi
 echo "Setting up environments for versions" ${unique_versions}
 
 # Get latest release tags and clean up git worktree
-git fetch origin master
-git checkout -b master origin/master
+git fetch
 for version in ${unique_versions}; do
     dir=$(version_dir ${version})
     bin_dir=${dir}/bin
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
-    latestCommit=$(git rev-list -n 1 "$version")
-    git worktree add -f "$dir" "$latestCommit"
+    if [[ $version = "master" ]]
+    then
+        latestCommit=$(git ls-remote https://github.com/storj/storj.git HEAD | grep -o "^\S*")
+        git worktree add -f "$dir" "${latestCommit}"
+    else
+        git worktree add -f "$dir" "${version}"
+    fi
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
     if [[ $version = $current_release_version || $version = "master" ]]
