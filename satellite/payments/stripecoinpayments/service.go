@@ -121,7 +121,6 @@ func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UU
 	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
 }
 
-// TODO: uncomment when coupons will be ready.
 // updateCouponUsageLoop updates all daily coupon usage in a loop.
 func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

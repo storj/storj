@@ -30,7 +30,6 @@ type Chore struct {
 }
 
 // NewChore creates new clearing loop chore.
-// TODO: uncomment new interval when coupons will be finished.
 func NewChore(log *zap.Logger, service *Service, txInterval, accBalanceInterval, couponUsageInterval time.Duration) *Chore {
 	return &Chore{
 		log:              log,
