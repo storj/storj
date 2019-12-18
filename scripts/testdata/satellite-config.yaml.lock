@@ -394,7 +394,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.timeout: 5m0s
 
 # option for deleting tallies after they are rolled up
-# rollup.delete-tallies: false
+# rollup.delete-tallies: true
 
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
