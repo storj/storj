@@ -139,7 +139,7 @@ var monLiveRequests = mon.TaskNamed("live-request")
 
 // Delete handles deleting a piece on piece store requested by uplink.
 //
-// DEPRECATED in favor of DeletePiece.
+// DEPRECATED in favor of DeletePieces.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -173,9 +173,47 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	return &pb.PieceDeleteResponse{}, nil
 }
 
+// DeletePieces delete a list of pieces on satellite request.
+func (endpoint *Endpoint) DeletePieces(
+	ctx context.Context, req *pb.DeletePiecesRequest,
+) (_ *pb.DeletePiecesResponse, err error) {
+	defer mon.Task()(&ctx, req.PieceIds)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied,
+			Error.New("%s", "delete pieces called with untrusted ID").Error(),
+		)
+	}
+
+	for _, pieceID := range req.PieceIds {
+		err = endpoint.store.Delete(ctx, peer.ID, pieceID)
+		if err != nil {
+			// If a piece cannot be deleted, we just log the error.
+			// No error is returned to the caller.
+			endpoint.log.Error("delete failed",
+				zap.Stringer("Satellite ID", peer.ID),
+				zap.Stringer("Piece ID", pieceID),
+				zap.Error(Error.Wrap(err)),
+			)
+		} else {
+			endpoint.log.Info("deleted",
+				zap.Stringer("Satellite ID", peer.ID),
+				zap.Stringer("Piece ID", pieceID),
+			)
+		}
+	}
+	return &pb.DeletePiecesResponse{}, nil
+}
+
 // DeletePiece handles deleting a piece on piece store requested by satellite.
 //
-// It doesn't return an error if the piece isn't found by any reason.
+// DEPRECATED in favor of DeletePieces.
 func (endpoint *Endpoint) DeletePiece(
 	ctx context.Context, req *pb.PieceDeletePieceRequest,
 ) (_ *pb.PieceDeletePieceResponse, err error) {
@@ -201,16 +239,21 @@ func (endpoint *Endpoint) DeletePiece(
 			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
 		}
 
-		endpoint.log.Error("delete piece failed",
+		endpoint.log.Error("delete failed",
 			zap.Error(Error.Wrap(err)),
 			zap.Stringer("Satellite ID", peer.ID),
 			zap.Stringer("Piece ID", req.PieceId),
 		)
 
 		return nil, rpcstatus.Error(rpcstatus.Internal,
-			Error.New("%s", "delete piece failed").Error(),
+			Error.New("%s", "delete failed").Error(),
 		)
 	}
+
+	endpoint.log.Info("deleted",
+		zap.Stringer("Satellite ID", peer.ID),
+		zap.Stringer("Piece ID", req.PieceId),
+	)
 
 	return &pb.PieceDeletePieceResponse{}, nil
 }
