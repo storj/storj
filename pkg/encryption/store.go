@@ -35,7 +35,7 @@ type Store struct {
 	roots      map[string]*node
 	defaultKey *storj.Key
 
-	// TODO: The below field makes it so we can interoperate with
+	// EncryptionBypass makes it so we can interoperate with
 	// the network without having encryption keys. paths will be encrypted but
 	// base64-encoded, and certain metadata will be unable to be retrieved.
 	EncryptionBypass bool
