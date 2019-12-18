@@ -3,40 +3,6 @@
 
 package storj
 
-import (
-	"time"
-)
-
-// CreateObject has optional parameters that can be set
-type CreateObject struct {
-	Metadata    map[string]string
-	ContentType string
-	Expires     time.Time
-
-	RedundancyScheme
-	EncryptionParameters
-}
-
-// Object converts the CreateObject to an object with unitialized values
-func (create CreateObject) Object(bucket Bucket, path Path) Object {
-	return Object{
-		Bucket:      bucket,
-		Path:        path,
-		Metadata:    create.Metadata,
-		ContentType: create.ContentType,
-		Expires:     create.Expires,
-		Stream: Stream{
-			Size:             -1,  // unknown
-			Checksum:         nil, // unknown
-			SegmentCount:     -1,  // unknown
-			FixedSegmentSize: -1,  // unknown
-
-			RedundancyScheme:     create.RedundancyScheme,
-			EncryptionParameters: create.EncryptionParameters,
-		},
-	}
-}
-
 // ListDirection specifies listing direction
 type ListDirection int8
 
@@ -110,15 +76,4 @@ func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
 		Direction: After,
 		Limit:     opts.Limit,
 	}
-}
-
-// MetainfoLimits lists limits specified for the Metainfo database
-type MetainfoLimits struct {
-	// ListLimit specifies the maximum amount of items that can be listed at a time.
-	ListLimit int64
-
-	// MinimumRemoteSegmentSize specifies the minimum remote segment that is allowed to be stored.
-	MinimumRemoteSegmentSize int64
-	// MaximumInlineSegmentSize specifies the maximum inline segment that is allowed to be stored.
-	MaximumInlineSegmentSize int64
 }

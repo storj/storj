@@ -66,7 +66,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket storj.Bucket, object s
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject) (object MutableObject, err error) {
+func (db *DB) CreateObject(ctx context.Context, bucket storj.Bucket, path storj.Path, createInfo *CreateObject) (object MutableObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket.Name == "" {

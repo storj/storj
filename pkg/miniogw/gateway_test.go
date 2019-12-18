@@ -244,7 +244,7 @@ func TestGetObjectInfo(t *testing.T) {
 		assert.Equal(t, minio.ObjectNotFound{Bucket: TestBucket, Object: TestFile}, err)
 
 		// Create the object using the Metainfo API
-		createInfo := storj.CreateObject{
+		createInfo := kvmetainfo.CreateObject{
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
@@ -289,7 +289,7 @@ func TestGetObject(t *testing.T) {
 		assert.Equal(t, minio.ObjectNotFound{Bucket: TestBucket, Object: TestFile}, err)
 
 		// Create the object using the Metainfo API
-		createInfo := storj.CreateObject{
+		createInfo := kvmetainfo.CreateObject{
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
@@ -348,7 +348,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.ObjectNameInvalid{Bucket: TestBucket}, err)
 
 		// Create the source object using the Metainfo API
-		createInfo := storj.CreateObject{
+		createInfo := kvmetainfo.CreateObject{
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
@@ -480,7 +480,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		}
 
 		files := make(map[string]storj.Object, len(filePaths))
-		createInfo := storj.CreateObject{
+		createInfo := kvmetainfo.CreateObject{
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
@@ -766,7 +766,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 	return layer, kvm, strms, err
 }
 
-func createFile(ctx context.Context, m *kvmetainfo.DB, strms streams.Store, bucket storj.Bucket, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
+func createFile(ctx context.Context, m *kvmetainfo.DB, strms streams.Store, bucket storj.Bucket, path storj.Path, createInfo *kvmetainfo.CreateObject, data []byte) (storj.Object, error) {
 	mutableObject, err := m.CreateObject(ctx, bucket, path, createInfo)
 	if err != nil {
 		return storj.Object{}, err

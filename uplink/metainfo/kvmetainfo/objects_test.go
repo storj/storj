@@ -44,7 +44,7 @@ func TestCreateObject(t *testing.T) {
 		require.NoError(t, err)
 
 		for i, tt := range []struct {
-			create     *storj.CreateObject
+			create     *kvmetainfo.CreateObject
 			expectedRS storj.RedundancyScheme
 			expectedEP storj.EncryptionParameters
 		}{
@@ -54,17 +54,17 @@ func TestCreateObject(t *testing.T) {
 				expectedEP: kvmetainfo.DefaultES,
 			},
 			{
-				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customEP},
+				create:     &kvmetainfo.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customEP},
 				expectedRS: customRS,
 				expectedEP: customEP,
 			},
 			{
-				create:     &storj.CreateObject{RedundancyScheme: customRS},
+				create:     &kvmetainfo.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
 				expectedEP: storj.EncryptionParameters{CipherSuite: kvmetainfo.DefaultES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 			{
-				create:     &storj.CreateObject{EncryptionParameters: customEP},
+				create:     &kvmetainfo.CreateObject{EncryptionParameters: customEP},
 				expectedRS: kvmetainfo.DefaultRS,
 				expectedEP: storj.EncryptionParameters{CipherSuite: customEP.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
