@@ -22,6 +22,7 @@ node('node') {
             done
         '''
       sh 'docker exec postgres createdb -U postgres teststorj'
+      sh 'git worktree list'
       sh './scripts/test-sim-versions.sh'
       sh 'docker rm -f postgres'
     }
