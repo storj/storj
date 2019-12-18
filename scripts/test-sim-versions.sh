@@ -28,9 +28,9 @@ major_release_tags=$(git tag -l --sort -version:refname | sort -k2,2 -t'.' --uni
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
-stage2_sat_version="master"
-stage2_uplink_versions=$major_release_tags\ "master"
-stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "master" 5)
+stage2_sat_version="v0.15.4"
+stage2_uplink_versions=$major_release_tags\ ""
+stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "v0.15.4" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_versions" $stage1_uplink_versions
