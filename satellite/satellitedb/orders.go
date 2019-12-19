@@ -227,19 +227,15 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
 	})
 
-	tx, err := db.db.Begin()
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
-		}
-	}()
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		responses, err = db.processOrdersInTx(requests, storageNodeID, time.Now(), tx.Tx)
+		return err
+	})
+	return responses, errs.Wrap(err)
+}
 
-	now := time.Now().UTC()
+func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx *sql.Tx) (responses []*orders.ProcessOrderResponse, err error) {
+	now = now.UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	rejected := make(map[storj.SerialNumber]bool)
