@@ -492,6 +492,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 		}
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	if idParam, ok = mux.Vars(r)["id"]; !ok {
 		handleError(http.StatusBadRequest, errs.New("missing project id route param"))
 		return
