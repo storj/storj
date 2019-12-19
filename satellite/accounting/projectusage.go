@@ -177,12 +177,7 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	err = usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit)
-	if err != nil {
-		return ErrProjectUsage.Wrap(err)
-	}
-
-	return nil
+	return ErrProjectUsage.Wrap(usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit))
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

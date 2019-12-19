@@ -494,7 +494,6 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	limits, err := server.service.GetProjectUsageLimits(ctx, *projectID)
-	server.log.Error("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE " + err.Error())
 	if err != nil {
 		handleServiceError(err)
 		return
