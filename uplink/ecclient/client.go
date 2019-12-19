@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
@@ -91,7 +92,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
 	)
 
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
+	padded := encryption.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
 	if err != nil {
 		return nil, nil, err
@@ -299,7 +300,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		return nil, Error.Wrap(err)
 	}
 
-	ranger, err := eestream.Unpad(rr, int(paddedSize-size))
+	ranger, err := encryption.Unpad(rr, int(paddedSize-size))
 	return ranger, Error.Wrap(err)
 }
 

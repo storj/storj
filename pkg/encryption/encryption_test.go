@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/private/memory"
 	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testrand"
-	"storj.io/storj/uplink/eestream"
 )
 
 const (
@@ -49,7 +48,7 @@ func TestCalcEncryptedSize(t *testing.T) {
 			require.NoError(t, err, errTag)
 
 			randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))
-			reader := encryption.TransformReader(eestream.PadReader(randReader, encrypter.InBlockSize()), encrypter, 0)
+			reader := encryption.TransformReader(encryption.PadReader(randReader, encrypter.InBlockSize()), encrypter, 0)
 
 			cipherData, err := ioutil.ReadAll(reader)
 			assert.NoError(t, err, errTag)

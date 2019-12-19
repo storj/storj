@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/segments"
 )
@@ -219,7 +218,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				return Meta{}, err
 			}
 
-			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+			paddedReader := encryption.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
 			transformedReader := encryption.TransformReader(paddedReader, encrypter, 0)
 
 			beginSegment := &metainfo.BeginSegmentParams{
@@ -701,7 +700,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 	if err != nil {
 		return nil, err
 	}
-	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+	return encryption.Unpad(rd, int(rd.Size()-decryptedSize))
 }
 
 // CancelHandler handles clean up of segments on receiving CTRL+C

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"bytes"
@@ -12,10 +12,6 @@ import (
 
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/private/readcloser"
-)
-
-const (
-	uint32Size = 4
 )
 
 // makePadding calculates how many bytes of padding are needed to fill
@@ -52,7 +48,6 @@ func Unpad(data ranger.Ranger, padding int) (ranger.Ranger, error) {
 // UnpadSlow is like Unpad, but does not require the amount of padding.
 // UnpadSlow will have to do extra work to make up for this missing information.
 func UnpadSlow(ctx context.Context, data ranger.Ranger) (_ ranger.Ranger, err error) {
-	defer mon.Task()(&ctx)(&err)
 	r, err := data.Range(ctx, data.Size()-uint32Size, uint32Size)
 	if err != nil {
 		return nil, Error.Wrap(err)

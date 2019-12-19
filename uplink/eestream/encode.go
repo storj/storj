@@ -307,6 +307,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) (_ []i
 // CalcPieceSize calculates what would be the piece size of the encoded data
 // after erasure coding data with dataSize using the given ErasureScheme.
 func CalcPieceSize(dataSize int64, scheme ErasureScheme) int64 {
+	const uint32Size = 4
 	stripeSize := int64(scheme.StripeSize())
 	stripes := (dataSize + uint32Size + stripeSize - 1) / stripeSize
 

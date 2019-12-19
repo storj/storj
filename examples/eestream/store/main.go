@@ -62,7 +62,7 @@ func Main() error {
 		return err
 	}
 	readers, err := eestream.EncodeReader(context.Background(), zap.L(),
-		encryption.TransformReader(eestream.PadReader(os.Stdin,
+		encryption.TransformReader(encryption.PadReader(os.Stdin,
 			encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		return err

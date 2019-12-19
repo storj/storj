@@ -84,7 +84,7 @@ func Main() error {
 		return err
 	}
 	ctx := context.Background()
-	rr, err = eestream.UnpadSlow(ctx, rr)
+	rr, err = encryption.UnpadSlow(ctx, rr)
 	if err != nil {
 		return err
 	}

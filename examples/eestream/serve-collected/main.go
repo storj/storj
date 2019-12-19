@@ -83,7 +83,7 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	rr, err = eestream.UnpadSlow(ctx, rr)
+	rr, err = encryption.UnpadSlow(ctx, rr)
 	if err != nil {
 		return err
 	}
