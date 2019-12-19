@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"text/tabwriter"
-	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
@@ -79,21 +78,21 @@ var (
 	nodeUsageCmd = &cobra.Command{
 		Use:   "storagenode-usage [start] [end]",
 		Short: "Generate a node usage report for a given period to use for payments",
-		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
 		Use:   "partner-attribution [partner ID] [start] [end]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
-		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
 	gracefulExitCmd = &cobra.Command{
 		Use:   "graceful-exit [start] [end]",
 		Short: "Generate a graceful exit report",
-		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdGracefulExit,
 	}
@@ -331,22 +330,9 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	// adding one day to properly account for the entire end day
-	end = end.AddDate(0, 0, 1)
-
-	// ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout
@@ -370,22 +356,9 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	//Adding one day to properly account for the entire end day
-	end = end.Add(time.Hour * 24)
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout
@@ -415,19 +388,9 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
 	}
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[1])
+	start, end, err := reports.ParseRange(args[1], args[2])
 	if err != nil {
-		return errs.New("Invalid start date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[2])
-	if err != nil {
-		return errs.New("Invalid end date format. Please use YYYY-MM-DD")
-	}
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout
