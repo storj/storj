@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
@@ -36,14 +35,12 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	defer mon.Task()(&ctx)(&err)
 	switch r.db.implementation {
 	case dbutil.Cockroach:
-		err = crdb.ExecuteTx(ctx, r.db.DB.DB, nil, func(tx *sql.Tx) error {
-			return tx.QueryRowContext(ctx, `
-					UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
-						SELECT path FROM injuredsegments
-						WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
-						ORDER BY attempted LIMIT 1
-					) RETURNING data`).Scan(&seg)
-		})
+		err = r.db.QueryRowContext(ctx, `
+				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
+					SELECT path FROM injuredsegments
+					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
+					ORDER BY attempted LIMIT 1
+				) RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
