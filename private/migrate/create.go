@@ -4,6 +4,7 @@
 package migrate
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/zeebo/errs"
@@ -14,45 +15,49 @@ var Error = errs.Class("migrate")
 
 // Create with a previous schema check
 func Create(identifier string, db DBX) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// is this necessary? it's not immediately obvious why we roll back the transaction
+	// when the schemas match.
+	justRollbackPlease := errs.Class("only used to tell WithTx to do a rollback")
 
-	schema := db.Schema()
+	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) (err error) {
+		schema := db.Schema()
 
-	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
-	if err != nil {
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	row := tx.QueryRow(db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
-
-	var previousSchema string
-	err = row.Scan(&previousSchema)
-
-	// not created yet
-	if err == sql.ErrNoRows {
-		_, err := tx.Exec(schema)
+		_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
 		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+			return err
 		}
 
-		_, err = tx.Exec(db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
+		row := tx.QueryRow(db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
+
+		var previousSchema string
+		err = row.Scan(&previousSchema)
+
+		// not created yet
+		if err == sql.ErrNoRows {
+			_, err := tx.Exec(schema)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.Exec(db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
 		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+			return err
 		}
 
-		return Error.Wrap(tx.Commit())
-	}
-	if err != nil {
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
+		if schema != previousSchema {
+			return Error.New("schema mismatch:\nold %v\nnew %v", previousSchema, schema)
+		}
 
-	if schema != previousSchema {
-		err := Error.New("schema mismatch:\nold %v\nnew %v", previousSchema, schema)
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return justRollbackPlease.New("")
+	})
+	if justRollbackPlease.Has(err) {
+		err = nil
 	}
-
-	return Error.Wrap(tx.Rollback())
+	return Error.Wrap(err)
 }

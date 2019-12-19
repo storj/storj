@@ -11,13 +11,15 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
+	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/migrate"
 )
 
 // DB is the minimal interface required to perform migrations.
 type DB interface {
+	migrate.DB
 	Conn(ctx context.Context) (*sql.Conn, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
 var (
@@ -181,51 +183,45 @@ func KeepTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) 
 func dropTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return ErrKeepTables.Wrap(err)
+		return err
 	}
-
-	defer func() {
+	err = txutil.ExecuteInTx(ctx, db.Driver(), tx, func() error {
+		// Get a list of tables excluding sqlite3 system tables.
+		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 		if err != nil {
-			err = ErrKeepTables.Wrap(errs.Combine(err, tx.Rollback()))
-		} else {
-			err = ErrKeepTables.Wrap(errs.Combine(err, tx.Commit()))
+			return err
 		}
-	}()
 
-	// Get a list of tables excluding sqlite3 system tables.
-	rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
-	if err != nil {
-		return ErrKeepTables.Wrap(err)
-	}
-
-	// Collect a list of the tables. We must do this because we can't do DDL
-	// statements like drop tables while a query result is open.
-	var tables []string
-	for rows.Next() {
-		var tableName string
-		err = rows.Scan(&tableName)
-		if err != nil {
-			return errs.Combine(err, ErrKeepTables.Wrap(rows.Close()))
-		}
-		tables = append(tables, tableName)
-	}
-	err = rows.Close()
-	if err != nil {
-		return ErrKeepTables.Wrap(err)
-	}
-
-	// Loop over the list of tables and decide which ones to keep and which to drop.
-	for _, tableName := range tables {
-		if !tableToKeep(tableName, tablesToKeep) {
-			// Drop tables we aren't told to keep in the destination database.
-			_, err = tx.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
+		// Collect a list of the tables. We must do this because we can't do DDL
+		// statements like drop tables while a query result is open.
+		var tables []string
+		for rows.Next() {
+			var tableName string
+			err = rows.Scan(&tableName)
 			if err != nil {
-				return ErrKeepTables.Wrap(err)
+				return errs.Combine(err, rows.Close())
+			}
+			tables = append(tables, tableName)
+		}
+		err = rows.Close()
+		if err != nil {
+			return err
+		}
+
+		// Loop over the list of tables and decide which ones to keep and which to drop.
+		for _, tableName := range tables {
+			if !tableToKeep(tableName, tablesToKeep) {
+				// Drop tables we aren't told to keep in the destination database.
+				_, err = tx.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return nil
+		return nil
+	})
+	return ErrKeepTables.Wrap(err)
 }
 
 func tableToKeep(table string, tables []string) bool {
