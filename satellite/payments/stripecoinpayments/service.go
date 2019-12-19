@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"storj.io/storj/private/date"
-	"storj.io/storj/private/memory"
 	"sync"
 	"time"
 
@@ -19,6 +17,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/private/date"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -201,7 +201,7 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 			return err
 		}
 
-		service.log.Error("project usage for period " + usage.Since.String() + " - " +  usage.Before.String())
+		service.log.Error("project usage for period " + usage.Since.String() + " - " + usage.Before.String())
 		service.log.Error(fmt.Sprintf("project usage for period objCount: %f, egress: %d, storage: %f", usage.ObjectCount, usage.Egress, usage.Storage))
 
 		// TODO: reuse this code fragment.

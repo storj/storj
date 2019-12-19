@@ -8,7 +8,6 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"sort"
-	"storj.io/storj/private/memory"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
@@ -165,14 +165,14 @@ func (payments PaymentsService) AddCoupon(ctx context.Context, userID, projectID
 		return Error.Wrap(err)
 	}
 
-	isProjectIdValid := false
+	isProjectIDValid := false
 	for _, project := range projects {
 		if project.ID == projectID {
-			isProjectIdValid = true
+			isProjectIDValid = true
 			break
 		}
 	}
-	if !isProjectIdValid {
+	if !isProjectIDValid {
 		return Error.Wrap(errs.New("user don't have project with such id"))
 	}
 
@@ -307,7 +307,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:          coupon.ID.String(),
-				Description: fmt.Sprintf("Promotional credits (limited time - %d days)", int(coupon.Duration.Hours() / 24)),
+				Description: fmt.Sprintf("Promotional credits (limited time - %d days)", int(coupon.Duration.Hours()/24)),
 				Amount:      coupon.Amount,
 				Status:      "Added to balance",
 				Link:        "",
@@ -860,7 +860,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
-	err = s.Payments().AddCoupon(ctx, auth.User.ID, p.ID, 50000, time.Hour * 24, "descr")
+	err = s.Payments().AddCoupon(ctx, auth.User.ID, p.ID, 50000, time.Hour*24, "descr")
 	if err != nil {
 		s.log.Error("could not add coupon", zap.Error(err))
 	}

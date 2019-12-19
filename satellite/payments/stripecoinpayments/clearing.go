@@ -32,9 +32,9 @@ type Chore struct {
 // NewChore creates new clearing loop chore.
 func NewChore(log *zap.Logger, service *Service, txInterval, accBalanceInterval, couponUsageInterval time.Duration) *Chore {
 	return &Chore{
-		log:              log,
-		service:          service,
-		TransactionCycle: *sync2.NewCycle(txInterval),
+		log:                 log,
+		service:             service,
+		TransactionCycle:    *sync2.NewCycle(txInterval),
 		CouponUsageCycle:    *sync2.NewCycle(couponUsageInterval),
 		AccountBalanceCycle: *sync2.NewCycle(accBalanceInterval),
 	}

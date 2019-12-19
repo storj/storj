@@ -16,7 +16,7 @@ var ErrAccountNotSetup = errs.Class("payment account is not set up")
 
 // Accounts exposes all needed functionality to manage payment accounts.
 type Accounts interface {
-
+	// AddCoupon creates new coupon for specified user and project.
 	AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error)
 
 	// Setup creates a payment account for the user.

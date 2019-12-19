@@ -70,6 +70,12 @@ export default class ProjectSelectionDropdown extends Vue {
         } catch (error) {
             await this.$notify.error('Unable to fetch buckets: ' + error.message);
         }
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
+        }
     }
 
     public get projects(): Project[] {

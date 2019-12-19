@@ -53,7 +53,6 @@ func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.
 	return nil
 }
 
-
 // CreditCards exposes all needed functionality to manage account credit cards.
 func (accounts *accounts) CreditCards() payments.CreditCards {
 	return &creditCards{}
