@@ -58,25 +58,23 @@ func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
 }
 
-// BeginTx is a method for opening transaction.
-func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
+// WithTx is a method for executing and retrying transaction.
+func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {
-		return nil, errs.New("DB is not initialized!")
+		return errs.New("DB is not initialized!")
 	}
 
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &DBTx{
-		ConsoleDB: &ConsoleDB{
-			// Need to expose dbx.DB for when database methods need access to check database driver type
-			db:      db.db,
-			tx:      tx,
-			methods: tx,
-		},
-	}, nil
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		dbTx := &DBTx{
+			ConsoleDB: &ConsoleDB{
+				// Need to expose dbx.DB for when database methods need access to check database driver type
+				db:      db.db,
+				tx:      tx,
+				methods: tx,
+			},
+		}
+		return fn(ctx, dbTx)
+	})
 }
 
 // DBTx extends Database with transaction scope.
