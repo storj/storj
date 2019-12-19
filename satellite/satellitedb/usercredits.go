@@ -158,53 +158,51 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
 func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, expirationEndDate time.Time) (remainingCharge int, err error) {
-	tx, err := c.db.Open(ctx)
+	err = c.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		availableCredits, err := tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
+			dbx.UserCredit_UserId(id[:]),
+			dbx.UserCredit_ExpiresAt(expirationEndDate),
+		)
+		if err != nil {
+			return err
+		}
+		if len(availableCredits) == 0 {
+			return errs.New("No available credits")
+		}
+
+		values := make([]interface{}, len(availableCredits)*2)
+		rowIds := make([]interface{}, len(availableCredits))
+
+		remainingCharge = creditsToCharge
+		for i, credit := range availableCredits {
+			if remainingCharge == 0 {
+				break
+			}
+
+			creditsForUpdateInCents := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+
+			if remainingCharge < creditsForUpdateInCents {
+				creditsForUpdateInCents = remainingCharge
+			}
+
+			values[i%2] = credit.Id
+			values[(i%2 + 1)] = creditsForUpdateInCents
+			rowIds[i] = credit.Id
+
+			remainingCharge -= creditsForUpdateInCents
+		}
+
+		values = append(values, rowIds...)
+
+		statement := generateQuery(len(availableCredits), true)
+
+		_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET credits_used_in_cents = CASE `+statement), values...)
+		return err
+	})
 	if err != nil {
 		return creditsToCharge, errs.Wrap(err)
 	}
-
-	availableCredits, err := tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
-		dbx.UserCredit_UserId(id[:]),
-		dbx.UserCredit_ExpiresAt(expirationEndDate),
-	)
-	if err != nil {
-		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-	if len(availableCredits) == 0 {
-		return creditsToCharge, errs.Combine(errs.New("No available credits"), tx.Commit())
-	}
-
-	values := make([]interface{}, len(availableCredits)*2)
-	rowIds := make([]interface{}, len(availableCredits))
-
-	remainingCharge = creditsToCharge
-	for i, credit := range availableCredits {
-		if remainingCharge == 0 {
-			break
-		}
-
-		creditsForUpdateInCents := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
-
-		if remainingCharge < creditsForUpdateInCents {
-			creditsForUpdateInCents = remainingCharge
-		}
-
-		values[i%2] = credit.Id
-		values[(i%2 + 1)] = creditsForUpdateInCents
-		rowIds[i] = credit.Id
-
-		remainingCharge -= creditsForUpdateInCents
-	}
-
-	values = append(values, rowIds...)
-
-	statement := generateQuery(len(availableCredits), true)
-
-	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET credits_used_in_cents = CASE `+statement), values...)
-	if err != nil {
-		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-	return remainingCharge, errs.Wrap(tx.Commit())
+	return remainingCharge, nil
 }
 
 func generateQuery(totalRows int, toInt bool) (query string) {
