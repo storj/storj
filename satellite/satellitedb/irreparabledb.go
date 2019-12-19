@@ -5,9 +5,9 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -20,31 +20,28 @@ type irreparableDB struct {
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	bytes, err := proto.Marshal(segmentInfo.SegmentDetail)
-	if err != nil {
-		return err
-	}
-
-	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
-	if err != nil {
-		// no rows err, so create/insert an entry
-		err = tx.CreateNoReturn_Irreparabledb(
-			ctx,
-			dbx.Irreparabledb_Segmentpath(segmentInfo.Path),
-			dbx.Irreparabledb_Segmentdetail(bytes),
-			dbx.Irreparabledb_PiecesLostCount(int64(segmentInfo.LostPieces)),
-			dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.LastRepairAttempt),
-			dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
-		)
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		bytes, err := proto.Marshal(segmentInfo.SegmentDetail)
 		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+			return err
 		}
-	} else {
+
+		dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// no rows err, so create/insert an entry
+				return tx.CreateNoReturn_Irreparabledb(
+					ctx,
+					dbx.Irreparabledb_Segmentpath(segmentInfo.Path),
+					dbx.Irreparabledb_Segmentdetail(bytes),
+					dbx.Irreparabledb_PiecesLostCount(int64(segmentInfo.LostPieces)),
+					dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.LastRepairAttempt),
+					dbx.Irreparabledb_RepairAttemptCount(segmentInfo.RepairAttemptCount),
+				)
+			}
+			return err
+		}
+
 		// row exits increment the attempt counter
 		dbxInfo.RepairAttemptCount++
 		updateFields := dbx.Irreparabledb_Update_Fields{}
@@ -55,12 +52,9 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 			dbx.Irreparabledb_Segmentpath(dbxInfo.Segmentpath),
 			updateFields,
 		)
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-	}
-
-	return Error.Wrap(tx.Commit())
+		return err
+	})
+	return Error.Wrap(err)
 }
 
 // Get a irreparable's segment info from the db
