@@ -100,6 +100,7 @@ export default class ProjectDetailsArea extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
                 project_id: this.$store.getters.selectedProject.id,
             });
