@@ -103,6 +103,7 @@ require (
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/grpc v1.23.1
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect

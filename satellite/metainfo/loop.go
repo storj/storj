@@ -11,6 +11,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"golang.org/x/time/rate"
+
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
@@ -72,6 +74,7 @@ func (observer *observerContext) Wait() error {
 // LoopConfig contains configurable values for the metainfo loop.
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+	RateLimit        float64       `help:"metainfo loop rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 }
 
 // Loop is a metainfo loop service.
@@ -165,12 +168,11 @@ waitformore:
 			return ctx.Err()
 		}
 	}
-
-	return iterateDatabase(ctx, loop.db, observers)
+	return iterateDatabase(ctx, loop.db, observers, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
 // IterateDatabase iterates over PointerDB and notifies specified observers about results.
-func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) error {
+func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
 		obsContexts[i] = &observerContext{
@@ -179,7 +181,7 @@ func IterateDatabase(ctx context.Context, db PointerDB, observers ...Observer) e
 			done:     make(chan error),
 		}
 	}
-	return iterateDatabase(ctx, db, obsContexts)
+	return iterateDatabase(ctx, db, obsContexts, rate.NewLimiter(rate.Limit(rateLimit), 1))
 }
 
 // handlePointer deals with a pointer for a single observer
@@ -219,7 +221,7 @@ func (loop *Loop) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext) (err error) {
+func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
 			for _, observer := range observers {
@@ -237,6 +239,12 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 			// iterate over every segment in metainfo
 		nextSegment:
 			for it.Next(ctx, &item) {
+				if err := rateLimiter.Wait(ctx); err != nil {
+					// We don't really execute concurrent batches so we should never
+					// exceed the burst size of 1 and this should never happen.
+					return LoopError.New("unexpected error rate limiting metainfo loop %s", err)
+				}
+
 				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
 
