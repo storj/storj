@@ -44,6 +44,9 @@ const (
 	// EncSecretBox indicates use of XSalsa20-Poly1305 encryption, as provided
 	// by the NaCl cryptography library under the name "Secretbox".
 	EncSecretBox
+	// EncNullBase64URL is like EncNull but Base64 encodes/decodes the
+	// binary path data (URL-safe)
+	EncNullBase64URL
 )
 
 // Constant definitions for key and nonce sizes

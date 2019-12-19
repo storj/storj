@@ -8,13 +8,14 @@ import (
 	"io"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
 )
 
 // Download implements Reader, Seeker and Closer for reading from stream.
 type Download struct {
 	ctx     context.Context
-	stream  storj.ReadOnlyStream
+	stream  kvmetainfo.ReadOnlyStream
 	streams streams.Store
 	reader  io.ReadCloser
 	offset  int64
@@ -23,7 +24,7 @@ type Download struct {
 }
 
 // NewDownload creates new stream download.
-func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store) *Download {
+func NewDownload(ctx context.Context, stream kvmetainfo.ReadOnlyStream, streams streams.Store) *Download {
 	return &Download{
 		ctx:     ctx,
 		stream:  stream,
@@ -33,7 +34,7 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 }
 
 // NewDownloadRange creates new stream range download with range from offset to offset+limit.
-func NewDownloadRange(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, offset, limit int64) *Download {
+func NewDownloadRange(ctx context.Context, stream kvmetainfo.ReadOnlyStream, streams streams.Store, offset, limit int64) *Download {
 	return &Download{
 		ctx:     ctx,
 		stream:  stream,

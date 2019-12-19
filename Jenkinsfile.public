@@ -1,9 +1,9 @@
 pipeline {
     agent {
-        dockerfile {
-            filename 'Dockerfile.jenkins'
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+        docker {
             label 'main'
+            image docker.build("storj-ci", "https://github.com/storj/ci.git").id
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
         }
     }
     options {
@@ -40,18 +40,18 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-large-files.go'
-                        sh 'go run ./scripts/check-imports.go -race ./...'
-                        sh 'go run ./scripts/check-peer-constraints.go -race'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
-                        sh 'go run ./scripts/atomicalign.go ./...'
-                        sh 'go run ./scripts/check-errs.go ./...'
+                        sh 'check-copyright'
+                        sh 'check-large-files'
+                        sh 'check-imports -race ./...'
+                        sh 'check-peer-constraints -race'
+                        sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc lint'
+                        sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc check-lock'
+                        sh 'check-atomic-align ./...'
+                        sh 'check-errs ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'staticcheck ./...'
-                        sh 'golangci-lint -j=2 run'
-                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                        sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                         sh 'make check-monitoring'
                     }
@@ -66,9 +66,9 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
-                        sh 'go run scripts/check-clean-directory.go'
+                        sh 'use-ports -from 1024 -to 10000 &'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                        sh 'check-clean-directory'
                     }
 
                     post {
@@ -79,7 +79,7 @@ pipeline {
 
                             script {
                                 if(fileExists(".build/coverprofile")){
-                                    sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml'

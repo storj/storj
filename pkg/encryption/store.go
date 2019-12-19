@@ -34,6 +34,11 @@ import (
 type Store struct {
 	roots      map[string]*node
 	defaultKey *storj.Key
+
+	// EncryptionBypass makes it so we can interoperate with
+	// the network without having encryption keys. paths will be encrypted but
+	// base64-encoded, and certain metadata will be unable to be retrieved.
+	EncryptionBypass bool
 }
 
 // node is a node in the Store graph. It may contain an encryption key and encrypted path,

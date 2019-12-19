@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	recursiveFlag *bool
+	lsRecursiveFlag *bool
+	lsEncryptedFlag *bool
 )
 
 func init() {
@@ -26,7 +27,8 @@ func init() {
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
 	}, RootCmd)
-	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
+	lsRecursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
+	lsEncryptedFlag = lsCmd.Flags().Bool("encrypted", false, "if true, show paths as base64-encoded encrypted paths")
 }
 
 func list(cmd *cobra.Command, args []string) error {
@@ -47,6 +49,12 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	access := scope.EncryptionAccess
+	if *lsEncryptedFlag {
+		access = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+		access.Store().EncryptionBypass = true
+	}
+
 	// list objects
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
@@ -58,7 +66,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("no bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), scope.EncryptionAccess)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
 		if err != nil {
 			return err
 		}
@@ -88,8 +96,8 @@ func list(cmd *cobra.Command, args []string) error {
 			noBuckets = false
 			for _, bucket := range list.Items {
 				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
-				if *recursiveFlag {
-					if err := listFilesFromBucket(ctx, project, bucket.Name, scope.EncryptionAccess); err != nil {
+				if *lsRecursiveFlag {
+					if err := listFilesFromBucket(ctx, project, bucket.Name, access); err != nil {
 						return err
 					}
 				}
@@ -141,7 +149,7 @@ func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath
 			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    prefix.Path(),
-			Recursive: *recursiveFlag,
+			Recursive: *lsRecursiveFlag,
 		})
 		if err != nil {
 			return err

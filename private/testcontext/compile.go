@@ -9,10 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"testing"
-
-	"storj.io/storj/private/version"
 )
 
 // CLibMath is the standard C math library (see `man math.h`).
@@ -61,21 +58,6 @@ func (ctx *Context) Compile(pkg string, preArgs ...string) string {
 	}
 
 	return exe
-}
-
-// CompileWithVersion compiles the specified package with the version variables set
-// to the passed version info values and returns the executable name.
-func (ctx *Context) CompileWithVersion(pkg string, info version.Info) string {
-	ctx.test.Helper()
-
-	ldFlagsX := map[string]string{
-		"storj.io/storj/private/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
-		"storj.io/storj/private/version.buildCommitHash": info.CommitHash,
-		"storj.io/storj/private/version.buildVersion":    info.Version.String(),
-		"storj.io/storj/private/version.buildRelease":    strconv.FormatBool(info.Release),
-	}
-
-	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
 
 // CompileWithLDFlagsX compiles the specified package with the -ldflags flag set to
