@@ -173,6 +173,18 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 	return limit, nil
 }
 
+// UpdateProjectLimits sets new value for project's bandwidth and storage limit.
+func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	err = usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit)
+	if err != nil {
+		return ErrProjectUsage.Wrap(err)
+	}
+
+	return nil
+}
+
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.

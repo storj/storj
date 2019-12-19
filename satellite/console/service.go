@@ -6,7 +6,9 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"sort"
+	"storj.io/storj/private/memory"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -151,7 +153,52 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+	return Error.Wrap(payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
+}
+
+// AddCoupon creates new coupon for specified user and project.
+func (payments PaymentsService) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration time.Duration, description string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	projects, err := payments.service.store.Projects().GetByUserID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isProjectIdValid := false
+	for _, project := range projects {
+		if project.ID == projectID {
+			isProjectIdValid = true
+			break
+		}
+	}
+	if !isProjectIdValid {
+		return Error.Wrap(errs.New("user don't have project with such id"))
+	}
+
+	creditCards, err := payments.service.accounts.CreditCards().List(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if len(creditCards) == 0 {
+		return Error.Wrap(errs.New("user don't have credit cards"))
+	}
+
+	coupons, err := payments.service.accounts.Coupons(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if len(coupons) > 0 {
+		return Error.Wrap(errs.New("user already have a coupon"))
+	}
+
+	err = payments.service.accounts.AddCoupon(ctx, userID, projectID, amount, duration, description)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: delete coupon if limits can't be updated?
+	return Error.Wrap(payments.service.projectUsage.UpdateProjectLimits(ctx, projectID, memory.TB))
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
@@ -260,12 +307,11 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:          coupon.ID.String(),
-				Description: "Promotional credits",
+				Description: fmt.Sprintf("Promotional credits (limited time - %d days)", int(coupon.Duration.Hours() / 24)),
 				Amount:      coupon.Amount,
 				Status:      "Added to balance",
 				Link:        "",
 				Start:       coupon.Created,
-				End:         coupon.Created.Add(coupon.Duration),
 				Type:        Coupon,
 			},
 		)
@@ -814,9 +860,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, err
 	}
 
-	err = s.accounts.AddCoupon(ctx, auth.User.ID, p.ID, 50000, time.Hour * 24, "descr")
+	err = s.Payments().AddCoupon(ctx, auth.User.ID, p.ID, 50000, time.Hour * 24, "descr")
 	if err != nil {
-		s.log.Error("add coupon test failed", zap.Error(err))
+		s.log.Error("could not add coupon", zap.Error(err))
 	}
 
 	return p, nil

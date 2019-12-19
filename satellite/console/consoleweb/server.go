@@ -468,7 +468,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 
 		jsonError.Error = err.Error()
 
-		if err := json.NewEncoder(w).Encode(err); err != nil {
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
 			server.log.Error("error encoding project usage limits error", zap.Error(err))
 		}
 	}
@@ -494,6 +494,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	limits, err := server.service.GetProjectUsageLimits(ctx, *projectID)
+	server.log.Error("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE " + err.Error())
 	if err != nil {
 		handleServiceError(err)
 		return

@@ -141,6 +141,11 @@ export default class DashboardArea extends Vue {
         }
 
         try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
+        }
+        try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);

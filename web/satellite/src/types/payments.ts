@@ -106,11 +106,11 @@ export class BillingHistoryItem {
     ) {}
 
     public get quantity(): Amount {
-        if (this.type === BillingHistoryItemType.Invoice) {
-            return new Amount('$', this.amountDollars(this.amount));
+        if (this.type === BillingHistoryItemType.Transaction) {
+            return new Amount('$', this.amountDollars(this.amount), this.amountDollars(this.received));
         }
 
-        return new Amount('$', this.amountDollars(this.amount), this.amountDollars(this.received));
+        return new Amount('$', this.amountDollars(this.amount));
     }
 
     public get formattedStatus(): string {
@@ -138,6 +138,8 @@ export enum BillingHistoryItemType {
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
+    // Coupon is an entity that adds some funds to Accounts balance for some fixed period.
+    Coupon = 2,
 }
 
 // TokenDeposit holds public information about token deposit
