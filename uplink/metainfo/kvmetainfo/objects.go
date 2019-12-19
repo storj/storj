@@ -122,6 +122,13 @@ func (db *DB) ModifyObject(ctx context.Context, bucket storj.Bucket, path storj.
 	return nil, errors.New("not implemented")
 }
 
+func (db *DB) pathCipher(bucketInfo storj.Bucket) storj.CipherSuite {
+	if db.encStore.EncryptionBypass {
+		return storj.EncNullBase64URL
+	}
+	return bucketInfo.PathCipher
+}
+
 // DeleteObject deletes an object from database
 func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -131,7 +138,7 @@ func (db *DB) DeleteObject(ctx context.Context, bucket storj.Bucket, path storj.
 	}
 
 	prefixed := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		store:  objects.NewStore(db.streams, db.pathCipher(bucket)),
 		prefix: bucket.Name,
 	}
 	return prefixed.Delete(ctx, path)
@@ -158,7 +165,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options stor
 	}
 
 	objects := prefixedObjStore{
-		store:  objects.NewStore(db.streams, bucket.PathCipher),
+		store:  objects.NewStore(db.streams, db.pathCipher(bucket)),
 		prefix: bucket.Name,
 	}
 
@@ -175,7 +182,13 @@ func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options stor
 		return storj.ObjectList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
-	items, more, err := objects.List(ctx, options.Prefix, startAfter, options.Recursive, options.Limit, meta.All)
+	// TODO: we should let libuplink users be able to determine what metadata fields they request as well
+	metaFlags := meta.All
+	if db.pathCipher(bucket) == storj.EncNull || db.pathCipher(bucket) == storj.EncNullBase64URL {
+		metaFlags = meta.None
+	}
+
+	items, more, err := objects.List(ctx, options.Prefix, startAfter, options.Recursive, options.Limit, metaFlags)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}
@@ -199,7 +212,7 @@ type object struct {
 	bucket          string
 	encPath         paths.Encrypted
 	lastSegmentMeta segments.Meta
-	streamInfo      pb.StreamInfo
+	streamInfo      *pb.StreamInfo
 	streamMeta      pb.StreamMeta
 }
 
@@ -216,7 +229,7 @@ func (db *DB) getInfo(ctx context.Context, bucket storj.Bucket, path storj.Path)
 
 	fullpath := streams.CreatePath(bucket.Name, paths.NewUnencrypted(path))
 
-	encPath, err := encryption.EncryptPath(bucket.Name, paths.NewUnencrypted(path), bucket.PathCipher, db.encStore)
+	encPath, err := encryption.EncryptPath(bucket.Name, paths.NewUnencrypted(path), db.pathCipher(bucket), db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -238,13 +251,7 @@ func (db *DB) getInfo(ctx context.Context, bucket storj.Bucket, path storj.Path)
 		Data:       objectInfo.Metadata,
 	}
 
-	streamInfoData, streamMeta, err := streams.TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.encStore)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamInfo := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfoData, &streamInfo)
+	streamInfo, streamMeta, err := streams.TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -285,7 +292,7 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 	}
 }
 
-func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.StreamID, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
+func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.StreamID, lastSegment segments.Meta, stream *pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
 	var encryptedKey storj.EncryptedPrivateKey
 	if streamMeta.LastSegmentMeta != nil {
@@ -293,37 +300,19 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.S
 		encryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
 	}
 
-	serMetaInfo := pb.SerializableMeta{}
-	err := proto.Unmarshal(stream.Metadata, &serMetaInfo)
-	if err != nil {
-		return storj.Object{}, err
-	}
-
-	numberOfSegments := streamMeta.NumberOfSegments
-	if streamMeta.NumberOfSegments == 0 {
-		numberOfSegments = stream.DeprecatedNumberOfSegments
-	}
-
-	return storj.Object{
+	rv := storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
 		Path:     path,
 		IsPrefix: false,
 
-		Metadata: serMetaInfo.UserDefined,
-
-		ContentType: serMetaInfo.ContentType,
-		Created:     lastSegment.Modified,   // TODO: use correct field
-		Modified:    lastSegment.Modified,   // TODO: use correct field
-		Expires:     lastSegment.Expiration, // TODO: use correct field
+		Created:  lastSegment.Modified,   // TODO: use correct field
+		Modified: lastSegment.Modified,   // TODO: use correct field
+		Expires:  lastSegment.Expiration, // TODO: use correct field
 
 		Stream: storj.Stream{
-			ID:   streamID,
-			Size: stream.SegmentsSize*(numberOfSegments-1) + stream.LastSegmentSize,
+			ID: streamID,
 			// Checksum: []byte(object.Checksum),
-
-			SegmentCount:     numberOfSegments,
-			FixedSegmentSize: stream.SegmentsSize,
 
 			RedundancyScheme: redundancyScheme,
 			EncryptionParameters: storj.EncryptionParameters{
@@ -331,12 +320,33 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.S
 				BlockSize:   streamMeta.EncryptionBlockSize,
 			},
 			LastSegment: storj.LastSegment{
-				Size:              stream.LastSegmentSize,
 				EncryptedKeyNonce: nonce,
 				EncryptedKey:      encryptedKey,
 			},
 		},
-	}, nil
+	}
+
+	if stream != nil {
+		serMetaInfo := pb.SerializableMeta{}
+		err := proto.Unmarshal(stream.Metadata, &serMetaInfo)
+		if err != nil {
+			return storj.Object{}, err
+		}
+
+		numberOfSegments := streamMeta.NumberOfSegments
+		if streamMeta.NumberOfSegments == 0 {
+			numberOfSegments = stream.DeprecatedNumberOfSegments
+		}
+
+		rv.Metadata = serMetaInfo.UserDefined
+		rv.ContentType = serMetaInfo.ContentType
+		rv.Stream.Size = stream.SegmentsSize*(numberOfSegments-1) + stream.LastSegmentSize
+		rv.Stream.SegmentCount = numberOfSegments
+		rv.Stream.FixedSegmentSize = stream.SegmentsSize
+		rv.Stream.LastSegment.Size = stream.LastSegmentSize
+	}
+
+	return rv, nil
 }
 
 type mutableObject struct {

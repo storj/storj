@@ -5,15 +5,21 @@ package kvmetainfo_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/memory"
+	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
@@ -258,43 +264,60 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		encStore := newTestEncStore(TestEncKey)
+		db, streams, err := newMetainfoParts(planet, encStore)
+		require.NoError(t, err)
+
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
 		}
 
-		upload(ctx, t, db, streams, bucket, TestFile, nil)
+		unencryptedPath := paths.NewUnencrypted(TestFile)
+		encryptedPath, err := encryption.EncryptPath(bucket.Name, unencryptedPath, storj.EncAESGCM, encStore)
+		require.NoError(t, err)
 
-		err = db.DeleteObject(ctx, storj.Bucket{}, "")
-		assert.True(t, storj.ErrNoBucket.Has(err))
+		for i, path := range []string{unencryptedPath.String(), encryptedPath.String()} {
+			upload(ctx, t, db, streams, bucket, path, nil)
 
-		err = db.DeleteObject(ctx, bucket, "")
-		assert.True(t, storj.ErrNoPath.Has(err))
-
-		{
-			unexistingBucket := storj.Bucket{
-				Name:       bucket.Name + "-not-exist",
-				PathCipher: bucket.PathCipher,
+			if i < 0 {
+				// Enable encryption bypass
+				encStore.EncryptionBypass = true
 			}
-			err = db.DeleteObject(ctx, unexistingBucket, TestFile)
-			assert.True(t, storj.ErrObjectNotFound.Has(err))
-		}
 
-		err = db.DeleteObject(ctx, bucket, "non-existing-file")
-		assert.True(t, storj.ErrObjectNotFound.Has(err))
+			err = db.DeleteObject(ctx, storj.Bucket{}, "")
+			assert.True(t, storj.ErrNoBucket.Has(err))
 
-		{
-			invalidPathCipherBucket := storj.Bucket{
-				Name:       bucket.Name,
-				PathCipher: bucket.PathCipher + 1,
+			err = db.DeleteObject(ctx, bucket, "")
+			assert.True(t, storj.ErrNoPath.Has(err))
+
+			{
+				unexistingBucket := storj.Bucket{
+					Name:       bucket.Name + "-not-exist",
+					PathCipher: bucket.PathCipher,
+				}
+				err = db.DeleteObject(ctx, unexistingBucket, TestFile)
+				assert.True(t, storj.ErrObjectNotFound.Has(err))
 			}
-			err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
-			assert.True(t, storj.ErrObjectNotFound.Has(err))
-		}
 
-		err = db.DeleteObject(ctx, bucket, TestFile)
-		assert.NoError(t, err)
+			err = db.DeleteObject(ctx, bucket, "non-existing-file")
+			assert.True(t, storj.ErrObjectNotFound.Has(err))
+
+			{
+				invalidPathCipherBucket := storj.Bucket{
+					Name:       bucket.Name,
+					PathCipher: bucket.PathCipher + 1,
+				}
+				err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
+				assert.True(t, storj.ErrObjectNotFound.Has(err))
+			}
+
+			err = db.DeleteObject(ctx, bucket, path)
+			assert.NoError(t, err)
+		}
 	})
 }
 
@@ -319,6 +342,70 @@ func TestListObjectsEmpty(t *testing.T) {
 				assert.False(t, list.More)
 				assert.Equal(t, 0, len(list.Items))
 			}
+		}
+	})
+}
+
+func TestListObjects_EncryptionBypass(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		encStore := newTestEncStore(TestEncKey)
+		db, streams, err := newMetainfoParts(planet, encStore)
+		require.NoError(t, err)
+
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncAESGCM})
+		require.NoError(t, err)
+
+		filePaths := []string{
+			"a", "aa", "b", "bb", "c",
+			"a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc",
+			"b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc",
+		}
+
+		for _, path := range filePaths {
+			upload(ctx, t, db, streams, bucket, path, nil)
+		}
+		sort.Strings(filePaths)
+
+		// Enable encryption bypass
+		encStore.EncryptionBypass = true
+
+		opts := options("", "", 0)
+		opts.Recursive = true
+		encodedList, err := db.ListObjects(ctx, bucket, opts)
+		require.NoError(t, err)
+		require.Equal(t, len(filePaths), len(encodedList.Items))
+
+		seenPaths := make(map[string]struct{})
+		for _, item := range encodedList.Items {
+			iter := paths.NewUnencrypted(item.Path).Iterator()
+			var decoded, next string
+			for !iter.Done() {
+				next = iter.Next()
+
+				decodedNextBytes, err := base64.URLEncoding.DecodeString(next)
+				require.NoError(t, err)
+
+				decoded += string(decodedNextBytes) + "/"
+			}
+			decoded = strings.TrimRight(decoded, "/")
+			encryptedPath := paths.NewEncrypted(decoded)
+
+			decryptedPath, err := encryption.DecryptPath(bucket.Name, encryptedPath, storj.EncAESGCM, encStore)
+			require.NoError(t, err)
+
+			// NB: require decrypted path is a member of `filePaths`.
+			result := sort.Search(len(filePaths), func(i int) bool {
+				return !paths.NewUnencrypted(filePaths[i]).Less(decryptedPath)
+			})
+			require.NotEqual(t, len(filePaths), result)
+
+			// NB: ensure each path is only seen once.
+			_, ok := seenPaths[decryptedPath.String()]
+			require.False(t, ok)
+
+			seenPaths[decryptedPath.String()] = struct{}{}
 		}
 	})
 }
@@ -439,6 +526,7 @@ func TestListObjects(t *testing.T) {
 		}
 	})
 }
+
 func options(prefix, cursor string, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
