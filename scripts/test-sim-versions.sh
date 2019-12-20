@@ -67,11 +67,6 @@ install_sim(){
     local bin_dir="$1"
     mkdir -p ${bin_dir}
 
-    go build -race -v -tags=grpc -o ${bin_dir}/storagenode-grpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/storagenode-drpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=grpc -o ${bin_dir}/satellite-grpc storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/satellite-drpc storj.io/storj/cmd/satellite >/dev/null 2>&1
-
     go install -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1

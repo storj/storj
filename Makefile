@@ -80,24 +80,18 @@ build-npm:
 
 ##@ Simulator
 
-.PHONY: go-install-grpc-and-drpc
-go-install-grpc-and-drpc:
-	@: $(if ${PACKAGE},,$(error PACKAGE must be defined for the go-install-grpc-and-drpc target))
-	go build -race -v -tags=grpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-grpc" "${PACKAGE}"
-	go build -race -v -tags=drpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-drpc" "${PACKAGE}"
-	go install -race -v "${PACKAGE}"
-
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/storagenode
-	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/satellite
-	go install -race -v storj.io/storj/cmd/storj-sim
-	go install -race -v storj.io/storj/cmd/versioncontrol
-	go install -race -v storj.io/storj/cmd/uplink
-	go install -race -v storj.io/storj/cmd/gateway
-	go install -race -v storj.io/storj/cmd/identity
-	go install -race -v storj.io/storj/cmd/certificates
+	go install -race -v \
+		storj.io/storj/cmd/satellite \
+		storj.io/storj/cmd/storagenode \
+		storj.io/storj/cmd/storj-sim \
+		storj.io/storj/cmd/versioncontrol \
+		storj.io/storj/cmd/uplink \
+		storj.io/storj/cmd/gateway \
+		storj.io/storj/cmd/identity \
+		storj.io/storj/cmd/certificates
 
 ##@ Test
 

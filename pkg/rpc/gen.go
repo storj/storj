@@ -33,7 +33,7 @@ func main() {
 }
 
 func usage() error {
-	return errs.New("usage: %s <dir> <drpc|grpc> <output file>", os.Args[0])
+	return errs.New("usage: %s <dir> drpc <output file>", os.Args[0])
 }
 
 func run() error {
@@ -60,7 +60,6 @@ type generateInfo struct {
 	Import string
 	Prefix string
 	Conn   string
-	Tag    string
 }
 
 var infos = map[string]generateInfo{
@@ -69,14 +68,6 @@ var infos = map[string]generateInfo{
 		Import: "storj.io/storj/pkg/rpc/rpcpool",
 		Prefix: "DRPC",
 		Conn:   "rpcpool.Conn",
-		Tag:    "!grpc",
-	},
-	"grpc": {
-		Name:   "grpc",
-		Import: "google.golang.org/grpc", // the saddest newline
-		Prefix: "",
-		Conn:   "grpc.ClientConn",
-		Tag:    "grpc",
 	},
 }
 
@@ -92,8 +83,6 @@ func generate(clients []string, info generateInfo, output string) (err error) {
 
 	P("// Copyright (C) 2019 Storj Labs, Inc.")
 	P("// See LICENSE for copying information.")
-	P()
-	P("// +build", info.Tag)
 	P()
 	P("package rpc")
 	P()

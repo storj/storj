@@ -13,8 +13,15 @@ import (
 	"storj.io/storj/private/memory"
 )
 
-//go:generate go run gen.go ../pb drpc compat_drpc.go
-//go:generate go run gen.go ../pb grpc compat_grpc.go
+//go:generate go run gen.go ../pb drpc alias.go
+
+const (
+	// IsDRPC is true if drpc is being used.
+	IsDRPC = true
+
+	// IsGRPC is true if grpc is being used.
+	IsGRPC = false
+)
 
 var mon = monkit.Package()
 

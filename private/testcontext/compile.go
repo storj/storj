@@ -41,11 +41,7 @@ func (ctx *Context) Compile(pkg string, preArgs ...string) string {
 	if raceEnabled {
 		args = append(args, "-race")
 	}
-	if drpcEnabled {
-		args = append(args, "-tags=drpc,unittest")
-	} else {
-		args = append(args, "-tag=unittest")
-	}
+	args = append(args, "-tags=unittest")
 	args = append(args, "-o", exe, pkg)
 
 	cmd := exec.Command("go", args...)
@@ -82,9 +78,6 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 	base := ctx.File("build", name)
 
 	args := []string{"build", "-buildmode", "c-shared"}
-	if drpcEnabled {
-		args = append(args, "-tags=drpc")
-	}
 	args = append(args, "-o", base+".so", pkg)
 
 	// not using race detector for c-shared
