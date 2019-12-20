@@ -1010,23 +1010,13 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 
 	updateFields := populateExitStatusFields(request)
 
-	tx, err := cache.db.Open(ctx)
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	dbNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
 
 	return convertDBNode(ctx, dbNode)

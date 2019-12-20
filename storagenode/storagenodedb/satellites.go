@@ -85,21 +85,24 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 // ListGracefulExits lists all graceful exit records
 func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satellites.ExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return exitList, ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
-		query := `SELECT satellite_id, initiated_at, finished_at, starting_disk_usage, bytes_deleted, completion_receipt FROM satellite_exit_progress`
-		rows, err := db.QueryContext(ctx, query)
+
+	query := `SELECT satellite_id, initiated_at, finished_at, starting_disk_usage, bytes_deleted, completion_receipt FROM satellite_exit_progress`
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, ErrSatellitesDB.Wrap(err)
+	}
+	defer func() {
+		err = ErrSatellitesDB.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	for rows.Next() {
+		var exit satellites.ExitProgress
+		err := rows.Scan(&exit.SatelliteID, &exit.InitiatedAt, &exit.FinishedAt, &exit.StartingDiskUsage, &exit.BytesDeleted, &exit.CompletionReceipt)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		defer func() { err = errs.Combine(err, rows.Close()) }()
-		for rows.Next() {
-			var exit satellites.ExitProgress
-			err := rows.Scan(&exit.SatelliteID, &exit.InitiatedAt, &exit.FinishedAt, &exit.StartingDiskUsage, &exit.BytesDeleted, &exit.CompletionReceipt)
-			if err != nil {
-				return err
-			}
-			exitList = append(exitList, exit)
-		}
-		return nil
-	}))
+		exitList = append(exitList, exit)
+	}
+
+	return exitList, nil
 }
