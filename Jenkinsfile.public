@@ -30,8 +30,7 @@ pipeline {
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
-                sh 'cockroach start --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --join=localhost:26257 --background'
-                sh 'cockroach init --insecure --host=localhost:26257'
+                sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --background'
             }
         }
 
