@@ -135,7 +135,7 @@ func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 	}
 
 	// iterates through all coupons, takes daily project usage and create new coupon usage
-	err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+	err = service.createCouponUsage(ctx, couponPage.Coupons)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -152,7 +152,7 @@ func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 		}
 
 		// iterates through all coupons, takes daily project usage and create new coupon usage
-		err = service.createDailyCouponUsage(ctx, couponPage.Coupons)
+		err = service.createCouponUsage(ctx, couponPage.Coupons)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -161,8 +161,8 @@ func (service *Service) updateCouponUsageLoop(ctx context.Context) (err error) {
 	return nil
 }
 
-// createDailyCouponUsage iterates through all coupons, takes daily project usage and create new coupon usage.
-func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
+// createCouponUsage iterates through all coupons, takes daily project usage and create new coupon usage.
+func (service *Service) createCouponUsage(ctx context.Context, coupons []payments.Coupon) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now().UTC()
@@ -191,7 +191,6 @@ func (service *Service) createDailyCouponUsage(ctx context.Context, coupons []pa
 		}
 
 		end := date.TimeTruncateDown(now)
-
 
 		usage, err := service.usageDB.GetProjectTotal(ctx, coupon.ProjectID, since, end)
 		if err != nil {

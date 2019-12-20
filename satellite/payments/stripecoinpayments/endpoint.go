@@ -10,6 +10,8 @@ import (
 	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
+var _ pb.PaymentsServer = (*Endpoint)(nil)
+
 // Endpoint is stripecoinpayments private RPC server payments endpoint.
 type Endpoint struct {
 	service *Service
@@ -42,6 +44,18 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 	}
 
 	return &pb.ApplyInvoiceRecordsResponse{}, nil
+}
+
+// ApplyInvoiceCoupons iterates through all active coupons.
+func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.ApplyInvoiceCouponsRequest) (_ *pb.ApplyInvoiceCouponsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.service.InvoiceApplyCoupons(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ApplyInvoiceCouponsResponse{}, nil
 }
 
 // CreateInvoices creates invoice for all user accounts on the satellite.

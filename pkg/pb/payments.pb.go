@@ -155,6 +155,66 @@ func (m *ApplyInvoiceRecordsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ApplyInvoiceRecordsResponse proto.InternalMessageInfo
 
+type ApplyInvoiceCouponsRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ApplyInvoiceCouponsRequest) Reset()         { *m = ApplyInvoiceCouponsRequest{} }
+func (m *ApplyInvoiceCouponsRequest) String() string { return proto.CompactTextString(m) }
+func (*ApplyInvoiceCouponsRequest) ProtoMessage()    {}
+func (*ApplyInvoiceCouponsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a9566e6e864d2854, []int{4}
+}
+func (m *ApplyInvoiceCouponsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ApplyInvoiceCouponsRequest.Unmarshal(m, b)
+}
+func (m *ApplyInvoiceCouponsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ApplyInvoiceCouponsRequest.Marshal(b, m, deterministic)
+}
+func (m *ApplyInvoiceCouponsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApplyInvoiceCouponsRequest.Merge(m, src)
+}
+func (m *ApplyInvoiceCouponsRequest) XXX_Size() int {
+	return xxx_messageInfo_ApplyInvoiceCouponsRequest.Size(m)
+}
+func (m *ApplyInvoiceCouponsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ApplyInvoiceCouponsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ApplyInvoiceCouponsRequest proto.InternalMessageInfo
+
+type ApplyInvoiceCouponsResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ApplyInvoiceCouponsResponse) Reset()         { *m = ApplyInvoiceCouponsResponse{} }
+func (m *ApplyInvoiceCouponsResponse) String() string { return proto.CompactTextString(m) }
+func (*ApplyInvoiceCouponsResponse) ProtoMessage()    {}
+func (*ApplyInvoiceCouponsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a9566e6e864d2854, []int{5}
+}
+func (m *ApplyInvoiceCouponsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ApplyInvoiceCouponsResponse.Unmarshal(m, b)
+}
+func (m *ApplyInvoiceCouponsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ApplyInvoiceCouponsResponse.Marshal(b, m, deterministic)
+}
+func (m *ApplyInvoiceCouponsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApplyInvoiceCouponsResponse.Merge(m, src)
+}
+func (m *ApplyInvoiceCouponsResponse) XXX_Size() int {
+	return xxx_messageInfo_ApplyInvoiceCouponsResponse.Size(m)
+}
+func (m *ApplyInvoiceCouponsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ApplyInvoiceCouponsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ApplyInvoiceCouponsResponse proto.InternalMessageInfo
+
 type CreateInvoicesRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -165,7 +225,7 @@ func (m *CreateInvoicesRequest) Reset()         { *m = CreateInvoicesRequest{} }
 func (m *CreateInvoicesRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateInvoicesRequest) ProtoMessage()    {}
 func (*CreateInvoicesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a9566e6e864d2854, []int{4}
+	return fileDescriptor_a9566e6e864d2854, []int{6}
 }
 func (m *CreateInvoicesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateInvoicesRequest.Unmarshal(m, b)
@@ -195,7 +255,7 @@ func (m *CreateInvoicesResponse) Reset()         { *m = CreateInvoicesResponse{}
 func (m *CreateInvoicesResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateInvoicesResponse) ProtoMessage()    {}
 func (*CreateInvoicesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a9566e6e864d2854, []int{5}
+	return fileDescriptor_a9566e6e864d2854, []int{7}
 }
 func (m *CreateInvoicesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateInvoicesResponse.Unmarshal(m, b)
@@ -220,6 +280,8 @@ func init() {
 	proto.RegisterType((*PrepareInvoiceRecordsResponse)(nil), "nodestats.PrepareInvoiceRecordsResponse")
 	proto.RegisterType((*ApplyInvoiceRecordsRequest)(nil), "nodestats.ApplyInvoiceRecordsRequest")
 	proto.RegisterType((*ApplyInvoiceRecordsResponse)(nil), "nodestats.ApplyInvoiceRecordsResponse")
+	proto.RegisterType((*ApplyInvoiceCouponsRequest)(nil), "nodestats.ApplyInvoiceCouponsRequest")
+	proto.RegisterType((*ApplyInvoiceCouponsResponse)(nil), "nodestats.ApplyInvoiceCouponsResponse")
 	proto.RegisterType((*CreateInvoicesRequest)(nil), "nodestats.CreateInvoicesRequest")
 	proto.RegisterType((*CreateInvoicesResponse)(nil), "nodestats.CreateInvoicesResponse")
 }
@@ -227,25 +289,27 @@ func init() {
 func init() { proto.RegisterFile("payments.proto", fileDescriptor_a9566e6e864d2854) }
 
 var fileDescriptor_a9566e6e864d2854 = []byte{
-	// 288 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2b, 0x48, 0xac, 0xcc,
-	0x4d, 0xcd, 0x2b, 0x29, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0xcc, 0xcb, 0x4f, 0x49,
-	0x2d, 0x2e, 0x49, 0x2c, 0x29, 0x96, 0xe2, 0x4a, 0xcf, 0x4f, 0xcf, 0x87, 0x08, 0x4b, 0xc9, 0xa7,
-	0xe7, 0xe7, 0xa7, 0xe7, 0xa4, 0xea, 0x83, 0x79, 0x49, 0xa5, 0x69, 0xfa, 0x25, 0x99, 0xb9, 0x20,
-	0x65, 0xb9, 0x05, 0x10, 0x05, 0x4a, 0x31, 0x5c, 0x32, 0x01, 0x45, 0xa9, 0x05, 0x89, 0x45, 0xa9,
-	0x9e, 0x79, 0x65, 0xf9, 0x99, 0xc9, 0xa9, 0x41, 0xa9, 0xc9, 0xf9, 0x45, 0x29, 0xc5, 0x41, 0xa9,
-	0x85, 0xa5, 0xa9, 0xc5, 0x25, 0x42, 0x36, 0x5c, 0x6c, 0x05, 0xa9, 0x45, 0x99, 0xf9, 0x29, 0x12,
-	0x8c, 0x0a, 0x8c, 0x1a, 0xdc, 0x46, 0x52, 0x7a, 0x10, 0x13, 0xf5, 0x60, 0x26, 0xea, 0x85, 0xc0,
-	0x4c, 0x74, 0xe2, 0x38, 0x71, 0x4f, 0x9e, 0x61, 0xc2, 0x7d, 0x79, 0xc6, 0x20, 0xa8, 0x1e, 0x25,
-	0x79, 0x2e, 0x59, 0x1c, 0xa6, 0x17, 0x17, 0xe4, 0xe7, 0x15, 0xa7, 0x2a, 0xc9, 0x70, 0x49, 0x39,
-	0x16, 0x14, 0xe4, 0x54, 0x62, 0xb5, 0x5c, 0x49, 0x96, 0x4b, 0x1a, 0xab, 0x2c, 0x54, 0xb3, 0x38,
-	0x97, 0xa8, 0x73, 0x51, 0x6a, 0x62, 0x09, 0xcc, 0x70, 0xb8, 0x3e, 0x09, 0x2e, 0x31, 0x74, 0x09,
-	0x88, 0x16, 0xa3, 0xcd, 0x4c, 0x5c, 0x1c, 0x01, 0xd0, 0x90, 0x13, 0xca, 0xe2, 0x12, 0xc5, 0xea,
-	0x3a, 0x21, 0x75, 0x3d, 0x78, 0x68, 0xea, 0xe1, 0x0b, 0x1d, 0x29, 0x0d, 0xc2, 0x0a, 0x21, 0x16,
-	0x0b, 0xa5, 0x70, 0x09, 0x63, 0xf1, 0x8a, 0x90, 0x2a, 0x92, 0x01, 0xb8, 0x03, 0x42, 0x4a, 0x8d,
-	0x90, 0x32, 0xa8, 0x2d, 0xa1, 0x5c, 0x7c, 0xa8, 0x1e, 0x17, 0x52, 0x40, 0xd2, 0x89, 0x35, 0xb0,
-	0xa4, 0x14, 0xf1, 0xa8, 0x80, 0x18, 0xeb, 0xc4, 0x12, 0xc5, 0x54, 0x90, 0x94, 0xc4, 0x06, 0x8e,
-	0x72, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x99, 0xc9, 0xeb, 0xe7, 0x7b, 0x02, 0x00, 0x00,
+	// 309 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xcd, 0x4e, 0xc2, 0x40,
+	0x10, 0xc7, 0x45, 0x0d, 0xc1, 0x31, 0xe1, 0xb0, 0x06, 0x25, 0x2b, 0xa4, 0xd8, 0x44, 0xe5, 0xb4,
+	0x24, 0x78, 0xf5, 0x22, 0x9c, 0xbc, 0x11, 0xa2, 0x17, 0xe3, 0xa5, 0xd0, 0xb1, 0xc1, 0xd0, 0xce,
+	0xba, 0xbb, 0x35, 0xe1, 0x2d, 0xbc, 0xfa, 0x46, 0x3e, 0x85, 0xbe, 0x8a, 0x81, 0x6d, 0x1b, 0x20,
+	0x5b, 0x38, 0x76, 0xe6, 0xff, 0xd1, 0xfe, 0xa6, 0x50, 0x97, 0xc1, 0x22, 0xc6, 0xc4, 0x68, 0x21,
+	0x15, 0x19, 0x62, 0x27, 0x09, 0x85, 0xa8, 0x4d, 0x60, 0x34, 0x87, 0x88, 0x22, 0xb2, 0x63, 0xee,
+	0x45, 0x44, 0xd1, 0x1c, 0x7b, 0xab, 0xa7, 0x49, 0xfa, 0xd6, 0x33, 0xb3, 0x78, 0x29, 0x8b, 0xa5,
+	0x15, 0xf8, 0xaf, 0xd0, 0x1a, 0x29, 0x94, 0x81, 0xc2, 0xc7, 0xe4, 0x93, 0x66, 0x53, 0x1c, 0xe3,
+	0x94, 0x54, 0xa8, 0xc7, 0xf8, 0x91, 0xa2, 0x36, 0xec, 0x1e, 0xaa, 0x12, 0xd5, 0x8c, 0xc2, 0x66,
+	0xa5, 0x53, 0xe9, 0x9e, 0xf6, 0xb9, 0xb0, 0x89, 0x22, 0x4f, 0x14, 0x4f, 0x79, 0xe2, 0xa0, 0xf6,
+	0xf3, 0xeb, 0x1d, 0x7c, 0xfd, 0x79, 0x95, 0x71, 0xe6, 0xf1, 0x3d, 0x68, 0x97, 0xa4, 0x6b, 0x49,
+	0x89, 0x46, 0xbf, 0x05, 0xfc, 0x41, 0xca, 0xf9, 0xc2, 0x59, 0xee, 0xb7, 0xe1, 0xd2, 0xb9, 0x75,
+	0x9b, 0x87, 0x94, 0x2e, 0xe7, 0x25, 0xe6, 0x62, 0x9b, 0x99, 0x2f, 0xa0, 0x31, 0x54, 0x18, 0x98,
+	0xfc, 0xcd, 0x0a, 0x5f, 0x13, 0xce, 0xb7, 0x17, 0xd6, 0xd2, 0xff, 0x3e, 0x82, 0xda, 0x28, 0xc3,
+	0xce, 0xde, 0xa1, 0xe1, 0xfc, 0x34, 0x76, 0x2b, 0x8a, 0x53, 0x88, 0x5d, 0x68, 0x79, 0x77, 0xbf,
+	0xd0, 0x16, 0xb3, 0x10, 0xce, 0x1c, 0x1c, 0xd8, 0xf5, 0x5a, 0x40, 0x39, 0x45, 0x7e, 0xb3, 0x4f,
+	0xe6, 0x6e, 0xc9, 0x80, 0x95, 0xb6, 0x6c, 0xe2, 0x2e, 0x6d, 0xd9, 0xe2, 0xce, 0x9e, 0xa1, 0xbe,
+	0x89, 0x97, 0x75, 0xd6, 0x9c, 0xce, 0x93, 0xf0, 0xab, 0x1d, 0x0a, 0x1b, 0x3b, 0x38, 0x7e, 0x39,
+	0x94, 0x93, 0x49, 0x75, 0xf5, 0x57, 0xde, 0xfd, 0x07, 0x00, 0x00, 0xff, 0xff, 0xbc, 0xbe, 0x68,
+	0xdc, 0x1e, 0x03, 0x00, 0x00,
 }
 
 type DRPCPaymentsClient interface {
@@ -253,6 +317,7 @@ type DRPCPaymentsClient interface {
 
 	PrepareInvoiceRecords(ctx context.Context, in *PrepareInvoiceRecordsRequest) (*PrepareInvoiceRecordsResponse, error)
 	ApplyInvoiceRecords(ctx context.Context, in *ApplyInvoiceRecordsRequest) (*ApplyInvoiceRecordsResponse, error)
+	ApplyInvoiceCoupons(ctx context.Context, in *ApplyInvoiceCouponsRequest) (*ApplyInvoiceCouponsResponse, error)
 	CreateInvoices(ctx context.Context, in *CreateInvoicesRequest) (*CreateInvoicesResponse, error)
 }
 
@@ -284,6 +349,15 @@ func (c *drpcPaymentsClient) ApplyInvoiceRecords(ctx context.Context, in *ApplyI
 	return out, nil
 }
 
+func (c *drpcPaymentsClient) ApplyInvoiceCoupons(ctx context.Context, in *ApplyInvoiceCouponsRequest) (*ApplyInvoiceCouponsResponse, error) {
+	out := new(ApplyInvoiceCouponsResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.Payments/ApplyInvoiceCoupons", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *drpcPaymentsClient) CreateInvoices(ctx context.Context, in *CreateInvoicesRequest) (*CreateInvoicesResponse, error) {
 	out := new(CreateInvoicesResponse)
 	err := c.cc.Invoke(ctx, "/nodestats.Payments/CreateInvoices", in, out)
@@ -296,12 +370,13 @@ func (c *drpcPaymentsClient) CreateInvoices(ctx context.Context, in *CreateInvoi
 type DRPCPaymentsServer interface {
 	PrepareInvoiceRecords(context.Context, *PrepareInvoiceRecordsRequest) (*PrepareInvoiceRecordsResponse, error)
 	ApplyInvoiceRecords(context.Context, *ApplyInvoiceRecordsRequest) (*ApplyInvoiceRecordsResponse, error)
+	ApplyInvoiceCoupons(context.Context, *ApplyInvoiceCouponsRequest) (*ApplyInvoiceCouponsResponse, error)
 	CreateInvoices(context.Context, *CreateInvoicesRequest) (*CreateInvoicesResponse, error)
 }
 
 type DRPCPaymentsDescription struct{}
 
-func (DRPCPaymentsDescription) NumMethods() int { return 3 }
+func (DRPCPaymentsDescription) NumMethods() int { return 4 }
 
 func (DRPCPaymentsDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
 	switch n {
@@ -324,6 +399,15 @@ func (DRPCPaymentsDescription) Method(n int) (string, drpc.Handler, interface{},
 					)
 			}, DRPCPaymentsServer.ApplyInvoiceRecords, true
 	case 2:
+		return "/nodestats.Payments/ApplyInvoiceCoupons",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPaymentsServer).
+					ApplyInvoiceCoupons(
+						ctx,
+						in1.(*ApplyInvoiceCouponsRequest),
+					)
+			}, DRPCPaymentsServer.ApplyInvoiceCoupons, true
+	case 3:
 		return "/nodestats.Payments/CreateInvoices",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCPaymentsServer).
@@ -373,6 +457,22 @@ func (x *drpcPaymentsApplyInvoiceRecordsStream) SendAndClose(m *ApplyInvoiceReco
 	return x.CloseSend()
 }
 
+type DRPCPayments_ApplyInvoiceCouponsStream interface {
+	drpc.Stream
+	SendAndClose(*ApplyInvoiceCouponsResponse) error
+}
+
+type drpcPaymentsApplyInvoiceCouponsStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPaymentsApplyInvoiceCouponsStream) SendAndClose(m *ApplyInvoiceCouponsResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
 type DRPCPayments_CreateInvoicesStream interface {
 	drpc.Stream
 	SendAndClose(*CreateInvoicesResponse) error
@@ -403,6 +503,7 @@ const _ = grpc.SupportPackageIsVersion4
 type PaymentsClient interface {
 	PrepareInvoiceRecords(ctx context.Context, in *PrepareInvoiceRecordsRequest, opts ...grpc.CallOption) (*PrepareInvoiceRecordsResponse, error)
 	ApplyInvoiceRecords(ctx context.Context, in *ApplyInvoiceRecordsRequest, opts ...grpc.CallOption) (*ApplyInvoiceRecordsResponse, error)
+	ApplyInvoiceCoupons(ctx context.Context, in *ApplyInvoiceCouponsRequest, opts ...grpc.CallOption) (*ApplyInvoiceCouponsResponse, error)
 	CreateInvoices(ctx context.Context, in *CreateInvoicesRequest, opts ...grpc.CallOption) (*CreateInvoicesResponse, error)
 }
 
@@ -432,6 +533,15 @@ func (c *paymentsClient) ApplyInvoiceRecords(ctx context.Context, in *ApplyInvoi
 	return out, nil
 }
 
+func (c *paymentsClient) ApplyInvoiceCoupons(ctx context.Context, in *ApplyInvoiceCouponsRequest, opts ...grpc.CallOption) (*ApplyInvoiceCouponsResponse, error) {
+	out := new(ApplyInvoiceCouponsResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.Payments/ApplyInvoiceCoupons", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *paymentsClient) CreateInvoices(ctx context.Context, in *CreateInvoicesRequest, opts ...grpc.CallOption) (*CreateInvoicesResponse, error) {
 	out := new(CreateInvoicesResponse)
 	err := c.cc.Invoke(ctx, "/nodestats.Payments/CreateInvoices", in, out, opts...)
@@ -445,6 +555,7 @@ func (c *paymentsClient) CreateInvoices(ctx context.Context, in *CreateInvoicesR
 type PaymentsServer interface {
 	PrepareInvoiceRecords(context.Context, *PrepareInvoiceRecordsRequest) (*PrepareInvoiceRecordsResponse, error)
 	ApplyInvoiceRecords(context.Context, *ApplyInvoiceRecordsRequest) (*ApplyInvoiceRecordsResponse, error)
+	ApplyInvoiceCoupons(context.Context, *ApplyInvoiceCouponsRequest) (*ApplyInvoiceCouponsResponse, error)
 	CreateInvoices(context.Context, *CreateInvoicesRequest) (*CreateInvoicesResponse, error)
 }
 
@@ -488,6 +599,24 @@ func _Payments_ApplyInvoiceRecords_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Payments_ApplyInvoiceCoupons_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyInvoiceCouponsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentsServer).ApplyInvoiceCoupons(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/nodestats.Payments/ApplyInvoiceCoupons",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentsServer).ApplyInvoiceCoupons(ctx, req.(*ApplyInvoiceCouponsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Payments_CreateInvoices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateInvoicesRequest)
 	if err := dec(in); err != nil {
@@ -517,6 +646,10 @@ var _Payments_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApplyInvoiceRecords",
 			Handler:    _Payments_ApplyInvoiceRecords_Handler,
+		},
+		{
+			MethodName: "ApplyInvoiceCoupons",
+			Handler:    _Payments_ApplyInvoiceCoupons_Handler,
 		},
 		{
 			MethodName: "CreateInvoices",
