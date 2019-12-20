@@ -329,7 +329,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
-				Interval:                      time.Hour,
+				Interval:                      defaultInterval,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				DownloadTimeout:               1 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
