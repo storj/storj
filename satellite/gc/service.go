@@ -32,9 +32,10 @@ type Config struct {
 	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
 	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
-	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
-	ConcurrentSends   int     `help:"the number of nodes to concurrently send garbage collection bloom filters to" releaseDefault:"1" devDefault:"1"`
+	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	FalsePositiveRate float64       `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
+	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection bloom filters to" releaseDefault:"1" devDefault:"1"`
+	RetainSendTimeout time.Duration `help:"the amount of time to allow a node to handle a retain request" default:"1m"`
 }
 
 // Service implements the garbage collection service
@@ -144,6 +145,12 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 	dossier, err := service.overlay.Get(ctx, id)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if service.config.RetainSendTimeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, service.config.RetainSendTimeout)
+		defer cancel()
 	}
 
 	client, err := piecestore.Dial(ctx, service.dialer, &dossier.Node, log, piecestore.DefaultConfig)

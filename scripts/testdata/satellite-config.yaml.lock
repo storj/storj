@@ -115,6 +115,9 @@ contact.external-address: ""
 # the time between each send of garbage collection filters to storage nodes
 # garbage-collection.interval: 120h0m0s
 
+# the amount of time to allow a node to handle a retain request
+# garbage-collection.retain-send-timeout: 1m0s
+
 # size of the buffer used to batch inserts into the transfer queue.
 # graceful-exit.chore-batch-size: 500
 
