@@ -29,7 +29,7 @@ node('node') {
           sh 'docker exec postgres createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis:redis --link postgres:postgres -e CC=gcc storjlabs/golang:1.13.5'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis:redis --link postgres:postgres -e CC=gcc storjlabs/golang:1.13.5'
         }
         catch(err){
             throw err

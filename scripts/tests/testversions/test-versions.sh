@@ -24,6 +24,18 @@ setup(){
     echo "setup test successfully"
 }
 
+wait_for_all_background_jobs_to_finish(){
+    for job in `jobs -p`
+    do
+        echo "wait for $job"
+        RESULT=0
+        wait $job || RESULT=1
+        if [ "$RESULT" == "1" ]; then
+           exit $?
+        fi
+    done
+}
+
 echo "Begin test-versions.sh, storj-sim config directory:" ${main_cfg_dir}
 
 echo "which storj-sim: $(which storj-sim)"
@@ -66,13 +78,17 @@ if [[ "$command" == "upload" ]]; then
 
     uplink mb "sj://$bucket_name/" --config-dir="${main_cfg_dir}/uplink"
 
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/small-upload-testfile" "sj://$bucket_name/"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/big-upload-testfile" "sj://$bucket_name/"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$bucket_name/"
+    # run each upload in parallel
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/small-upload-testfile" "sj://$bucket_name/" &
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/big-upload-testfile" "sj://$bucket_name/" &
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$bucket_name/" &
+    wait_for_all_background_jobs_to_finish
 
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+    # run each download in parallel
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}" &
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}" &
+    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}" &
+    wait_for_all_background_jobs_to_finish
 
     if cmp "${test_files_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
     then
@@ -98,6 +114,7 @@ if [[ "$command" == "upload" ]]; then
         exit 1
     fi
 
+    rm -rf ${test_files_dir}
 fi
 
 if [[ "$command" == "download" ]]; then
@@ -112,9 +129,11 @@ if [[ "$command" == "download" ]]; then
 
         echo "bucket name: ${bucket_name}"
         echo "download folder name: ${download_dst_dir}"
-        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
-        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+        # run each download in parallel
+        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}" &
+        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}" &
+        uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}" &
+        wait_for_all_background_jobs_to_finish
 
         if cmp "${original_dst_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
         then

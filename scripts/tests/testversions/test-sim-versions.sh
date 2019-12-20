@@ -134,52 +134,70 @@ fi
 
 if [ -z ${STORJ_SIM_REDIS} ]; then
     echo "STORJ_SIM_REDIS is required for the satellite DB. Example: STORJ_SIM_REDIS=127.0.0.1:[port]"
-    exit 1
+     exit 1
 fi
 
 echo "Setting up environments for versions" ${unique_versions}
 
-# Get latest release tags and clean up git worktree
-git fetch
+# clean up git worktree
+git worktree prune
 for version in ${unique_versions}; do
-    dir=$(version_dir ${version})
-    bin_dir=${dir}/bin
+    # run in parallel
+    (
+        dir=$(version_dir ${version})
+        bin_dir=${dir}/bin
 
-    echo -e "\nAdding worktree for ${version} in ${dir}."
-    if [[ $version = "master" ]]
-    then
-        git worktree add -f "$dir" "origin/master"
-    else
-        git worktree add -f "$dir" "${version}"
-    fi
-    rm -f ${dir}/private/version/release.go
-    rm -f ${dir}/internal/version/release.go
-    if [[ $version = $current_release_version || $version = "master" ]]
-    then
-        echo "Installing storj-sim for ${version} in ${dir}."
-        pushd ${dir}
-        install_sim ${bin_dir}
-        echo "finished installing"
-        popd
-        echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-        PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
-        echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
-        echo "Binary shasums:"
-        shasum ${bin_dir}/satellite
-        shasum ${bin_dir}/storagenode
-        shasum ${bin_dir}/uplink
-        shasum ${bin_dir}/gateway
-    else
-        echo "Installing uplink and gateway for ${version} in ${dir}."
-        pushd ${dir}
-        mkdir -p ${bin_dir}
-        go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        popd
-        echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
-        echo "Binary shasums:"
-        shasum ${bin_dir}/uplink
-        shasum ${bin_dir}/gateway
+        echo -e "\nAdding worktree for ${version} in ${dir}."
+        if [[ $version = "master" ]]
+        then
+            git worktree add -f "$dir" "origin/master"
+        else
+            git worktree add -f "$dir" "${version}"
+        fi
+        rm -f ${dir}/private/version/release.go
+        rm -f ${dir}/internal/version/release.go
+        if [[ $version = $current_release_version || $version = "master" ]]
+        then
+            echo "Installing storj-sim for ${version} in ${dir}."
+            pushd ${dir}
+            install_sim ${bin_dir}
+            echo "finished installing"
+            popd
+            # uncomment for local testing
+            # GOBIN=${bin_dir} make -C ${dir} install-sim >/dev/null 2>&1
+            echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
+            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
+            echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
+            echo "Binary shasums:"
+            shasum ${bin_dir}/satellite
+            shasum ${bin_dir}/storagenode
+            shasum ${bin_dir}/uplink
+            shasum ${bin_dir}/gateway
+        else
+            echo "Installing uplink and gateway for ${version} in ${dir}."
+            pushd ${dir}
+            mkdir -p ${bin_dir}
+            go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+            go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+            # uncomment for local testing
+            # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
+            # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway >/dev/null 2>&1
+            popd
+            echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
+            echo "Binary shasums:"
+            shasum ${bin_dir}/uplink
+            shasum ${bin_dir}/gateway
+        fi
+    ) &
+done
+
+for job in `jobs -p`
+do
+    echo "wait for $job"
+    RESULT=0
+    wait $job || RESULT=1
+    if [ "$RESULT" == "1" ]; then
+           exit $?
     fi
 done
 
