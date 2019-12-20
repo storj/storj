@@ -125,7 +125,7 @@ func TestSetGetMeta(t *testing.T) {
 
 				cmd := exec.Command(uplinkExe,
 					"--config-dir", ctx.Dir("uplink"),
-					"meta", "get", string(keyNorm[1:len(keyNorm)-1]), uri,
+					"meta", "get", "--", string(keyNorm[1:len(keyNorm)-1]), uri,
 				)
 				t.Log(cmd)
 
