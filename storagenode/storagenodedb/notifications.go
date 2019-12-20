@@ -103,7 +103,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 		SELECT * FROM 
 			notifications
 		ORDER BY 
-			created_at
+			created_at DESC
 		LIMIT ? OFFSET ?
 	`
 

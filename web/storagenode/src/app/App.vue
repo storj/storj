@@ -31,6 +31,13 @@ export default class App extends Vue {}
         margin: 0 !important;
         position: relative;
         font-family: 'font_regular', sans-serif;
+        overflow-y: hidden;
+    }
+
+    ::-webkit-scrollbar {
+        display: none;
+        position: fixed;
+        right: 0;
     }
 
     .container {

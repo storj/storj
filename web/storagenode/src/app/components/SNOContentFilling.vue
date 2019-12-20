@@ -64,7 +64,7 @@
             </div>
         </div>
         <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
-            <p class="info-area__blurred-checks__title">Select A Specific Satellite To View Audit And Uptime Percentages</p>
+            <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
         </div>
         <div v-if="selectedSatellite.id">
             <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
