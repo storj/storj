@@ -199,7 +199,7 @@ func TestConcurrentConnections(t *testing.T) {
 
 				_, err = c.Recv()
 				require.Error(t, err)
-				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				require.True(t, errs2.IsRPC(err, rpcstatus.Aborted))
 				return nil
 			})
 		}
@@ -413,7 +413,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 
 		// Process endpoint should return immediately if node is disqualified
 		response, err := processClient.Recv()
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 		require.Nil(t, response)
 
 		// disqualified node should fail graceful exit
@@ -438,7 +438,7 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 			}
 			if deletedCount >= numPieces {
 				// when a disqualified node has finished transfer all pieces, it should receive an error
-				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 				break
 			} else {
 				require.NoError(t, err)
