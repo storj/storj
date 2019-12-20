@@ -32,6 +32,8 @@ const buildQueueMillis = 100
 var (
 	// ErrInvalidArgument is an error class for invalid argument errors used to check which rpc code to use.
 	ErrInvalidArgument = errs.Class("graceful exit")
+	// ErrIneligibleNodeAge is an error class for when a node has not been on the network long enough to graceful exit.
+	ErrIneligibleNodeAge = errs.Class("node is not yet eligible for graceful exit")
 )
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -158,6 +160,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	msg, err := endpoint.checkExitStatus(ctx, nodeID)
 	if err != nil {
+		if ErrIneligibleNodeAge.Has(err) {
+			return rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -776,6 +781,16 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 	}
 
 	if exitStatus.ExitInitiatedAt == nil {
+		nodeDossier, err := endpoint.overlaydb.Get(ctx, nodeID)
+		if err != nil {
+			endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", nodeID))
+			return nil, Error.Wrap(err)
+		}
+		geEligibilityDate := nodeDossier.CreatedAt.AddDate(0, endpoint.config.NodeMinAgeInMonths, 0)
+		if time.Now().Before(geEligibilityDate) {
+			return nil, ErrIneligibleNodeAge.New("will be eligible after %s", geEligibilityDate.String())
+		}
+
 		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
 		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {

@@ -576,8 +576,6 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-storj.io/common v0.0.0-20191227102938-858ff11d8745 h1:IliNk+yL4wfFbHmRYaeMtjUsX2edlde/OnhBSmuMeOE=
-storj.io/common v0.0.0-20191227102938-858ff11d8745/go.mod h1:TYezVM4WnpfGDjaDdSKxmn02ioNVl0NLHIOVwATAq94=
 storj.io/common v0.0.0-20191227115835-d1bdf57f03e5 h1:N4XGzkUK2KWxEfNK75huq5f41xk98/2hvK7dRFFgve4=
 storj.io/common v0.0.0-20191227115835-d1bdf57f03e5/go.mod h1:TYezVM4WnpfGDjaDdSKxmn02ioNVl0NLHIOVwATAq94=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2 h1:8SgLYEhe99R8QlAD1EAOBPRyIR+cn2hqkXtWlAUPf/c=

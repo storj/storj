@@ -392,6 +392,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				OverallMaxFailuresPercentage: 10,
 				RecvTimeout:                  time.Minute * 1,
 				MaxOrderLimitSendCount:       3,
+				NodeMinAgeInMonths:           0,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,

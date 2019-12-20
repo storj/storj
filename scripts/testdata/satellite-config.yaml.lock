@@ -133,6 +133,9 @@ contact.external-address: ""
 # maximum number of order limits a satellite sends to a node before marking piece transfer failed
 # graceful-exit.max-order-limit-send-count: 5
 
+# minimum age for a node on the network in order to initiate graceful exit
+# graceful-exit.node-min-age-in-months: 6
+
 # maximum percentage of transfer failures per node.
 # graceful-exit.overall-max-failures-percentage: 10
 
