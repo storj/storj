@@ -28,7 +28,9 @@ import (
 var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service error")
-	// ErrNoCouponUsages indicates that there are no coupon usages.
+	// ErrNoCoupons indicates that there are no coupons in database.
+	ErrNoCoupons = errs.Class("stripecoinpayments no coupons")
+	// ErrNoCouponUsages indicates that there are no coupon usages in database.
 	ErrNoCouponUsages = errs.Class("stripecoinpayments no coupon usages")
 
 	mon = monkit.Package()
@@ -652,14 +654,20 @@ func (service *Service) applyCouponsDiscount(ctx context.Context, coupons []paym
 			continue
 		}
 
+		intervalEnd, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
+		if err != nil {
+			if ErrNoCouponUsages.Has(err) {
+				continue
+			}
+			return err
+		}
+
 		amountToCharge, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
 			return err
 		}
-
-		intervalEnd, err := service.db.Coupons().GetLatest(ctx, coupon.ID)
-		if err != nil {
-			return err
+		if amountToCharge == 0 {
+			continue
 		}
 
 		err = service.createInvoiceCouponItem(ctx, customerID, coupon, amountToCharge, intervalEnd)
