@@ -55,7 +55,7 @@ func TestCollector(t *testing.T) {
 			usedSerials := storageNode.DB.UsedSerials()
 
 			// verify that we actually have some data on storage nodes
-			used, err := pieceStore.SpaceUsed(ctx)
+			used, err := pieceStore.SpaceUsedForBlobs(ctx)
 			require.NoError(t, err)
 			if used == 0 {
 				// this storage node didn't get picked for storing data
@@ -109,7 +109,7 @@ func TestCollector(t *testing.T) {
 			require.NoError(t, err)
 
 			// verify that we deleted everything
-			used, err := pieceStore.SpaceUsed(ctx)
+			used, err := pieceStore.SpaceUsedForBlobs(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), used)
 

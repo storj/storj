@@ -321,7 +321,7 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		require.NoError(t, err)
 		// add these bytes to the space used cache so that we can test what happens
 		// when we exceeded available space on the storagenode
-		err = storageNode.DB.PieceSpaceUsedDB().UpdateTotal(ctx, availableSpace-space)
+		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotal(ctx, availableSpace-space)
 		require.NoError(t, err)
 		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)

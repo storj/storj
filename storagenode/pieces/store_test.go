@@ -814,7 +814,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			gotCreateTime, err := access.CreationTime(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, v0CreateTime, gotCreateTime)
-			gotSize, err := access.ContentSize(ctx)
+			_, gotSize, err := access.Size(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), gotSize)
 			return nil
@@ -857,7 +857,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v1CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v1Data)), gotSize)
 			case 2:
@@ -867,7 +867,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v0CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v0Data)), gotSize)
 			default:

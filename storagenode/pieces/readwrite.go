@@ -119,7 +119,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		return Error.New("already closed")
 	}
 	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
-		cache.Update(ctx, w.satellite, w.Size())
+		cache.Update(ctx, w.satellite, w.Size(), 0)
 	}
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
