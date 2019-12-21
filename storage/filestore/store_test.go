@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -355,8 +356,8 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	assert.Nil(t, reader)
 }
 
-// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.blobStore
-// work as expected.
+// Check that the SpaceUsedForBlobs and SpaceUsedForBlobsInNamespace methods on
+// filestore.blobStore work as expected.
 func TestStoreSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -371,13 +372,13 @@ func TestStoreSpaceUsed(t *testing.T) {
 		sizesToStore   = []memory.Size{4093, 0, 512, 1, memory.MB}
 	)
 
-	spaceUsed, err := store.SpaceUsed(ctx)
+	spaceUsed, err := store.SpaceUsedForBlobs(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), spaceUsed)
-	spaceUsed, err = store.SpaceUsedInNamespace(ctx, namespace)
+	spaceUsed, err = store.SpaceUsedForBlobsInNamespace(ctx, namespace)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), spaceUsed)
-	spaceUsed, err = store.SpaceUsedInNamespace(ctx, otherNamespace)
+	spaceUsed, err = store.SpaceUsedForBlobsInNamespace(ctx, otherNamespace)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), spaceUsed)
 
@@ -394,13 +395,13 @@ func TestStoreSpaceUsed(t *testing.T) {
 		require.NoError(t, err)
 		totalSoFar += size
 
-		spaceUsed, err := store.SpaceUsed(ctx)
+		spaceUsed, err := store.SpaceUsedForBlobs(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, int64(totalSoFar), spaceUsed)
-		spaceUsed, err = store.SpaceUsedInNamespace(ctx, namespace)
+		spaceUsed, err = store.SpaceUsedForBlobsInNamespace(ctx, namespace)
 		require.NoError(t, err)
 		assert.Equal(t, int64(totalSoFar), spaceUsed)
-		spaceUsed, err = store.SpaceUsedInNamespace(ctx, otherNamespace)
+		spaceUsed, err = store.SpaceUsedForBlobsInNamespace(ctx, otherNamespace)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), spaceUsed)
 	}
@@ -530,6 +531,131 @@ func TestStoreTraversals(t *testing.T) {
 	assert.Equal(t, 2, iterations)
 }
 
+func TestEmptyTrash(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	require.NoError(t, err)
+	ctx.Check(store.Close)
+
+	size := memory.KB
+
+	type testfile struct {
+		data      []byte
+		formatVer storage.FormatVersion
+	}
+	type testref struct {
+		key   []byte
+		files []testfile
+	}
+	type testnamespace struct {
+		namespace []byte
+		refs      []testref
+	}
+
+	namespaces := []testnamespace{
+		{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
+				{
+					// Has v0 and v1
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV1,
+						},
+					},
+				},
+				{
+					// Has v0 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+				{
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+			},
+		},
+		{
+			namespace: testrand.Bytes(namespaceSize),
+			refs: []testref{
+				{
+					// Has v1 only
+					key: testrand.Bytes(keySize),
+					files: []testfile{
+						{
+							data:      testrand.Bytes(size),
+							formatVer: filestore.FormatV0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, namespace := range namespaces {
+		for _, ref := range namespace.refs {
+			blobref := storage.BlobRef{
+				Namespace: namespace.namespace,
+				Key:       ref.key,
+			}
+
+			for _, file := range ref.files {
+				var w storage.BlobWriter
+				if file.formatVer == filestore.FormatV0 {
+					fStore, ok := store.(interface {
+						TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+					})
+					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
+					w, err = fStore.TestCreateV0(ctx, blobref)
+				} else if file.formatVer == filestore.FormatV1 {
+					w, err = store.Create(ctx, blobref, int64(size))
+				}
+				require.NoError(t, err)
+				require.NotNil(t, w)
+				_, err = w.Write(file.data)
+				require.NoError(t, err)
+
+				require.NoError(t, w.Commit(ctx))
+				requireFileMatches(ctx, t, store, file.data, blobref, file.formatVer)
+			}
+
+			// Trash the ref
+			require.NoError(t, store.Trash(ctx, blobref))
+		}
+	}
+
+	// Restore the first namespace
+	var expectedFilesEmptied int64
+	for _, ref := range namespaces[0].refs {
+		for range ref.files {
+			expectedFilesEmptied++
+		}
+	}
+	emptiedBytes, keys, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	assert.Equal(t, expectedFilesEmptied*int64(size), emptiedBytes)
+	assert.Equal(t, int(expectedFilesEmptied), len(keys))
+}
+
 func TestTrashAndRestore(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -650,7 +776,17 @@ func TestTrashAndRestore(t *testing.T) {
 	}
 
 	// Restore the first namespace
-	require.NoError(t, store.RestoreTrash(ctx, namespaces[0].namespace))
+	var expKeysRestored [][]byte
+	for _, ref := range namespaces[0].refs {
+		for range ref.files {
+			expKeysRestored = append(expKeysRestored, ref.key)
+		}
+	}
+	sort.Slice(expKeysRestored, func(i int, j int) bool { return expKeysRestored[i][0] < expKeysRestored[j][0] })
+	restoredKeys, err := store.RestoreTrash(ctx, namespaces[0].namespace)
+	sort.Slice(restoredKeys, func(i int, j int) bool { return restoredKeys[i][0] < restoredKeys[j][0] })
+	require.NoError(t, err)
+	assert.Equal(t, expKeysRestored, restoredKeys)
 
 	// Verify pieces are back and look good for first namespace
 	for _, ref := range namespaces[0].refs {

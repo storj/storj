@@ -81,22 +81,24 @@ type Blobs interface {
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
 	// Trash marks a file for pending deletion
 	Trash(ctx context.Context, ref BlobRef) error
-	// RestoreTrash restores all files in the trash for a given namespace
-	RestoreTrash(ctx context.Context, namespace []byte) error
-	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore
-	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error)
+	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored
+	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
+	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted
+	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error)
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
-	// FreeSpace return how much free space left for writing
+	// FreeSpace return how much free space is available to the blobstore
 	FreeSpace() (int64, error)
-	// SpaceUsed adds up how much is used in all namespaces
-	SpaceUsed(ctx context.Context) (int64, error)
-	// SpaceUsedInNamespace adds up how much is used in the given namespace
-	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
+	// SpaceUsedForTrash returns the total space used by the trash
+	SpaceUsedForTrash(ctx context.Context) (int64, error)
+	// SpaceUsedForBlobs adds up how much is used in all namespaces
+	SpaceUsedForBlobs(ctx context.Context) (int64, error)
+	// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace
+	SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error)
 	// ListNamespaces finds all namespaces in which keys might currently be stored.
 	ListNamespaces(ctx context.Context) ([][]byte, error)
 	// WalkNamespace executes walkFunc for each locally stored blob, stored with

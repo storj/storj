@@ -248,9 +248,9 @@ func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error 
 	return nil
 }
 
-// ContentSize gives the size of the piece content (not including the piece header, if applicable)
-func (v0Access v0StoredPieceAccess) ContentSize(ctx context.Context) (int64, error) {
-	return v0Access.pieceSize, nil
+// Size gives the size of the piece, and the piece content size (not including the piece header, if applicable)
+func (v0Access v0StoredPieceAccess) Size(ctx context.Context) (int64, int64, error) {
+	return v0Access.pieceSize, v0Access.pieceSize, nil
 }
 
 // CreationTime returns the piece creation time as given in the original order (which is not

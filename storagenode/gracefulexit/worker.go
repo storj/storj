@@ -270,7 +270,7 @@ func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.Pi
 	pieceMap := make(map[pb.PieceID]int64)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	err := worker.store.WalkSatellitePieces(ctxWithCancel, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
-		size, err := piece.ContentSize(ctxWithCancel)
+		_, size, err := piece.Size(ctxWithCancel)
 		if err != nil {
 			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 		}
