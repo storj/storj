@@ -5,6 +5,7 @@ package main_test
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -264,6 +265,10 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 
 	writer := zip.NewWriter(zipFile)
 	defer ctx.Check(writer.Close)
+
+	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, flate.NoCompression)
+	})
 
 	contents, err := writer.Create(base)
 	require.NoError(t, err)
