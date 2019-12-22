@@ -31,7 +31,7 @@ var (
 // architecture: Client
 type Client struct {
 	conn *rpc.Conn
-	rpc.NodeStatsClient
+	pb.DRPCNodeStatsClient
 }
 
 // Close closes underlying client connection
@@ -130,8 +130,8 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 	}
 
 	return &Client{
-		conn:            conn,
-		NodeStatsClient: conn.NodeStatsClient(),
+		conn:                conn,
+		DRPCNodeStatsClient: conn.NodeStatsClient(),
 	}, nil
 }
 

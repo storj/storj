@@ -13,7 +13,7 @@ import (
 
 type client struct {
 	conn   *rpc.Conn
-	client rpc.ContactClient
+	client pb.DRPCContactClient
 }
 
 // newClient dials the target contact endpoint

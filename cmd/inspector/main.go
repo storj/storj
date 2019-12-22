@@ -106,10 +106,10 @@ var (
 type Inspector struct {
 	conn           *rpc.Conn
 	identity       *identity.FullIdentity
-	overlayclient  rpc.OverlayInspectorClient
-	irrdbclient    rpc.IrreparableInspectorClient
-	healthclient   rpc.HealthInspectorClient
-	paymentsClient rpc.PaymentsClient
+	overlayclient  pb.DRPCOverlayInspectorClient
+	irrdbclient    pb.DRPCIrreparableInspectorClient
+	healthclient   pb.DRPCHealthInspectorClient
+	paymentsClient pb.DRPCPaymentsClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to overlay.
