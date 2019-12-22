@@ -6,17 +6,15 @@ package rpc
 import (
 	"crypto/tls"
 
+	"storj.io/drpc"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/rpc/rpcpool"
 )
 
-// RawConn is a type alias to a drpc client connection
-type RawConn = rpcpool.Conn
-
 // Conn is a wrapper around a drpc client connection.
 type Conn struct {
 	state tls.ConnectionState
-	raw   *RawConn
+	raw   *rpcpool.Conn
 }
 
 // Close closes the connection.
@@ -31,6 +29,6 @@ func (c *Conn) PeerIdentity() (*identity.PeerIdentity, error) {
 }
 
 // Raw returns the underlying connection.
-func (c *Conn) Raw() *RawConn {
+func (c *Conn) Raw() drpc.Conn {
 	return c.raw
 }
