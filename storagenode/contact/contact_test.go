@@ -26,7 +26,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err := pb.NewDRPCContactClient(conn.Raw()).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
@@ -34,7 +34,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 
 		time.Sleep(time.Second) //HACKFIX: windows has large time granularity
 
-		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err = pb.NewDRPCContactClient(conn.Raw()).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 

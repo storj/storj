@@ -41,7 +41,7 @@ func New(ctx context.Context, dialer rpc.Dialer, address string) (_ *Client, err
 
 	return &Client{
 		conn:   conn,
-		client: conn.CertificatesClient(),
+		client: pb.NewDRPCCertificatesClient(conn.Raw()),
 	}, nil
 }
 

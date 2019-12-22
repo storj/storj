@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/certificate/certificateclient"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
@@ -230,7 +231,7 @@ func TestNewClient(t *testing.T) {
 
 		defer ctx.Check(conn.Close)
 
-		client := certificateclient.NewClientFrom(conn.CertificatesClient())
+		client := certificateclient.NewClientFrom(pb.NewDRPCCertificatesClient(conn.Raw()))
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

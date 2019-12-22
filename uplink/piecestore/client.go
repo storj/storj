@@ -55,7 +55,7 @@ func Dial(ctx context.Context, dialer rpc.Dialer, target *pb.Node, log *zap.Logg
 
 	return &Client{
 		log:    log,
-		client: conn.PiecestoreClient(),
+		client: pb.NewDRPCPiecestoreClient(conn.Raw()),
 		conn:   conn,
 		config: config,
 	}, nil

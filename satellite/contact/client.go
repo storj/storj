@@ -25,7 +25,7 @@ func newClient(ctx context.Context, dialer rpc.Dialer, address string, id storj.
 
 	return &client{
 		conn:   conn,
-		client: conn.ContactClient(),
+		client: pb.NewDRPCContactClient(conn.Raw()),
 	}, nil
 }
 

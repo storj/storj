@@ -72,7 +72,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	client := conn.SatelliteGracefulExitClient()
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 	c, err := client.Process(ctx)
 	if err != nil {

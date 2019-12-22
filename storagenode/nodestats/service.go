@@ -131,7 +131,7 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 
 	return &Client{
 		conn:                conn,
-		DRPCNodeStatsClient: conn.NodeStatsClient(),
+		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn.Raw()),
 	}, nil
 }
 

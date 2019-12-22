@@ -41,7 +41,7 @@ func TestBasic(t *testing.T) {
 					conn, err := sn.Dialer.DialNode(ctx, &satellite)
 					require.NoError(t, err)
 					defer ctx.Check(conn.Close)
-					_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
+					_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
 						Address:  node.GetAddress().GetAddress(),
 						Version:  &node.Version,
 						Capacity: &node.Capacity,
