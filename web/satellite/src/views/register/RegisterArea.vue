@@ -7,6 +7,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
@@ -21,7 +22,6 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
-import PasswordStrength from '@/views/register/passwordStrength/PasswordStrength.vue';
 
 @Component({
     components: {

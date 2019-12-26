@@ -179,7 +179,7 @@ export default class PasswordStrength extends Vue {
 
     .password-strength-container {
         position: absolute;
-        top: 95px;
+        top: 96px;
         right: -3px;
         padding: 25px 20px;
         opacity: 0.97;
