@@ -9,14 +9,14 @@
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been paused on <b>{{getDisqualificationDate}}</b>. If you have any questions regarding this please contact our <a href="https://support.storj.io/hc/en-us/requests/new">support</a>.</p>
+            <p class="info-area__disqualified-info__info">Your node has been disqualified on <b>{{getDisqualificationDate}}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
         </div>
         <div v-else-if="doDisqualifiedSatellitesExist" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been paused on<span v-for="disqualified in disqualifiedSatellites"><b> {{disqualified.id}}</b></span>. If you have any questions regarding this please contact our <a href="https://support.storj.io/hc/en-us/requests/new">support</a>.</p>
+            <p class="info-area__disqualified-info__info">Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{disqualified.id}}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
         </div>
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
