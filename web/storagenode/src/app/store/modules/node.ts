@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { datesDiffInMinutes } from '@/app/utils/date';
+import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/duration';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Stamp } from '@/storagenode/satellite';
@@ -101,7 +101,9 @@ export const node = {
             state.info.startedAt = nodeInfo.startedAt;
             state.info.lastPinged = nodeInfo.lastPinged;
 
-            if (datesDiffInMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
+            const minutesPassed = Duration.difference(new Date(), new Date(nodeInfo.lastPinged)) / millisecondsInSecond / secondsInMinute;
+
+            if (minutesPassed < statusThreshHoldMinutes) {
                 state.info.status = StatusOnline;
             }
         },

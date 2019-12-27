@@ -38,6 +38,6 @@ export default class Dashboard extends Vue {
 <style scoped lang="scss">
     .content {
         width: 822px;
-        padding-top: 28px;
+        padding-top: 44px;
     }
 </style>
