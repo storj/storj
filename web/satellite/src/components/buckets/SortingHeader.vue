@@ -7,7 +7,7 @@
             <p class="sort-header-container__item__name">Bucket Name</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">Storage Used, GBh</p>
+            <p class="sort-header-container__item__name">Storage Used, GB</p>
         </div>
         <div class="sort-header-container__item">
             <p class="sort-header-container__item__name">Egress Used, GB</p>

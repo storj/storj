@@ -55,7 +55,7 @@ export default class AccountBalance extends Vue {
     }
 
     public get balance(): string {
-        return `$${this.$store.state.paymentsModule.balance / 100}`;
+        return `USD $${this.$store.state.paymentsModule.balance / 100}`;
     }
 
     public get balanceStyle() {

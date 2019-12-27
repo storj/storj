@@ -91,7 +91,7 @@ export default class BucketArea extends Vue {
     }
 
     public get totalPageCount(): number {
-        return this.$store.getters.page.pageCount;
+        return this.$store.state.bucketUsageModule.page.pageCount;
     }
 
     public get totalCount(): number {

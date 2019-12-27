@@ -31,8 +31,7 @@ export default class AccountArea extends Vue {}
     }
 
     .account-area-container {
-        padding: 0 39px 0 65px;
-        margin-right: 16px;
+        padding: 0 65px;
         height: 100%;
 
         &__navigation {

@@ -194,7 +194,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.id,
                     item.description,
                     item.amount,
-                    item.tokenReceived,
+                    item.received,
                     item.status,
                     item.link,
                     new Date(item.start),
