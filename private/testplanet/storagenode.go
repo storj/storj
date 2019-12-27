@@ -115,6 +115,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					SenderTimeout:   10 * time.Minute,
 					CleanupInterval: defaultInterval,
 					ArchiveTTL:      time.Hour,
+					MaxSleep:        0,
 				},
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
