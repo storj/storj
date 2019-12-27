@@ -4,7 +4,7 @@
 package trust_test
 
 import (
-	"storj.io/storj/private/testrand"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/trust"
 )
 

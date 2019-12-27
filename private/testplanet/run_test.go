@@ -6,7 +6,7 @@ package testplanet_test
 import (
 	"testing"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 

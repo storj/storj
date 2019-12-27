@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"unsafe"
 
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 // Bucket is a scoped uplink.Bucket

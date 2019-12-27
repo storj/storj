@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/testrand"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/testrand"
 )
 
 // DefaultReferralManagerServer implements the default behavior of a mock referral manager

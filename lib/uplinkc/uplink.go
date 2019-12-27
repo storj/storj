@@ -11,8 +11,8 @@ import (
 
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/private/memory"
 )
 
 var universe = newHandles()

@@ -4,7 +4,7 @@
 package uplink
 
 import (
-	"storj.io/storj/pkg/macaroon"
+	"storj.io/common/macaroon"
 )
 
 // APIKey represents an access credential to certain resources

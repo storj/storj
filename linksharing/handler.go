@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
 )
 
 var (

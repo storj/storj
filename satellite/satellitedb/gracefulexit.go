@@ -13,7 +13,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/gracefulexit"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )

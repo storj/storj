@@ -9,7 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // DB tells how application works with notifications database.

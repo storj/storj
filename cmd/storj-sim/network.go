@@ -24,12 +24,12 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/fpath"
+	"storj.io/common/identity"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/processgroup"
 )
 

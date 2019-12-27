@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/paths"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
 )
 

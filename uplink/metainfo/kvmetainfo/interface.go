@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // CreateObject has optional parameters that can be set

@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"

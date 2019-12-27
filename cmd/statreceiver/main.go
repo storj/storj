@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/storj/cmd/statreceiver/luacfg"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 )
 
 // Config is the set of configuration values we care about

@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/private/memory"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )

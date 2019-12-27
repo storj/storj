@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 )
 
 var mon = monkit.Package()

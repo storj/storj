@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 

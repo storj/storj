@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 )
 
 // TestUplinkConfigDefaults tests that the uplink configuration gets the correct defaults applied

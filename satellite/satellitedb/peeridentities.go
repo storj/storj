@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 

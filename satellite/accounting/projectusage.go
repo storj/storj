@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
 )
 
 var mon = monkit.Package()

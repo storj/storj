@@ -8,8 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
 )
 

@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/macaroon"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"

@@ -14,11 +14,11 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/drpc/drpcserver"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/listenmux"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
 )
 
 // Service represents a specific gRPC method collection to be registered

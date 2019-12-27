@@ -13,10 +13,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 

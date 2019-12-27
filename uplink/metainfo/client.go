@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
+	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 )
 
 var (

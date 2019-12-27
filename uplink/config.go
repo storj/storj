@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/memory"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
 )
 
 var mon = monkit.Package()

@@ -6,8 +6,8 @@ package mobile
 import (
 	"time"
 
+	"storj.io/common/macaroon"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/macaroon"
 )
 
 // Caveat TODO

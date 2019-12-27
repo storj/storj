@@ -8,8 +8,8 @@ import (
 	"io"
 	"time"
 
+	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 const (

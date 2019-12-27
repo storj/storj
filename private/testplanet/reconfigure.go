@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testidentity"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storagenode"

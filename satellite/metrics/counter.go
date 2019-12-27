@@ -8,8 +8,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/metainfo"
 )
 

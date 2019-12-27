@@ -12,14 +12,14 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/readcloser"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/encryption"
+	"storj.io/common/fpath"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/ranger"
+	"storj.io/common/readcloser"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.

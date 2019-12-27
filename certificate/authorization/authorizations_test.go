@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
 )
 
 var (

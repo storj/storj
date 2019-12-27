@@ -63,12 +63,6 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
-.PHONY: proto
-proto: ## Rebuild protobuf files
-	@echo "Running ${@}"
-	go run scripts/protobuf.go install
-	go run scripts/protobuf.go generate
-
 .PHONY: build-packages
 build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
 build-packages-race:

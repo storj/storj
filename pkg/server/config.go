@@ -9,9 +9,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/identity"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
 )
 
 // Config holds server specific configuration parameters

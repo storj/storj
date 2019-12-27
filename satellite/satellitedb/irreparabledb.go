@@ -9,7 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 

@@ -8,7 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 )
 
 // Scope is a serializable type that represents all of the credentials you need

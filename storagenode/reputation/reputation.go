@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // DB works with reputation database

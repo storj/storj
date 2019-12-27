@@ -6,8 +6,8 @@ package streams
 import (
 	"strings"
 
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/paths"
+	"storj.io/common/storj"
 )
 
 // Path is a representation of an object path within a bucket

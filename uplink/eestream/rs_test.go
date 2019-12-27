@@ -21,13 +21,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/readcloser"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/encryption"
+	"storj.io/common/memory"
+	"storj.io/common/ranger"
+	"storj.io/common/readcloser"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 )
 
 func TestRS(t *testing.T) {

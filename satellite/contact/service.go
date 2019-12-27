@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/rpc"
 	"storj.io/storj/satellite/overlay"
 )
 

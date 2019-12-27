@@ -43,8 +43,6 @@ pipeline {
                         sh 'check-large-files'
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
-                        sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'storj-protobuf --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'check-atomic-align ./...'
                         sh 'check-errs ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'

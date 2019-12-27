@@ -16,9 +16,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/useragent"
+	"storj.io/common/useragent"
 )
 
 var (

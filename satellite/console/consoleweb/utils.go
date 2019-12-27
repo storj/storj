@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 

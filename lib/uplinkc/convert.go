@@ -6,7 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.

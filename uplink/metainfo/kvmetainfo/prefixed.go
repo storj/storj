@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/storage/objects"
 )
 

@@ -18,11 +18,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/eestream"
 )
 
