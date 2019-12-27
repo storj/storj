@@ -43,9 +43,8 @@ const (
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000
-	// TODO: orange/v3-3184 no idea what value should be set here. In the future
-	// we may want to make this value configurable.
-	deleteObjectPiecesConcurrencyLimit = 10
+	// TODO: orange/v3-3406 this value may change once it's used in production
+	deleteObjectPiecesConcurrencyLimit = 100
 )
 
 var (
@@ -2271,9 +2270,6 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	}
 
 	var (
-		// TODO: orange/v3-3184 initialize this map to an approximated number of nodes
-		// if it's possible. Also figure out how much memory is required for an object
-		// of a big size like 10GiB.
 		nodesPieces = make(map[storj.NodeID][]storj.PieceID)
 		nodeIDs     storj.NodeIDList
 	)
@@ -2334,6 +2330,7 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		return nil
 	}
 
+	// TODO: v3-3406 Should we use a global limiter?
 	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
 	for _, node := range nodes {
 		node := node
