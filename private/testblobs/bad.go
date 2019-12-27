@@ -99,17 +99,17 @@ func (bad *BadBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
 }
 
 // RestoreTrash restores all files in the trash.
-func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
+func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	if bad.err != nil {
-		return bad.err
+		return nil, bad.err
 	}
 	return bad.blobs.RestoreTrash(ctx, namespace)
 }
 
 // EmptyTrash empties the trash
-func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error) {
+func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	if bad.err != nil {
-		return nil, bad.err
+		return 0, nil, bad.err
 	}
 	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
@@ -174,20 +174,28 @@ func (bad *BadBlobs) FreeSpace() (int64, error) {
 	return bad.blobs.FreeSpace()
 }
 
-// SpaceUsed adds up how much is used in all namespaces.
-func (bad *BadBlobs) SpaceUsed(ctx context.Context) (int64, error) {
+// SpaceUsedForBlobs adds up how much is used in all namespaces.
+func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
 	}
-	return bad.blobs.SpaceUsed(ctx)
+	return bad.blobs.SpaceUsedForBlobs(ctx)
 }
 
-// SpaceUsedInNamespace adds up how much is used in the given namespace.
-func (bad *BadBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
+func (bad *BadBlobs) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	if bad.err != nil {
 		return 0, bad.err
 	}
-	return bad.blobs.SpaceUsedInNamespace(ctx, namespace)
+	return bad.blobs.SpaceUsedForBlobsInNamespace(ctx, namespace)
+}
+
+// SpaceUsedForTrash adds up how much is used in all namespaces.
+func (bad *BadBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
+	if bad.err != nil {
+		return 0, bad.err
+	}
+	return bad.blobs.SpaceUsedForTrash(ctx)
 }
 
 // SetError configures the blob store to return a specific error for all operations.

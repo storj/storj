@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"

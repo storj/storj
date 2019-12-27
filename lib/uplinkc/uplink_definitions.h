@@ -43,6 +43,7 @@ typedef struct UplinkConfig {
         int32_t max_inline_size;
         int32_t max_memory;
         int32_t dial_timeout;
+        char *user_agent;
     } Volatile;
 } UplinkConfig;
 

@@ -11,9 +11,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/storage/meta"
 )

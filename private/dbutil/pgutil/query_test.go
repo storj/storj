@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/testcontext"
 )
 
 const (

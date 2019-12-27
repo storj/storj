@@ -4,8 +4,8 @@
 package cmd
 
 import (
+	"storj.io/common/fpath"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/private/fpath"
 )
 
 func getConfDir() string {

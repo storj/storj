@@ -4,7 +4,7 @@
 package teststorj
 
 import (
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // PieceIDFromBytes converts a byte slice into a piece ID

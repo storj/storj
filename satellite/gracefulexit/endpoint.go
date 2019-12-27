@@ -13,13 +13,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -142,7 +142,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	// ensure that only one connection can be opened for a single node at a time
 	if !endpoint.connections.tryAdd(nodeID) {
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "Only one concurrent connection allowed for graceful exit")
+		return rpcstatus.Error(rpcstatus.Aborted, "Only one concurrent connection allowed for graceful exit")
 	}
 	defer func() {
 		endpoint.connections.delete(nodeID)
@@ -153,7 +153,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if isDisqualified {
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
+		return rpcstatus.Error(rpcstatus.FailedPrecondition, "Disqualified nodes cannot graceful exit")
 	}
 
 	msg, err := endpoint.checkExitStatus(ctx, nodeID)
@@ -229,7 +229,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			if isDisqualified {
-				return rpcstatus.Error(rpcstatus.PermissionDenied, "Disqualified nodes cannot graceful exit")
+				return rpcstatus.Error(rpcstatus.FailedPrecondition, "Disqualified nodes cannot graceful exit")
 			}
 
 			// update exit status

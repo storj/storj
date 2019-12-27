@@ -14,13 +14,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/encryption"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
 

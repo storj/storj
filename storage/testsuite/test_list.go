@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 

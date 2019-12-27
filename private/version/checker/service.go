@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/sync2"
+	"storj.io/common/sync2"
 	"storj.io/storj/private/version"
 )
 

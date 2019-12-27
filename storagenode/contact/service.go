@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/pb"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/overlay"
 )
 

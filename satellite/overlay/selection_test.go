@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -475,6 +475,7 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 func TestAddrtoNetwork_Conversion(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
 	network, err := overlay.GetNetwork(ctx, ip)

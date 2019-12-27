@@ -6,6 +6,7 @@ package filestore
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -109,25 +110,21 @@ func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref storage
 // Trash moves the ref to a trash directory
 func (store *blobStore) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.dir.Trash(ctx, ref)
-	return Error.Wrap(err)
+	return Error.Wrap(store.dir.Trash(ctx, ref))
 }
 
 // RestoreTrash moves every piece in the trash back into the regular location
-func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
+func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.dir.RestoreTrash(ctx, namespace)
-	return Error.Wrap(err)
+	keysRestored, err = store.dir.RestoreTrash(ctx, namespace)
+	return keysRestored, Error.Wrap(err)
 }
 
 // // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur
-func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (keys [][]byte, err error) {
+func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return keys, nil
+	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
+	return bytesEmptied, keys, Error.Wrap(err)
 }
 
 // GarbageCollect tries to delete any files that haven't yet been deleted
@@ -148,8 +145,8 @@ func (store *blobStore) Create(ctx context.Context, ref storage.BlobRef, size in
 	return newBlobWriter(ref, store, MaxFormatVersionSupported, file), nil
 }
 
-// SpaceUsed adds up the space used in all namespaces for blob storage
-func (store *blobStore) SpaceUsed(ctx context.Context) (space int64, err error) {
+// SpaceUsedForBlobs adds up the space used in all namespaces for blob storage
+func (store *blobStore) SpaceUsedForBlobs(ctx context.Context) (space int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalSpaceUsed int64
@@ -158,7 +155,7 @@ func (store *blobStore) SpaceUsed(ctx context.Context) (space int64, err error) 
 		return 0, Error.New("failed to enumerate namespaces: %v", err)
 	}
 	for _, namespace := range namespaces {
-		used, err := store.SpaceUsedInNamespace(ctx, namespace)
+		used, err := store.SpaceUsedForBlobsInNamespace(ctx, namespace)
 		if err != nil {
 			return 0, Error.New("failed to sum space used: %v", err)
 		}
@@ -167,8 +164,8 @@ func (store *blobStore) SpaceUsed(ctx context.Context) (space int64, err error) 
 	return totalSpaceUsed, nil
 }
 
-// SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
-func (store *blobStore) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace for blob storage
+func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
 	err := store.WalkNamespace(ctx, namespace, func(info storage.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
@@ -184,6 +181,20 @@ func (store *blobStore) SpaceUsedInNamespace(ctx context.Context, namespace []by
 		return 0, err
 	}
 	return totalUsed, nil
+}
+
+// SpaceUsedForTrash returns the total space used by the trash
+func (store *blobStore) SpaceUsedForTrash(ctx context.Context) (total int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = filepath.Walk(store.dir.trashdir(), func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			err = errs.Combine(err, walkErr)
+			return filepath.SkipDir
+		}
+		total += info.Size()
+		return nil
+	})
+	return total, err
 }
 
 // FreeSpace returns how much space left in underlying directory

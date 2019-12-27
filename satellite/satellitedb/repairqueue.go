@@ -10,7 +10,7 @@ import (
 	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/storage"

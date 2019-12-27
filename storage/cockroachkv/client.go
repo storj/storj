@@ -18,7 +18,10 @@ import (
 	"storj.io/storj/storage/cockroachkv/schema"
 )
 
-const defaultBatchSize = 128
+const (
+	defaultBatchSize          = 128
+	defaultRecursiveBatchSize = 10000
+)
 
 var (
 	mon = monkit.Package()
@@ -162,7 +165,13 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 // Iterate calls the callback with an iterator over the keys.
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	opi, err := newOrderedCockroachIterator(ctx, client, opts, defaultBatchSize)
+
+	batchSize := defaultBatchSize
+	if opts.Recurse {
+		batchSize = defaultRecursiveBatchSize
+	}
+
+	opi, err := newOrderedCockroachIterator(ctx, client, opts, batchSize)
 	if err != nil {
 		return err
 	}

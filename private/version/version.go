@@ -19,8 +19,8 @@ import (
 	"github.com/blang/semver"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 )
 
 const quote = byte('"')

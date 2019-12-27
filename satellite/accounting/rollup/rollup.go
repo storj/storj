@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
 )
 
@@ -20,7 +20,7 @@ import (
 type Config struct {
 	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
 	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
-	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"false"`
+	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals
@@ -110,11 +110,11 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
 	if err != nil {
-		return time.Now(), Error.Wrap(err)
+		return lastRollup, Error.Wrap(err)
 	}
 	if len(tallies) == 0 {
 		r.logger.Info("Rollup found no new tallies")
-		return time.Now(), nil
+		return lastRollup, nil
 	}
 	//loop through tallies and build Rollup
 	for _, tallyRow := range tallies {

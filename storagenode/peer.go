@@ -14,15 +14,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
@@ -165,6 +165,10 @@ type Peer struct {
 		Chore    *gracefulexit.Chore
 	}
 
+	Notifications struct {
+		Service *notifications.Service
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -207,6 +211,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
 	{ // setup contact service
@@ -375,6 +383,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
 			assets,
+			peer.Notifications.Service,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)

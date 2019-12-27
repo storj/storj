@@ -12,10 +12,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 )
@@ -72,7 +72,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 		err = conn.Close()
 	}()
 
-	client := conn.ReferralManagerClient()
+	client := pb.NewDRPCReferralManagerClient(conn.Raw())
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		OwnerUserId:      userID[:],
 		OwnerSatelliteId: service.signer.ID(),
@@ -166,7 +166,7 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 		return errs.Wrap(err)
 	}
 
-	client := conn.ReferralManagerClient()
+	client := pb.NewDRPCReferralManagerClient(conn.Raw())
 	_, err = client.RedeemToken(ctx, &pb.RedeemTokenRequest{
 		Token:             referralToken[:],
 		RedeemUserId:      userID[:],

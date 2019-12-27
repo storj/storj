@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestTempCockroachDB(t *testing.T) {

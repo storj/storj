@@ -14,12 +14,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/memory"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
@@ -40,7 +40,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+			planet.peers = append(planet.peers, newClosablePeer(x))
 		}
 	}()
 
@@ -138,7 +138,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: defaultInterval,
 			},
 			GracefulExit: gracefulexit.Config{
-				ChoreInterval:          time.Second * 1,
+				ChoreInterval:          defaultInterval,
 				NumWorkers:             3,
 				NumConcurrentTransfers: 1,
 				MinBytesPerSecond:      128 * memory.B,

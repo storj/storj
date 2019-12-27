@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/sync2"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink"
 )
 

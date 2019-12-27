@@ -18,10 +18,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/satellitedb"
 )

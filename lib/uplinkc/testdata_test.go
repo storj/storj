@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 

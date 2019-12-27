@@ -18,17 +18,17 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
@@ -189,7 +189,7 @@ func TestConcurrentConnections(t *testing.T) {
 					err = errs.Combine(err, conn.Close())
 				}()
 
-				client := conn.SatelliteGracefulExitClient()
+				client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 				// wait for "main" call to begin
 				wg.Wait()
@@ -199,7 +199,7 @@ func TestConcurrentConnections(t *testing.T) {
 
 				_, err = c.Recv()
 				require.Error(t, err)
-				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				require.True(t, errs2.IsRPC(err, rpcstatus.Aborted))
 				return nil
 			})
 		}
@@ -209,7 +209,7 @@ func TestConcurrentConnections(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 		// this connection will immediately return since graceful exit has not been initiated yet
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -240,7 +240,6 @@ func TestConcurrentConnections(t *testing.T) {
 }
 
 func TestRecvTimeout(t *testing.T) {
-	var geConfig gracefulexit.Config
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -254,9 +253,6 @@ func TestRecvTimeout(t *testing.T) {
 				// This config value will create a very short timeframe allowed for receiving
 				// data from storage nodes. This will cause context to cancel with timeout.
 				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
-			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				geConfig = config.GracefulExit
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -307,7 +303,16 @@ func TestRecvTimeout(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				MinBytesPerSecond:      128,
+				MinDownloadTimeout:     2 * time.Minute,
+			})
+		defer ctx.Check(worker.Close)
+
 		err = worker.Run(ctx, func() {})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))
@@ -402,13 +407,13 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 		processClient, err := client.Process(ctx)
 		require.NoError(t, err)
 
 		// Process endpoint should return immediately if node is disqualified
 		response, err := processClient.Recv()
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 		require.Nil(t, response)
 
 		// disqualified node should fail graceful exit
@@ -433,7 +438,7 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 			}
 			if deletedCount >= numPieces {
 				// when a disqualified node has finished transfer all pieces, it should receive an error
-				require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+				require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 				break
 			} else {
 				require.NoError(t, err)
@@ -939,7 +944,7 @@ func TestExitDisabled(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 		processClient, err := client.Process(ctx)
 		require.NoError(t, err)
 
@@ -1020,7 +1025,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -1255,7 +1260,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -1382,7 +1387,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.SatelliteGracefulExitClient()
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)

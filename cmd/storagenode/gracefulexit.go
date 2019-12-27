@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
 )
 
 type gracefulExitClient struct {
@@ -37,15 +37,15 @@ func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitC
 }
 
 func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (*pb.GetNonExitingSatellitesResponse, error) {
-	return client.conn.NodeGracefulExitClient().GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
+	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 }
 
 func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
-	return client.conn.NodeGracefulExitClient().InitiateGracefulExit(ctx, req)
+	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).InitiateGracefulExit(ctx, req)
 }
 
 func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
-	return client.conn.NodeGracefulExitClient().GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).GetExitProgress(ctx, &pb.GetExitProgressRequest{})
 }
 
 func (client *gracefulExitClient) close() error {

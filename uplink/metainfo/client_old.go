@@ -9,10 +9,10 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
+	"storj.io/common/errs2"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 )
 
 // CreateSegmentOld requests the order limits for creating a new segment

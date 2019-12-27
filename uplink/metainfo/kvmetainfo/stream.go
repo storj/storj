@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/paths"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
 )
 
-var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
+var _ ReadOnlyStream = (*readonlyStream)(nil)
 
 type readonlyStream struct {
 	db *DB

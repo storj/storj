@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -23,7 +23,7 @@ func TestVouchers(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := conn.VouchersClient()
+		client := pb.NewDRPCVouchersClient(conn.Raw())
 
 		resp, err := client.Request(ctx, &pb.VoucherRequest{})
 		require.Nil(t, resp)

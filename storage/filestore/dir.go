@@ -359,8 +359,8 @@ func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
 }
 
 // RestoreTrash moves every piece in the trash folder back into blobsdir
-func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
-	return dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
+func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
+	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
 		blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
 		if err != nil {
 			return err
@@ -389,14 +389,20 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) 
 			// by callers to return a nil error in the case of concurrent calls.)
 			return nil
 		}
-		return err
+		if err != nil {
+			return err
+		}
+
+		keysRestored = append(keysRestored, info.BlobRef().Key)
+		return nil
 	})
+	return keysRestored, err
 }
 
 // EmptyTrash walks the trash files for the given namespace and deletes any
 // file whose mtime is older than trashedBefore. The mtime is modified when
 // Trash is called.
-func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (deletedKeys [][]byte, err error) {
+func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(blobInfo storage.BlobInfo) error {
 		fileInfo, err := blobInfo.Stat(ctx)
@@ -411,13 +417,14 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 				return err
 			}
 			deletedKeys = append(deletedKeys, blobInfo.BlobRef().Key)
+			bytesEmptied += fileInfo.Size()
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	return deletedKeys, nil
+	return bytesEmptied, deletedKeys, nil
 }
 
 // iterateStorageFormatVersions executes f for all storage format versions,

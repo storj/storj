@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/testcontext"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis/redisserver"
 )

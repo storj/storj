@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 	"storj.io/storj/private/teststorj"
 )
 

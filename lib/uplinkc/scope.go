@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 
-	"storj.io/storj/private/fpath"
+	"storj.io/common/fpath"
 )
 
 // scope implements nesting context for foreign api.

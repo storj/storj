@@ -6,8 +6,8 @@ package stripecoinpayments
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 )
 
 // Endpoint is stripecoinpayments private RPC server payments endpoint.

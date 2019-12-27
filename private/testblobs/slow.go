@@ -90,13 +90,13 @@ func (slow *SlowBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
 }
 
 // RestoreTrash restores all files in the trash
-func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) error {
+func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	slow.sleep()
 	return slow.blobs.RestoreTrash(ctx, namespace)
 }
 
 // EmptyTrash empties the trash
-func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) ([][]byte, error) {
+func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	slow.sleep()
 	return slow.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
@@ -146,16 +146,22 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	return slow.blobs.FreeSpace()
 }
 
-// SpaceUsed adds up how much is used in all namespaces
-func (slow *SlowBlobs) SpaceUsed(ctx context.Context) (int64, error) {
+// SpaceUsedForBlobs adds up how much is used in all namespaces
+func (slow *SlowBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	slow.sleep()
-	return slow.blobs.SpaceUsed(ctx)
+	return slow.blobs.SpaceUsedForBlobs(ctx)
 }
 
-// SpaceUsedInNamespace adds up how much is used in the given namespace
-func (slow *SlowBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace
+func (slow *SlowBlobs) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	slow.sleep()
-	return slow.blobs.SpaceUsedInNamespace(ctx, namespace)
+	return slow.blobs.SpaceUsedForBlobsInNamespace(ctx, namespace)
+}
+
+// SpaceUsedForTrash adds up how much is used in all namespaces
+func (slow *SlowBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
+	slow.sleep()
+	return slow.blobs.SpaceUsedForTrash(ctx)
 }
 
 // SetLatency configures the blob store to sleep for delay duration for all

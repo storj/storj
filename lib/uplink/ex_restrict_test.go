@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/macaroon"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/macaroon"
 )
 
 func RestrictAccessExampleByAdmin(ctx context.Context,

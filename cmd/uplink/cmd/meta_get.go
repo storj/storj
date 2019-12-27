@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 )
 
 func init() {

@@ -10,9 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
 )
 
 const pieceHashExpiration = 24 * time.Hour

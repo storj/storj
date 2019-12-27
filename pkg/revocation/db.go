@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/common/identity"
+	"storj.io/common/peertls"
+	"storj.io/common/peertls/extensions"
 	"storj.io/storj/storage"
 )
 

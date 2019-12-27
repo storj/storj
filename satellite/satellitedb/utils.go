@@ -8,7 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 )
 

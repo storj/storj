@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 )
 
 func TestService_GetOrCreate(t *testing.T) {

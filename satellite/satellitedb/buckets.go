@@ -10,8 +10,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"

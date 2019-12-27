@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -159,7 +159,7 @@ func (chore *Chore) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
+	_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address.GetAddress(),
 		Version:  &self.Version,
 		Capacity: &self.Capacity,

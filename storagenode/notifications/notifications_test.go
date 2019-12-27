@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -48,7 +48,7 @@ func TestNotificationsDB(t *testing.T) {
 			Message:  "testMessage2",
 		}
 
-		notificationCursor := notifications.NotificationCursor{
+		notificationCursor := notifications.Cursor{
 			Limit: 2,
 			Page:  1,
 		}
@@ -74,7 +74,7 @@ func TestNotificationsDB(t *testing.T) {
 		assert.Equal(t, expectedNotification2.Title, notificationFromDB2.Title)
 		assert.Equal(t, expectedNotification2.Message, notificationFromDB2.Message)
 
-		page := notifications.NotificationPage{}
+		page := notifications.Page{}
 
 		// test List method to return right form of page depending on cursor.
 		t.Run("test paged list", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestNotificationsDB(t *testing.T) {
 			assert.Equal(t, uint(1), page.CurrentPage)
 		})
 
-		notificationCursor = notifications.NotificationCursor{
+		notificationCursor = notifications.Cursor{
 			Limit: 5,
 			Page:  1,
 		}
@@ -135,7 +135,7 @@ func TestEmptyNotificationsDB(t *testing.T) {
 
 		notificationsdb := db.Notifications()
 
-		notificationCursor := notifications.NotificationCursor{
+		notificationCursor := notifications.Cursor{
 			Limit: 5,
 			Page:  1,
 		}

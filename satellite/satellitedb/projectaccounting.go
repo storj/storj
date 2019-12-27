@@ -12,9 +12,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )

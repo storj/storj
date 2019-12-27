@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/uplink"
 )
 

@@ -10,8 +10,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/sqliteutil"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestMigrateTablesToDatabase(t *testing.T) {

@@ -16,18 +16,18 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
@@ -207,7 +207,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+			planet.peers = append(planet.peers, newClosablePeer(x))
 		}
 	}()
 
@@ -329,7 +329,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
-				Interval:                      time.Hour,
+				Interval:                      defaultInterval,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				DownloadTimeout:               1 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,

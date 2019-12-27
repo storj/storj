@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 func ListBucketsExample(ctx context.Context,

@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/cockroachkv"

@@ -11,11 +11,11 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 )
 
 var mon = monkit.Package()

@@ -15,16 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
@@ -176,9 +176,15 @@ func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error 
 func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	return nil, nil
 }
+
 func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.PieceDeletePieceRequest) (_ *pb.PieceDeletePieceResponse, err error) {
 	return nil, nil
 }
+
+func (mock *piecestoreMock) DeletePieces(ctx context.Context, delete *pb.DeletePiecesRequest) (_ *pb.DeletePiecesResponse, err error) {
+	return nil, nil
+}
+
 func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest) (_ *pb.RetainResponse, err error) {
 	return nil, nil
 }

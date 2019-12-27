@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 
@@ -175,6 +175,7 @@ func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore)
 
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	initStore(b, ctx, store)
 
 	doTest := func(name string, testFunc func(*testing.B, *testcontext.Context, storage.KeyValueStore)) {

@@ -10,8 +10,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/payments"
 )
 

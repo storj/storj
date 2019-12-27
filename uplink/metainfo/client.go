@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
+	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 // Client creates a grpcClient.
 type Client struct {
 	conn      *rpc.Conn
-	client    rpc.MetainfoClient
+	client    pb.DRPCMetainfoClient
 	apiKeyRaw []byte
 
 	userAgent string
@@ -44,7 +44,7 @@ type ListItem struct {
 }
 
 // New used as a public function.
-func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey, userAgent string) *Client {
+func New(client pb.DRPCMetainfoClient, apiKey *macaroon.APIKey, userAgent string) *Client {
 	return &Client{
 		client:    client,
 		apiKeyRaw: apiKey.SerializeRaw(),
@@ -62,7 +62,7 @@ func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaro
 
 	return &Client{
 		conn:      conn,
-		client:    conn.MetainfoClient(),
+		client:    pb.NewDRPCMetainfoClient(conn.Raw()),
 		apiKeyRaw: apiKey.SerializeRaw(),
 		userAgent: userAgent,
 	}, nil

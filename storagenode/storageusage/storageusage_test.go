@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/storageusage"

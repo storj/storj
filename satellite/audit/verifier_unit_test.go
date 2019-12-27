@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/storj"
+	"storj.io/common/testrand"
 )
 
 func TestFailingAudit(t *testing.T) {

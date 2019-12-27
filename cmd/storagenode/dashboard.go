@@ -18,10 +18,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
 )
 
@@ -40,7 +40,7 @@ func dialDashboardClient(ctx context.Context, address string) (*dashboardClient,
 }
 
 func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.conn.PieceStoreInspectorClient().Dashboard(ctx, &pb.DashboardRequest{})
+	return pb.NewDRPCPieceStoreInspectorClient(dash.conn.Raw()).Dashboard(ctx, &pb.DashboardRequest{})
 }
 
 func (dash *dashboardClient) close() error {

@@ -13,12 +13,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/fpath"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/linksharing"
 	"storj.io/storj/linksharing/httpserver"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 )
 
 // LinkSharing defines link sharing configuration

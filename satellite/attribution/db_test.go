@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"

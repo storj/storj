@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/sync2"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 

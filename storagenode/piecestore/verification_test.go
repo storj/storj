@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -321,7 +321,7 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		require.NoError(t, err)
 		// add these bytes to the space used cache so that we can test what happens
 		// when we exceeded available space on the storagenode
-		err = storageNode.DB.PieceSpaceUsedDB().UpdateTotal(ctx, availableSpace-space)
+		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotal(ctx, availableSpace-space)
 		require.NoError(t, err)
 		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)

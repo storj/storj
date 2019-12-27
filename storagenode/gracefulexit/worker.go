@@ -14,12 +14,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
@@ -72,7 +72,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	client := conn.SatelliteGracefulExitClient()
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
 
 	c, err := client.Process(ctx)
 	if err != nil {
@@ -270,7 +270,7 @@ func (worker *Worker) deleteOnePieceOrAll(ctx context.Context, pieceID *storj.Pi
 	pieceMap := make(map[pb.PieceID]int64)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	err := worker.store.WalkSatellitePieces(ctxWithCancel, worker.satelliteID, func(piece pieces.StoredPieceAccess) error {
-		size, err := piece.ContentSize(ctxWithCancel)
+		_, size, err := piece.Size(ctxWithCancel)
 		if err != nil {
 			worker.log.Debug("failed to retrieve piece info", zap.Stringer("Satellite ID", worker.satelliteID), zap.Error(err))
 		}
@@ -341,6 +341,6 @@ func (worker *Worker) handleFailure(ctx context.Context, transferError pb.Transf
 
 // Close halts the worker.
 func (worker *Worker) Close() error {
-	// TODO not sure this is needed yet.
+	worker.limiter.Wait()
 	return nil
 }

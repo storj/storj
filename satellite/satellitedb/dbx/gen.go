@@ -8,11 +8,14 @@ import (
 	"fmt"
 
 	"github.com/zeebo/errs"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
-//go:generate dbx.v1 schema -d postgres satellitedb.dbx .
-//go:generate dbx.v1 golang -d postgres satellitedb.dbx .
+//go:generate dbx schema -d postgres satellitedb.dbx .
+//go:generate dbx golang -d postgres -t templates satellitedb.dbx .
 //go:generate bash -c "sed -i'' '1i //lint:file-ignore * generated file\n' satellitedb.dbx.go"
+
+var mon = monkit.Package()
 
 func init() {
 	// catch dbx errors

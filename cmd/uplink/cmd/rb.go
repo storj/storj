@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
 )
 
 func init() {

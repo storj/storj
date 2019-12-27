@@ -12,15 +12,15 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/bloomfilter"
+	"storj.io/common/errs2"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -33,6 +33,7 @@ func TestRetainPieces(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB(), db.PieceSpaceUsedDB())
 		testStore := pieces.StoreForTest{Store: store}
 

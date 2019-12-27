@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
 	"storj.io/storj/uplink/stream"

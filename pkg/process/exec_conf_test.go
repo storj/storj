@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 )
 
 func setenv(key, value string) func() {
@@ -63,8 +63,9 @@ func TestHidden(t *testing.T) {
 
 	// Setup test config file
 	ctx := testcontext.New(t)
-	testConfigFile := ctx.File("testconfig.yaml")
 	defer ctx.Cleanup()
+
+	testConfigFile := ctx.File("testconfig.yaml")
 
 	// Run the command through the exec call.
 	Exec(cmd)

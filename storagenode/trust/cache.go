@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/fpath"
+	"storj.io/common/fpath"
 )
 
 // Cache caches source information about trusted satellites

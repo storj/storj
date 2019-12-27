@@ -14,8 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/bloomfilter"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pieces"
 )
 

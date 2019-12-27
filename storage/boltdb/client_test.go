@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -151,6 +151,7 @@ func BenchmarkClientWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -188,6 +189,7 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -232,6 +234,7 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {
@@ -271,6 +274,7 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	// setup db
 	ctx := testcontext.New(b)
 	defer ctx.Cleanup()
+
 	dbfile := ctx.File("testbolt.db")
 	dbs, err := NewShared(dbfile, "kbuckets", "nodes")
 	if err != nil {

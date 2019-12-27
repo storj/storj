@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/storj/cmd/internal/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 )
 
 var (

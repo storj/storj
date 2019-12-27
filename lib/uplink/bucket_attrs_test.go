@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 )
 
 type testConfig struct {
@@ -35,7 +35,6 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		// as testplanet makes it easy to get another way :D
 		testUplink := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-		cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 		apiKey, err := uplink.ParseAPIKey(testUplink.APIKey[satellite.ID()].Serialize())
 		if err != nil {
@@ -262,7 +261,10 @@ func TestBucketAttrs(t *testing.T) {
 		}
 	)
 
-	testPlanetWithLibUplink(t, testConfig{},
+	cfg := testConfig{}
+	cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
+
+	testPlanetWithLibUplink(t, cfg,
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *uplink.Project) {
 			before := time.Now()
 			bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
@@ -323,8 +325,10 @@ func TestBucketAttrsApply(t *testing.T) {
 		}
 		testConfig testConfig
 	)
+
 	// so our test object will not be inlined (otherwise it will lose its RS params)
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
+	testConfig.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 	testPlanetWithLibUplink(t, testConfig,
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *uplink.Project) {

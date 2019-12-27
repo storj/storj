@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
-	"storj.io/storj/private/memory"
 )
 
 func init() {

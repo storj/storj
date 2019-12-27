@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -41,7 +41,7 @@ func TestBasic(t *testing.T) {
 					conn, err := sn.Dialer.DialNode(ctx, &satellite)
 					require.NoError(t, err)
 					defer ctx.Check(conn.Close)
-					_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
+					_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
 						Address:  node.GetAddress().GetAddress(),
 						Version:  &node.Version,
 						Capacity: &node.Capacity,

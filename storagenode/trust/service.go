@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/identity"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
 // Error is the default error class

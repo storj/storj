@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/readcloser"
+	"storj.io/common/encryption"
+	"storj.io/common/errs2"
+	"storj.io/common/ranger"
+	"storj.io/common/readcloser"
 )
 
 type decodedReader struct {

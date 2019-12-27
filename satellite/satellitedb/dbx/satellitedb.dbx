@@ -373,7 +373,7 @@ model api_key (
 )
 
 create api_key ( )
-update api_key ( 
+update api_key (
 	where api_key.id = ?
 	noreturn
 )
@@ -686,25 +686,26 @@ create offer ( )
 //--- user credit table ---//
 
 model user_credit (
-	key	id
+	key id
+	unique id offer_id
 	index (
-	    name credits_earned_user_id_offer_id
-	    fields id offer_id
-	    unique
+		name credits_earned_user_id_offer_id
+		fields id offer_id
+		unique
 	)
 
-	field id				serial
+	field id serial
 
-	field user_id user.id	cascade
-	field offer_id offer.id	restrict
-	field referred_by user.id setnull ( nullable )
-	field type       text
+	field user_id     user.id  cascade
+	field offer_id    offer.id restrict
+	field referred_by user.id  setnull  ( nullable )
+	field type        text
 
-	field credits_earned_in_cents	int
-	field credits_used_in_cents	int ( updatable, autoinsert )
+	field credits_earned_in_cents int
+	field credits_used_in_cents   int ( updatable, autoinsert )
 
-	field expires_at		timestamp	( updatable )
-	field created_at		timestamp	( autoinsert )
+	field expires_at timestamp ( updatable )
+	field created_at timestamp ( autoinsert )
 )
 
 read all (

@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"

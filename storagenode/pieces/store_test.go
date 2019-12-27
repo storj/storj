@@ -17,15 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -814,7 +814,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			gotCreateTime, err := access.CreationTime(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, v0CreateTime, gotCreateTime)
-			gotSize, err := access.ContentSize(ctx)
+			_, gotSize, err := access.Size(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), gotSize)
 			return nil
@@ -857,7 +857,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v1CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v1Data)), gotSize)
 			case 2:
@@ -867,7 +867,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v0CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v0Data)), gotSize)
 			default:

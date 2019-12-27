@@ -8,11 +8,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/macaroon"
+	"storj.io/common/paths"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 )
 
 const (

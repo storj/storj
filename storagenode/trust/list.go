@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // List represents a dynamic trust list

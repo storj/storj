@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/storj"
+	"storj.io/common/testrand"
 )
 
 func TestPostgresNodeIDsArray(t *testing.T) {

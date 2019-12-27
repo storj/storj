@@ -13,6 +13,6 @@ func TestMigrateCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
 	}
-
+	t.Parallel()
 	pgMigrateTest(t, *pgtest.CrdbConnStr)
 }

@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // Status refers to the state of the relationship with a satellites

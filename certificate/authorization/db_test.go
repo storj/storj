@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcpeer"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 

@@ -12,11 +12,11 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/sync2"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/errs2"
+	"storj.io/common/pb"
+	"storj.io/common/sync2"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/gracefulexit"
 )
 

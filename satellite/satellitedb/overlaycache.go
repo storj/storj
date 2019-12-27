@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -382,6 +382,42 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		}
 	}
 	return badNodes, nil
+}
+
+// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id, last_net, address, protocol FROM nodes
+			WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND last_contact_success > $2
+		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		row := &dbx.Id_LastNet_Address_Protocol_Row{}
+		err = rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		node, err := convertDBNodeToPBNode(ctx, row)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
 }
 
 // Reliable returns all reliable nodes.
@@ -974,23 +1010,13 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 
 	updateFields := populateExitStatusFields(request)
 
-	tx, err := cache.db.Open(ctx)
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	dbNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
 
 	return convertDBNode(ctx, dbNode)

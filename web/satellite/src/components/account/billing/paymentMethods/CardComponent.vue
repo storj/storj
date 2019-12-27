@@ -8,7 +8,8 @@
                 <component :is="cardIcon"></component>
             </div>
             <div class="payment-methods-container__card-container__info-area__info-container">
-                <h1 class="bold">**** **** **** {{creditCard.last4}}</h1>
+                <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image">
+                <h1 class="bold">{{creditCard.last4}}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
                 <h2 class="medium">Expires</h2>
