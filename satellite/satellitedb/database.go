@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/downtimetracking"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -144,4 +145,9 @@ func (db *satelliteDB) GracefulExit() gracefulexit.DB {
 // StripeCoinPayments returns database for stripecoinpayments.
 func (db *satelliteDB) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: db}
+}
+
+// DowntimeTracking returns database for downtime tracking
+func (db *satelliteDB) DowntimeTracking() downtimetracking.DB {
+	return &downtimeTrackingDB{db: db}
 }

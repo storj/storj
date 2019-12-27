@@ -146,6 +146,12 @@ CREATE TABLE nodes (
 	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE nodes_offline_times (
+	node_id bytea NOT NULL,
+	tracked_at timestamp with time zone NOT NULL,
+	seconds integer NOT NULL,
+	PRIMARY KEY ( node_id, tracked_at )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -344,6 +350,7 @@ CREATE TABLE user_credits (
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
+CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

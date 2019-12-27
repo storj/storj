@@ -855,6 +855,29 @@ read one (
 	where graceful_exit_transfer_queue.piece_num = ?
 )
 
+//--- downtime tracking ---//
+
+model nodes_offline_time (
+    key node_id tracked_at
+
+    index (
+        fields node_id
+    )
+
+    field node_id blob
+    field tracked_at timestamp
+    field seconds int
+)
+
+create nodes_offline_time ()
+
+read all (
+    select nodes_offline_time
+    where nodes_offline_time.node_id = ?
+    where nodes_offline_time.tracked_at > ?
+    where nodes_offline_time.tracked_at <= ?
+)
+
 //--- satellite payments ---//
 
 model stripe_customer (

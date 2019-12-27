@@ -536,6 +536,20 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE user_credits ADD UNIQUE (id, offer_id);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add node downtime tracking table",
+				Version:     73,
+				Action: migrate.SQL{
+					`CREATE TABLE nodes_offline_times (
+						node_id bytea NOT NULL,
+						tracked_at timestamp with time zone NOT NULL,
+						seconds integer NOT NULL,
+						PRIMARY KEY ( node_id, tracked_at )
+					);`,
+					`CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );`,
+				},
+			},
 		},
 	}
 }

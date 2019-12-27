@@ -412,6 +412,12 @@ CREATE TABLE nodes (
 	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE nodes_offline_times (
+	node_id bytea NOT NULL,
+	tracked_at timestamp with time zone NOT NULL,
+	seconds integer NOT NULL,
+	PRIMARY KEY ( node_id, tracked_at )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -610,6 +616,7 @@ CREATE TABLE user_credits (
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
+CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
@@ -3193,6 +3200,74 @@ func (f Node_ExitSuccess_Field) value() interface{} {
 }
 
 func (Node_ExitSuccess_Field) _Column() string { return "exit_success" }
+
+type NodesOfflineTime struct {
+	NodeId    []byte
+	TrackedAt time.Time
+	Seconds   int
+}
+
+func (NodesOfflineTime) _Table() string { return "nodes_offline_times" }
+
+type NodesOfflineTime_Update_Fields struct {
+}
+
+type NodesOfflineTime_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodesOfflineTime_NodeId(v []byte) NodesOfflineTime_NodeId_Field {
+	return NodesOfflineTime_NodeId_Field{_set: true, _value: v}
+}
+
+func (f NodesOfflineTime_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodesOfflineTime_NodeId_Field) _Column() string { return "node_id" }
+
+type NodesOfflineTime_TrackedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func NodesOfflineTime_TrackedAt(v time.Time) NodesOfflineTime_TrackedAt_Field {
+	return NodesOfflineTime_TrackedAt_Field{_set: true, _value: v}
+}
+
+func (f NodesOfflineTime_TrackedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodesOfflineTime_TrackedAt_Field) _Column() string { return "tracked_at" }
+
+type NodesOfflineTime_Seconds_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func NodesOfflineTime_Seconds(v int) NodesOfflineTime_Seconds_Field {
+	return NodesOfflineTime_Seconds_Field{_set: true, _value: v}
+}
+
+func (f NodesOfflineTime_Seconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodesOfflineTime_Seconds_Field) _Column() string { return "seconds" }
 
 type Offer struct {
 	Id                        int
@@ -7042,6 +7117,30 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Create_NodesOfflineTime(ctx context.Context,
+	nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+	nodes_offline_time_tracked_at NodesOfflineTime_TrackedAt_Field,
+	nodes_offline_time_seconds NodesOfflineTime_Seconds_Field) (
+	nodes_offline_time *NodesOfflineTime, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := nodes_offline_time_node_id.value()
+	__tracked_at_val := nodes_offline_time_tracked_at.value()
+	__seconds_val := nodes_offline_time_seconds.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes_offline_times ( node_id, tracked_at, seconds ) VALUES ( ?, ?, ? ) RETURNING nodes_offline_times.node_id, nodes_offline_times.tracked_at, nodes_offline_times.seconds")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __tracked_at_val, __seconds_val)
+
+	nodes_offline_time = &NodesOfflineTime{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __tracked_at_val, __seconds_val).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return nodes_offline_time, nil
+
+}
+
 func (obj *postgresImpl) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
 	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
@@ -8860,6 +8959,42 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_Pi
 		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
 	}
 	return graceful_exit_transfer_queue, nil
+
+}
+
+func (obj *postgresImpl) All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_And_TrackedAt_LessOrEqual(ctx context.Context,
+	nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+	nodes_offline_time_tracked_at_greater NodesOfflineTime_TrackedAt_Field,
+	nodes_offline_time_tracked_at_less_or_equal NodesOfflineTime_TrackedAt_Field) (
+	rows []*NodesOfflineTime, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes_offline_times.node_id, nodes_offline_times.tracked_at, nodes_offline_times.seconds FROM nodes_offline_times WHERE nodes_offline_times.node_id = ? AND nodes_offline_times.tracked_at > ? AND nodes_offline_times.tracked_at <= ?")
+
+	var __values []interface{}
+	__values = append(__values, nodes_offline_time_node_id.value(), nodes_offline_time_tracked_at_greater.value(), nodes_offline_time_tracked_at_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		nodes_offline_time := &NodesOfflineTime{}
+		err = __rows.Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, nodes_offline_time)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -11161,6 +11296,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM nodes_offline_times;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -11416,6 +11561,18 @@ func (rx *Rx) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.C
 		return
 	}
 	return tx.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+}
+
+func (rx *Rx) All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_And_TrackedAt_LessOrEqual(ctx context.Context,
+	nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+	nodes_offline_time_tracked_at_greater NodesOfflineTime_TrackedAt_Field,
+	nodes_offline_time_tracked_at_less_or_equal NodesOfflineTime_TrackedAt_Field) (
+	rows []*NodesOfflineTime, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_And_TrackedAt_LessOrEqual(ctx, nodes_offline_time_node_id, nodes_offline_time_tracked_at_greater, nodes_offline_time_tracked_at_less_or_equal)
 }
 
 func (rx *Rx) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
@@ -11804,6 +11961,19 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_CouponUsage(ctx, coupon_usage_id, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_interval_end)
+
+}
+
+func (rx *Rx) Create_NodesOfflineTime(ctx context.Context,
+	nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+	nodes_offline_time_tracked_at NodesOfflineTime_TrackedAt_Field,
+	nodes_offline_time_seconds NodesOfflineTime_Seconds_Field) (
+	nodes_offline_time *NodesOfflineTime, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_NodesOfflineTime(ctx, nodes_offline_time_node_id, nodes_offline_time_tracked_at, nodes_offline_time_seconds)
 
 }
 
@@ -12914,6 +13084,12 @@ type Methods interface {
 	All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)
 
+	All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_And_TrackedAt_LessOrEqual(ctx context.Context,
+		nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+		nodes_offline_time_tracked_at_greater NodesOfflineTime_TrackedAt_Field,
+		nodes_offline_time_tracked_at_less_or_equal NodesOfflineTime_TrackedAt_Field) (
+		rows []*NodesOfflineTime, err error)
+
 	All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 		rows []*Offer, err error)
 
@@ -13118,6 +13294,12 @@ type Methods interface {
 		coupon_usage_amount CouponUsage_Amount_Field,
 		coupon_usage_interval_end CouponUsage_IntervalEnd_Field) (
 		coupon_usage *CouponUsage, err error)
+
+	Create_NodesOfflineTime(ctx context.Context,
+		nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
+		nodes_offline_time_tracked_at NodesOfflineTime_TrackedAt_Field,
+		nodes_offline_time_seconds NodesOfflineTime_Seconds_Field) (
+		nodes_offline_time *NodesOfflineTime, err error)
 
 	Create_Offer(ctx context.Context,
 		offer_name Offer_Name_Field,
