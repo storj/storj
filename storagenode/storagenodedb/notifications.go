@@ -199,3 +199,25 @@ func (db *notificationDB) ReadAll(ctx context.Context) (err error) {
 
 	return ErrNotificationsDB.Wrap(err)
 }
+
+// UnreadAmount returns amount on unread notifications.
+func (db *notificationDB) UnreadAmount(ctx context.Context) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var amount int
+
+	query := `
+		SELECT
+			COUNT(id)
+		FROM 
+			notifications
+		WHERE 
+			read_at IS NULL
+	`
+
+	err = db.QueryRowContext(ctx, query).Scan(&amount)
+	if err != nil {
+		return 0, ErrNotificationsDB.Wrap(err)
+	}
+
+	return amount, nil
+}

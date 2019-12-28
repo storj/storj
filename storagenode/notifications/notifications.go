@@ -20,6 +20,7 @@ type DB interface {
 	List(ctx context.Context, cursor Cursor) (Page, error)
 	Read(ctx context.Context, notificationID uuid.UUID) error
 	ReadAll(ctx context.Context) error
+	UnreadAmount(ctx context.Context) (int, error)
 }
 
 // Type is a numeric value of specific notification type.
@@ -48,7 +49,7 @@ type NewNotification struct {
 // Notification holds notification entity info which is being retrieved from database.
 type Notification struct {
 	ID        uuid.UUID    `json:"id"`
-	SenderID  storj.NodeID `json:"senderID"`
+	SenderID  storj.NodeID `json:"senderId"`
 	Type      Type         `json:"type"`
 	Title     string       `json:"title"`
 	Message   string       `json:"message"`
