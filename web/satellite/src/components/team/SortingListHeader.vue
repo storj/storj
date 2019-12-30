@@ -114,10 +114,10 @@ export default class SortingListHeader extends Vue {
 
         &__name-container {
             display: flex;
-            width: calc(50% - 30px);
+            width: calc(50% - 70px);
             cursor: pointer;
             text-align: left;
-            margin-left: 26px;
+            margin-left: 70px;
             align-items: center;
             justify-content: flex-start;
         }

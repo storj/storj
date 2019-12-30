@@ -107,10 +107,10 @@ export class BillingHistoryItem {
 
     public get quantity(): Amount {
         if (this.type === BillingHistoryItemType.Invoice) {
-            return new Amount('$', this.amountDollars(this.amount));
+            return new Amount('USD $', this.amountDollars(this.amount));
         }
 
-        return new Amount('$', this.amountDollars(this.amount), this.amountDollars(this.received));
+        return new Amount('USD $', this.amountDollars(this.amount), this.amountDollars(this.received));
     }
 
     public get formattedStatus(): string {

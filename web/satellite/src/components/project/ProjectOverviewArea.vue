@@ -57,7 +57,7 @@ export default class ProjectOverviewArea extends Vue {
 
         &__navigation {
             position: absolute;
-            right: 55px;
+            right: 65px;
             top: 44px;
             z-index: 99;
         }

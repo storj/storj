@@ -52,7 +52,7 @@ export default class VBanner extends Vue {
         padding: 20px 20px 20px 20px;
         border-radius: 12px;
         background-color: #d0e3fe;
-        margin: 32px 65px 15px 55px;
+        margin: 32px 65px 15px 65px;
 
         &__text {
             font-family: 'font_medium', sans-serif;
