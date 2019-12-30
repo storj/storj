@@ -165,6 +165,10 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
 			t.Parallel()
 
+			if dbInfo.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
+			}
+
 			db, err := CreateMasterDB(t, "T", 0, dbInfo.MasterDB)
 			if err != nil {
 				t.Fatal(err)
