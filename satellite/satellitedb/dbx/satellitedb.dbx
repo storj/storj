@@ -121,7 +121,7 @@ read all (
 	where  accounting_rollup.start_time >= ?
 )
 
-//--- statdb ---//
+//--- overlay cache ---//
 
 model node (
 	key id
@@ -208,6 +208,13 @@ read limitoffset (
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
+)
+
+read limitoffset (
+	select node
+    where node.last_contact_success < node.last_contact_failure
+	where  node.disqualified = null
+	orderby asc node.last_contact_failure
 )
 
 //--- repairqueue ---//

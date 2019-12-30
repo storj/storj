@@ -86,6 +86,9 @@ type DB interface {
 
 	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
 	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
+
+	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+	GetOfflineNodesLimited(ctx context.Context, limit int) ([]*pb.Node, error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins

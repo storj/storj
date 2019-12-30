@@ -533,3 +533,63 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
 	})
 }
+
+func TestCache_DowntimeTracking(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		cache := db.OverlayCache()
+		defaults := overlay.NodeSelectionConfig{
+			AuditReputationAlpha0:  1,
+			AuditReputationBeta0:   0,
+			UptimeReputationAlpha0: 1,
+			UptimeReputationBeta0:  0,
+		}
+
+		totalNodes := 10
+		allIDs := make(storj.NodeIDList, totalNodes)
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := testrand.NodeID()
+
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
+			require.NoError(t, err)
+			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
+				Type:     pb.NodeType_STORAGE,
+				Capacity: &pb.NodeCapacity{},
+			})
+			require.NoError(t, err)
+
+			allIDs[i] = newID
+
+			// make half of the nodes (0, 2, 4, 6, 8) offline + not disqualified
+			if i%2 == 0 {
+				_, err := cache.UpdateUptime(ctx, newID, false, 1, 0, 0)
+				require.NoError(t, err)
+			}
+			// make first node (0) offline + disqualified
+			if i == 0 {
+				_, err := cache.UpdateUptime(ctx, newID, false, 1, 0, 1)
+				require.NoError(t, err)
+			}
+		}
+
+		nodes, err := cache.GetOfflineNodesLimited(ctx, 10)
+		require.NoError(t, err)
+		require.Len(t, nodes, 4)
+		// order of nodes should be least recently checked first
+		require.Equal(t, allIDs[2], nodes[0].Id)
+		require.Equal(t, allIDs[4], nodes[1].Id)
+		require.Equal(t, allIDs[6], nodes[2].Id)
+		require.Equal(t, allIDs[8], nodes[3].Id)
+
+		// test with limit
+		nodes, err = cache.GetOfflineNodesLimited(ctx, 2)
+		require.NoError(t, err)
+		require.Len(t, nodes, 2)
+		// order of nodes should be least recently checked first
+		require.Equal(t, allIDs[2], nodes[0].Id)
+		require.Equal(t, allIDs[4], nodes[1].Id)
+	})
+}

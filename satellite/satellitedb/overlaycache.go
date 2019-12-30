@@ -1039,6 +1039,25 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	return dbxUpdateFields
 }
 
+// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.DB.Limited_Node_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(ctx,
+		limit, 0)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	for _, row := range rows {
+		nextNode, err := convertDBNode(ctx, row)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		nodes = append(nodes, &nextNode.Node)
+	}
+	return nodes, nil
+}
+
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {
