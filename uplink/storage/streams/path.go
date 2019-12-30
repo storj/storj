@@ -54,3 +54,10 @@ func CreatePath(bucket string, unencPath paths.Unencrypted) (path Path) {
 
 	return path
 }
+
+// PathForKey removes the trailing `/` from the raw path, which is required so
+// the derived key matches the final list path (which also has the trailing
+// encrypted `/` part of the path removed).
+func PathForKey(raw string) paths.Unencrypted {
+	return paths.NewUnencrypted(strings.TrimSuffix(raw, "/"))
+}

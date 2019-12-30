@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"io"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -17,7 +16,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/encryption"
-	"storj.io/common/paths"
 	"storj.io/common/pb"
 	"storj.io/common/ranger"
 	"storj.io/common/storj"
@@ -35,35 +33,11 @@ type Meta struct {
 	Data       []byte
 }
 
-func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) (count int64, ok bool) {
-	if streamMeta.NumberOfSegments > 0 {
-		return streamMeta.NumberOfSegments, true
-	}
-	if stream != nil {
-		return stream.DeprecatedNumberOfSegments, true
-	}
-	return 0, false
-}
-
-// convertMeta converts segment metadata to stream metadata
-func convertMeta(modified, expiration time.Time, stream *pb.StreamInfo, streamMeta pb.StreamMeta) (rv Meta) {
-	rv.Modified = modified
-	rv.Expiration = expiration
-	if stream != nil {
-		if segmentCount, ok := numberOfSegments(stream, &streamMeta); ok {
-			rv.Size = (segmentCount-1)*stream.SegmentsSize + stream.LastSegmentSize
-		}
-		rv.Data = stream.Metadata
-	}
-	return rv
-}
-
 // Store interface methods for streams to satisfy to be a store
 type typedStore interface {
 	Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
-	List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 // streamStore is a store for streams. It implements typedStore as part of an ongoing migration
@@ -515,107 +489,6 @@ type ListItem struct {
 	Path     string
 	Meta     Meta
 	IsPrefix bool
-}
-
-// pathForKey removes the trailing `/` from the raw path, which is required so
-// the derived key matches the final list path (which also has the trailing
-// encrypted `/` part of the path removed)
-func pathForKey(raw string) paths.Unencrypted {
-	return paths.NewUnencrypted(strings.TrimSuffix(raw, "/"))
-}
-
-// List all the paths inside l/, stripping off the l/ prefix
-func (s *streamStore) List(ctx context.Context, prefix Path, startAfter string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO use flags with listing
-	// if metaFlags&meta.Size != 0 {
-	// Calculating the stream's size require also the user-defined metadata,
-	// where stream store keeps info about the number of segments and their size.
-	// metaFlags |= meta.UserDefined
-	// }
-
-	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), pathForKey(prefix.UnencryptedPath().Raw()), s.encStore)
-	if err != nil {
-		return nil, false, err
-	}
-
-	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return nil, false, err
-	}
-
-	// If the raw unencrypted path ends in a `/` we need to remove the final
-	// section of the encrypted path. For example, if we are listing the path
-	// `/bob/`, the encrypted path results in `enc("")/enc("bob")/enc("")`. This
-	// is an incorrect list prefix, what we really want is `enc("")/enc("bob")`
-	if strings.HasSuffix(prefix.UnencryptedPath().Raw(), "/") {
-		lastSlashIdx := strings.LastIndex(encPrefix.Raw(), "/")
-		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
-	}
-
-	// We have to encrypt startAfter but only if it doesn't contain a bucket.
-	// It contains a bucket if and only if the prefix has no bucket. This is why it is a raw
-	// string instead of a typed string: it's either a bucket or an unencrypted path component
-	// and that isn't known at compile time.
-	needsEncryption := prefix.Bucket() != ""
-	if needsEncryption {
-		startAfter, err = encryption.EncryptPathRaw(startAfter, pathCipher, prefixKey)
-		if err != nil {
-			return nil, false, err
-		}
-	}
-
-	objects, more, err := s.metainfo.ListObjects(ctx, metainfo.ListObjectsParams{
-		Bucket:          []byte(prefix.Bucket()),
-		EncryptedPrefix: []byte(encPrefix.Raw()),
-		EncryptedCursor: []byte(startAfter),
-		Limit:           int32(limit),
-		Recursive:       recursive,
-	})
-	if err != nil {
-		return nil, false, err
-	}
-
-	items = make([]ListItem, len(objects))
-	for i, item := range objects {
-		var path Path
-		var itemPath string
-
-		if needsEncryption {
-			itemPath, err = encryption.DecryptPathRaw(string(item.EncryptedPath), pathCipher, prefixKey)
-			if err != nil {
-				return nil, false, err
-			}
-
-			// TODO(jeff): this shouldn't be necessary if we handled trailing slashes
-			// appropriately. there's some issues with list.
-			fullPath := prefix.UnencryptedPath().Raw()
-			if len(fullPath) > 0 && fullPath[len(fullPath)-1] != '/' {
-				fullPath += "/"
-			}
-			fullPath += itemPath
-
-			path = CreatePath(prefix.Bucket(), paths.NewUnencrypted(fullPath))
-		} else {
-			itemPath = string(item.EncryptedPath)
-			path = CreatePath(string(item.EncryptedPath), paths.Unencrypted{})
-		}
-
-		stream, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
-		if err != nil {
-			return nil, false, err
-		}
-
-		newMeta := convertMeta(item.CreatedAt, item.ExpiresAt, stream, streamMeta)
-		items[i] = ListItem{
-			Path:     itemPath,
-			Meta:     newMeta,
-			IsPrefix: item.IsPrefix,
-		}
-	}
-
-	return items, more, nil
 }
 
 type lazySegmentRanger struct {

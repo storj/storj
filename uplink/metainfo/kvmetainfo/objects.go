@@ -6,6 +6,7 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -15,7 +16,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/objects"
 	"storj.io/storj/uplink/storage/segments"
 	"storj.io/storj/uplink/storage/streams"
@@ -164,11 +164,6 @@ func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options stor
 		return storj.ObjectList{}, storj.ErrNoBucket.New("")
 	}
 
-	objects := prefixedObjStore{
-		store:  objects.NewStore(db.streams, db.pathCipher(bucket)),
-		prefix: bucket.Name,
-	}
-
 	var startAfter string
 	switch options.Direction {
 	// TODO for now we are supporting only storj.After
@@ -183,25 +178,105 @@ func (db *DB) ListObjects(ctx context.Context, bucket storj.Bucket, options stor
 	}
 
 	// TODO: we should let libuplink users be able to determine what metadata fields they request as well
-	metaFlags := meta.All
-	if db.pathCipher(bucket) == storj.EncNull || db.pathCipher(bucket) == storj.EncNullBase64URL {
-		metaFlags = meta.None
+	// metaFlags := meta.All
+	// if db.pathCipher(bucket) == storj.EncNull || db.pathCipher(bucket) == storj.EncNullBase64URL {
+	// 	metaFlags = meta.None
+	// }
+
+	// TODO use flags with listing
+	// if metaFlags&meta.Size != 0 {
+	// Calculating the stream's size require also the user-defined metadata,
+	// where stream store keeps info about the number of segments and their size.
+	// metaFlags |= meta.UserDefined
+	// }
+
+	pathCipher := db.pathCipher(bucket)
+
+	prefix := streams.ParsePath(storj.JoinPaths(bucket.Name, options.Prefix))
+	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), streams.PathForKey(prefix.UnencryptedPath().Raw()), db.encStore)
+	if err != nil {
+		return storj.ObjectList{}, errClass.Wrap(err)
 	}
 
-	items, more, err := objects.List(ctx, options.Prefix, startAfter, options.Recursive, options.Limit, metaFlags)
+	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, db.encStore)
 	if err != nil {
-		return storj.ObjectList{}, err
+		return storj.ObjectList{}, errClass.Wrap(err)
+	}
+
+	// If the raw unencrypted path ends in a `/` we need to remove the final
+	// section of the encrypted path. For example, if we are listing the path
+	// `/bob/`, the encrypted path results in `enc("")/enc("bob")/enc("")`. This
+	// is an incorrect list prefix, what we really want is `enc("")/enc("bob")`
+	if strings.HasSuffix(prefix.UnencryptedPath().Raw(), "/") {
+		lastSlashIdx := strings.LastIndex(encPrefix.Raw(), "/")
+		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
+	}
+
+	// We have to encrypt startAfter but only if it doesn't contain a bucket.
+	// It contains a bucket if and only if the prefix has no bucket. This is why it is a raw
+	// string instead of a typed string: it's either a bucket or an unencrypted path component
+	// and that isn't known at compile time.
+	needsEncryption := prefix.Bucket() != ""
+	if needsEncryption {
+		startAfter, err = encryption.EncryptPathRaw(startAfter, pathCipher, prefixKey)
+		if err != nil {
+			return storj.ObjectList{}, errClass.Wrap(err)
+		}
+	}
+
+	items, more, err := db.metainfo.ListObjects(ctx, metainfo.ListObjectsParams{
+		Bucket:          []byte(bucket.Name),
+		EncryptedPrefix: []byte(encPrefix.Raw()),
+		EncryptedCursor: []byte(startAfter),
+		Limit:           int32(options.Limit),
+		Recursive:       options.Recursive,
+	})
+	if err != nil {
+		return storj.ObjectList{}, errClass.Wrap(err)
 	}
 
 	list = storj.ObjectList{
 		Bucket: bucket.Name,
 		Prefix: options.Prefix,
 		More:   more,
-		Items:  make([]storj.Object, 0, len(items)),
+		Items:  make([]storj.Object, len(items)),
 	}
 
-	for _, item := range items {
-		list.Items = append(list.Items, objectFromMeta(bucket, item.Path, item.IsPrefix, item.Meta))
+	for i, item := range items {
+		var path streams.Path
+		var itemPath string
+
+		if needsEncryption {
+			itemPath, err = encryption.DecryptPathRaw(string(item.EncryptedPath), pathCipher, prefixKey)
+			if err != nil {
+				return storj.ObjectList{}, errClass.Wrap(err)
+			}
+
+			// TODO(jeff): this shouldn't be necessary if we handled trailing slashes
+			// appropriately. there's some issues with list.
+			fullPath := prefix.UnencryptedPath().Raw()
+			if len(fullPath) > 0 && fullPath[len(fullPath)-1] != '/' {
+				fullPath += "/"
+			}
+			fullPath += itemPath
+
+			path = streams.CreatePath(prefix.Bucket(), paths.NewUnencrypted(fullPath))
+		} else {
+			itemPath = string(item.EncryptedPath)
+			path = streams.CreatePath(string(item.EncryptedPath), paths.Unencrypted{})
+		}
+
+		stream, streamMeta, err := streams.TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, db.encStore)
+		if err != nil {
+			return storj.ObjectList{}, errClass.Wrap(err)
+		}
+
+		object, err := objectFromMeta(bucket, itemPath, item, stream, &streamMeta)
+		if err != nil {
+			return storj.ObjectList{}, errClass.Wrap(err)
+		}
+
+		list.Items[i] = object
 	}
 
 	return list, nil
@@ -271,25 +346,30 @@ func (db *DB) getInfo(ctx context.Context, bucket storj.Bucket, path storj.Path)
 	}, info, nil
 }
 
-func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta objects.Meta) storj.Object {
-	return storj.Object{
+func objectFromMeta(bucket storj.Bucket, path storj.Path, listItem storj.ObjectListItem, stream *pb.StreamInfo, streamMeta *pb.StreamMeta) (storj.Object, error) {
+	object := storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
 		Path:     path,
-		IsPrefix: isPrefix,
+		IsPrefix: listItem.IsPrefix,
 
-		Metadata: meta.UserDefined,
-
-		ContentType: meta.ContentType,
-		Created:     meta.Modified, // TODO: use correct field
-		Modified:    meta.Modified, // TODO: use correct field
-		Expires:     meta.Expiration,
-
-		Stream: storj.Stream{
-			Size:     meta.Size,
-			Checksum: []byte(meta.Checksum),
-		},
+		Created:  listItem.CreatedAt, // TODO: use correct field
+		Modified: listItem.CreatedAt, // TODO: use correct field
+		Expires:  listItem.ExpiresAt,
 	}
+	if stream != nil {
+		serializableMeta := pb.SerializableMeta{}
+		err := proto.Unmarshal(stream.Metadata, &serializableMeta)
+		if err != nil {
+			return storj.Object{}, err
+		}
+
+		object.Metadata = serializableMeta.UserDefined
+		object.ContentType = serializableMeta.ContentType
+		object.Stream.Size = ((numberOfSegments(stream, streamMeta) - 1) * stream.SegmentsSize) + stream.LastSegmentSize
+	}
+
+	return object, nil
 }
 
 func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, streamID storj.StreamID, lastSegment segments.Meta, stream *pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
@@ -379,4 +459,11 @@ func (object *mutableObject) Commit(ctx context.Context) (err error) {
 	_, info, err := object.db.getInfo(ctx, object.info.Bucket, object.info.Path)
 	object.info = info
 	return err
+}
+
+func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) int64 {
+	if streamMeta.NumberOfSegments > 0 {
+		return streamMeta.NumberOfSegments
+	}
+	return stream.DeprecatedNumberOfSegments
 }

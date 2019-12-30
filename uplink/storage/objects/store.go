@@ -29,19 +29,11 @@ type Meta struct {
 	Checksum   string
 }
 
-// ListItem is a single item in a listing
-type ListItem struct {
-	Path     storj.Path
-	Meta     Meta
-	IsPrefix bool
-}
-
 // Store for objects
 type Store interface {
 	Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error)
 	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
-	List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type objStore struct {
@@ -92,27 +84,6 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	}
 
 	return o.store.Delete(ctx, path, o.pathCipher)
-}
-
-func (o *objStore) List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (
-	items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	strItems, more, err := o.store.List(ctx, prefix, startAfter, o.pathCipher, recursive, limit, metaFlags)
-	if err != nil {
-		return nil, false, err
-	}
-
-	items = make([]ListItem, len(strItems))
-	for i, itm := range strItems {
-		items[i] = ListItem{
-			Path:     itm.Path,
-			Meta:     convertMeta(itm.Meta),
-			IsPrefix: itm.IsPrefix,
-		}
-	}
-
-	return items, more, nil
 }
 
 // convertMeta converts stream metadata to object metadata

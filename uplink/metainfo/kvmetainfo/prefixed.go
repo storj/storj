@@ -48,9 +48,3 @@ func (o *prefixedObjStore) Delete(ctx context.Context, path storj.Path) (err err
 
 	return o.store.Delete(ctx, storj.JoinPaths(o.prefix, path))
 }
-
-func (o *prefixedObjStore) List(ctx context.Context, prefix, startAfter storj.Path, recursive bool, limit int, metaFlags uint32) (items []objects.ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return o.store.List(ctx, storj.JoinPaths(o.prefix, prefix), startAfter, recursive, limit, metaFlags)
-}

@@ -33,13 +33,6 @@ type Meta struct {
 	Data       []byte
 }
 
-// ListItem is a single item in a listing
-type ListItem struct {
-	Path     storj.Path
-	Meta     Meta
-	IsPrefix bool
-}
-
 // Store for segments
 type Store interface {
 	// Ranger creates a ranger for downloading erasure codes from piece store nodes.

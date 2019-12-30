@@ -20,7 +20,6 @@ type Store interface {
 	Get(ctx context.Context, path storj.Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) error
-	List(ctx context.Context, prefix, startAfter storj.Path, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type shimStore struct {
@@ -55,11 +54,4 @@ func (s *shimStore) Delete(ctx context.Context, path storj.Path, pathCipher stor
 	defer mon.Task()(&ctx)(&err)
 
 	return s.store.Delete(ctx, ParsePath(path), pathCipher)
-}
-
-// List parses the passed in path and dispatches to the typed store.
-func (s *shimStore) List(ctx context.Context, prefix storj.Path, startAfter storj.Path, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return s.store.List(ctx, ParsePath(prefix), startAfter, pathCipher, recursive, limit, metaFlags)
 }
