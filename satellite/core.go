@@ -24,7 +24,9 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
@@ -52,6 +54,10 @@ type Core struct {
 	Version *version_checker.Service
 
 	// services and endpoints
+	Contact struct {
+		Service *contact.Service
+	}
+
 	Overlay struct {
 		DB      overlay.DB
 		Service *overlay.Service
@@ -109,6 +115,10 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	DowntimeTracking struct {
+		Service *downtime.Service
+	}
 }
 
 // New creates a new satellite
@@ -139,6 +149,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+	}
+
+	{ // setup contact service
+		log.Debug("Starting contact service")
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.Contact.ExternalAddress,
+				},
+			},
+			Type:    pb.NodeType_SATELLITE,
+			Version: *pbVersion,
+		}
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 	}
 
 	{ // setup overlay
@@ -334,6 +365,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		)
 	}
 
+	{ // setup downtime tracking
+		log.Debug("Starting downtime tracking service")
+
+		peer.DowntimeTracking.Service = downtime.NewService(peer.Log.Named("downtime"), peer.Overlay.Service, peer.Contact.Service)
+	}
+
 	return peer, nil
 }
 
@@ -433,6 +470,9 @@ func (peer *Core) Close() error {
 
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
+	}
+	if peer.Contact.Service != nil {
+		errlist.Add(peer.Contact.Service.Close())
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())

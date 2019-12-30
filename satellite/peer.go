@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtimetracking"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -80,7 +80,7 @@ type DB interface {
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
 	// DowntimeTracking returns database for downtime tracking
-	DowntimeTracking() downtimetracking.DB
+	DowntimeTracking() downtime.DB
 }
 
 // Config is the global config satellite

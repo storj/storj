@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -161,6 +162,10 @@ type SatelliteSystem struct {
 
 	Metrics struct {
 		Chore *metrics.Chore
+	}
+
+	DowntimeTracking struct {
+		Service *downtime.Service
 	}
 }
 
@@ -513,6 +518,8 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	system.Metrics.Chore = peer.Metrics.Chore
+
+	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system
 }

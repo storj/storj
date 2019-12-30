@@ -4,20 +4,19 @@
 package contact
 
 import (
+	"context"
+	"fmt"
 	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
-
-// Error is the default error class for contact package.
-var Error = errs.Class("contact")
-
-var mon = monkit.Package()
 
 // Config contains configurable values for contact service
 type Config struct {
@@ -60,3 +59,34 @@ func (service *Service) Local() overlay.NodeDossier {
 
 // Close closes resources
 func (service *Service) Close() error { return nil }
+
+// PingBack pings the node to test connectivity.
+func (service *Service) PingBack(ctx context.Context, address string, peerID storj.NodeID) (_ bool, _ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pingNodeSuccess := true
+	var pingErrorMessage string
+
+	client, err := dialNode(ctx, service.dialer, address, peerID)
+	if err != nil {
+		// If there is an error from trying to dial and ping the node, return that error as
+		// pingErrorMessage and not as the err. We want to use this info to update
+		// node contact info and do not want to terminate execution by returning an err
+		mon.Event("failed dial")
+		pingNodeSuccess = false
+		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q", peerID, address, err)
+		service.log.Info("pingBack failed to dial storage node", zap.Stringer("Node ID", peerID), zap.String("node address", address), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
+		return pingNodeSuccess, pingErrorMessage, nil
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	if err != nil {
+		mon.Event("failed ping node")
+		pingNodeSuccess = false
+		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
+		service.log.Info("pingBack pingNode error", zap.Stringer("Node ID", peerID), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
+	}
+
+	return pingNodeSuccess, pingErrorMessage, nil
+}

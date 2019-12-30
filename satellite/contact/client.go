@@ -16,8 +16,8 @@ type client struct {
 	client pb.DRPCContactClient
 }
 
-// newClient dials the target contact endpoint
-func newClient(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (*client, error) {
+// dialNode dials the target contact endpoint
+func dialNode(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (*client, error) {
 	conn, err := dialer.DialAddressID(ctx, address, id)
 	if err != nil {
 		return nil, err
