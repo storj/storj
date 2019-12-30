@@ -400,9 +400,6 @@ export default class ApiKeysArea extends Vue {
                 flex-direction: column;
                 width: 100%;
                 justify-content: flex-start;
-                overflow-y: scroll;
-                overflow-x: hidden;
-                height: 49.4vh;
             }
 
             &__additional-info {
@@ -500,16 +497,6 @@ export default class ApiKeysArea extends Vue {
 
         .api-keys-area {
             padding: 40px 40px 55px 40px;
-        }
-    }
-
-    @media screen and (max-height: 800px) {
-
-        .api-keys-items {
-
-            &__content {
-                height: 41.5vh !important;
-            }
         }
     }
 </style>

@@ -89,8 +89,8 @@ export default class BillingItem extends Vue {
     .download {
         margin: 0;
         text-align: right;
-        min-width: 142px;
         width: 10%;
+        min-width: 10%;
     }
 
     .row {

@@ -2,7 +2,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/storj.io/storj)
-[![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.ops.storj.io/job/storj/job/master/Coverage_20Details/)
+[![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/master/cobertura)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
