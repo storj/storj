@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
@@ -20,7 +21,6 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/uplink"
 )
 
 func TestWorkerSuccess(t *testing.T) {
@@ -35,11 +35,12 @@ func TestWorkerSuccess(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -113,11 +114,12 @@ func TestWorkerTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))

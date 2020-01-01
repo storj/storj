@@ -28,7 +28,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -1742,28 +1741,29 @@ func TestValidateRS(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		testData := testrand.Bytes(8 * memory.KiB)
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     3,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  3,
+			TotalShares:    3,
 		}
 		// test below permitted total value
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/below", testData)
 		require.Error(t, err)
 
 		// test above permitted total value
-		rs.MaxThreshold = 6
+		rs.TotalShares = 6
 		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/above", testData)
 		require.Error(t, err)
 
 		// test minimum permitted total value
-		rs.MaxThreshold = 4
+		rs.TotalShares = 4
 		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/min", testData)
 		require.NoError(t, err)
 
 		// test maximum permitted total value
-		rs.MaxThreshold = 5
+		rs.TotalShares = 5
 		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/max", testData)
 		require.NoError(t, err)
 	})

@@ -14,7 +14,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/uplink"
 )
 
 func TestCollector(t *testing.T) {
@@ -33,11 +32,12 @@ func TestCollector(t *testing.T) {
 		// upload some data to exactly 2 nodes that expires in 8 days
 		err := planet.Uplinks[0].UploadWithExpirationAndConfig(ctx,
 			planet.Satellites[0],
-			&uplink.RSConfig{
-				MinThreshold:     1,
-				RepairThreshold:  1,
-				SuccessThreshold: 2,
-				MaxThreshold:     2,
+			&storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				RequiredShares: 1,
+				RepairShares:   1,
+				OptimalShares:  2,
+				TotalShares:    2,
 			},
 			"testbucket", "test/path",
 			expectedData, time.Now().Add(8*24*time.Hour))

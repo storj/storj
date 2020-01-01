@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -753,11 +752,12 @@ func TestVerifierSlowDownload(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -811,11 +811,12 @@ func TestVerifierUnknownError(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

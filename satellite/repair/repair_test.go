@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 // TestDataRepair does the following:
@@ -63,11 +62,12 @@ func TestDataRepair(t *testing.T) {
 			minThreshold     = 3
 			successThreshold = 7
 		)
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     minThreshold,
-			RepairThreshold:  5,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: int16(minThreshold),
+			RepairShares:   5,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -188,11 +188,12 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -304,11 +305,12 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -416,11 +418,12 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -496,11 +499,12 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -576,11 +580,12 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -686,11 +691,12 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  4,
-			SuccessThreshold: 9,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   4,
+			OptimalShares:  9,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -771,11 +777,12 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  6,
-			SuccessThreshold: 9,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   6,
+			OptimalShares:  9,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -897,11 +904,12 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			testData = testrand.Bytes(8 * memory.KiB)
 		)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  repairThreshold,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     maxThreshold,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   int16(repairThreshold),
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(maxThreshold),
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

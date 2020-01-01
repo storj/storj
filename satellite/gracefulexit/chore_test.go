@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink"
 )
 
 func TestChore(t *testing.T) {
@@ -44,11 +43,12 @@ func TestChore(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     8,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 4,
+			RepairShares:   6,
+			OptimalShares:  8,
+			TotalShares:    8,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -148,11 +148,12 @@ func TestDurabilityRatio(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -222,7 +223,7 @@ func TestDurabilityRatio(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 1)
 		for _, incomplete := range incompleteTransfers {
-			require.Equal(t, float64(rs.SuccessThreshold-1)/float64(rs.SuccessThreshold), incomplete.DurabilityRatio)
+			require.Equal(t, float64(rs.OptimalShares-1)/float64(rs.OptimalShares), incomplete.DurabilityRatio)
 			require.NotNil(t, incomplete.RootPieceID)
 		}
 	})

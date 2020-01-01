@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -81,11 +80,12 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		testData := testrand.Bytes(memory.MiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -198,11 +198,12 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(memory.MiB)
 
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
 		}, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 

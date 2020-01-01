@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/uplink"
 )
 
 // TestAuditPathCollector does the following:
@@ -43,11 +42,12 @@ func TestAuditPathCollector(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + string(i)
-			err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-				MinThreshold:     3,
-				RepairThreshold:  4,
-				SuccessThreshold: 5,
-				MaxThreshold:     5,
+			err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				RequiredShares: 3,
+				RepairShares:   4,
+				OptimalShares:  5,
+				TotalShares:    5,
 			}, "testbucket", path, testData)
 			require.NoError(t, err)
 		}

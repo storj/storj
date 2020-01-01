@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 func TestReverifySuccess(t *testing.T) {
@@ -504,11 +503,12 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
@@ -592,11 +592,12 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -683,11 +684,12 @@ func TestReverifyDifferentShare(t *testing.T) {
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
 		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     3,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  3,
+			TotalShares:    3,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -843,11 +845,12 @@ func TestReverifyExpired2(t *testing.T) {
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
 		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     3,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  3,
+			TotalShares:    3,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -977,11 +980,12 @@ func TestReverifySlowDownload(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -1069,11 +1073,12 @@ func TestReverifyUnknownError(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

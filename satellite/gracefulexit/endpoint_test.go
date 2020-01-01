@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/uplink"
 )
 
 const numObjects = 6
@@ -158,11 +157,12 @@ func TestConcurrentConnections(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -261,11 +261,12 @@ func TestRecvTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -970,11 +971,12 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
@@ -1237,11 +1239,12 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
@@ -1367,11 +1370,12 @@ func TestIneligibleNodeAge(t *testing.T) {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
@@ -1427,11 +1431,12 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		for i := 0; i < objects; i++ {

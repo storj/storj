@@ -19,6 +19,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -169,28 +170,28 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
-func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
 	config := client.GetConfig(satellite)
 	if redundancy != nil {
-		if redundancy.MinThreshold > 0 {
-			config.RS.MinThreshold = redundancy.MinThreshold
+		if redundancy.RequiredShares > 0 {
+			config.RS.MinThreshold = int(redundancy.RequiredShares)
 		}
-		if redundancy.RepairThreshold > 0 {
-			config.RS.RepairThreshold = redundancy.RepairThreshold
+		if redundancy.RepairShares > 0 {
+			config.RS.RepairThreshold = int(redundancy.RepairShares)
 		}
-		if redundancy.SuccessThreshold > 0 {
-			config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		if redundancy.OptimalShares > 0 {
+			config.RS.SuccessThreshold = int(redundancy.OptimalShares)
 		}
-		if redundancy.MaxThreshold > 0 {
-			config.RS.MaxThreshold = redundancy.MaxThreshold
+		if redundancy.TotalShares > 0 {
+			config.RS.MaxThreshold = int(redundancy.TotalShares)
 		}
-		if redundancy.ErasureShareSize > 0 {
-			config.RS.ErasureShareSize = redundancy.ErasureShareSize
+		if redundancy.ShareSize > 0 {
+			config.RS.ErasureShareSize = memory.Size(redundancy.ShareSize)
 		}
 	}
 

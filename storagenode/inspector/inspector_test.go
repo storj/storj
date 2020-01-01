@@ -12,11 +12,11 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/uplink"
 )
 
 func TestInspectorStats(t *testing.T) {
@@ -43,11 +43,12 @@ func TestInspectorStats(t *testing.T) {
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
 		}
 
 		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
@@ -93,7 +94,7 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, availableSpace, response.AvailableSpace)
 			}
 		}
-		assert.True(t, downloaded >= rs.MinThreshold, "downloaded=%v, rs.MinThreshold=%v", downloaded, rs.MinThreshold)
+		assert.True(t, downloaded >= int(rs.RequiredShares), "downloaded=%v, rs.RequiredShares=%v", downloaded, rs.RequiredShares)
 	})
 }
 
