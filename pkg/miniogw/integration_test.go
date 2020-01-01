@@ -21,12 +21,12 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/cmd/uplink/cmd"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/private/s3client"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/uplink"
 )
 
 type config struct {
@@ -112,7 +112,7 @@ func TestUploadDownload(t *testing.T) {
 }
 
 // runGateway creates and starts a gateway
-func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log *zap.Logger, ident *identity.FullIdentity) (err error) {
+func runGateway(ctx context.Context, gwCfg config, uplinkCfg cmd.Config, log *zap.Logger, ident *identity.FullIdentity) (err error) {
 
 	// set gateway flags
 	flags := flag.NewFlagSet("gateway", flag.ExitOnError)

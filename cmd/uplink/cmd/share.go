@@ -18,7 +18,6 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink"
 )
 
 var shareCfg struct {
@@ -34,7 +33,7 @@ var shareCfg struct {
 	ExportTo          string   `default:"" help:"path to export the shared scope to"`
 
 	// Share requires information about the current scope
-	uplink.ScopeConfig
+	ScopeConfig
 }
 
 func init() {

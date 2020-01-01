@@ -22,13 +22,12 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/uplink"
 )
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
-	uplink.Config
+	Config
 
 	Version checker.Config
 

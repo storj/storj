@@ -14,9 +14,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink"
 )
 
 func TestEndpoint_DeleteObjectPieces(t *testing.T) {
@@ -56,11 +56,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,
@@ -128,11 +128,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,
@@ -213,11 +213,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,
