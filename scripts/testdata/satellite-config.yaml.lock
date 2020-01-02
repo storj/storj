@@ -97,6 +97,9 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# how often to run the downtime detection chore.
+# downtime.detection-interval: 1h0m0s
+
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 

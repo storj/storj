@@ -121,4 +121,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
+
+	Downtime downtime.Config
 }

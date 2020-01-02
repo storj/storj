@@ -87,6 +87,8 @@ type DB interface {
 	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
 	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
 
+	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
 	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
 	GetOfflineNodesLimited(ctx context.Context, limit int) ([]*pb.Node, error)
 }
@@ -188,6 +190,14 @@ type NodeStats struct {
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
 	Disqualified          *time.Time
+}
+
+// NodeLastContact contains the ID, address, and timestamp
+type NodeLastContact struct {
+	ID                 storj.NodeID
+	Address            string
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 // Service is used to store and handle node information
@@ -432,6 +442,13 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+}
+
+// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
 // GetMissingPieces returns the list of offline nodes

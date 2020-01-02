@@ -6239,19 +6239,52 @@ func __sqlbundle_flattenSQL(x string) string {
 type __sqlbundle_postgres struct{}
 
 func (p __sqlbundle_postgres) Rebind(sql string) string {
+	type sqlParseState int
+	const (
+		sqlParseStart sqlParseState = iota
+		sqlParseInStringLiteral
+		sqlParseInQuotedIdentifier
+		sqlParseInComment
+	)
+
 	out := make([]byte, 0, len(sql)+10)
 
 	j := 1
+	state := sqlParseStart
 	for i := 0; i < len(sql); i++ {
 		ch := sql[i]
-		if ch != '?' {
-			out = append(out, ch)
-			continue
+		switch state {
+		case sqlParseStart:
+			switch ch {
+			case '?':
+				out = append(out, '$')
+				out = append(out, strconv.Itoa(j)...)
+				state = sqlParseStart
+				j++
+				continue
+			case '-':
+				if i+1 < len(sql) && sql[i+1] == '-' {
+					state = sqlParseInComment
+				}
+			case '"':
+				state = sqlParseInQuotedIdentifier
+			case '\'':
+				state = sqlParseInStringLiteral
+			}
+		case sqlParseInStringLiteral:
+			if ch == '\'' {
+				state = sqlParseStart
+			}
+		case sqlParseInQuotedIdentifier:
+			if ch == '"' {
+				state = sqlParseStart
+			}
+		case sqlParseInComment:
+			if ch == '\n' {
+				state = sqlParseStart
+			}
 		}
-
-		out = append(out, '$')
-		out = append(out, strconv.Itoa(j)...)
-		j++
+		out = append(out, ch)
 	}
 
 	return string(out)
@@ -6263,6 +6296,62 @@ type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
 	return sql
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_cockroach struct{}
+
+func (p __sqlbundle_cockroach) Rebind(sql string) string {
+	type sqlParseState int
+	const (
+		sqlParseStart sqlParseState = iota
+		sqlParseInStringLiteral
+		sqlParseInQuotedIdentifier
+		sqlParseInComment
+	)
+
+	out := make([]byte, 0, len(sql)+10)
+
+	j := 1
+	state := sqlParseStart
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		switch state {
+		case sqlParseStart:
+			switch ch {
+			case '?':
+				out = append(out, '$')
+				out = append(out, strconv.Itoa(j)...)
+				state = sqlParseStart
+				j++
+				continue
+			case '-':
+				if i+1 < len(sql) && sql[i+1] == '-' {
+					state = sqlParseInComment
+				}
+			case '"':
+				state = sqlParseInQuotedIdentifier
+			case '\'':
+				state = sqlParseInStringLiteral
+			}
+		case sqlParseInStringLiteral:
+			if ch == '\'' {
+				state = sqlParseStart
+			}
+		case sqlParseInQuotedIdentifier:
+			if ch == '"' {
+				state = sqlParseStart
+			}
+		case sqlParseInComment:
+			if ch == '\n' {
+				state = sqlParseStart
+			}
+		}
+		out = append(out, ch)
+	}
+
+	return string(out)
 }
 
 type __sqlbundle_Literal string
@@ -6345,6 +6434,13 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 
 type CustomerId_Row struct {
 	CustomerId string
+}
+
+type Id_Address_LastContactSuccess_LastContactFailure_Row struct {
+	Id                 []byte
+	Address            string
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 type Id_LastNet_Address_Protocol_Row struct {
@@ -7726,6 +7822,40 @@ func (obj *postgresImpl) Limited_Node_By_LastContactSuccess_Less_LastContactFail
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field) (
+	rows []*Id_Address_LastContactSuccess_LastContactFailure_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.last_contact_success < ? AND nodes.last_contact_success > nodes.last_contact_failure AND nodes.disqualified is NULL ORDER BY nodes.last_contact_success")
+
+	var __values []interface{}
+	__values = append(__values, node_last_contact_success_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_Address_LastContactSuccess_LastContactFailure_Row{}
+		err = __rows.Scan(&row.Id, &row.Address, &row.LastContactSuccess, &row.LastContactFailure)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -11590,6 +11720,16 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
+func (rx *Rx) All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field) (
+	rows []*Id_Address_LastContactSuccess_LastContactFailure_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx, node_last_contact_success_less)
+}
+
 func (rx *Rx) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
 	rows []*Id_PieceCount_Row, err error) {
 	var tx *Tx
@@ -13126,6 +13266,10 @@ type Methods interface {
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
+
+	All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx context.Context,
+		node_last_contact_success_less Node_LastContactSuccess_Field) (
+		rows []*Id_Address_LastContactSuccess_LastContactFailure_Row, err error)
 
 	All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)

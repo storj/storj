@@ -1022,6 +1022,36 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 	return convertDBNode(ctx, dbNode)
 }
 
+// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []overlay.NodeLastContact, err error) {
+	// get successful nodes that have not checked-in with the hour
+	defer mon.Task()(&ctx)(&err)
+
+	dbxNodes, err := cache.db.DB.All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(
+		ctx, dbx.Node_LastContactSuccess(time.Now().UTC().Add(-duration)))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, node := range dbxNodes {
+		nodeID, err := storj.NodeIDFromBytes(node.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		nodeLastContact := overlay.NodeLastContact{
+			ID:                 nodeID,
+			Address:            node.Address,
+			LastContactSuccess: node.LastContactSuccess.UTC(),
+			LastContactFailure: node.LastContactFailure.UTC(),
+		}
+
+		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
+	}
+
+	return nodeLastContacts, nil
+}
+
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
 	dbxUpdateFields := dbx.Node_Update_Fields{}
 

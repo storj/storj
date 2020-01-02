@@ -593,3 +593,69 @@ func TestCache_DowntimeTracking(t *testing.T) {
 		require.Equal(t, allIDs[4], nodes[1].Id)
 	})
 }
+
+func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		// setup
+		info1 := getNodeInfo(testrand.NodeID())
+		info2 := getNodeInfo(testrand.NodeID())
+
+		config := overlay.NodeSelectionConfig{
+			UptimeReputationLambda: 0.99,
+			UptimeReputationWeight: 1.0,
+			UptimeReputationDQ:     0,
+		}
+
+		{ // check-in the nodes, which should add them
+			twoHoursAgo := time.Now().UTC().Add(-2 * time.Hour)
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, twoHoursAgo, config)
+			require.NoError(t, err)
+
+			err = db.OverlayCache().UpdateCheckIn(ctx, info2, twoHoursAgo, config)
+			require.NoError(t, err)
+
+			// update uptime so that node 2 has a last contact failure > last contact success
+			_, err = db.OverlayCache().UpdateUptime(ctx, info2.NodeID, false, 0.99, 1.0, 0)
+			require.NoError(t, err)
+
+			// should just get 1 node
+			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Duration(0))
+			require.NoError(t, err)
+			require.Len(t, nodeLastContacts, 1)
+			require.Equal(t, twoHoursAgo.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second))
+			require.True(t, nodeLastContacts[0].LastContactFailure.IsZero())
+		}
+
+		{ // check-in again with current time
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now().UTC(), config)
+			require.NoError(t, err)
+
+			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Minute)
+			require.NoError(t, err)
+			require.Len(t, nodeLastContacts, 0)
+		}
+	})
+}
+
+func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
+	return overlay.NodeCheckInInfo{
+		NodeID: nodeID,
+		IsUp:   true,
+		Address: &pb.NodeAddress{
+			Address: "1.2.3.4",
+		},
+		Operator: &pb.NodeOperator{
+			Email:  "test@email.com",
+			Wallet: "0x123",
+		},
+		Version: &pb.NodeVersion{
+			Version:    "v0.0.0",
+			CommitHash: "",
+			Timestamp:  time.Time{},
+			Release:    false,
+		},
+	}
+}

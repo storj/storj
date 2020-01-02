@@ -217,6 +217,14 @@ read limitoffset (
 	orderby asc node.last_contact_failure
 )
 
+read all (
+	select node.id node.address node.last_contact_success node.last_contact_failure
+	where node.last_contact_success < ?
+	where node.last_contact_success > node.last_contact_failure
+	where  node.disqualified = null
+	orderby asc node.last_contact_success
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (

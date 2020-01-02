@@ -33,6 +33,8 @@ func NewService(log *zap.Logger, overlay *overlay.Service, contact *contact.Serv
 
 // CheckAndUpdateNodeAvailability tries to ping the supplied address and updates the uptime based on ping success or failure. Returns true if the ping and uptime updates are successful.
 func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, nodeID storj.NodeID, address string) (success bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	pingNodeSuccess, pingErrorMessage, err := service.contact.PingBack(ctx, address, nodeID)
 	if err != nil {
 		service.log.Error("error during downtime detection ping back.",
