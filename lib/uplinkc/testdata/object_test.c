@@ -149,8 +149,8 @@ void handle_project(ProjectRef project) {
             require(strcmp(object_paths[i], object_meta.path) == 0);
             require(data_len == object_meta.size);
             require(future_expiration_timestamp == object_meta.expires);
-            require((time(NULL) - object_meta.created) <= 2);
-            require((time(NULL) - object_meta.modified) <= 2);
+            require((time(NULL) - object_meta.created) < 60);
+            require((time(NULL) - object_meta.modified) < 60);
             require(object_meta.checksum_bytes != NULL);
             // TODO: checksum is an empty slice in go; is that expected?
             // require(object_meta.checksum_length != 0);
