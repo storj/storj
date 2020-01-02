@@ -21,12 +21,10 @@ const selectedProject = new Project('', '', '', '');
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
-const testDate1 = new Date();
-testDate1.setDate(1);
-const testDate2 = new Date();
-testDate2.setDate(2);
-const testUsage = new ProjectUsage(2, 3, 4, testDate1, testDate2);
 const now = new Date();
+const testDate1 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+const testDate2 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23,  59));
+const testUsage = new ProjectUsage(2, 3, 4, testDate1, testDate2);
 
 Vue.use(Vuex);
 
@@ -86,7 +84,8 @@ describe('actions', () => {
         jest.spyOn(projectUsageApi, 'get').mockReturnValue(
             Promise.resolve(testUsage),
         );
-        const dateRange: DateRange = new DateRange(testDate1, testDate2);
+        const startUTC = new Date(Date.UTC(1999, 1, 1, 20, 15));
+        const dateRange: DateRange = new DateRange(startUTC, testDate1);
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
 
@@ -97,8 +96,10 @@ describe('actions', () => {
         expect(state.projectUsage.storage.label).toBe('KB');
         expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
-        expect(state.startDate.toDateString()).toBe(testDate1.toDateString());
-        expect(state.endDate.toDateString()).toBe(testDate2.toDateString());
+        expect(state.startDate.toDateString()).toBe(startUTC.toDateString());
+        expect(state.endDate.getUTCFullYear()).toBe(testDate1.getUTCFullYear());
+        expect(state.endDate.getUTCMonth()).toBe(testDate1.getUTCMonth());
+        expect(state.endDate.getUTCDate()).toBe(testDate1.getUTCDate());
     });
 
     it('success fetch current project usage', async () => {
@@ -106,8 +107,7 @@ describe('actions', () => {
             Promise.resolve(testUsage),
         );
 
-        const firstDate = new Date();
-        firstDate.setDate(1);
+        const firstDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
 
@@ -119,7 +119,12 @@ describe('actions', () => {
         expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
         expect(state.startDate.toDateString()).toBe(firstDate.toDateString());
-        expect(state.endDate.toDateString()).toBe(now.toDateString());
+
+        expect(state.endDate.getUTCFullYear()).toBe(now.getUTCFullYear());
+        expect(state.endDate.getUTCMonth()).toBe(now.getUTCMonth());
+        expect(state.endDate.getUTCDate()).toBe(now.getUTCDate());
+        expect(state.endDate.getUTCHours()).toBe(now.getUTCHours());
+        expect(state.endDate.getUTCMinutes()).toBe(now.getUTCMinutes());
     });
 
     it('success fetch previous project usage', async () => {
@@ -127,10 +132,8 @@ describe('actions', () => {
             Promise.resolve(testUsage),
         );
 
-        const date = new Date();
-
-        const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1));
-        const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 0, 23, 59, 59));
+        const firstDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+        const secondDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
 
