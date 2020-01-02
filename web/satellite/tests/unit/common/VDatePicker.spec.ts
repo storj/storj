@@ -117,13 +117,15 @@ describe('VDatePicker.vue', () => {
         wrapper.find('.year-selection').trigger('click');
 
         expect(wrapper.findAll('.year').length).toBe(100);
-        expect(wrapper.findAll('.year').at(0).text()).toBe('2019');
+
+        const currentYear = (new Date()).getFullYear()
+        expect(wrapper.findAll('.year').at(0).text()).toBe(currentYear.toString());
 
         wrapper.find('.year-selection').trigger('click');
         wrapper.findAll('.year').at(1).trigger('click');
 
-        expect(wrapper.vm.selectedDateState.year).toBe(2018);
-        expect(wrapper.find('.year-selection').text()).toBe('2018');
+        expect(wrapper.vm.selectedDateState.year).toBe(currentYear-1);
+        expect(wrapper.find('.year-selection').text()).toBe((currentYear-1).toString());
     });
 
     it('triggers correct functionality on month incrementation', function () {
