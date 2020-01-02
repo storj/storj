@@ -50,7 +50,6 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { LocalData } from '@/utils/localData';
 
 const {
     SETUP_ACCOUNT,
@@ -124,20 +123,19 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        const selectedProjectId: string | null = LocalData.getSelectedProjectId();
-
-        if (selectedProjectId) {
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, selectedProjectId);
-        } else {
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
-        }
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
         }
 
         try {

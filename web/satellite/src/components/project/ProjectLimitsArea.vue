@@ -28,10 +28,6 @@ import { Dimensions, Size } from '@/utils/bytesSize';
 
 @Component
 export default class ProjectLimitsArea extends Vue {
-    public async mounted() {
-        await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-    }
-
     public get bandwidthUsed(): string {
         const bandwidthUsed = new Size(this.$store.getters.selectedProject.limits.bandwidthUsed);
 

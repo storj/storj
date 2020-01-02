@@ -42,7 +42,11 @@
                 </div>
             </div>
             <div class="usage-report-container__main-area__footer">
-                <p class="usage-report-container__main-area__footer__rollup-info">Roll Up Period <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{startDate}}</b> to <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{endDate}}</b></p>
+                <p class="usage-report-container__main-area__footer__rollup-info">
+                    Roll Up Period
+                    <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{startDate}}</b> to
+                    <b class="usage-report-container__main-area__footer__rollup-info__bold-text">{{endDate}}</b> (UTC +0)
+                </p>
                 <div class="usage-report-container__main-area__footer__report-area">
                     <p class="usage-report-container__main-area__footer__report-area__download-text">Download Advanced Report</p>
                     <DownloadReportIcon
@@ -220,21 +224,12 @@ export default class UsageReport extends Vue {
     }
 
     public async getDates(datesArray: Date[]): Promise<void> {
-        const now = new Date();
         const firstDate = new Date(datesArray[0]);
         const secondDate = new Date(datesArray[1]);
         const isInverted = firstDate > secondDate;
 
         const startDate = isInverted ? secondDate : firstDate;
-        let endDate = isInverted ? firstDate : secondDate;
-
-        endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
-
-        if (now.getUTCFullYear() === endDate.getUTCFullYear() &&
-            now.getUTCMonth() === endDate.getUTCMonth() &&
-            now.getUTCDate() === endDate.getUTCDate()) {
-            endDate = now;
-        }
+        const endDate = isInverted ? firstDate : secondDate;
 
         const dateRange: DateRange = new DateRange(startDate, endDate);
 

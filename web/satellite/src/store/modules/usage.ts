@@ -44,11 +44,20 @@ export function makeUsageModule(api: UsageApi): StoreModule<UsageState> {
         },
         actions: {
             [PROJECT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any, dateRange: DateRange): Promise<ProjectUsage> {
-                const projectID = rootGetters.selectedProject.id;
+                const now = new Date();
+                let beforeUTC = new Date(Date.UTC(dateRange.endDate.getFullYear(), dateRange.endDate.getMonth(), dateRange.endDate.getDate(), 23, 59));
 
-                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                if (now.getUTCFullYear() === dateRange.endDate.getUTCFullYear() &&
+                    now.getUTCMonth() === dateRange.endDate.getUTCMonth() &&
+                    now.getUTCDate() <= dateRange.endDate.getUTCDate()) {
+                    beforeUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getMinutes()));
+                }
 
-                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
+                const sinceUTC = new Date(Date.UTC(dateRange.startDate.getFullYear(), dateRange.startDate.getMonth(), dateRange.startDate.getDate()));
+
+                const usage: ProjectUsage = await api.get(rootGetters.selectedProject.id, sinceUTC, beforeUTC);
+
+                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, new DateRange(sinceUTC, beforeUTC));
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
@@ -56,13 +65,13 @@ export function makeUsageModule(api: UsageApi): StoreModule<UsageState> {
             [PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP]: async function({commit, rootGetters}: any): Promise<ProjectUsage> {
                 const projectID: string = rootGetters.selectedProject.id;
 
-                const endDate = new Date();
-                const startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
-                const dateRange = new DateRange(startDate, endDate);
+                const now = new Date();
+                const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getMinutes()));
+                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                const usage: ProjectUsage = await api.get(projectID, startUTC, endUTC);
 
-                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
+                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, new DateRange(startUTC, endUTC));
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
@@ -70,14 +79,13 @@ export function makeUsageModule(api: UsageApi): StoreModule<UsageState> {
             [PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP]: async function({commit, rootGetters}: any): Promise<ProjectUsage> {
                 const projectID = rootGetters.selectedProject.id;
 
-                const date = new Date();
-                const startDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1));
-                const endDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 0, 23, 59, 59));
-                const dateRange = new DateRange(startDate, endDate);
+                const now = new Date();
+                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+                const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
-                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                const usage: ProjectUsage = await api.get(projectID, startUTC, endUTC);
 
-                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
+                commit(PROJECT_USAGE_MUTATIONS.SET_DATE, new DateRange(startUTC, endUTC));
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
