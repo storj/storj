@@ -306,8 +306,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0)
-	before := time.Unix(beforeStamp, 0)
+	since := time.Unix(sinceStamp, 0).UTC()
+	before := time.Unix(beforeStamp, 0).UTC()
 
 	server.log.Debug("querying bucket usage report",
 		zap.Stringer("projectID", projectID),
