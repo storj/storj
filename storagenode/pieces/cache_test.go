@@ -112,6 +112,13 @@ func TestCacheInit(t *testing.T) {
 		err = cacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
 
+		// Now create an empty cache. Values will be read later by the db.
+		cache = pieces.NewBlobsUsageCacheTest(nil, 0, 0, nil)
+		cacheService = pieces.NewService(zap.L(),
+			cache,
+			pieces.NewStore(zap.L(), cache, nil, nil, spaceUsedDB),
+			1*time.Hour,
+		)
 		// Confirm that when we call Init after the cache has been persisted
 		// that the cache gets initialized with the values from the database
 		err = cacheService.Init(ctx)

@@ -110,7 +110,13 @@ func (service *CacheService) Init(ctx context.Context) (err error) {
 		return err
 	}
 
-	service.usageCache.init(total, totalBySatellite)
+	trashTotal, err := service.store.spaceUsedDB.GetTrashTotal(ctx)
+	if err != nil {
+		service.log.Error("CacheServiceInit error during initializing space usage cache GetTrashTotal:", zap.Error(err))
+		return err
+	}
+
+	service.usageCache.init(total, trashTotal, totalBySatellite)
 	return nil
 }
 
@@ -151,10 +157,11 @@ func NewBlobsUsageCacheTest(blob storage.Blobs, piecesTotal, trashTotal int64, s
 	}
 }
 
-func (blobs *BlobsUsageCache) init(total int64, totalBySatellite map[storj.NodeID]int64) {
+func (blobs *BlobsUsageCache) init(total, trashTotal int64, totalBySatellite map[storj.NodeID]int64) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	blobs.spaceUsedForPieces = total
+	blobs.spaceUsedForTrash = trashTotal
 	blobs.spaceUsedBySatellite = totalBySatellite
 }
 
