@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -54,9 +53,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 
 	source = pgutil.CheckApplicationName(source)
-	source = cockroachutil.TranslateName(source)
 
-	dbxDB, err := dbx.Open("postgres", source)
+	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)

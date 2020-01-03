@@ -26,14 +26,14 @@ func (cd *Driver) Open(name string) (driver.Conn, error) {
 
 // Open opens a new cockroachDB connection.
 func Open(name string) (driver.Conn, error) {
-	name = TranslateName(name)
+	name = translateName(name)
 	return pq.Open(name)
 }
 
 // OpenConnector obtains a new db Connector, which sql.DB can use to
 // obtain each needed connection at the appropriate time.
 func (cd *Driver) OpenConnector(name string) (driver.Connector, error) {
-	name = TranslateName(name)
+	name = translateName(name)
 	pgConnector, err := pq.NewConnector(name)
 	if err != nil {
 		return nil, err
@@ -41,9 +41,9 @@ func (cd *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &Connector{pgConnector}, nil
 }
 
-// TranslateName changes the scheme name in a `cockroach://` URL to
+// translateName changes the scheme name in a `cockroach://` URL to
 // `postgres://`, as that is what lib/pq will expect.
-func TranslateName(name string) string {
+func translateName(name string) string {
 	if strings.HasPrefix(name, "cockroach://") {
 		name = "postgres://" + name[12:]
 	}

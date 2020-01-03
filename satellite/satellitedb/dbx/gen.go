@@ -9,11 +9,15 @@ import (
 
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
+	// load our cockroach sql driver for anywhere that uses this dbx.Open
+	_ "storj.io/storj/private/dbutil/cockroachutil"
 )
 
-//go:generate dbx schema -d postgres satellitedb.dbx .
-//go:generate dbx golang -d postgres -t templates satellitedb.dbx .
+//go:generate dbx schema -d postgres -d cockroach satellitedb.dbx .
+//go:generate dbx golang -d postgres -d cockroach -t templates satellitedb.dbx .
 //go:generate bash -c "sed -i'' '1i //lint:file-ignore * generated file\n' satellitedb.dbx.go"
+//go:generate perl -p0i -e "s,^(\\s*\"github.com/lib/pq\")\\n\\n\\1,\\1,gm" satellitedb.dbx.go
 
 var mon = monkit.Package()
 
