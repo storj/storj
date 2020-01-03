@@ -79,7 +79,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, err
 	}
 	server.public = public{
-		listener: publicListener,
+		listener: wrapListener(publicListener),
 		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
@@ -93,7 +93,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	server.private = private{
-		listener: privateListener,
+		listener: wrapListener(privateListener),
 		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc:     grpc.NewServer(),
 	}
