@@ -2423,6 +2423,9 @@ func (endpoint *Endpoint) deletePointer(
 
 	pointer, path, err := endpoint.getPointer(ctx, projectID, segmentIndex, bucket, encryptedPath)
 	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.NotFound {
+			return nil, storj.ErrObjectNotFound.New("%s", err.Error())
+		}
 		return nil, err
 	}
 
