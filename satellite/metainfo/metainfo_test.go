@@ -32,7 +32,7 @@ import (
 	"storj.io/storj/uplink/metainfo"
 )
 
-func TestInvalidAPIKey(t *testing.T) {
+func TestInvalidAPIKeyOld(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -62,6 +62,109 @@ func TestInvalidAPIKey(t *testing.T) {
 			assertUnauthenticated(t, err, false)
 
 			_, _, err = client.ListSegmentsOld(ctx, "testbucket", "", "", "", true, 1, 0)
+			assertUnauthenticated(t, err, false)
+		}
+	})
+}
+
+func TestInvalidAPIKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
+		require.NoError(t, err)
+
+		for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
+			client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+			require.NoError(t, err)
+			defer ctx.Check(client.Close)
+
+			client.SetRawAPIKey([]byte(invalidAPIKey))
+
+			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
+			assertUnauthenticated(t, err, false)
+
+			err = client.CommitObject(ctx, metainfo.CommitObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
+			assertUnauthenticated(t, err, false)
+
+			err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
+			assertUnauthenticated(t, err, false)
+
+			err = client.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{})
+			assertUnauthenticated(t, err, false)
+
+			_, err = client.GetProjectInfo(ctx)
+			assertUnauthenticated(t, err, false)
+
+			// these methods needs StreamID to do authentication
+
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			satStreamID := &pb.SatStreamID{
+				CreationDate: time.Now(),
+			}
+			signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
+			require.NoError(t, err)
+
+			encodedStreamID, err := proto.Marshal(signedStreamID)
+			require.NoError(t, err)
+
+			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+			require.NoError(t, err)
+
+			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
+			assertUnauthenticated(t, err, false)
+
+			_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: streamID})
+			assertUnauthenticated(t, err, false)
+
+			err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
+			assertUnauthenticated(t, err, false)
+
+			_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: streamID})
+			assertUnauthenticated(t, err, false)
+
+			_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
+			assertUnauthenticated(t, err, false)
+
+			// these methods needs SegmentID
+
+			signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
+				StreamId:     satStreamID,
+				CreationDate: time.Now(),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
 			assertUnauthenticated(t, err, false)
 		}
 	})
@@ -501,7 +604,7 @@ func TestCreateSegment(t *testing.T) {
 	})
 }
 
-func TestExpirationTimeSegment(t *testing.T) {
+func TestExpirationTimeSegmentOld(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -546,6 +649,54 @@ func TestExpirationTimeSegment(t *testing.T) {
 				assert.True(t, r.errFlag)
 			} else {
 				assert.False(t, r.errFlag)
+			}
+		}
+	})
+}
+
+func TestExpirationTimeSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "my-bucket-name")
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		for _, r := range []struct {
+			expirationDate time.Time
+			errFlag        bool
+		}{
+			{ // expiration time not set
+				time.Time{},
+				false,
+			},
+			{ // 10 days into future
+				time.Now().AddDate(0, 0, 10),
+				false,
+			},
+			{ // current time
+				time.Now(),
+				true,
+			},
+			{ // 10 days into past
+				time.Now().AddDate(0, 0, -10),
+				true,
+			},
+		} {
+			_, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte("my-bucket-name"),
+				EncryptedPath: []byte("path"),
+				ExpiresAt:     r.expirationDate,
+			})
+			if r.errFlag {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		}
 	})
@@ -946,9 +1097,9 @@ func TestBucketNameValidation(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
+		defer ctx.Check(metainfoClient.Close)
 
 		rs := &pb.RedundancyScheme{
 			MinReq:           1,
@@ -968,7 +1119,12 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, _, err = metainfo.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfoClient.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			require.NoError(t, err, "bucket name: %v", name)
+
+			_, err = metainfoClient.CreateBucket(ctx, metainfo.CreateBucketParams{
+				Name: []byte(name),
+			})
 			require.NoError(t, err, "bucket name: %v", name)
 		}
 
@@ -982,7 +1138,12 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, _, err = metainfo.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfoClient.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			require.Error(t, err, "bucket name: %v", name)
+
+			_, err = metainfoClient.CreateBucket(ctx, metainfo.CreateBucketParams{
+				Name: []byte(name),
+			})
 			require.Error(t, err, "bucket name: %v", name)
 		}
 	})
