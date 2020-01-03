@@ -85,7 +85,7 @@ node('node') {
 
         unstash "storagenode-binaries"
 
-        bat 'installer\\windows\\build.bat'
+        bat 'installer\\windows\\buildrelease.bat'
 
         stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
 
