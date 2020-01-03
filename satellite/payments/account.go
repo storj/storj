@@ -25,6 +25,9 @@ type Accounts interface {
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID) ([]ProjectCharge, error)
 
+	// Charges returns list of all credit card charges related to account.
+	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)
+
 	// Coupons return list of all coupons of specified payment account.
 	Coupons(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
 

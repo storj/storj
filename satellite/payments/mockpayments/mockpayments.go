@@ -82,6 +82,12 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 	return []payments.ProjectCharge{}, nil
 }
 
+// Charges returns empty charges list.
+func (accounts accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []payments.Charge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+	return []payments.Charge{}, nil
+}
+
 // Coupons return list of all coupons of specified payment account.
 func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)

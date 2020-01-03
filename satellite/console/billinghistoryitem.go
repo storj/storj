@@ -28,4 +28,6 @@ const (
 	Invoice BillingHistoryItemType = 0
 	// Transaction is a Coinpayments transaction billing item.
 	Transaction BillingHistoryItemType = 1
+	// Charge is a credit card charge billing item.
+	Charge BillingHistoryItemType = 2
 )

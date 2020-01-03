@@ -138,6 +138,8 @@ export enum BillingHistoryItemType {
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
+    // Charge is a credit card charge billing item.
+    Charge = 2,
 }
 
 // TokenDeposit holds public information about token deposit

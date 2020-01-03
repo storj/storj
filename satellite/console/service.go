@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"sort"
 	"time"
 
@@ -213,7 +214,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 
 	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	// TODO: add transactions, etc in future
@@ -232,23 +233,38 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 
 	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	for _, info := range txsInfos {
-		billingHistory = append(billingHistory,
-			&BillingHistoryItem{
-				ID:          info.ID.String(),
-				Description: "STORJ Token Deposit",
-				Amount:      info.AmountCents,
-				Received:    info.ReceivedCents,
-				Status:      info.Status.String(),
-				Link:        info.Link,
-				Start:       info.CreatedAt,
-				End:         info.ExpiresAt,
-				Type:        Transaction,
-			},
-		)
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          info.ID.String(),
+			Description: "STORJ Token Deposit",
+			Amount:      info.AmountCents,
+			Received:    info.ReceivedCents,
+			Status:      info.Status.String(),
+			Link:        info.Link,
+			Start:       info.CreatedAt,
+			End:         info.ExpiresAt,
+			Type:        Transaction,
+		})
+	}
+
+	charges, err := payments.service.accounts.Charges(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, charge := range charges {
+		desc := fmt.Sprintf("Payment(%s %s)", charge.CardInfo.Brand, charge.CardInfo.LastFour)
+
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          charge.ID,
+			Description: desc,
+			Amount:      charge.Amount,
+			Start:       charge.CreatedAt,
+			Type:        Charge,
+		})
 	}
 
 	sort.SliceStable(billingHistory,
