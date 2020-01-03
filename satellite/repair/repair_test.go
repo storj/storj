@@ -115,7 +115,8 @@ func TestDataRepair(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				disqualifyNode(t, ctx, satellite, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				require.NoError(t, err)
 				continue
 			}
 			if nodesToKill[node.ID()] {
@@ -445,7 +446,9 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			disqualifyNode(t, ctx, satellite, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			require.NoError(t, err)
+
 		}
 
 		// trigger checker to add segment to repair queue
@@ -526,7 +529,8 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			disqualifyNode(t, ctx, satellite, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			require.NoError(t, err)
 		}
 
 		// trigger checker to add segment to repair queue
@@ -537,7 +541,9 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		// Kill nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
 		for _, piece := range remotePieces {
-			disqualifyNode(t, ctx, satellite, piece.NodeId)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.NodeId)
+			require.NoError(t, err)
+
 		}
 
 		// Verify that the segment is on the repair queue
@@ -629,7 +635,9 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				disqualifyNode(t, ctx, satellite, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				require.NoError(t, err)
+
 			}
 		}
 
@@ -984,29 +992,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			require.NotContains(t, killedNodes, p.NodeId, "there shouldn't be pieces in killed nodes")
 		}
 	})
-}
-
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
-	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
-	require.NoError(t, err)
-
-	return node.Disqualified != nil
-}
-
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-		NodeID:       nodeID,
-		IsUp:         true,
-		AuditSuccess: false,
-		AuditLambda:  0,
-		AuditWeight:  1,
-		AuditDQ:      0.5,
-		UptimeLambda: 1,
-		UptimeWeight: 1,
-		UptimeDQ:     0.5,
-	})
-	require.NoError(t, err)
-	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
 
 // getRemoteSegment returns a remote pointer its path from satellite.

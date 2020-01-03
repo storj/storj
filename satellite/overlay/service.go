@@ -64,7 +64,7 @@ type DB interface {
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
@@ -138,12 +138,9 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda  float64
-	AuditWeight  float64
-	AuditDQ      float64
-	UptimeLambda float64
-	UptimeWeight float64
-	UptimeDQ     float64
+	AuditLambda float64
+	AuditWeight float64
+	AuditDQ     float64
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -181,18 +178,16 @@ type NodeDossier struct {
 
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	Latency90             int64
-	AuditSuccessCount     int64
-	AuditCount            int64
-	UptimeSuccessCount    int64
-	UptimeCount           int64
-	LastContactSuccess    time.Time
-	LastContactFailure    time.Time
-	AuditReputationAlpha  float64
-	UptimeReputationAlpha float64
-	AuditReputationBeta   float64
-	UptimeReputationBeta  float64
-	Disqualified          *time.Time
+	Latency90            int64
+	AuditSuccessCount    int64
+	AuditCount           int64
+	UptimeSuccessCount   int64
+	UptimeCount          int64
+	LastContactSuccess   time.Time
+	LastContactFailure   time.Time
+	AuditReputationAlpha float64
+	AuditReputationBeta  float64
+	Disqualified         *time.Time
 }
 
 // NodeLastContact contains the ID, address, and timestamp
@@ -404,9 +399,6 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditLambda = service.config.Node.AuditReputationLambda
 		request.AuditWeight = service.config.Node.AuditReputationWeight
 		request.AuditDQ = service.config.Node.AuditReputationDQ
-		request.UptimeLambda = service.config.Node.UptimeReputationLambda
-		request.UptimeWeight = service.config.Node.UptimeReputationWeight
-		request.UptimeDQ = service.config.Node.UptimeReputationDQ
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
@@ -418,9 +410,6 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditLambda = service.config.Node.AuditReputationLambda
 	request.AuditWeight = service.config.Node.AuditReputationWeight
 	request.AuditDQ = service.config.Node.AuditReputationDQ
-	request.UptimeLambda = service.config.Node.UptimeReputationLambda
-	request.UptimeWeight = service.config.Node.UptimeReputationWeight
-	request.UptimeDQ = service.config.Node.UptimeReputationDQ
 
 	return service.db.UpdateStats(ctx, request)
 }
@@ -434,11 +423,7 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 // UpdateUptime updates a single storagenode's uptime stats.
 func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+	return service.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.

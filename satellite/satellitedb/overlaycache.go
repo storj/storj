@@ -191,7 +191,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
 	free_bandwidth, free_disk, total_audit_count, audit_success_count,
 	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
-	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
+	audit_reputation_beta
 	FROM nodes
 	`+safeQuery+safeExcludeNodes+`
 	ORDER BY RANDOM()
@@ -209,7 +209,6 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
-			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -255,8 +254,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 		SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
 		id, type, address, free_bandwidth, free_disk, total_audit_count,
 		audit_success_count, total_uptime_count, uptime_success_count,
-		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
-		uptime_reputation_beta
+		audit_reputation_alpha, audit_reputation_beta
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
@@ -277,7 +275,6 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
-			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -558,8 +555,9 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 				dbx.Node_Contained(false),
 				dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
 				dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
-				dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
-				dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
+				//TODO: remove uptime reputation after finishing db migration
+				dbx.Node_UptimeReputationAlpha(0),
+				dbx.Node_UptimeReputationBeta(0),
 				dbx.Node_ExitSuccess(false),
 				dbx.Node_Create_Fields{
 					Disqualified: dbx.Node_Disqualified_Null(),
@@ -741,7 +739,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var dbNode *dbx.Node
@@ -756,30 +754,13 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		}
 
 		updateFields := dbx.Node_Update_Fields{}
-		uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
-			isUp,
-			dbNode.UptimeReputationAlpha,
-			dbNode.UptimeReputationBeta,
-			lambda,
-			weight,
-			dbNode.TotalUptimeCount,
-		)
-		mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
-		mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
-
-		updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(uptimeAlpha)
-		updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-
-		uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-		if uptimeRep <= uptimeDQ {
-			updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-		}
+		totalUptimeCount := dbNode.TotalUptimeCount
 
 		lastContactSuccess := dbNode.LastContactSuccess
 		lastContactFailure := dbNode.LastContactFailure
 		mon.Meter("uptime_updates").Mark(1)
 		if isUp {
+			totalUptimeCount++
 			updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
 			updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
 
@@ -806,6 +787,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 			}
 		}
 
+		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		return err
 	})
@@ -1188,18 +1170,16 @@ func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Pro
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		Latency90:             dbNode.Latency90,
-		AuditCount:            dbNode.TotalAuditCount,
-		AuditSuccessCount:     dbNode.AuditSuccessCount,
-		UptimeCount:           dbNode.TotalUptimeCount,
-		UptimeSuccessCount:    dbNode.UptimeSuccessCount,
-		LastContactSuccess:    dbNode.LastContactSuccess,
-		LastContactFailure:    dbNode.LastContactFailure,
-		AuditReputationAlpha:  dbNode.AuditReputationAlpha,
-		AuditReputationBeta:   dbNode.AuditReputationBeta,
-		UptimeReputationAlpha: dbNode.UptimeReputationAlpha,
-		UptimeReputationBeta:  dbNode.UptimeReputationBeta,
-		Disqualified:          dbNode.Disqualified,
+		Latency90:            dbNode.Latency90,
+		AuditCount:           dbNode.TotalAuditCount,
+		AuditSuccessCount:    dbNode.AuditSuccessCount,
+		UptimeCount:          dbNode.TotalUptimeCount,
+		UptimeSuccessCount:   dbNode.UptimeSuccessCount,
+		LastContactSuccess:   dbNode.LastContactSuccess,
+		LastContactFailure:   dbNode.LastContactFailure,
+		AuditReputationAlpha: dbNode.AuditReputationAlpha,
+		AuditReputationBeta:  dbNode.AuditReputationBeta,
+		Disqualified:         dbNode.Disqualified,
 	}
 	return nodeStats
 }
@@ -1248,20 +1228,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		}
 		atLeastOne = true
 		sql += fmt.Sprintf("audit_reputation_beta = %v", update.AuditReputationBeta.value)
-	}
-	if update.UptimeReputationAlpha.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("uptime_reputation_alpha = %v", update.UptimeReputationAlpha.value)
-	}
-	if update.UptimeReputationBeta.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("uptime_reputation_beta = %v", update.UptimeReputationBeta.value)
 	}
 	if update.Disqualified.set {
 		if atLeastOne {
@@ -1338,19 +1304,17 @@ type timeField struct {
 }
 
 type updateNodeStats struct {
-	NodeID                storj.NodeID
-	TotalAuditCount       int64Field
-	TotalUptimeCount      int64Field
-	AuditReputationAlpha  float64Field
-	AuditReputationBeta   float64Field
-	UptimeReputationAlpha float64Field
-	UptimeReputationBeta  float64Field
-	Disqualified          timeField
-	UptimeSuccessCount    int64Field
-	LastContactSuccess    timeField
-	LastContactFailure    timeField
-	AuditSuccessCount     int64Field
-	Contained             boolField
+	NodeID               storj.NodeID
+	TotalAuditCount      int64Field
+	TotalUptimeCount     int64Field
+	AuditReputationAlpha float64Field
+	AuditReputationBeta  float64Field
+	Disqualified         timeField
+	UptimeSuccessCount   int64Field
+	LastContactSuccess   timeField
+	LastContactFailure   timeField
+	AuditSuccessCount    int64Field
+	Contained            boolField
 }
 
 func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
@@ -1365,36 +1329,21 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha) //locked
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)   //locked
 
-	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
-		updateReq.IsUp,
-		dbNode.UptimeReputationAlpha,
-		dbNode.UptimeReputationBeta,
-		updateReq.UptimeLambda,
-		updateReq.UptimeWeight,
-		dbNode.TotalUptimeCount,
-	)
-	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
-	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
+	totalUptimeCount := dbNode.TotalUptimeCount
+	if updateReq.IsUp {
+		totalUptimeCount++
+	}
 
 	updateFields := updateNodeStats{
-		NodeID:                updateReq.NodeID,
-		TotalAuditCount:       int64Field{set: true, value: totalAuditCount},
-		TotalUptimeCount:      int64Field{set: true, value: totalUptimeCount},
-		AuditReputationAlpha:  float64Field{set: true, value: auditAlpha},
-		AuditReputationBeta:   float64Field{set: true, value: auditBeta},
-		UptimeReputationAlpha: float64Field{set: true, value: uptimeAlpha},
-		UptimeReputationBeta:  float64Field{set: true, value: uptimeBeta},
+		NodeID:               updateReq.NodeID,
+		TotalAuditCount:      int64Field{set: true, value: totalAuditCount},
+		TotalUptimeCount:     int64Field{set: true, value: totalUptimeCount},
+		AuditReputationAlpha: float64Field{set: true, value: auditAlpha},
+		AuditReputationBeta:  float64Field{set: true, value: auditBeta},
 	}
 
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
-		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
-	}
-
-	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-	if uptimeRep <= updateReq.UptimeDQ {
-		// n.b. that this will overwrite the audit DQ timestamp
-		// if it has already been set.
 		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
 	}
 
@@ -1431,12 +1380,6 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 	if update.AuditReputationBeta.set {
 		updateFields.AuditReputationBeta = dbx.Node_AuditReputationBeta(update.AuditReputationBeta.value)
 	}
-	if update.UptimeReputationAlpha.set {
-		updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(update.UptimeReputationAlpha.value)
-	}
-	if update.UptimeReputationBeta.set {
-		updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(update.UptimeReputationBeta.value)
-	}
 	if update.Disqualified.set {
 		updateFields.Disqualified = dbx.Node_Disqualified(update.Disqualified.value)
 	}
@@ -1470,14 +1413,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.New("error UpdateCheckIn: missing the storage node address")
 	}
 
-	// v is a single feedback value that allows us to update both alpha and beta
-	var v float64 = -1
-	if node.IsUp {
-		v = 1
-	}
-
-	uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
-	uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
 	semVer, err := version.NewSemVer(node.Version.GetVersion())
 	if err != nil {
 		return Error.New("unable to convert version to semVer")
@@ -1488,24 +1423,24 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			(
 				id, address, last_net, protocol, type,
 				email, wallet, free_bandwidth, free_disk,
-				uptime_success_count, total_uptime_count, 
+				uptime_success_count, total_uptime_count,
 				last_contact_success,
 				last_contact_failure,
-				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+				audit_reputation_alpha, audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8, $9,
 				$10::bool::int, 1,
-				CASE WHEN $10::bool IS TRUE THEN $24::timestamptz
+				CASE WHEN $10::bool IS TRUE THEN $19::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $10::bool IS FALSE THEN $24::timestamptz
+				CASE WHEN $10::bool IS FALSE THEN $19::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				$11, $12, $13, $14,
-				$18, $19, $20, $21, $22, $23
+				$11, $12,
+				$13, $14, $15, $16, $17, $18
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1517,24 +1452,16 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_bandwidth=$8,
 				free_disk=$9,
-				major=$18, minor=$19, patch=$20, hash=$21, timestamp=$22, release=$23,
+				major=$13, minor=$14, patch=$15, hash=$16, timestamp=$17, release=$18,
 				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_reputation_alpha=$16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float,
-				uptime_reputation_beta=$16::float*nodes.uptime_reputation_beta + $17::float*(NOT $10)::bool::int::float,
 				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
 				last_contact_success = CASE WHEN $10::bool IS TRUE
-					THEN $24::timestamptz
+					THEN $19::timestamptz
 					ELSE nodes.last_contact_success
 				END,
 				last_contact_failure = CASE WHEN $10::bool IS FALSE
-					THEN $24::timestamptz
+					THEN $19::timestamptz
 					ELSE nodes.last_contact_failure
-				END,
-				-- this disqualified case statement resolves to: 
-				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
-				disqualified = CASE WHEN (($16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float) / (($16::float*nodes.uptime_reputation_alpha + $17::float*$10::bool::int::float) + ($16::float*nodes.uptime_reputation_beta + $17::float*(NOT $10)::bool::int::float))) <= $15 AND nodes.disqualified IS NULL
-					THEN $24::timestamptz
-					ELSE nodes.disqualified
 				END;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
@@ -1544,13 +1471,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
 		// args $10
 		node.IsUp,
-		// args $11 - $14
-		config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
-		// args $15 - $17
-		config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
-		// args $18 - $23
+		// args $11 - $12
+		config.AuditReputationAlpha0, config.AuditReputationBeta0,
+		// args $13 - $18
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		// args $24
+		// args $19
 		timestamp,
 	)
 	if err != nil {
