@@ -14,7 +14,9 @@
                 <p class="name">{{ itemData.formattedName() }}</p>
             </div>
         </div>
-        <p class="date">{{ itemData.getDate() }}</p>
+        <div class="apikey-item-container__common-info">
+            <p class="date">{{ itemData.getDate() }}</p>
+        </div>
     </div>
 </template>
 
@@ -46,6 +48,7 @@ export default class ApiKeysItem extends Vue {
         height: 83px;
         background-color: #fff;
         cursor: pointer;
+        width: 100%;
 
         &:hover {
             background-color: rgba(255, 255, 255, 0.5);

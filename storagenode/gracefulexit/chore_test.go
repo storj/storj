@@ -11,15 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 func TestChore(t *testing.T) {
@@ -34,11 +33,12 @@ func TestChore(t *testing.T) {
 
 		satellite1.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite1, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))

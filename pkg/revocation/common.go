@@ -4,8 +4,8 @@
 package revocation
 
 import (
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -23,7 +23,7 @@ func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
 
 // NewDB returns a new revocation database given the URL
 func NewDB(dbURL string) (*DB, error) {
-	driver, source, err := dbutil.SplitConnstr(dbURL)
+	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}

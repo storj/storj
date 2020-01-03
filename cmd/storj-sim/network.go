@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,11 +24,12 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/fpath"
+	"storj.io/common/identity"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/processgroup"
 )
 
@@ -338,9 +340,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 
 		if flags.Postgres != "" {
+			masterDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d", i))
+			if err != nil {
+				return nil, err
+			}
+			metainfoDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
+			if err != nil {
+				return nil, err
+			}
+
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
-				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
-				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+				"--database", masterDBURL,
+				"--metainfo.database-url", metainfoDBURL,
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
@@ -431,8 +442,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {},
 		})
 
-		process.ExecBefore["run"] = func(process *Process) error {
-			err := readConfigString(&process.Address, process.Directory, "server.address")
+		process.ExecBefore["run"] = func(process *Process) (err error) {
+			err = readConfigString(&process.Address, process.Directory, "server.address")
 			if err != nil {
 				return err
 			}
@@ -455,17 +466,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return err
 				}
 
-				host := "http://" + consoleAddress
-				createRegistrationTokenAddress := host + "/registrationToken/?projectsLimit=1"
-				consoleActivationAddress := host + "/activation/?token="
-				consoleAPIAddress := host + "/api/v0/graphql"
-
-				// wait for console server to start
-				time.Sleep(3 * time.Second)
-
-				var apiKey string
-				if err := addExampleProjectWithKey(&apiKey, createRegistrationTokenAddress, consoleActivationAddress, consoleAPIAddress); err != nil {
-					return err
+				// try with 100ms delays until we hit 3s
+				apiKey, start := "", time.Now()
+				for apiKey == "" {
+					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey()
+					if err != nil && time.Since(start) > 3*time.Second {
+						return err
+					}
+					time.Sleep(100 * time.Millisecond)
 				}
 
 				scope, err := uplink.ParseScope(runScopeData)
@@ -554,7 +562,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			}
 
 			process.Arguments["setup"] = append(process.Arguments["setup"],
-				"--storage.whitelisted-satellites", strings.Join(whitelisted, ","),
+				"--storage2.trust.sources", strings.Join(whitelisted, ","),
 			)
 			return nil
 		}
@@ -645,4 +653,26 @@ func readConfigString(into *string, dir, flagName string) error {
 		*into = v
 	}
 	return nil
+}
+
+// namespacedDatabaseURL returns an equivalent database url with the given namespace
+// so that a database opened with the url does not conflict with other databases
+// opened with a different namespace.
+func namespacedDatabaseURL(dbURL, namespace string) (string, error) {
+	parsed, err := url.Parse(dbURL)
+	if err != nil {
+		return "", err
+	}
+
+	switch dbutil.ImplementationForScheme(parsed.Scheme) {
+	case dbutil.Postgres:
+		return pgutil.ConnstrWithSchema(dbURL, namespace), nil
+
+	case dbutil.Cockroach:
+		parsed.Path += "/" + namespace
+		return parsed.String(), nil
+
+	default:
+		return "", errs.New("unable to namespace db url: %q", dbURL)
+	}
 }

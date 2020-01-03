@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// TODO: move functions to Validator class
 export function validateEmail(email: string): boolean {
     const rgx = /.*@.*\..*$/;
 

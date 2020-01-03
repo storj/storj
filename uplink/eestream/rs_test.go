@@ -21,13 +21,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/readcloser"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/encryption"
+	"storj.io/common/memory"
+	"storj.io/common/ranger"
+	"storj.io/common/readcloser"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 )
 
 func TestRS(t *testing.T) {
@@ -111,7 +111,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), encryption.TransformReader(PadReader(ioutil.NopCloser(
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), encryption.TransformReader(encryption.PadReader(ioutil.NopCloser(
 		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +136,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err = UnpadSlow(ctx, rr)
+	rr, err = encryption.UnpadSlow(ctx, rr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -645,6 +645,7 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 }
 
 func TestCalcPieceSize(t *testing.T) {
+	const uint32Size = 4
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -668,7 +669,7 @@ func TestCalcPieceSize(t *testing.T) {
 		calculatedSize := CalcPieceSize(dataSize, es)
 
 		randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))
-		readers, err := EncodeReader(ctx, zaptest.NewLogger(t), PadReader(randReader, es.StripeSize()), rs)
+		readers, err := EncodeReader(ctx, zaptest.NewLogger(t), encryption.PadReader(randReader, es.StripeSize()), rs)
 		require.NoError(t, err, errTag)
 
 		for _, reader := range readers {

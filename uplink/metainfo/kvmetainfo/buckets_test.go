@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/encryption"
+	"storj.io/common/macaroon"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/ecclient"
@@ -216,14 +216,24 @@ func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Pl
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(planet)
+		db, streams, err := newMetainfoParts(planet, newTestEncStore(TestEncKey))
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
+func newTestEncStore(keyStr string) *encryption.Store {
+	key := new(storj.Key)
+	copy(key[:], keyStr)
+
+	store := encryption.NewStore()
+	store.SetDefaultKey(key)
+
+	return store
+}
+
+func newMetainfoParts(planet *testplanet.Planet, encStore *encryption.Store) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
@@ -268,12 +278,6 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	}
 
 	segments := segments.NewSegmentStore(metainfo, ec, rs)
-
-	key := new(storj.Key)
-	copy(key[:], TestEncKey)
-
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(key)
 
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()

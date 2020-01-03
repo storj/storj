@@ -12,9 +12,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
@@ -119,7 +119,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		return Error.New("already closed")
 	}
 	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
-		cache.Update(ctx, w.satellite, w.Size())
+		cache.Update(ctx, w.satellite, w.Size(), 0)
 	}
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true

@@ -6,7 +6,7 @@ package queue
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 )
 
 // RepairQueue implements queueing for segments that need repairing.

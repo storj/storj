@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/common/identity"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/storj/storage"
 )
 

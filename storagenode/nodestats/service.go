@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -31,7 +31,7 @@ var (
 // architecture: Client
 type Client struct {
 	conn *rpc.Conn
-	rpc.NodeStatsClient
+	pb.DRPCNodeStatsClient
 }
 
 // Close closes underlying client connection
@@ -130,8 +130,8 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 	}
 
 	return &Client{
-		conn:            conn,
-		NodeStatsClient: conn.NodeStatsClient(),
+		conn:                conn,
+		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn.Raw()),
 	}, nil
 }
 

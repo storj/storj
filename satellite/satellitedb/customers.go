@@ -10,6 +10,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -21,7 +22,7 @@ var _ stripecoinpayments.CustomersDB = (*customers)(nil)
 //
 // architecture: Database
 type customers struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Insert inserts a stripe customer into the database.
@@ -89,7 +90,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 
 // fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
 func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
-	userID, err := bytesToUUID(dbxCustomer.UserId)
+	userID, err := dbutil.BytesToUUID(dbxCustomer.UserId)
 	if err != nil {
 		return nil, err
 	}

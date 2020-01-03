@@ -149,8 +149,8 @@ void handle_project(ProjectRef project) {
             require(strcmp(object_paths[i], object_meta.path) == 0);
             require(data_len == object_meta.size);
             require(future_expiration_timestamp == object_meta.expires);
-            require((time(NULL) - object_meta.created) <= 2);
-            require((time(NULL) - object_meta.modified) <= 2);
+            require((time(NULL) - object_meta.created) < 60);
+            require((time(NULL) - object_meta.modified) < 60);
             require(object_meta.checksum_bytes != NULL);
             // TODO: checksum is an empty slice in go; is that expected?
             // require(object_meta.checksum_length != 0);
@@ -182,6 +182,37 @@ void handle_project(ProjectRef project) {
             download_close(downloader, err);
             require_noerror(*err);
             require(memcmp(data, downloaded_data, data_len) == 0);
+
+            free(downloaded_data);
+            free_downloader(downloader);
+        }
+
+        { // download range
+            long start = 100 + (i+1);
+            long limit = 1024 * (i+1);
+            DownloaderRef downloader = download_range(bucket, object_paths[i], start, limit, err);
+            require_noerror(*err);
+
+            uint8_t *downloaded_data = malloc(limit);
+            memset(downloaded_data, '\0', limit);
+            size_t downloaded_total = 0;
+
+            size_t size_to_read = 256 + i;
+            while (downloaded_total < limit) {
+                size_t read_size = download_read(downloader, &downloaded_data[downloaded_total], size_to_read, err);
+                require_noerror(*err);
+
+                if (read_size == 0) {
+                    break;
+                }
+
+                downloaded_total += read_size;
+            }
+
+            download_close(downloader, err);
+            require_noerror(*err);
+            require(limit == downloaded_total);
+            require(memcmp(&data[start], downloaded_data, limit) == 0);
 
             free(downloaded_data);
             free_downloader(downloader);

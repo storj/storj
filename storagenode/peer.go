@@ -7,21 +7,22 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
@@ -36,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
+	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -70,6 +72,7 @@ type DB interface {
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
+	Notifications() notifications.DB
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -133,6 +136,7 @@ type Peer struct {
 		// TODO: lift things outside of it to organize better
 		Trust         *trust.Pool
 		Store         *pieces.Store
+		TrashChore    *pieces.TrashChore
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
@@ -159,6 +163,10 @@ type Peer struct {
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
 		Chore    *gracefulexit.Chore
+	}
+
+	Notifications struct {
+		Service *notifications.Service
 	}
 
 	Bandwidth *bandwidth.Service
@@ -199,10 +207,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup trust pool
-		peer.Storage2.Trust, err = trust.NewPool(peer.Dialer, config.Storage.WhitelistedSatellites)
+		peer.Storage2.Trust, err = trust.NewPool(log.Named("trust"), trust.Dialer(peer.Dialer), config.Storage2.Trust)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
 	{ // setup contact service
@@ -246,6 +258,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),
 			peer.DB.PieceSpaceUsedDB(),
+		)
+
+		peer.Storage2.TrashChore = pieces.NewTrashChore(
+			log.Named("pieces:trashchore"),
+			24*time.Hour,   // choreInterval: how often to run the chore
+			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
+			peer.Storage2.Trust,
+			peer.Storage2.Store,
 		)
 
 		peer.Storage2.CacheService = pieces.NewService(
@@ -363,6 +383,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
 			assets,
+			peer.Notifications.Service,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
@@ -414,6 +435,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Refresh the trust pool first. It will be updated periodically via
+	// Run() below.
+	if err := peer.Storage2.Trust.Refresh(ctx); err != nil {
+		return err
+	}
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -438,7 +465,13 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.TrashChore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Trust.Run(ctx))
 	})
 
 	group.Go(func() error {
@@ -484,6 +517,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
+	}
+	if peer.Storage2.TrashChore != nil {
+		errlist.Add(peer.Storage2.TrashChore.Close())
 	}
 	if peer.Storage2.RetainService != nil {
 		errlist.Add(peer.Storage2.RetainService.Close())

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -83,7 +83,7 @@ func TestOrder(t *testing.T) {
 				{olderRepairPath, time.Now().Add(-3 * time.Hour)},
 			}
 			for _, item := range updateList {
-				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = timezone('utc', ?) WHERE path = ?`), item.attempted, item.path)
+				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? AT TIME ZONE 'UTC' WHERE path = ?`), item.attempted, item.path)
 				if err != nil {
 					return err
 				}

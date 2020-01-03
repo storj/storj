@@ -11,41 +11,36 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/uplink"
 )
 
 func TestWorkerSuccess(t *testing.T) {
-	var geConfig gracefulexit.Config
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				geConfig = config.GracefulExit
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -77,7 +72,16 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, queueItems, 1)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				MinBytesPerSecond:      128,
+				MinDownloadTimeout:     2 * time.Minute,
+			})
+		defer ctx.Check(worker.Close)
+
 		err = worker.Run(ctx, func() {})
 		require.NoError(t, err)
 
@@ -94,7 +98,6 @@ func TestWorkerSuccess(t *testing.T) {
 }
 
 func TestWorkerTimeout(t *testing.T) {
-	var geConfig gracefulexit.Config
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -104,13 +107,6 @@ func TestWorkerTimeout(t *testing.T) {
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.MinDownloadTimeout = 2 * time.Millisecond
-				config.GracefulExit.MinBytesPerSecond = 10 * memory.MiB
-				geConfig = config.GracefulExit
-			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -118,11 +114,12 @@ func TestWorkerTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -160,7 +157,18 @@ func TestWorkerTimeout(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(), geConfig)
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				MinBytesPerSecond:  10 * memory.MiB,
+				MinDownloadTimeout: 2 * time.Millisecond,
+			})
+		defer ctx.Check(worker.Close)
+
 		err = worker.Run(ctx, func() {})
 		require.NoError(t, err)
 

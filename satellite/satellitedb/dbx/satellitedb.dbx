@@ -121,7 +121,7 @@ read all (
 	where  accounting_rollup.start_time >= ?
 )
 
-//--- statdb ---//
+//--- overlay cache ---//
 
 model node (
 	key id
@@ -210,6 +210,13 @@ read all (
     where node.piece_count != 0
 )
 
+read limitoffset (
+	select node
+    where node.last_contact_success < node.last_contact_failure
+	where  node.disqualified = null
+	orderby asc node.last_contact_failure
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
@@ -276,6 +283,10 @@ delete project ( where project.id = ? )
 read one (
     select project
     where project.id = ?
+)
+read one (
+    select project.usage_limit
+    where  project.id = ?
 )
 read all (
     select project
@@ -369,7 +380,7 @@ model api_key (
 )
 
 create api_key ( )
-update api_key ( 
+update api_key (
 	where api_key.id = ?
 	noreturn
 )
@@ -682,20 +693,26 @@ create offer ( )
 //--- user credit table ---//
 
 model user_credit (
-	key	id
+	key id
+	unique id offer_id
+	index (
+		name credits_earned_user_id_offer_id
+		fields id offer_id
+		unique
+	)
 
-	field id				serial
+	field id serial
 
-	field user_id user.id	cascade
-	field offer_id offer.id	restrict
-	field referred_by user.id setnull ( nullable )
-	field type       text
+	field user_id     user.id  cascade
+	field offer_id    offer.id restrict
+	field referred_by user.id  setnull  ( nullable )
+	field type        text
 
-	field credits_earned_in_cents	int
-	field credits_used_in_cents	int ( updatable, autoinsert )
+	field credits_earned_in_cents int
+	field credits_used_in_cents   int ( updatable, autoinsert )
 
-	field expires_at		timestamp	( updatable )
-	field created_at		timestamp	( autoinsert )
+	field expires_at timestamp ( updatable )
+	field created_at timestamp ( autoinsert )
 )
 
 read all (
@@ -845,6 +862,29 @@ read one (
 	where graceful_exit_transfer_queue.piece_num = ?
 )
 
+//--- downtime tracking ---//
+
+model nodes_offline_time (
+    key node_id tracked_at
+
+    index (
+        fields node_id
+    )
+
+    field node_id blob
+    field tracked_at timestamp
+    field seconds int
+)
+
+create nodes_offline_time ()
+
+read all (
+    select nodes_offline_time
+    where nodes_offline_time.node_id = ?
+    where nodes_offline_time.tracked_at > ?
+    where nodes_offline_time.tracked_at <= ?
+)
+
 //--- satellite payments ---//
 
 model stripe_customer (
@@ -968,3 +1008,51 @@ read one (
     select stripecoinpayments_tx_conversion_rate
     where stripecoinpayments_tx_conversion_rate.tx_id = ?
 )
+
+model coupon (
+    key id
+    unique project_id
+
+    field id               blob
+    field project_id       blob
+    field user_id          blob
+    field amount           int64
+    field description      text
+    field status           int   ( updatable )
+    field duration         int64
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon ()
+update coupon (
+    where coupon.id = ?
+)
+delete coupon (
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read limitoffset (
+    select coupon
+    where coupon.created_at <= ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+model coupon_usage (
+    key id
+
+    field id             blob
+    field coupon_id      blob
+    field amount         int64
+    field interval_end   timestamp
+)
+create coupon_usage ()

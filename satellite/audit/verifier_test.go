@@ -14,22 +14,21 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
+	"storj.io/common/errs2"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -565,14 +564,6 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
-
-		// expect that bad node is no longer in the pointer
-		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
-		for _, p := range pointer.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, p.NodeId, piece.NodeId)
-		}
 	})
 }
 
@@ -733,23 +724,6 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Equal(t, report.Fails[0], piece.NodeId)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
-
-		// refetch the pointer
-		pointerAgain, err := satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-
-		report, err = audits.Verifier.Verify(ctx, path, nil)
-		require.NoError(t, err)
-
-		//verify no failures because that segment is gone
-		assert.Len(t, report.Successes, origNumPieces-1)
-		assert.Len(t, report.Fails, 0)
-		assert.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 0)
-
-		for _, newPiece := range pointerAgain.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
-		}
 	})
 }
 
@@ -778,11 +752,12 @@ func TestVerifierSlowDownload(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -836,11 +811,12 @@ func TestVerifierUnknownError(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

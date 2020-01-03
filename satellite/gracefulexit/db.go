@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // Progress represents the persisted graceful exit progress record.

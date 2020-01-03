@@ -5,6 +5,7 @@ package main_test
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,11 +22,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/version"
 	"storj.io/storj/versioncontrol"
 )
@@ -54,7 +56,7 @@ func TestAutoUpdater(t *testing.T) {
 	}
 
 	// build real bin with old version, will be used for both storagenode and updater
-	oldBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", oldInfo)
+	oldBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", oldInfo)
 	storagenodePath := ctx.File("fake", "storagenode.exe")
 	copyBin(ctx, t, oldBin, storagenodePath)
 
@@ -68,7 +70,7 @@ func TestAutoUpdater(t *testing.T) {
 		Version:    newSemVer,
 		Release:    false,
 	}
-	newBin := ctx.CompileWithVersion("storj.io/storj/cmd/storagenode-updater", newInfo)
+	newBin := CompileWithVersion(ctx, "storj.io/storj/cmd/storagenode-updater", newInfo)
 
 	updateBins := map[string]string{
 		"storagenode":         newBin,
@@ -126,6 +128,18 @@ func TestAutoUpdater(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, backupUpdaterInfo)
 	require.NotZero(t, backupUpdaterInfo.Size())
+}
+
+// CompileWithVersion compiles the specified package with the version variables set
+// to the passed version info values and returns the executable name.
+func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info) string {
+	ldFlagsX := map[string]string{
+		"storj.io/storj/private/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
+		"storj.io/storj/private/version.buildCommitHash": info.CommitHash,
+		"storj.io/storj/private/version.buildVersion":    info.Version.String(),
+		"storj.io/storj/private/version.buildRelease":    strconv.FormatBool(info.Release),
+	}
+	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }
 
 func move(t *testing.T, src, dst string) {
@@ -251,6 +265,10 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 
 	writer := zip.NewWriter(zipFile)
 	defer ctx.Check(writer.Close)
+
+	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, flate.NoCompression)
+	})
 
 	contents, err := writer.Create(base)
 	require.NoError(t, err)

@@ -18,11 +18,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -106,10 +106,10 @@ var (
 type Inspector struct {
 	conn           *rpc.Conn
 	identity       *identity.FullIdentity
-	overlayclient  rpc.OverlayInspectorClient
-	irrdbclient    rpc.IrreparableInspectorClient
-	healthclient   rpc.HealthInspectorClient
-	paymentsClient rpc.PaymentsClient
+	overlayclient  pb.DRPCOverlayInspectorClient
+	irrdbclient    pb.DRPCIrreparableInspectorClient
+	healthclient   pb.DRPCHealthInspectorClient
+	paymentsClient pb.DRPCPaymentsClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to overlay.
@@ -132,10 +132,10 @@ func NewInspector(address, path string) (*Inspector, error) {
 	return &Inspector{
 		conn:           conn,
 		identity:       id,
-		overlayclient:  conn.OverlayInspectorClient(),
-		irrdbclient:    conn.IrreparableInspectorClient(),
-		healthclient:   conn.HealthInspectorClient(),
-		paymentsClient: conn.PaymentsClient(),
+		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn.Raw()),
+		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn.Raw()),
+		healthclient:   pb.NewDRPCHealthInspectorClient(conn.Raw()),
+		paymentsClient: pb.NewDRPCPaymentsClient(conn.Raw()),
 	}, nil
 }
 

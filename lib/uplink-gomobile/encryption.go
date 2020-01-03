@@ -4,9 +4,9 @@
 package mobile
 
 import (
+	"storj.io/common/paths"
+	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storj"
 )
 
 // EncryptionAccess holds data about encryption keys for a bucket.

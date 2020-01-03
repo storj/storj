@@ -12,13 +12,13 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/errs2"
 )
 
 var (

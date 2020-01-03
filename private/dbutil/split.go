@@ -8,15 +8,19 @@ import (
 	"strings"
 )
 
-// SplitConnstr returns the driver and DSN portions of a URL
-func SplitConnstr(s string) (string, string, error) {
+// SplitConnStr returns the driver and DSN portions of a URL, along with the db implementation.
+func SplitConnStr(s string) (driver string, source string, implementation Implementation, err error) {
 	// consider https://github.com/xo/dburl if this ends up lacking
 	parts := strings.SplitN(s, "://", 2)
 	if len(parts) != 2 {
-		return "", "", fmt.Errorf("could not parse DB URL %s", s)
+		return "", "", Unknown, fmt.Errorf("could not parse DB URL %s", s)
 	}
-	if parts[0] == "postgres" {
-		parts[1] = s // postgres wants full URLS for its DSN
+	driver = parts[0]
+	source = parts[1]
+	implementation = ImplementationForScheme(parts[0])
+
+	if implementation == Postgres || implementation == Cockroach {
+		source = s // postgres and cockroach want full URLS for their DSNs
 	}
-	return parts[0], parts[1], nil
+	return driver, source, implementation, nil
 }

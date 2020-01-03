@@ -16,12 +16,11 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/common/encryption"
+	"storj.io/common/paths"
+	"storj.io/common/pb"
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/segments"
 )
@@ -36,26 +35,31 @@ type Meta struct {
 	Data       []byte
 }
 
-func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) int64 {
+func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) (count int64, ok bool) {
 	if streamMeta.NumberOfSegments > 0 {
-		return streamMeta.NumberOfSegments
+		return streamMeta.NumberOfSegments, true
 	}
-	return stream.DeprecatedNumberOfSegments
+	if stream != nil {
+		return stream.DeprecatedNumberOfSegments, true
+	}
+	return 0, false
 }
 
 // convertMeta converts segment metadata to stream metadata
-func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
-	return Meta{
-		Modified:   modified,
-		Expiration: expiration,
-		Size:       ((numberOfSegments(&stream, &streamMeta) - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
-		Data:       stream.Metadata,
+func convertMeta(modified, expiration time.Time, stream *pb.StreamInfo, streamMeta pb.StreamMeta) (rv Meta) {
+	rv.Modified = modified
+	rv.Expiration = expiration
+	if stream != nil {
+		if segmentCount, ok := numberOfSegments(stream, &streamMeta); ok {
+			rv.Size = (segmentCount-1)*stream.SegmentsSize + stream.LastSegmentSize
+		}
+		rv.Data = stream.Metadata
 	}
+	return rv
 }
 
 // Store interface methods for streams to satisfy to be a store
 type typedStore interface {
-	Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (Meta, error)
 	Get(ctx context.Context, path Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) error
@@ -214,7 +218,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 				return Meta{}, err
 			}
 
-			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+			paddedReader := encryption.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
 			transformedReader := encryption.TransformReader(paddedReader, encrypter, 0)
 
 			beginSegment := &metainfo.BeginSegmentParams{
@@ -450,33 +454,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, object storj.Object, p
 	return ranger.Concat(rangers...), nil
 }
 
-// Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	object, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
-		Bucket:        []byte(path.Bucket()),
-		EncryptedPath: []byte(encPath.Raw()),
-	})
-
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	var stream pb.StreamInfo
-	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
-		return Meta{}, err
-	}
-
-	return convertMeta(object.Modified, object.Expires, stream, streamMeta), nil
-}
-
 // Delete all the segments, with the last one last
 func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -625,13 +602,8 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter string, 
 			path = CreatePath(string(item.EncryptedPath), paths.Unencrypted{})
 		}
 
-		streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
+		stream, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
 		if err != nil {
-			return nil, false, err
-		}
-
-		var stream pb.StreamInfo
-		if err := proto.Unmarshal(streamInfo, &stream); err != nil {
 			return nil, false, err
 		}
 
@@ -728,7 +700,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 	if err != nil {
 		return nil, err
 	}
-	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+	return encryption.Unpad(rd, int(rd.Size()-decryptedSize))
 }
 
 // CancelHandler handles clean up of segments on receiving CTRL+C
@@ -757,12 +729,16 @@ func getEncryptedKeyAndNonce(m *pb.SegmentMeta) (storj.EncryptedPrivateKey, *sto
 
 // TypedDecryptStreamInfo decrypts stream info
 func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Path, encStore *encryption.Store) (
-	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
+	_ *pb.StreamInfo, streamMeta pb.StreamMeta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = proto.Unmarshal(streamMetaBytes, &streamMeta)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err
+	}
+
+	if encStore.EncryptionBypass {
+		return nil, streamMeta, nil
 	}
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
@@ -778,6 +754,15 @@ func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Pa
 	}
 
 	// decrypt metadata with the content encryption key and zero nonce
-	streamInfo, err = encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
-	return streamInfo, streamMeta, err
+	streamInfo, err := encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
+	if err != nil {
+		return nil, pb.StreamMeta{}, err
+	}
+
+	var stream pb.StreamInfo
+	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
+		return nil, pb.StreamMeta{}, err
+	}
+
+	return &stream, streamMeta, nil
 }

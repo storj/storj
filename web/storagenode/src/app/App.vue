@@ -3,21 +3,42 @@
 
 <template>
     <div id="app">
-        <router-view/>
+        <div class="container">
+            <SNOHeader/>
+            <router-view/>
+            <SNOFooter/>
+        </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-@Component
+import SNOFooter from '@/app/components/SNOFooter.vue';
+import SNOHeader from '@/app/components/SNOHeader.vue';
+
+@Component({
+    components: {
+        SNOHeader,
+        SNOFooter,
+    },
+})
 export default class App extends Vue {}
 </script>
 
 <style lang="scss">
     body {
         margin: 0 !important;
+        position: relative;
         font-family: 'font_regular', sans-serif;
+    }
+
+    .container {
+        background-color: #f4f6f9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
 
     @font-face {

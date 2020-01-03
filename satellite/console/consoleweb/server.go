@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/referrals"
 )
 
 const (
@@ -62,12 +63,14 @@ type Config struct {
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
 }
 
 // Server represents console web server
@@ -76,9 +79,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
+	config           Config
+	service          *console.Service
+	mailService      *mailservice.Service
+	referralsService *referrals.Service
 
 	listener net.Listener
 	server   http.Server
@@ -98,14 +102,15 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
-		log:             logger,
-		config:          config,
-		listener:        listener,
-		service:         service,
-		mailService:     mailService,
-		stripePublicKey: stripePublicKey,
+		log:              logger,
+		config:           config,
+		listener:         listener,
+		service:          service,
+		mailService:      mailService,
+		referralsService: referralsService,
+		stripePublicKey:  stripePublicKey,
 	}
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
@@ -124,6 +129,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	router.Handle(
+		"/api/v0/projects/{id}/usage-limits",
+		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
+	).Methods(http.MethodGet)
+
+	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
+	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
+	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
+	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -153,7 +168,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
-		router.HandleFunc("/usage-report/", server.bucketUsageReportHandler)
+		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
@@ -206,21 +221,26 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"script-src 'self' *.stripe.com cdn.segment.com",
+		"connect-src 'self' api.segment.io",
+		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data:",
+		"img-src 'self' data: *.customer.io",
+		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName   string
-		StripePublicKey string
+		SatelliteName      string
+		SegmentIOPublicKey string
+		StripePublicKey    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
@@ -429,20 +449,59 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-func (server *Server) serveError(w http.ResponseWriter, status int) {
-	w.WriteHeader(status)
+// projectUsageLimitsHandler api handler for project usage limits.
+func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.Request) {
+	err := error(nil)
+	ctx := r.Context()
 
-	switch status {
-	case http.StatusInternalServerError:
-		err := server.templates.internalServerError.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	handleError := func(code int, err error) {
+		w.WriteHeader(code)
+
+		var jsonError struct {
+			Error string `json:"error"`
 		}
-	default:
-		err := server.templates.notFound.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+
+		jsonError.Error = err.Error()
+
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			server.log.Error("error encoding project usage limits error", zap.Error(err))
 		}
+	}
+
+	handleServiceError := func(err error) {
+		switch {
+		case console.ErrUnauthorized.Has(err):
+			handleError(http.StatusUnauthorized, err)
+		default:
+			handleError(http.StatusInternalServerError, err)
+		}
+	}
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		handleError(http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	projectID, err := uuid.Parse(idParam)
+	if err != nil {
+		handleError(http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		return
+	}
+
+	limits, err := server.service.GetProjectUsageLimits(ctx, *projectID)
+	if err != nil {
+		handleServiceError(err)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(limits); err != nil {
+		server.log.Error("error encoding project usage limits", zap.Error(err))
+		return
 	}
 }
 
@@ -495,6 +554,24 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 
 	sugar := server.log.Sugar()
 	sugar.Debug(result)
+}
+
+// serveError serves error static pages.
+func (server *Server) serveError(w http.ResponseWriter, status int) {
+	w.WriteHeader(status)
+
+	switch status {
+	case http.StatusInternalServerError:
+		err := server.templates.internalServerError.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+		}
+	default:
+		err := server.templates.notFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
+	}
 }
 
 // seoHandler used to communicate with web crawlers and other web robots

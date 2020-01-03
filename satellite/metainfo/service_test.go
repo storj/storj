@@ -9,15 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink"
 )
 
 func TestIterate(t *testing.T) {
@@ -67,11 +66,12 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		path := "test/path"
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  1,
-			SuccessThreshold: 2,
-			MaxThreshold:     2,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   1,
+			OptimalShares:  2,
+			TotalShares:    2,
 		}
 
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "test1", path, testrand.Bytes(5*memory.KiB))

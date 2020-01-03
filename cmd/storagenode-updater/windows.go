@@ -12,18 +12,21 @@
 package main
 
 import (
-	"log"
 	"os"
 	"time"
 
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
+
+	"storj.io/storj/pkg/process"
 )
 
 func init() {
 	// Check if session is interactive
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		panic("Failed to determine if session is interactive:" + err.Error())
+		zap.S().Fatalf("Failed to determine if session is interactive: %v", err)
 	}
 
 	if interactive {
@@ -42,7 +45,7 @@ func init() {
 	// Initialize the Windows Service handler
 	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
-		panic("Service failed: " + err.Error())
+		zap.S().Fatalf("Service failed: %v", err)
 	}
 	// avoid starting main() when service was stopped
 	os.Exit(0)
@@ -55,34 +58,33 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.StartPending}
 
-	go func() {
-		err := rootCmd.Execute()
-		if err != nil {
-			os.Exit(1)
-		}
-	}()
+	var group errgroup.Group
+	group.Go(func() error {
+		process.Exec(rootCmd)
+		return nil
+	})
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
-			log.Println("Interrogate request received.")
+			zap.S().Info("Interrogate request received.")
 			changes <- c.CurrentStatus
 			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
 			time.Sleep(100 * time.Millisecond)
 			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
-			log.Println("Stop/Shutdown request received.")
+			zap.S().Info("Stop/Shutdown request received.")
 			changes <- svc.Status{State: svc.StopPending}
-
+			// Cancel the command's root context to cleanup resources
+			_, cancel := process.Ctx(runCmd)
 			cancel()
-			// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
-			time.Sleep(3 * time.Second)
+			_ = group.Wait() // process.Exec does not return an error
 			// After returning the Windows Service is stopped and the process terminates
 			return
 		default:
-			log.Println("Unexpected control request:", c)
+			zap.S().Infof("Unexpected control request: %d\n", c)
 		}
 	}
 	return

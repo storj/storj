@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/sqliteutil"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestQuery(t *testing.T) {

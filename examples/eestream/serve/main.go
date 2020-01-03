@@ -19,9 +19,9 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -84,7 +84,7 @@ func Main() error {
 		return err
 	}
 	ctx := context.Background()
-	rr, err = eestream.UnpadSlow(ctx, rr)
+	rr, err = encryption.UnpadSlow(ctx, rr)
 	if err != nil {
 		return err
 	}

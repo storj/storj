@@ -8,16 +8,15 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/encryption"
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/segments"
 )
 
 // Store interface methods for streams to satisfy to be a store
 type Store interface {
-	Meta(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) (Meta, error)
 	Get(ctx context.Context, path storj.Path, object storj.Object, pathCipher storj.CipherSuite) (ranger.Ranger, error)
 	Put(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) error
@@ -35,13 +34,6 @@ func NewStreamStore(metainfo *metainfo.Client, segments segments.Store, segmentS
 		return nil, err
 	}
 	return &shimStore{store: typedStore}, nil
-}
-
-// Meta parses the passed in path and dispatches to the typed store.
-func (s *shimStore) Meta(ctx context.Context, path storj.Path, pathCipher storj.CipherSuite) (_ Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return s.store.Meta(ctx, ParsePath(path), pathCipher)
 }
 
 // Get parses the passed in path and dispatches to the typed store.

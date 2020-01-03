@@ -9,12 +9,13 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 	"unsafe"
 
+	"storj.io/common/errs2"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
 )
 
 // Object is a scoped uplink.Object
@@ -72,8 +73,19 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 
 	checksumLen := len(object.Meta.Checksum)
 	checksumPtr := C.malloc(C.size_t(checksumLen))
-	checksum := (*[1 << 30]uint8)(checksumPtr)
-	copy((*checksum)[:], object.Meta.Checksum)
+	if checksumPtr == nil {
+		*cErr = C.CString("unable to allocate")
+		return C.ObjectMeta{}
+	}
+
+	checksum := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(checksumPtr),
+			Len:  checksumLen,
+			Cap:  checksumLen,
+		},
+	))
+	copy(checksum, object.Meta.Checksum)
 
 	return C.ObjectMeta{
 		bucket:          C.CString(object.Meta.Bucket),
@@ -92,7 +104,7 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 // Upload stores writecloser and context scope for uploading
 type Upload struct {
 	scope
-	wc io.WriteCloser // 🚽
+	wc io.WriteCloser
 }
 
 //export upload
@@ -137,6 +149,12 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
+	ilength, ok := safeConvertToInt(length)
+	if !ok || ilength < 0 {
+		*cErr = C.CString("invalid length: too large or negative")
+		return C.size_t(0)
+	}
+
 	if err := upload.ctx.Err(); err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
@@ -144,7 +162,13 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
-	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bytes)),
+			Len:  ilength,
+			Cap:  ilength,
+		},
+	))
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
@@ -217,7 +241,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 			Delimiter: rune(cListOpts.delimiter),
 			Recursive: bool(cListOpts.recursive),
 			Direction: storj.ListDirection(cListOpts.direction),
-			Limit:     int(cListOpts.limit),
+			Limit:     int(cListOpts.limit), // sadly this is an int64_t
 		}
 	}
 
@@ -226,23 +250,38 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return cObjList
 	}
-	objListLen := len(objectList.Items)
 
-	objectSize := int(C.sizeof_ObjectInfo)
-	ptr := C.malloc(C.size_t(objectSize * objListLen))
-	cObjectsPtr := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(ptr)
+	listLen := len(objectList.Items)
+	if C.size_t(listLen) > C.SIZE_MAX/C.sizeof_ObjectInfo || int(int32(listLen)) != listLen {
+		*cErr = C.CString("elements too large to be allocated")
+		return cObjList
+	}
+
+	itemsPtr := C.calloc(C.size_t(listLen), C.sizeof_ObjectInfo)
+	if itemsPtr == nil {
+		*cErr = C.CString("unable to allocate")
+		return cObjList
+	}
+
+	items := *(*[]C.ObjectInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(itemsPtr),
+			Len:  listLen,
+			Cap:  listLen,
+		},
+	))
 
 	for i, object := range objectList.Items {
 		object := object
-		cObjectsPtr[i] = newObjectInfo(&object)
+		items[i] = newObjectInfo(&object)
 	}
 
 	return C.ObjectList{
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more:   C.bool(objectList.More),
-		items:  (*C.ObjectInfo)(unsafe.Pointer(cObjectsPtr)),
-		length: C.int32_t(objListLen),
+		items:  (*C.ObjectInfo)(itemsPtr),
+		length: C.int32_t(listLen),
 	}
 }
 
@@ -278,6 +317,31 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 	})}
 }
 
+//export download_range
+// download_range returns an Object's data from specified range
+func download_range(bucketRef C.BucketRef, path *C.char, start, limit int64, cErr **C.char) C.DownloaderRef {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return C.DownloaderRef{}
+	}
+
+	scope := bucket.scope.child()
+
+	rc, err := bucket.DownloadRange(scope.ctx, C.GoString(path), start, limit)
+	if err != nil {
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return C.DownloaderRef{}
+	}
+
+	return C.DownloaderRef{universe.Add(&Download{
+		scope: scope,
+		rc:    rc,
+	})}
+}
+
 //export download_read
 // download_read reads data upto `length` bytes into `bytes` buffer and returns
 // the count of bytes read. The exact number of bytes returned depends on different
@@ -291,6 +355,12 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
+	ilength, ok := safeConvertToInt(length)
+	if !ok || ilength < 0 {
+		*cErr = C.CString("invalid length: too large or negative")
+		return C.size_t(0)
+	}
+
 	if err := download.ctx.Err(); err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
@@ -298,7 +368,13 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
-	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := *(*[]byte)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bytes)),
+			Len:  ilength,
+			Cap:  ilength,
+		},
+	))
 
 	n, err := download.rc.Read(buf)
 	if err != nil && err != io.EOF && !errs2.IsCanceled(err) {
@@ -396,6 +472,7 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 
 	C.free(unsafe.Pointer(objectMeta.checksum_bytes))
 	objectMeta.checksum_bytes = nil
+	objectMeta.checksum_length = 0
 }
 
 //export free_object_info
@@ -420,9 +497,17 @@ func free_list_objects(objectList *C.ObjectList) {
 	C.free(unsafe.Pointer(objectList.prefix))
 	objectList.prefix = nil
 
-	items := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(unsafe.Pointer(objectList.items))[:objectList.length]
-	for _, item := range items {
-		item := item
-		free_object_info((*C.ObjectInfo)(unsafe.Pointer(&item)))
+	items := *(*[]C.ObjectInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(objectList.items)),
+			Len:  int(objectList.length), // int32_t => int is safe
+			Cap:  int(objectList.length), // int32_t => int is safe
+		},
+	))
+	for i := range items {
+		free_object_info(&items[i])
 	}
+	C.free(unsafe.Pointer(objectList.items))
+	objectList.items = nil
+	objectList.length = 0
 }

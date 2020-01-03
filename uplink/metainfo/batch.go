@@ -6,7 +6,7 @@ package metainfo
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 )
 
 var (

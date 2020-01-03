@@ -9,8 +9,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
 )
 
 // RollupStats is a convenience alias
@@ -158,10 +158,17 @@ type ProjectAccounting interface {
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
-	// GetProjectUsageLimits returns project usage limit
-	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	// UpdateProjectUsageLimit updates project usage limit.
+	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
+	// GetProjectStorageLimit returns project storage usage limit.
+	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	// GetProjectBandwidthLimit returns project bandwidth usage limit.
+	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
+	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 }
 

@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -144,10 +144,11 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 
 		resp.Progress = append(resp.Progress,
 			&pb.ExitProgress{
-				DomainName:      domain,
-				NodeId:          progress.SatelliteID,
-				PercentComplete: percentCompleted,
-				Successful:      hasCompleted,
+				DomainName:        domain,
+				NodeId:            progress.SatelliteID,
+				PercentComplete:   percentCompleted,
+				Successful:        hasCompleted,
+				CompletionReceipt: progress.CompletionReceipt,
 			},
 		)
 	}

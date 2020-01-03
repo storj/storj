@@ -11,23 +11,23 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jbenet/go-base58"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/storj/cmd/internal/wizard"
+	"storj.io/storj/cmd/uplink/cmd"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/uplink"
 )
 
 // GatewayFlags configuration flags
@@ -37,9 +37,11 @@ type GatewayFlags struct {
 	Server miniogw.ServerConfig
 	Minio  miniogw.MinioConfig
 
-	uplink.Config
+	cmd.Config
 
 	Version checker.Config
+
+	PBKDFConcurrency int `help:"Unfortunately, up until v0.26.2, keys generated from passphrases depended on the number of cores the local CPU had. If you entered a passphrase with v0.26.2 earlier, you'll want to set this number to the number of CPU cores your computer had at the time. This flag may go away in the future. For new installations the default value is highly recommended." default:"0"`
 }
 
 var (
@@ -251,6 +253,7 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
 	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
+	libuplinkCfg.Volatile.PBKDFConcurrency = flags.PBKDFConcurrency
 
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }

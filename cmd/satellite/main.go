@@ -9,18 +9,18 @@ import (
 	"os"
 	"path/filepath"
 	"text/tabwriter"
-	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
@@ -78,23 +78,31 @@ var (
 	nodeUsageCmd = &cobra.Command{
 		Use:   "storagenode-usage [start] [end]",
 		Short: "Generate a node usage report for a given period to use for payments",
-		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
 		Use:   "partner-attribution [partner ID] [start] [end]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
-		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
 	gracefulExitCmd = &cobra.Command{
 		Use:   "graceful-exit [start] [end]",
 		Short: "Generate a graceful exit report",
-		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdGracefulExit,
+	}
+
+	verifyGracefulExitReceiptCmd = &cobra.Command{
+		Use:   "verify-exit-receipt [storage node ID] [receipt]",
+		Short: "Verify a graceful exit receipt",
+		Long:  "Verify a graceful exit receipt is valid.",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  cmdVerifyGracefulExitReceipt,
 	}
 
 	runCfg   Satellite
@@ -113,9 +121,11 @@ var (
 		Output   string `help:"destination of report output" default:""`
 	}
 	gracefulExitCfg struct {
-		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output    string `help:"destination of report output" default:""`
 		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
+	}
+	verifyGracefulExitReceiptCfg struct {
 	}
 	confDir     string
 	identityDir string
@@ -137,6 +147,7 @@ func init() {
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
+	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -145,6 +156,7 @@ func init() {
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -167,7 +179,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -175,7 +187,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -232,6 +244,17 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
+
+	// There should be an explicit CreateTables call for the pointerdb as well.
+	// This is tracked in jira ticket #3337.
+	pdb, err := metainfo.NewStore(log.Named("db migration"), runCfg.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, pdb.Close())
+	}()
+
 	return nil
 }
 
@@ -287,25 +310,29 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
+func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	// Check the node ID is valid
+	nodeID, err := storj.NodeIDFromString(args[0])
+	if err != nil {
+		return errs.Combine(err, errs.New("Invalid node ID."))
+	}
+
+	return verifyGracefulExitReceipt(ctx, identity, nodeID, args[1])
+}
+
 func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	// adding one day to properly account for the entire end day
-	end = end.AddDate(0, 0, 1)
-
-	// ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout
@@ -329,22 +356,9 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[0])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[1])
-	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
-	}
-
-	//Adding one day to properly account for the entire end day
-	end = end.Add(time.Hour * 24)
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout
@@ -374,19 +388,9 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
 	}
 
-	layout := "2006-01-02"
-	start, err := time.Parse(layout, args[1])
+	start, end, err := reports.ParseRange(args[1], args[2])
 	if err != nil {
-		return errs.New("Invalid start date format. Please use YYYY-MM-DD")
-	}
-	end, err := time.Parse(layout, args[2])
-	if err != nil {
-		return errs.New("Invalid end date format. Please use YYYY-MM-DD")
-	}
-
-	// Ensure that start date is not after end date
-	if start.After(end) {
-		return errs.New("Invalid time period (%v) - (%v)", start, end)
+		return err
 	}
 
 	// send output to stdout

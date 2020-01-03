@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 )
 
 // BufferedUpload implements buffering for an Upload.

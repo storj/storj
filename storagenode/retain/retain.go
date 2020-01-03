@@ -14,8 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/bloomfilter"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -28,8 +28,8 @@ var (
 
 // Config defines parameters for the retain service.
 type Config struct {
-	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"24h0m0s"`
-	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"72h0m0s"`
+	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"enabled"`
 	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 }
 
@@ -385,7 +385,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 
 			// if retain status is enabled, delete pieceid
 			if s.config.Status == Enabled {
-				if err = s.store.Delete(ctx, satelliteID, pieceID); err != nil {
+				if err = s.store.Trash(ctx, satelliteID, pieceID); err != nil {
 					s.log.Warn("failed to delete piece",
 						zap.Stringer("Satellite ID", satelliteID),
 						zap.Stringer("Piece ID", pieceID),

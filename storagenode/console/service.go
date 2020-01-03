@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
@@ -120,8 +120,9 @@ type Dashboard struct {
 	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
 	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
-	Version  version.SemVer `json:"version"`
-	UpToDate bool           `json:"upToDate"`
+	Version        version.SemVer `json:"version"`
+	AllowedVersion version.SemVer `json:"allowedVersion"`
+	UpToDate       bool           `json:"upToDate"`
 
 	StartedAt time.Time `json:"startedAt"`
 }
@@ -134,10 +135,10 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
-	data.UpToDate = s.version.IsAllowed(ctx)
 	data.StartedAt = s.startedAt
 
 	data.LastPinged = s.pingStats.WhenLastPinged()
+	data.AllowedVersion, data.UpToDate = s.version.IsAllowed(ctx)
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
@@ -189,6 +190,8 @@ type Satellite struct {
 	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
 	StorageSummary   float64                 `json:"storageSummary"`
 	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	EgressSummary    int64                   `json:"egressSummary"`
+	IngressSummary   int64                   `json:"ingressSummary"`
 	Audit            reputation.Metric       `json:"audit"`
 	Uptime           reputation.Metric       `json:"uptime"`
 }
@@ -213,6 +216,16 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	egressSummary, err := s.bandwidthDB.SatelliteEgressSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	ingressSummary, err := s.bandwidthDB.SatelliteIngressSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	storageSummary, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
@@ -229,6 +242,8 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		BandwidthDaily:   bandwidthDaily,
 		StorageSummary:   storageSummary,
 		BandwidthSummary: bandwidthSummary.Total(),
+		EgressSummary:    egressSummary.Total(),
+		IngressSummary:   ingressSummary.Total(),
 		Audit:            rep.Audit,
 		Uptime:           rep.Uptime,
 	}, nil
@@ -240,6 +255,8 @@ type Satellites struct {
 	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
 	StorageSummary   float64                 `json:"storageSummary"`
 	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	EgressSummary    int64                   `json:"egressSummary"`
+	IngressSummary   int64                   `json:"ingressSummary"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -263,6 +280,16 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	egressSummary, err := s.bandwidthDB.EgressSummary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	ingressSummary, err := s.bandwidthDB.IngressSummary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	storageSummary, err := s.storageUsageDB.Summary(ctx, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
@@ -273,6 +300,8 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		BandwidthDaily:   bandwidthDaily,
 		StorageSummary:   storageSummary,
 		BandwidthSummary: bandwidthSummary.Total(),
+		EgressSummary:    egressSummary.Total(),
+		IngressSummary:   ingressSummary.Total(),
 	}, nil
 }
 

@@ -8,7 +8,8 @@
                 <component :is="cardIcon"></component>
             </div>
             <div class="payment-methods-container__card-container__info-area__info-container">
-                <h1 class="bold">**** **** **** {{creditCard.last4}}</h1>
+                <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image">
+                <h1 class="bold">{{creditCard.last4}}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
                 <h2 class="medium">Expires</h2>
@@ -19,7 +20,7 @@
             <div class="payment-methods-container__card-container__default-button" v-if="creditCard.isDefault">
                 <p class="payment-methods-container__card-container__default-button__label">Default</p>
             </div>
-            <div class="payment-methods-container__card-container__dots-container">
+            <div class="payment-methods-container__card-container__dots-container" v-else>
                 <div @click.stop="toggleSelection">
                     <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="4" height="4" rx="2" fill="#354049"/>
@@ -148,6 +149,7 @@ export default class CardComponent extends Vue {
                 align-items: center;
                 justify-content: space-between;
                 width: auto;
+                min-width: 165px;
                 margin-left: 15px;
             }
 
@@ -194,5 +196,9 @@ export default class CardComponent extends Vue {
             cursor: pointer;
             position: relative;
         }
+    }
+
+    .discover-svg-path {
+        max-width: 80px;
     }
 </style>

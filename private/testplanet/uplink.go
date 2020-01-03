@@ -17,16 +17,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/identity"
+	"storj.io/common/macaroon"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/storj/cmd/uplink/cmd"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -149,7 +150,7 @@ func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey)
+	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey, "Test/1.0")
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
@@ -169,28 +170,28 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
-func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
 	config := client.GetConfig(satellite)
 	if redundancy != nil {
-		if redundancy.MinThreshold > 0 {
-			config.RS.MinThreshold = redundancy.MinThreshold
+		if redundancy.RequiredShares > 0 {
+			config.RS.MinThreshold = int(redundancy.RequiredShares)
 		}
-		if redundancy.RepairThreshold > 0 {
-			config.RS.RepairThreshold = redundancy.RepairThreshold
+		if redundancy.RepairShares > 0 {
+			config.RS.RepairThreshold = int(redundancy.RepairShares)
 		}
-		if redundancy.SuccessThreshold > 0 {
-			config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		if redundancy.OptimalShares > 0 {
+			config.RS.SuccessThreshold = int(redundancy.OptimalShares)
 		}
-		if redundancy.MaxThreshold > 0 {
-			config.RS.MaxThreshold = redundancy.MaxThreshold
+		if redundancy.TotalShares > 0 {
+			config.RS.MaxThreshold = int(redundancy.TotalShares)
 		}
-		if redundancy.ErasureShareSize > 0 {
-			config.RS.ErasureShareSize = redundancy.ErasureShareSize
+		if redundancy.ShareSize > 0 {
+			config.RS.ErasureShareSize = memory.Size(redundancy.ShareSize)
 		}
 	}
 
@@ -214,7 +215,7 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 }
 
 // UploadWithClientConfig uploads data to specific satellite with custom client configuration
-func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *SatelliteSystem, clientConfig uplink.Config, bucketName string, path storj.Path, data []byte) (err error) {
+func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *SatelliteSystem, clientConfig cmd.Config, bucketName string, path storj.Path, data []byte) (err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, clientConfig)
 	if err != nil {
 		return err
@@ -335,7 +336,7 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *SatelliteSyst
 }
 
 // GetConfig returns a default config for a given satellite.
-func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
+func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 	config := getDefaultConfig()
 
 	// client.APIKey[satellite.ID()] is a *macaroon.APIKey, but we want a
@@ -377,8 +378,8 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
 	return config
 }
 
-func getDefaultConfig() uplink.Config {
-	config := uplink.Config{}
+func getDefaultConfig() cmd.Config {
+	config := cmd.Config{}
 	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	return config
 }
@@ -427,7 +428,7 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *SatelliteSystem
 }
 
 // GetProjectAndBucket returns a libuplink.Project and Bucket which allows interactions with a specific project and its buckets
-func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string, clientCfg uplink.Config) (_ *libuplink.Project, _ *libuplink.Bucket, err error) {
+func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string, clientCfg cmd.Config) (_ *libuplink.Project, _ *libuplink.Bucket, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
 		return nil, nil, err
@@ -463,7 +464,7 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *Satell
 	return project, bucket, nil
 }
 
-func createBucket(ctx context.Context, config uplink.Config, project libuplink.Project, bucketName string) error {
+func createBucket(ctx context.Context, config cmd.Config, project libuplink.Project, bucketName string) error {
 	bucketCfg := &libuplink.BucketConfig{}
 	bucketCfg.PathCipher = config.GetPathCipherSuite()
 	bucketCfg.EncryptionParameters = config.GetEncryptionParameters()

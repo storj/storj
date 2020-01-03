@@ -9,52 +9,97 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
+	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// loadSnapshots loads all the dbschemas from testdata/postgres.* caching the result
-func loadSnapshots(connstr string) (*dbschema.Snapshots, error) {
+// loadSnapshots loads all the dbschemas from testdata/postgres.*
+func loadSnapshots(connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
 	// find all postgres sql files
 	matches, err := filepath.Glob("testdata/postgres.*")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	for _, match := range matches {
-		versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
-		version, err := strconv.Atoi(versionStr)
-		if err != nil {
-			return nil, err
-		}
+	snapshots.List = make([]*dbschema.Snapshot, len(matches))
+	var group errgroup.Group
+	for i, match := range matches {
+		i, match := i, match
+		group.Go(func() error {
+			versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
+			version, err := strconv.Atoi(versionStr)
+			if err != nil {
+				return errs.New("invalid testdata file %q: %v", match, err)
+			}
 
-		scriptData, err := ioutil.ReadFile(match)
-		if err != nil {
-			return nil, err
-		}
+			scriptData, err := ioutil.ReadFile(match)
+			if err != nil {
+				return errs.New("could not read testdata file for version %d: %v", version, err)
+			}
 
-		snapshot, err := pgutil.LoadSnapshotFromSQL(connstr, string(scriptData))
-		if err != nil {
-			return nil, fmt.Errorf("Version %d error: %+v", version, err)
-		}
-		snapshot.Version = version
+			snapshot, err := loadSnapshotFromSQL(connstr, string(scriptData))
+			if err != nil {
+				if pqErr, ok := err.(*pq.Error); ok && pqErr.Detail != "" {
+					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pqErr, pqErr.Detail, pqErr.Hint)
+				}
+				return fmt.Errorf("Version %d error: %+v", version, err)
+			}
+			snapshot.Version = version
 
-		snapshots.Add(snapshot)
+			snapshots.List[i] = snapshot
+			return nil
+		})
+	}
+	var dbschema *dbschema.Schema
+	group.Go(func() error {
+		var err error
+		dbschema, err = loadSchemaFromSQL(connstr, dbxscript)
+		return err
+	})
+	if err := group.Wait(); err != nil {
+		return nil, nil, err
 	}
 
 	snapshots.Sort()
 
-	return snapshots, nil
+	return snapshots, dbschema, nil
+}
+
+// loadSnapshotFromSQL inserts script into connstr and loads schema.
+func loadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
+	db, err := tempdb.OpenUnique(connstr, "load-schema")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, db.Close()) }()
+
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot, err := pgutil.QuerySnapshot(db)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot.Script = script
+	return snapshot, nil
 }
 
 const newDataSeparator = `-- NEW DATA --`
@@ -67,114 +112,96 @@ func newData(snap *dbschema.Snapshot) string {
 	return tokens[1]
 }
 
-var (
-	dbxschema struct {
-		sync.Once
-		*dbschema.Schema
-		err error
+// loadSchemaFromSQL inserts script into connstr and loads schema.
+func loadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
+	db, err := tempdb.OpenUnique(connstr, "load-schema")
+	if err != nil {
+		return nil, err
 	}
-)
+	defer func() { err = errs.Combine(err, db.Close()) }()
 
-// loadDBXSChema loads dbxscript schema only once and caches it,
-// it shouldn't change during the test
-func loadDBXSchema(connstr, dbxscript string) (*dbschema.Schema, error) {
-	dbxschema.Do(func() {
-		dbxschema.Schema, dbxschema.err = pgutil.LoadSchemaFromSQL(connstr, dbxscript)
-	})
-	return dbxschema.Schema, dbxschema.err
+	_, err = db.Exec(script)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgutil.QuerySchema(db)
 }
-
-const (
-	minBaseVersion = 0
-	maxBaseVersion = 4
-)
 
 func TestMigratePostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
 	}
+	t.Parallel()
+	pgMigrateTest(t, *pgtest.ConnStr)
+}
 
-	snapshots, err := loadSnapshots(*pgtest.ConnStr)
+// satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
+// instance, since that type is not exported.
+type satelliteDB interface {
+	TestDBAccess() *dbx.DB
+	PostgresMigration() *migrate.Migration
+}
+
+func pgMigrateTest(t *testing.T, connStr string) {
+	log := zaptest.NewLogger(t)
+
+	// create tempDB
+	tempDB, err := tempdb.OpenUnique(connStr, "migrate")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tempDB.Close()) }()
+
+	// create a new satellitedb connection
+	db, err := satellitedb.New(log, tempDB.ConnStr)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
+
+	// we need raw database access unfortunately
+	rawdb := db.(satelliteDB).TestDBAccess()
+
+	snapshots, dbxschema, err := loadSnapshots(connStr, rawdb.Schema())
 	require.NoError(t, err)
 
-	for _, snapshot := range snapshots.List {
-		base := snapshot
-		// versions 0 to 4 can be a starting point
-		if base.Version < minBaseVersion || maxBaseVersion < base.Version {
-			continue
+	var finalSchema *dbschema.Schema
+
+	// get migration for this database
+	migrations := db.(satelliteDB).PostgresMigration()
+	for i, step := range migrations.Steps {
+		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
+
+		// run migration up to a specific version
+		err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
+		require.NoError(t, err, tag)
+
+		// find the matching expected version
+		expected, ok := snapshots.FindVersion(step.Version)
+		require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
+
+		// insert data for new tables
+		if newdata := newData(expected); newdata != "" {
+			_, err = rawdb.Exec(newdata)
+			require.NoError(t, err, tag)
 		}
 
-		t.Run(strconv.Itoa(base.Version), func(t *testing.T) {
-			log := zaptest.NewLogger(t)
-			schemaName := "migrate/satellite/" + strconv.Itoa(base.Version) + pgutil.CreateRandomTestingSchemaName(8)
-			connstr := pgutil.ConnstrWithSchema(*pgtest.ConnStr, schemaName)
+		// load schema from database
+		currentSchema, err := pgutil.QuerySchema(rawdb)
+		require.NoError(t, err, tag)
 
-			// create a new satellitedb connection
-			db, err := satellitedb.New(log, connstr)
-			require.NoError(t, err)
-			defer func() { require.NoError(t, db.Close()) }()
+		// we don't care changes in versions table
+		currentSchema.DropTable("versions")
 
-			// setup our own schema to avoid collisions
-			require.NoError(t, db.CreateSchema(schemaName))
-			defer func() { require.NoError(t, db.DropSchema(schemaName)) }()
+		// load data from database
+		currentData, err := pgutil.QueryData(rawdb, currentSchema)
+		require.NoError(t, err, tag)
 
-			// we need raw database access unfortunately
-			rawdb := db.(*satellitedb.DB).TestDBAccess()
+		// verify schema and data
+		require.Equal(t, expected.Schema, currentSchema, tag)
+		require.Equal(t, expected.Data, currentData, tag)
 
-			// insert the base data into postgres
-			_, err = rawdb.Exec(base.Script)
-			require.NoError(t, err)
-
-			var finalSchema *dbschema.Schema
-
-			// get migration for this database
-			migrations := db.(*satellitedb.DB).PostgresMigration()
-			for i, step := range migrations.Steps {
-				// the schema is different when migration step is before the step, cannot test the layout
-				if step.Version < base.Version {
-					continue
-				}
-
-				tag := fmt.Sprintf("#%d - v%d", i, step.Version)
-
-				// run migration up to a specific version
-				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
-				require.NoError(t, err, tag)
-
-				// find the matching expected version
-				expected, ok := snapshots.FindVersion(step.Version)
-				require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
-
-				// insert data for new tables
-				if newdata := newData(expected); newdata != "" && step.Version > base.Version {
-					_, err = rawdb.Exec(newdata)
-					require.NoError(t, err, tag)
-				}
-
-				// load schema from database
-				currentSchema, err := pgutil.QuerySchema(rawdb)
-				require.NoError(t, err, tag)
-
-				// we don't care changes in versions table
-				currentSchema.DropTable("versions")
-
-				// load data from database
-				currentData, err := pgutil.QueryData(rawdb, currentSchema)
-				require.NoError(t, err, tag)
-
-				// verify schema and data
-				require.Equal(t, expected.Schema, currentSchema, tag)
-				require.Equal(t, expected.Data, currentData, tag)
-
-				// keep the last version around
-				finalSchema = currentSchema
-			}
-
-			// verify that we also match the dbx version
-			dbxschema, err := loadDBXSchema(*pgtest.ConnStr, rawdb.Schema())
-			require.NoError(t, err)
-
-			require.Equal(t, dbxschema, finalSchema, "dbx")
-		})
+		// keep the last version around
+		finalSchema = currentSchema
 	}
+
+	// verify that we also match the dbx version
+	require.Equal(t, dbxschema, finalSchema, "dbx")
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/private/testrand"
+	"storj.io/common/testrand"
 )
 
 func TestClaims(t *testing.T) {

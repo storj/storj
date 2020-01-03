@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -48,9 +49,9 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 // Insert is a method for inserting user into the database
 func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	userID, err := uuid.New()
-	if err != nil {
-		return nil, err
+
+	if user.ID.IsZero() {
+		return nil, errs.New("user id is not set")
 	}
 
 	optional := dbx.User_Create_Fields{
@@ -61,7 +62,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	}
 
 	createdUser, err := users.db.Create_User(ctx,
-		dbx.User_Id(userID[:]),
+		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
 		dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		dbx.User_FullName(user.FullName),
@@ -122,7 +123,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		return nil, errs.New("user parameter is nil")
 	}
 
-	id, err := bytesToUUID(user.Id)
+	id, err := dbutil.BytesToUUID(user.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	if user.PartnerId != nil {
-		result.PartnerID, err = bytesToUUID(user.PartnerId)
+		result.PartnerID, err = dbutil.BytesToUUID(user.PartnerId)
 		if err != nil {
 			return nil, err
 		}

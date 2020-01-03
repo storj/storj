@@ -16,6 +16,8 @@ exports[`ApiKeysItem.vue renders correctly 1`] = `
       <p class="name"></p>
     </div>
   </div>
-  <p class="date"></p>
+  <div class="apikey-item-container__common-info">
+    <p class="date"></p>
+  </div>
 </div>
 `;
