@@ -91,6 +91,9 @@ type DB interface {
 	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
 	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
 	GetOfflineNodesLimited(ctx context.Context, limit int) ([]NodeLastContact, error)
+
+	// DisqualifyNode disqualifies a storage node.
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -471,6 +474,12 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 		}
 	}
 	return missingPieces, nil
+}
+
+// DisqualifyNode disqualifies a storage node.
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.DisqualifyNode(ctx, nodeID)
 }
 
 func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {

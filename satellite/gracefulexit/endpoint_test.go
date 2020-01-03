@@ -380,6 +380,10 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 			require.NotNil(t, m)
 			require.NotNil(t, m.ExitFailed)
 			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+
+			node, err := satellite.DB.OverlayCache().Get(ctx, m.ExitFailed.NodeId)
+			require.NoError(t, err)
+			require.NotNil(t, node.Disqualified)
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
@@ -573,6 +577,10 @@ func TestFailureHashMismatch(t *testing.T) {
 			require.NotNil(t, m)
 			require.NotNil(t, m.ExitFailed)
 			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+
+			node, err := satellite.DB.OverlayCache().Get(ctx, m.ExitFailed.NodeId)
+			require.NoError(t, err)
+			require.NotNil(t, node.Disqualified)
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
@@ -690,6 +698,10 @@ func TestFailureUplinkSignature(t *testing.T) {
 			require.NotNil(t, m)
 			require.NotNil(t, m.ExitFailed)
 			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_VERIFICATION_FAILED)
+
+			node, err := satellite.DB.OverlayCache().Get(ctx, m.ExitFailed.NodeId)
+			require.NoError(t, err)
+			require.NotNil(t, node.Disqualified)
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
@@ -1088,6 +1100,10 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 			require.NotNil(t, m)
 			require.NotNil(t, m.ExitFailed)
 			require.Equal(t, m.ExitFailed.Reason, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED)
+
+			node, err := satellite.DB.OverlayCache().Get(ctx, m.ExitFailed.NodeId)
+			require.NoError(t, err)
+			require.NotNil(t, node.Disqualified)
 		default:
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}

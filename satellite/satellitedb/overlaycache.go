@@ -823,6 +823,22 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	return getNodeStats(dbNode), nil
 }
 
+// DisqualifyNode disqualifies a storage node.
+func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
 // AllPieceCounts returns a map of node IDs to piece counts from the db.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
 func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
