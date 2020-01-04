@@ -242,7 +242,8 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				if err := rateLimiter.Wait(ctx); err != nil {
 					// We don't really execute concurrent batches so we should never
 					// exceed the burst size of 1 and this should never happen.
-					return LoopError.New("unexpected error rate limiting metainfo loop %s", err)
+					// We can also enter here if the context is cancelled.
+					return LoopError.Wrap(err)
 				}
 
 				rawPath := item.Key.String()
