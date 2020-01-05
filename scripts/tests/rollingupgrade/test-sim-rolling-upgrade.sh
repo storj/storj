@@ -237,6 +237,7 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+test_versions_path="$( dirname "${scriptdir}" )/testversions/test-versions.sh"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "1"
 
 # Uploading files to the network using the latest release version
@@ -244,7 +245,7 @@ echo "Stage 1 uplink version: ${stage1_uplink_version}"
 src_ul_version_dir=$(version_dir ${stage1_uplink_version})
 ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
 # use test-versions.sh instead of test-rolling-upgrade.sh for upload step, since the setup for the two tests should be identical
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/../../test-versions.sh" "${test_dir}/local-network" "upload" "${stage1_uplink_version}"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "upload" "${stage1_uplink_version}"
 
 echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "2"
@@ -271,4 +272,4 @@ for ul_version in ${stage2_uplink_versions}; do
 done
 
 echo -e "\nCleaning up."
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/../../test-versions.sh" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}"
