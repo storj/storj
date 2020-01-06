@@ -9,13 +9,28 @@
 
 set -ueo pipefail
 
-# This script assumes that storj-sim and uplink has already been set up and initial files have been
-# uploaded via scripts/test-versions.sh
+# This script assumes that storj-sim and uplink has already been set up
 main_cfg_dir=$1
 
 bucket="bucket-123"
 test_files_dir="${main_cfg_dir}/testfiles"
 stage2_dst_dir="${main_cfg_dir}/stage2"
+
+create_test_files(){
+    mkdir -p "$test_files_dir"
+    random_bytes_file () {
+        size=$1
+        output=$2
+	    head -c $size </dev/urandom > $output
+    }
+    random_bytes_file "2048" "$test_files_dir/small-upload-testfile" # create 2kb file of random bytes (inline)
+    random_bytes_file "5242880" "$test_files_dir/big-upload-testfile" # create 5mb file of random bytes (remote)
+    random_bytes_file "134217728" "$test_files_dir/multisegment-upload-testfile" # create 128mb file of random bytes (remote)
+
+    echo "created test files"
+}
+
+create_test_files
 
 # Test that new files can be uploaded and downloaded successfully with both apis
 bucket_name=${bucket}-final-upload
