@@ -45,11 +45,11 @@ export default class BillingHistoryDate extends Vue {
     }
 
     public get date(): string {
-        if (this.type === BillingHistoryItemType.Transaction) {
-            return this.start.toLocaleDateString();
+        if (this.type === BillingHistoryItemType.Invoice) {
+            return `${this.start.toLocaleDateString()} - ${this.expiration.toLocaleDateString()}`;
         }
 
-        return `${this.start.toLocaleDateString()} - ${this.expiration.toLocaleDateString()}`;
+        return this.start.toLocaleDateString();
     }
 
     public get seconds(): number {

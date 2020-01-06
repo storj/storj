@@ -4,6 +4,7 @@
 /obj/
 */obj/
 /packages/
+
 *.exe
 *.msi
 *.wixobj

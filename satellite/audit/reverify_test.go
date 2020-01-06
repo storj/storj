@@ -13,21 +13,20 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 func TestReverifySuccess(t *testing.T) {
@@ -226,7 +225,6 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
-		origNumPieces := len(pieces)
 		rootPieceID := pointer.GetRemote().RootPieceId
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
@@ -269,14 +267,6 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		// expect no failed audit
 		require.Len(t, report.Fails, 0)
-
-		// expect that bad node is no longer in the pointer
-		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
-		require.NoError(t, err)
-		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
-		for _, p := range pointer.GetRemote().GetRemotePieces() {
-			assert.NotEqual(t, p.NodeId, pieces[0].NodeId)
-		}
 	})
 }
 
@@ -513,11 +503,12 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
@@ -601,11 +592,12 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -692,11 +684,12 @@ func TestReverifyDifferentShare(t *testing.T) {
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
 		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     3,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  3,
+			TotalShares:    3,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -852,11 +845,12 @@ func TestReverifyExpired2(t *testing.T) {
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
 		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     3,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 1,
+			RepairShares:   2,
+			OptimalShares:  3,
+			TotalShares:    3,
 		}
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
@@ -986,11 +980,12 @@ func TestReverifySlowDownload(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -1078,11 +1073,12 @@ func TestReverifyUnknownError(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  2,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   2,
+			OptimalShares:  4,
+			TotalShares:    4,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

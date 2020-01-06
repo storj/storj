@@ -55,9 +55,8 @@ export default class VSearch extends Vue {
     public onMouseLeave(): void {
         if (!this.searchString) {
             this.inputWidth = '56px';
+            this.$refs.input.blur();
         }
-
-        this.$refs.input.blur();
     }
 
     public clearSearch() {

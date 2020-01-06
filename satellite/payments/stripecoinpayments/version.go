@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/sync2"
+	"storj.io/common/sync2"
 )
 
 // ErrVersion defines version service error.

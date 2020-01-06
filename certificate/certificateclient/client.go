@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 )
 
 var mon = monkit.Package()
@@ -24,10 +24,10 @@ type Config struct {
 	TLS     tlsopts.Config
 }
 
-// Client implements rpc.CertificatesClient
+// Client implements pb.DRPCCertificatesClient
 type Client struct {
 	conn   *rpc.Conn
-	client rpc.CertificatesClient
+	client pb.DRPCCertificatesClient
 }
 
 // New creates a new certificate signing rpc client.
@@ -41,13 +41,13 @@ func New(ctx context.Context, dialer rpc.Dialer, address string) (_ *Client, err
 
 	return &Client{
 		conn:   conn,
-		client: conn.CertificatesClient(),
+		client: pb.NewDRPCCertificatesClient(conn.Raw()),
 	}, nil
 }
 
 // NewClientFrom creates a new certificate signing gRPC client from an existing
 // grpc cert signing client.
-func NewClientFrom(client rpc.CertificatesClient) *Client {
+func NewClientFrom(client pb.DRPCCertificatesClient) *Client {
 	return &Client{
 		client: client,
 	}

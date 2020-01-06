@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/identity"
+	"storj.io/common/peertls/extensions"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
 )

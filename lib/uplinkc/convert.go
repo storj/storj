@@ -6,7 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.
@@ -60,4 +60,10 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme 
 // toCCipherSuite converts a go cipher to its respective C cipher suite.
 func toCCipherSuite(cipherSuite storj.CipherSuite) C.CipherSuite {
 	return C.CipherSuite(cipherSuite)
+}
+
+// safeConvertToInt converts the C.size_t to an int, and returns a boolean
+// indicating if the conversion was lossless and semantically equivalent.
+func safeConvertToInt(n C.size_t) (int, bool) {
+	return int(n), C.size_t(int(n)) == n && int(n) >= 0
 }

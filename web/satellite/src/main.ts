@@ -5,6 +5,7 @@ import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
+import { SegmentioPlugin } from '@/utils/plugins/segment';
 
 import App from './App.vue';
 import { router } from './router';
@@ -15,8 +16,10 @@ Vue.config.performance = true;
 Vue.config.productionTip = false;
 
 const notificator = new NotificatorPlugin();
+const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
+Vue.use(segment);
 
 let clickOutsideEvent: EventListener;
 
@@ -71,7 +74,7 @@ Vue.filter('leadingZero', function (value: number): string {
  * centsToDollars is a Vue filter that converts amount of cents in dollars string.
  */
 Vue.filter('centsToDollars', (cents: number): string => {
-    return `$${(cents / 100).toFixed(2)}`;
+    return `USD $${(cents / 100).toFixed(2)}`;
 });
 
 new Vue({

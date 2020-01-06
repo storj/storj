@@ -7,14 +7,17 @@ import (
 	"context"
 	"database/sql"
 
-	"storj.io/storj/pkg/pb"
+	"github.com/cockroachdb/cockroach-go/crdb"
+	"github.com/zeebo/errs"
+
+	"storj.io/common/pb"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
 type repairQueue struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err error) {
@@ -31,13 +34,26 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err e
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = r.db.QueryRowContext(ctx, `
-		UPDATE injuredsegments SET attempted = timezone('utc', now()) WHERE path = (
-			SELECT path FROM injuredsegments
-			WHERE attempted IS NULL OR attempted < timezone('utc', now()) - interval '1 hour'
-			ORDER BY attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
-		) RETURNING data`).Scan(&seg)
-
+	switch r.db.implementation {
+	case dbutil.Cockroach:
+		err = crdb.ExecuteTx(ctx, r.db.DB.DB, nil, func(tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, `
+					UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
+						SELECT path FROM injuredsegments
+						WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
+						ORDER BY attempted LIMIT 1
+					) RETURNING data`).Scan(&seg)
+		})
+	case dbutil.Postgres:
+		err = r.db.QueryRowContext(ctx, `
+				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
+					SELECT path FROM injuredsegments
+					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
+					ORDER BY attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
+				) RETURNING data`).Scan(&seg)
+	default:
+		return seg, errs.New("invalid dbType: %v", r.db.implementation)
+	}
 	if err == sql.ErrNoRows {
 		err = storage.ErrEmptyQueue.New("")
 	}

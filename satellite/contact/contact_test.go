@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcpeer"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 

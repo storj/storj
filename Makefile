@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.4
+GO_VERSION ?= 1.13.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -51,14 +51,9 @@ build-dev-deps: ## Install dependencies for builds
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
-lint: check-copyrights ## Analyze and find programs in source code
+lint: ## Analyze and find programs in source code
 	@echo "Running ${@}"
 	@golangci-lint run
-
-.PHONY: check-copyrights
-check-copyrights: ## Check source files for copyright headers
-	@echo "Running ${@}"
-	@go run ./scripts/check-copyright.go
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -67,12 +62,6 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
-
-.PHONY: proto
-proto: ## Rebuild protobuf files
-	@echo "Running ${@}"
-	go run scripts/protobuf.go install
-	go run scripts/protobuf.go generate
 
 .PHONY: build-packages
 build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
@@ -85,24 +74,18 @@ build-npm:
 
 ##@ Simulator
 
-.PHONY: go-install-grpc-and-drpc
-go-install-grpc-and-drpc:
-	@: $(if ${PACKAGE},,$(error PACKAGE must be defined for the go-install-grpc-and-drpc target))
-	go build -race -v -tags=grpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-grpc" "${PACKAGE}"
-	go build -race -v -tags=drpc -o "$(shell go list -f '{{.Target}}' ${PACKAGE})-drpc" "${PACKAGE}"
-	go install -race -v "${PACKAGE}"
-
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
-	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/storagenode
-	$(MAKE) go-install-grpc-and-drpc PACKAGE=storj.io/storj/cmd/satellite
-	go install -race -v storj.io/storj/cmd/storj-sim
-	go install -race -v storj.io/storj/cmd/versioncontrol
-	go install -race -v storj.io/storj/cmd/uplink
-	go install -race -v storj.io/storj/cmd/gateway
-	go install -race -v storj.io/storj/cmd/identity
-	go install -race -v storj.io/storj/cmd/certificates
+	go install -race -v \
+		storj.io/storj/cmd/satellite \
+		storj.io/storj/cmd/storagenode \
+		storj.io/storj/cmd/storj-sim \
+		storj.io/storj/cmd/versioncontrol \
+		storj.io/storj/cmd/uplink \
+		storj.io/storj/cmd/gateway \
+		storj.io/storj/cmd/identity \
+		storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -155,8 +138,8 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
-	@go run ./scripts/check-monitoring.go | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go generate ./scripts/check-monitoring.go\` to update monkit.lock file." \
+	@check-monitoring ./... | diff -U0 ./monkit.lock - \
+	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
 ##@ Build

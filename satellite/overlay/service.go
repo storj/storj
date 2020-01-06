@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
 
@@ -47,6 +47,8 @@ type DB interface {
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
@@ -84,6 +86,11 @@ type DB interface {
 
 	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
 	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
+
+	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
+	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+	GetOfflineNodesLimited(ctx context.Context, limit int) ([]*pb.Node, error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -183,6 +190,14 @@ type NodeStats struct {
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
 	Disqualified          *time.Time
+}
+
+// NodeLastContact contains the ID, address, and timestamp
+type NodeLastContact struct {
+	ID                 storj.NodeID
+	Address            string
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 // Service is used to store and handle node information
@@ -339,6 +354,12 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.KnownReliable(ctx, service.config.Node.OnlineWindow, nodeIDs)
+}
+
 // Reliable filters a set of nodes that are reliable, independent of new.
 func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -421,6 +442,13 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+}
+
+// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
 // GetMissingPieces returns the list of offline nodes

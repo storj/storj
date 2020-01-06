@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -31,7 +31,7 @@ var (
 var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
@@ -384,6 +384,42 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, nil
 }
 
+// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
+func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id, last_net, address, protocol FROM nodes
+			WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND last_contact_success > $2
+		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		row := &dbx.Id_LastNet_Address_Protocol_Row{}
+		err = rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		node, err := convertDBNodeToPBNode(ctx, row)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
 // Reliable returns all reliable nodes.
 func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
 	// get reliable and online nodes
@@ -586,7 +622,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 
 			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
-			sql := buildUpdateStatement(cache.db, updateNodeStats)
+			sql := buildUpdateStatement(updateNodeStats)
 
 			allSQL += sql
 		}
@@ -974,26 +1010,46 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 
 	updateFields := populateExitStatusFields(request)
 
-	tx, err := cache.db.Open(ctx)
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	dbNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
 
-	err = tx.Commit()
+	return convertDBNode(ctx, dbNode)
+}
+
+// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []overlay.NodeLastContact, err error) {
+	// get successful nodes that have not checked-in with the hour
+	defer mon.Task()(&ctx)(&err)
+
+	dbxNodes, err := cache.db.DB.All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(
+		ctx, dbx.Node_LastContactSuccess(time.Now().UTC().Add(-duration)))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return convertDBNode(ctx, dbNode)
+	for _, node := range dbxNodes {
+		nodeID, err := storj.NodeIDFromBytes(node.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		nodeLastContact := overlay.NodeLastContact{
+			ID:                 nodeID,
+			Address:            node.Address,
+			LastContactSuccess: node.LastContactSuccess.UTC(),
+			LastContactFailure: node.LastContactFailure.UTC(),
+		}
+
+		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
+	}
+
+	return nodeLastContacts, nil
 }
 
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
@@ -1011,6 +1067,25 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	dbxUpdateFields.ExitSuccess = dbx.Node_ExitSuccess(req.ExitSuccess)
 
 	return dbxUpdateFields
+}
+
+// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.DB.Limited_Node_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(ctx,
+		limit, 0)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	for _, row := range rows {
+		nextNode, err := convertDBNode(ctx, row)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		nodes = append(nodes, &nextNode.Node)
+	}
+	return nodes, nil
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
@@ -1120,7 +1195,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
+func buildUpdateStatement(update updateNodeStats) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}

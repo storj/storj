@@ -5,6 +5,7 @@ package testplanet
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,16 +16,18 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
@@ -37,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -159,6 +163,11 @@ type SatelliteSystem struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	DowntimeTracking struct {
+		DetectionChore *downtime.DetectionChore
+		Service        *downtime.Service
+	}
 }
 
 // ID returns the ID of the Satellite system.
@@ -204,7 +213,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
-			planet.peers = append(planet.peers, closablePeer{peer: x})
+			planet.peers = append(planet.peers, newClosablePeer(x))
 		}
 	}()
 
@@ -226,12 +235,19 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			schema := satellitedbtest.SchemaName(planet.id, "S", i, "")
+			// TODO: This is analogous to the way we worked prior to the advent of OpenUnique,
+			// but it seems wrong. Tests that use planet.Start() instead of testplanet.Run()
+			// will not get run against both types of DB.
+			connStr := *pgtest.ConnStr
 			if *pgtest.CrdbConnStr != "" {
-				db, err = satellitedbtest.NewCockroach(log.Named("db"), schema)
-			} else {
-				db, err = satellitedbtest.NewPostgres(log.Named("db"), schema)
+				connStr = *pgtest.CrdbConnStr
 			}
+			var tempDB *dbutil.TempDatabase
+			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
+			if err != nil {
+				return nil, err
+			}
+			db, err = satellitedbtest.CreateMasterDBOnTopOf(log.Named("db"), tempDB)
 		}
 		if err != nil {
 			return nil, err
@@ -319,7 +335,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
-				Interval:                      time.Hour,
+				Interval:                      defaultInterval,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				DownloadTimeout:               1 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
@@ -382,9 +398,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				OverallMaxFailuresPercentage: 10,
 				RecvTimeout:                  time.Minute * 1,
 				MaxOrderLimitSendCount:       3,
+				NodeMinAgeInMonths:           0,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
+			},
+			Downtime: downtime.Config{
+				DetectionInterval: defaultInterval,
 			},
 		}
 
@@ -407,14 +427,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		planet.databases = append(planet.databases, revocationDB)
 
-		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
 
-		planet.databases = append(planet.databases, liveAccountingCache)
+		planet.databases = append(planet.databases, liveAccounting)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccountingCache, versionInfo, &config)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -502,6 +522,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	system.Metrics.Chore = peer.Metrics.Chore
+
+	system.DowntimeTracking.DetectionChore = peer.DowntimeTracking.DetectionChore
+	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system
 }

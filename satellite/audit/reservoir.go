@@ -6,7 +6,7 @@ package audit
 import (
 	"math/rand"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 const maxReservoirSize = 3

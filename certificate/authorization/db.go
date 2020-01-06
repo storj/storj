@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/common/identity"
+	"storj.io/common/peertls/extensions"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -54,7 +54,7 @@ func NewDBFromCfg(config DBConfig) (*DB, error) {
 
 // NewDB creates and/or opens the authorization database.
 func NewDB(dbURL string, overwrite bool) (*DB, error) {
-	driver, source, err := dbutil.SplitConnstr(dbURL)
+	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}

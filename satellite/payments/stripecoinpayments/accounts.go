@@ -10,8 +10,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -112,6 +112,53 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 			ObjectCount:  int64(usage.ObjectCount * float64(accounts.service.PerObjectPrice)),
 			StorageGbHrs: int64(usage.Storage*float64(accounts.service.TBhPrice)) / int64(memory.TB),
 		})
+	}
+
+	return charges, nil
+}
+
+// Charges returns list of all credit card charges related to account.
+func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []payments.Charge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.ChargeListParams{
+		Customer: stripe.String(customerID),
+	}
+	params.Filters.AddFilter("limit", "", "100")
+
+	iter := accounts.service.stripeClient.Charges.List(params)
+
+	var charges []payments.Charge
+	for iter.Next() {
+		charge := iter.Charge()
+
+		// ignore all non credit card charges
+		if charge.PaymentMethodDetails.Type != stripe.ChargePaymentMethodDetailsTypeCard {
+			continue
+		}
+		if charge.PaymentMethodDetails.Card == nil {
+			continue
+		}
+
+		charges = append(charges, payments.Charge{
+			ID:     charge.ID,
+			Amount: charge.Amount,
+			CardInfo: payments.CardInfo{
+				ID:       charge.PaymentMethod,
+				Brand:    string(charge.PaymentMethodDetails.Card.Brand),
+				LastFour: charge.PaymentMethodDetails.Card.Last4,
+			},
+			CreatedAt: time.Unix(charge.Created, 0).UTC(),
+		})
+	}
+
+	if err = iter.Err(); err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return charges, nil

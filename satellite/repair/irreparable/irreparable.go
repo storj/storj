@@ -6,7 +6,7 @@ package irreparable
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 )
 
 // DB stores information about repairs that have failed.

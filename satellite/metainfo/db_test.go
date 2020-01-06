@@ -9,10 +9,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -44,6 +44,7 @@ func TestBasicBucketOperations(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
@@ -91,6 +92,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
@@ -153,6 +155,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
+
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)

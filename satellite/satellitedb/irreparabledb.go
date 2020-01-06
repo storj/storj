@@ -9,12 +9,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type irreparableDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field

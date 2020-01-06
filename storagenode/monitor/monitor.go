@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
@@ -162,7 +162,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 
 func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	usedSpace, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -181,7 +181,7 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

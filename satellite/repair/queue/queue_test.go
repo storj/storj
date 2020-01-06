@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/errs2"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
@@ -92,6 +92,9 @@ func TestSequential(t *testing.T) {
 		list, err := q.SelectN(ctx, N)
 		require.NoError(t, err)
 		require.Len(t, list, N)
+
+		sort.SliceStable(list, func(i, j int) bool { return list[i].LostPieces[0] < list[j].LostPieces[0] })
+
 		for i := 0; i < N; i++ {
 			require.True(t, pb.Equal(addSegs[i], &list[i]))
 		}

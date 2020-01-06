@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -24,6 +24,7 @@ type CreateRequest struct {
 }
 
 func TestCreateAndStopOffers(t *testing.T) {
+	t.Skip("this test will be removed/modified with rework of offer/rewards code")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

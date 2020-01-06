@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/attribution"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -62,7 +63,7 @@ const (
 						va.partner_id, 
 						bst.project_id, 
 						bst.bucket_name, 
-						hours 
+						date_trunc('hour', bst.interval_start) 
 					ORDER BY 
 						max_interval DESC
 				) bsti 
@@ -83,7 +84,7 @@ const (
 				bbr.bucket_name as bucket_name, 
 				0 as remote, 
 				0 as inline, 
-				SUM(settled) as settled, 
+				SUM(settled)::integer as settled, 
 				NULL as hours 
 			FROM 
 				bucket_bandwidth_rollups bbr 
@@ -109,7 +110,7 @@ const (
 )
 
 type attributionDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Get reads the partner info
@@ -169,11 +170,11 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
-	partnerID, err := bytesToUUID(info.PartnerId)
+	partnerID, err := dbutil.BytesToUUID(info.PartnerId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID, err := bytesToUUID(info.ProjectId)
+	projectID, err := dbutil.BytesToUUID(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

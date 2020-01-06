@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/private/fpath"
+	"storj.io/common/fpath"
 )
 
 // Flags contains different flags for commands

@@ -6,7 +6,7 @@ package accounting
 import (
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // Constants for accounting_raw, accounting_rollup, and accounting_timestamps

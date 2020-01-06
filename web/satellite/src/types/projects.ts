@@ -35,26 +35,30 @@ export interface ProjectsApi {
      * @throws Error
      */
     delete(projectId: string): Promise<void>;
+
+    /**
+     * Get project limits
+     *
+     * @param projectId- project ID
+     * throws Error
+     */
+    getLimits(projectId: string): Promise<ProjectLimits>;
 }
 
 // Project is a type, used for creating new project in backend
 export class Project {
-    public id: string;
+    public constructor(
+        public id: string = '',
+        public name: string = '',
+        public description: string = '',
+        public createdAt: string = '',
+        public ownerId: string = '',
+        public isSelected: boolean = false,
+        public limits: ProjectLimits = new ProjectLimits(),
+    ) {}
 
-    public name: string;
-    public description: string;
-    public createdAt: string;
-    public ownerId: string;
-
-    public isSelected: boolean;
-
-    public constructor(id: string = '', name: string = '', description: string = '', createdAt: string = '', ownerId: string = '', isSelected: boolean = false) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.createdAt = createdAt;
-        this.isSelected = isSelected;
-        this.ownerId = ownerId;
+    public setLimits(limits: ProjectLimits): void {
+        this.limits = limits;
     }
 }
 
@@ -73,4 +77,13 @@ export class UpdateProjectModel {
 export class CreateProjectModel {
     public name: string;
     public description: string;
+}
+
+export class ProjectLimits {
+    constructor(
+        public bandwidthLimit = 0,
+        public bandwidthUsed = 0,
+        public storageLimit = 0,
+        public storageUsed = 0,
+    ) {}
 }

@@ -194,7 +194,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.id,
                     item.description,
                     item.amount,
-                    item.tokenReceived,
+                    item.received,
                     item.status,
                     item.link,
                     new Date(item.start),
@@ -225,6 +225,6 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const result = await response.json();
 
-        return new TokenDeposit(result.amount, result.address);
+        return new TokenDeposit(result.amount, result.address, result.link);
     }
 }

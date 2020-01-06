@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/readcloser"
+	"storj.io/common/encryption"
+	"storj.io/common/errs2"
+	"storj.io/common/ranger"
+	"storj.io/common/readcloser"
 )
 
 type decodedReader struct {
@@ -74,7 +74,6 @@ func DecodeReaders(ctx context.Context, cancel func(), log *zap.Logger, rs map[i
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
 	ctx := dr.ctx
-	defer mon.Task()(&ctx)(&err)
 
 	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again

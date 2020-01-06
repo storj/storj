@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"context"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
 )
 
 func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer *PendingTransfer) error {

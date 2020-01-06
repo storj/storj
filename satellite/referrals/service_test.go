@@ -10,21 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/referrals"
 )
 
 func TestServiceSuccess(t *testing.T) {
-	endpoint := &endpointHappyPath{}
 	tokenCount := 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+				endpoint := &endpointHappyPath{}
 				endpoint.SetTokenCount(tokenCount)
 				return endpoint
 			},
@@ -55,11 +55,11 @@ func TestServiceSuccess(t *testing.T) {
 }
 
 func TestServiceRedeemFailure(t *testing.T) {
-	endpoint := &endpointFailedPath{}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+				endpoint := &endpointFailedPath{}
 				endpoint.SetTokenCount(2)
 				return endpoint
 			},

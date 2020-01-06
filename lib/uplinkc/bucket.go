@@ -8,10 +8,11 @@ import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 // Bucket is a scoped uplink.Bucket
@@ -115,7 +116,7 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 		opts = &uplink.BucketListOptions{
 			Cursor:    C.GoString(bucketListOptions.cursor),
 			Direction: storj.Forward,
-			Limit:     int(bucketListOptions.limit),
+			Limit:     int(bucketListOptions.limit), // sadly, limit is an int64_t
 		}
 	}
 
@@ -126,10 +127,25 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 	}
 
 	listLen := len(bucketList.Items)
-	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
+	if C.size_t(listLen) > C.SIZE_MAX/C.sizeof_BucketInfo || int(int32(listLen)) != listLen {
+		*cerr = C.CString("elements too large to be allocated")
+		return C.BucketList{}
+	}
 
-	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
-	items := (*[1 << 30 / unsafe.Sizeof(C.BucketInfo{})]C.BucketInfo)(itemsPtr)
+	itemsPtr := C.calloc(C.size_t(listLen), C.sizeof_BucketInfo)
+	if itemsPtr == nil {
+		*cerr = C.CString("unable to allocate")
+		return C.BucketList{}
+	}
+
+	items := *(*[]C.BucketInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(itemsPtr),
+			Len:  listLen,
+			Cap:  listLen,
+		},
+	))
+
 	for i, bucket := range bucketList.Items {
 		bucket := bucket
 		items[i] = newBucketInfo(&bucket)
@@ -137,7 +153,7 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 
 	return C.BucketList{
 		more:   C.bool(bucketList.More),
-		items:  &items[0],
+		items:  (*C.BucketInfo)(itemsPtr),
 		length: C.int32_t(listLen),
 	}
 }
@@ -186,10 +202,17 @@ func free_bucket_info(bucketInfo *C.BucketInfo) {
 //export free_bucket_list
 // free_bucket_list will free a list of buckets
 func free_bucket_list(bucketlist *C.BucketList) {
-	items := (*[1 << 30 / unsafe.Sizeof(C.BucketInfo{})]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
-	for i := 0; i < int(bucketlist.length); i++ {
+	items := *(*[]C.BucketInfo)(unsafe.Pointer(
+		&reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(bucketlist.items)),
+			Len:  int(bucketlist.length), // int32_t => int is safe
+			Cap:  int(bucketlist.length), // int32_t => int is safe
+		},
+	))
+	for i := range items {
 		free_bucket_info(&items[i])
 	}
 	C.free(unsafe.Pointer(bucketlist.items))
 	bucketlist.items = nil
+	bucketlist.length = 0
 }

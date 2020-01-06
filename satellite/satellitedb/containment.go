@@ -10,14 +10,14 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/audit"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type containment struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
 // Get gets the pending audit by node id

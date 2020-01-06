@@ -16,7 +16,7 @@ import (
 
 	"github.com/loov/hrtime"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
 	"storj.io/storj/private/s3client"
 )
 

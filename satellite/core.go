@@ -10,21 +10,23 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/errs2"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
@@ -52,6 +54,10 @@ type Core struct {
 	Version *version_checker.Service
 
 	// services and endpoints
+	Contact struct {
+		Service *contact.Service
+	}
+
 	Overlay struct {
 		DB      overlay.DB
 		Service *overlay.Service
@@ -109,6 +115,11 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	DowntimeTracking struct {
+		DetectionChore *downtime.DetectionChore
+		Service        *downtime.Service
+	}
 }
 
 // New creates a new satellite
@@ -139,6 +150,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+	}
+
+	{ // setup contact service
+		log.Debug("Starting contact service")
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.Contact.ExternalAddress,
+				},
+			},
+			Type:    pb.NodeType_SATELLITE,
+			Version: *pbVersion,
+		}
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 	}
 
 	{ // setup overlay
@@ -334,6 +366,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 		)
 	}
 
+	{ // setup downtime tracking
+		log.Debug("Starting downtime tracking")
+
+		peer.DowntimeTracking.Service = downtime.NewService(peer.Log.Named("downtime"), peer.Overlay.Service, peer.Contact.Service)
+
+		peer.DowntimeTracking.DetectionChore = downtime.NewDetectionChore(
+			peer.Log.Named("downtime:detection"),
+			config.Downtime,
+			peer.Overlay.Service,
+			peer.DowntimeTracking.Service,
+			peer.DB.DowntimeTracking(),
+		)
+	}
+
 	return peer, nil
 }
 
@@ -386,6 +432,9 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 			return errs2.IgnoreCanceled(peer.Payments.Chore.Run(ctx))
 		})
 	}
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DowntimeTracking.DetectionChore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -397,6 +446,10 @@ func (peer *Core) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
+	if peer.DowntimeTracking.DetectionChore != nil {
+		errlist.Add(peer.DowntimeTracking.DetectionChore.Close())
+	}
+
 	if peer.Metrics.Chore != nil {
 		errlist.Add(peer.Metrics.Chore.Close())
 	}
@@ -433,6 +486,9 @@ func (peer *Core) Close() error {
 
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
+	}
+	if peer.Contact.Service != nil {
+		errlist.Add(peer.Contact.Service.Close())
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())

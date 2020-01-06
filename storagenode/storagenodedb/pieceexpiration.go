@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -20,7 +20,7 @@ var ErrPieceExpiration = errs.Class("piece expiration error")
 const PieceExpirationDBName = "piece_expiration"
 
 type pieceExpirationDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // GetExpired gets piece IDs that expire or have expired before the given time

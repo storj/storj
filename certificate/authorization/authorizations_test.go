@@ -14,12 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
 )
 
 var (
@@ -188,6 +189,7 @@ func TestNewClient(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	ident, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
 	require.NoError(t, err)
 	require.NotNil(t, ident)
@@ -229,7 +231,7 @@ func TestNewClient(t *testing.T) {
 
 		defer ctx.Check(conn.Close)
 
-		client := certificateclient.NewClientFrom(conn.CertificatesClient())
+		client := certificateclient.NewClientFrom(pb.NewDRPCCertificatesClient(conn.Raw()))
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

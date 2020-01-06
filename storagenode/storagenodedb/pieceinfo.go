@@ -11,8 +11,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
@@ -25,7 +25,7 @@ var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 const PieceInfoDBName = "pieceinfo"
 
 type v0PieceInfoDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Add inserts piece information into the database.
@@ -248,9 +248,9 @@ func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error 
 	return nil
 }
 
-// ContentSize gives the size of the piece content (not including the piece header, if applicable)
-func (v0Access v0StoredPieceAccess) ContentSize(ctx context.Context) (int64, error) {
-	return v0Access.pieceSize, nil
+// Size gives the size of the piece, and the piece content size (not including the piece header, if applicable)
+func (v0Access v0StoredPieceAccess) Size(ctx context.Context) (int64, int64, error) {
+	return v0Access.pieceSize, v0Access.pieceSize, nil
 }
 
 // CreationTime returns the piece creation time as given in the original order (which is not

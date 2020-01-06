@@ -6,7 +6,7 @@ package satellite
 import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
+	"storj.io/common/identity"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -50,11 +51,6 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	// CreateSchema sets the schema
-	CreateSchema(schema string) error
-	// DropSchema drops the schema
-	DropSchema(schema string) error
-
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
@@ -71,7 +67,7 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	//  returns database for marketing admin GUI
+	// Rewards returns database for marketing admin GUI
 	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
@@ -83,6 +79,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
+	// DowntimeTracking returns database for downtime tracking
+	DowntimeTracking() downtime.DB
 }
 
 // Config is the global config satellite
@@ -123,4 +121,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
+
+	Downtime downtime.Config
 }

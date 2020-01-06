@@ -17,15 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -326,9 +326,15 @@ func TestTrashAndRestore(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, db.PieceExpirationDB(), nil)
 		tStore := &pieces.StoreForTest{store}
 
-		var satelliteURLs storj.NodeURLs
-		for _, satellite := range satellites {
-			satelliteURLs = append(satelliteURLs, storj.NodeURL{ID: satellite.satelliteID})
+		var satelliteURLs []trust.SatelliteURL
+		for i, satellite := range satellites {
+			// host:port pair must be unique or the trust pool will aggregate
+			// them into a single entry with the first one "winning".
+			satelliteURLs = append(satelliteURLs, trust.SatelliteURL{
+				ID:   satellite.satelliteID,
+				Host: "localhost",
+				Port: i,
+			})
 			now := time.Now()
 			for _, piece := range satellite.pieces {
 				// If test has expiration, add to expiration db
@@ -402,9 +408,18 @@ func TestTrashAndRestore(t *testing.T) {
 			}
 		}
 
-		// Empty trash by running the chore once
-		trust, err := trust.NewPool(rpc.Dialer{}, satelliteURLs)
+		// Initialize a trust pool
+		poolConfig := trust.Config{
+			CachePath: ctx.File("trust-cache.json"),
+		}
+		for _, satelliteURL := range satelliteURLs {
+			poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: satelliteURL})
+		}
+		trust, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
 		require.NoError(t, err)
+		require.NoError(t, trust.Refresh(ctx))
+
+		// Empty trash by running the chore once
 		trashDur := 4 * 24 * time.Hour
 		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
 		go func() {
@@ -799,7 +814,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			gotCreateTime, err := access.CreationTime(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, v0CreateTime, gotCreateTime)
-			gotSize, err := access.ContentSize(ctx)
+			_, gotSize, err := access.Size(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), gotSize)
 			return nil
@@ -842,7 +857,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v1CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v1Data)), gotSize)
 			case 2:
@@ -852,7 +867,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v0CreateTime, gotCreateTime)
-				gotSize, err := access.ContentSize(ctx)
+				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v0Data)), gotSize)
 			default:

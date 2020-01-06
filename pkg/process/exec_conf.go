@@ -228,7 +228,7 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		logger, err := newLogger()
+		logger, err := NewLogger()
 		if err != nil {
 			return err
 		}

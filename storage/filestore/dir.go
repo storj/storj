@@ -359,8 +359,8 @@ func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
 }
 
 // RestoreTrash moves every piece in the trash folder back into blobsdir
-func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) {
-	return dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
+func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
+	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
 		blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
 		if err != nil {
 			return err
@@ -389,14 +389,20 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (err error) 
 			// by callers to return a nil error in the case of concurrent calls.)
 			return nil
 		}
-		return err
+		if err != nil {
+			return err
+		}
+
+		keysRestored = append(keysRestored, info.BlobRef().Key)
+		return nil
 	})
+	return keysRestored, err
 }
 
 // EmptyTrash walks the trash files for the given namespace and deletes any
 // file whose mtime is older than trashedBefore. The mtime is modified when
 // Trash is called.
-func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (deletedKeys [][]byte, err error) {
+func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(blobInfo storage.BlobInfo) error {
 		fileInfo, err := blobInfo.Stat(ctx)
@@ -411,13 +417,14 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 				return err
 			}
 			deletedKeys = append(deletedKeys, blobInfo.BlobRef().Key)
+			bytesEmptied += fileInfo.Size()
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	return deletedKeys, nil
+	return bytesEmptied, deletedKeys, nil
 }
 
 // iterateStorageFormatVersions executes f for all storage format versions,
@@ -442,12 +449,23 @@ func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref storage.Bl
 }
 
 // Delete deletes blobs with the specified ref (in all supported storage formats).
+//
+// It doesn't return an error if the blob is not found for any reason or it
+// cannot be deleted at this moment and it's delayed.
 func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.DeleteWithStorageFormat)
 }
 
-// DeleteWithStorageFormat deletes the blob with the specified ref for one specific format version
+// DeleteWithStorageFormat deletes the blob with the specified ref for one
+// specific format version. The method tries the following strategies, in order
+// of preference until one succeeds:
+//
+// * moves the blob to garbage dir.
+// * directly deletes the blob.
+// * push the blobs to queue for retrying later.
+//
+// It doesn't return an error if the piece isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)

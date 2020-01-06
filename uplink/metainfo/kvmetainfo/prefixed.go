@@ -8,25 +8,15 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/uplink/storage/objects"
 )
 
 type prefixedObjStore struct {
 	store  objects.Store
 	prefix string
-}
-
-func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta objects.Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(path) == 0 {
-		return objects.Meta{}, storj.ErrNoPath.New("")
-	}
-
-	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
 }
 
 func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path, object storj.Object) (rr ranger.Ranger, err error) {

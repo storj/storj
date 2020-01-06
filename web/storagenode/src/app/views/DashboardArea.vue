@@ -2,13 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="page">
-        <SNOHeader/>
-        <div class="content">
-            <SNOContentTitle/>
-            <SNOContentFilling/>
-        </div>
-        <SNOFooter/>
+    <div class="content">
+        <SNOContentTitle/>
+        <SNOContentFilling/>
     </div>
 </template>
 
@@ -17,8 +13,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
-import SNOFooter from '@/app/components/SNOFooter.vue';
-import SNOHeader from '@/app/components/SNOHeader.vue';
 
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 
@@ -29,10 +23,8 @@ const {
 
 @Component ({
     components: {
-        SNOHeader,
         SNOContentTitle,
         SNOContentFilling,
-        SNOFooter,
     },
 })
 export default class Dashboard extends Vue {
@@ -44,14 +36,6 @@ export default class Dashboard extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .page {
-        background-color: #f4f6f9;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-
     .content {
         width: 822px;
         padding-top: 28px;

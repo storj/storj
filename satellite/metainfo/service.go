@@ -11,9 +11,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/macaroon"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/storage/meta"
 )
@@ -27,12 +27,12 @@ type Service struct {
 	bucketsDB BucketsDB
 }
 
-// NewService creates new metainfo service
+// NewService creates new metainfo service.
 func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service {
 	return &Service{logger: logger, db: db, bucketsDB: bucketsDB}
 }
 
-// Put puts pointer to db under specific path
+// Put puts pointer to db under specific path.
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -71,6 +71,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		// read the pointer
 		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 
@@ -154,35 +157,35 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			continue
 		}
 		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				err = storj.ErrObjectNotFound.Wrap(err)
+			}
 			return nil, Error.Wrap(err)
 		}
 		return pointer, nil
 	}
 }
 
-// Get gets pointer from db
-func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, err error) {
+// Get gets decoded pointer from DB.
+func (s *Service) Get(ctx context.Context, path string) (_ *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	pointerBytes, err := s.db.Get(ctx, []byte(path))
+	_, pointer, err := s.GetWithBytes(ctx, path)
 	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	return pointer, nil
 }
 
-// GetWithBytes gets pointer from db
+// GetWithBytes gets the protocol buffers encoded and decoded pointer from the DB.
 func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointerBytes, err = s.db.Get(ctx, []byte(path))
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrObjectNotFound.Wrap(err)
+		}
 		return nil, nil, Error.Wrap(err)
 	}
 
@@ -280,13 +283,22 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil))
+	err = s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil)
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+	return Error.Wrap(err)
 }
 
 // UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
 func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.db.Delete(ctx, []byte(path))
+
+	err = s.db.Delete(ctx, []byte(path))
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+	return Error.Wrap(err)
 }
 
 // CreateBucket creates a new bucket in the buckets db
