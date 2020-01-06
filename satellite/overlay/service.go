@@ -90,7 +90,7 @@ type DB interface {
 	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
 	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
 	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-	GetOfflineNodesLimited(ctx context.Context, limit int) ([]*pb.Node, error)
+	GetOfflineNodesLimited(ctx context.Context, limit int) ([]NodeLastContact, error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins

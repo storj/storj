@@ -211,7 +211,7 @@ read all (
 )
 
 read limitoffset (
-	select node
+	select node.id node.address node.last_contact_success node.last_contact_failure
     where node.last_contact_success < node.last_contact_failure
 	where  node.disqualified = null
 	orderby asc node.last_contact_failure

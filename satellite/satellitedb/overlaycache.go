@@ -1068,22 +1068,31 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 }
 
 // GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodes []*pb.Node, err error) {
+func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodeLastContacts []overlay.NodeLastContact, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.DB.Limited_Node_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(ctx,
-		limit, 0)
+	dbxNodes, err := cache.db.DB.Limited_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(
+		ctx, limit, 0)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	for _, row := range rows {
-		nextNode, err := convertDBNode(ctx, row)
+	for _, node := range dbxNodes {
+		nodeID, err := storj.NodeIDFromBytes(node.Id)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, err
 		}
-		nodes = append(nodes, &nextNode.Node)
+
+		nodeLastContact := overlay.NodeLastContact{
+			ID:                 nodeID,
+			Address:            node.Address,
+			LastContactSuccess: node.LastContactSuccess.UTC(),
+			LastContactFailure: node.LastContactFailure.UTC(),
+		}
+
+		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
 	}
-	return nodes, nil
+
+	return nodeLastContacts, nil
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
