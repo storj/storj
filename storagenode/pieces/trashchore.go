@@ -42,17 +42,15 @@ func NewTrashChore(log *zap.Logger, choreInterval, trashExpiryInterval time.Dura
 func (chore *TrashChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	chore.log.Info("Storagenode TrashChore starting up")
-
 	chore.cycle = sync2.NewCycle(chore.interval)
 	chore.cycle.Start(ctx, &errgroup.Group{}, func(ctx context.Context) error {
-		chore.log.Debug("starting EmptyTrash cycle")
+		chore.log.Debug("starting emptying trash")
 
 		for _, satelliteID := range chore.trust.GetSatellites(ctx) {
 			trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
 			err := chore.store.EmptyTrash(ctx, satelliteID, trashedBefore)
 			if err != nil {
-				chore.log.Error("EmptyTrash cycle failed", zap.Error(err))
+				chore.log.Error("emptying trash failed", zap.Error(err))
 			}
 		}
 

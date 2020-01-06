@@ -232,7 +232,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	log := zap.L()
-	db, err := satellitedb.New(log.Named("db migration"), runCfg.Database)
+	db, err := satellitedb.New(log.Named("migration"), runCfg.Database)
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
@@ -247,7 +247,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 
 	// There should be an explicit CreateTables call for the pointerdb as well.
 	// This is tracked in jira ticket #3337.
-	pdb, err := metainfo.NewStore(log.Named("db migration"), runCfg.Metainfo.DatabaseURL)
+	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
 	}

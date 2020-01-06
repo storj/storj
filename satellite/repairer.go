@@ -72,17 +72,14 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 	}
 
 	{ // setup metainfo
-		log.Debug("Setting up metainfo")
 		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), pointerDB, bucketsDB)
 	}
 
 	{ // setup overlay
-		log.Debug("Setting up overlay")
 		peer.Overlay = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
 	}
 
 	{ // setup orders
-		log.Debug("Setting up orders")
 		peer.Orders = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -98,9 +95,8 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 	}
 
 	{ // setup repairer
-		log.Debug("Setting up repairer")
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
-			log.Named("segment repairer"),
+			log.Named("segment-repair"),
 			peer.Metainfo,
 			peer.Orders,
 			peer.Overlay,

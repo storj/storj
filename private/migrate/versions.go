@@ -134,7 +134,8 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		return err
 	}
 
-	for _, step := range migration.Steps {
+	initialSetup := false
+	for i, step := range migration.Steps {
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
@@ -148,13 +149,18 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		if i == 0 && version < 0 {
+			initialSetup = true
+		}
 
 		if step.Version <= version {
 			continue
 		}
 
 		stepLog := log.Named(strconv.Itoa(step.Version))
-		stepLog.Info(step.Description)
+		if !initialSetup {
+			stepLog.Info(step.Description)
+		}
 
 		tx, err := step.DB.Begin()
 		if err != nil {
@@ -178,7 +184,11 @@ func (migration *Migration) Run(log *zap.Logger) error {
 
 	if len(migration.Steps) > 0 {
 		last := migration.Steps[len(migration.Steps)-1]
-		log.Info("Database Version", zap.Int("version", last.Version))
+		if initialSetup {
+			log.Info("Database Created", zap.Int("version", last.Version))
+		} else {
+			log.Info("Database Version", zap.Int("version", last.Version))
+		}
 	} else {
 		log.Info("No Versions")
 	}

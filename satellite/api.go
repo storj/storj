@@ -159,7 +159,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup listener and server
-		log.Debug("Satellite API Process starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -180,7 +179,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup overlay
-		log.Debug("Satellite API Process starting overlay")
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -189,7 +187,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup contact service
-		log.Debug("Satellite API Process setting up contact service")
 		c := config.Contact
 		if c.ExternalAddress == "" {
 			c.ExternalAddress = peer.Addr()
@@ -217,18 +214,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup vouchers
-		log.Debug("Satellite API Process setting up vouchers")
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 		pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
-		log.Debug("Satellite API Process setting up live accounting")
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
-		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
@@ -237,7 +231,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup orders
-		log.Debug("Satellite API Process setting up orders endpoint")
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
@@ -262,8 +255,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup marketing portal
-		log.Debug("Satellite API Process setting up marketing server")
-
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
@@ -292,7 +283,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup metainfo
-		log.Debug("Satellite API Process setting up metainfo")
 		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
@@ -318,14 +308,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup datarepair
-		log.Debug("Satellite API Process setting up datarepair inspector")
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 		pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector)
 	}
 
 	{ // setup inspector
-		log.Debug("Satellite API Process setting up inspector")
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
 			peer.Overlay.Service,
@@ -336,7 +324,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup mailservice
-		log.Debug("Satellite API Process setting up mail service")
 		// TODO(yar): test multiple satellites using same OAUTH credentials
 		mailConfig := config.Mail
 
@@ -403,7 +390,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup payments
-		log.Debug("Satellite API Process setting up payments")
 		pc := config.Payments
 
 		switch pc.Provider {
@@ -411,7 +397,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Payments.Accounts = mockpayments.Accounts()
 		case "stripecoinpayments":
 			service := stripecoinpayments.NewService(
-				peer.Log.Named("stripecoinpayments service"),
+				peer.Log.Named("payments.stripe:service"),
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects(),
@@ -424,7 +410,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
 
 			peer.Payments.Version = stripecoinpayments.NewVersionService(
-				peer.Log.Named("stripecoinpayments version service"),
+				peer.Log.Named("payments.stripe:service"),
 				service,
 				pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
@@ -434,7 +420,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup console
-		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -480,7 +465,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup node stats endpoint
-		log.Debug("Satellite API Process setting up node stats endpoint")
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
@@ -492,7 +476,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
-			log.Debug("Satellite API Process setting up graceful exit endpoint")
 			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
 				peer.Log.Named("gracefulexit:endpoint"),
 				signing.SignerFromFullIdentity(peer.Identity),
@@ -506,6 +489,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 
 			pb.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+		} else {
+			peer.Log.Named("gracefulexit").Info("disabled")
 		}
 	}
 
