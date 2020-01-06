@@ -102,7 +102,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
+	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/grpc v1.23.1
@@ -112,6 +112,6 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
-	storj.io/common v0.0.0-20191227115835-d1bdf57f03e5
+	storj.io/common v0.0.0-20200106135405-39554aa91cb3
 	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
 )
