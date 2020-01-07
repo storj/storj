@@ -45,7 +45,6 @@ pipeline {
                         sh 'check-peer-constraints -race'
                         sh 'check-atomic-align ./...'
                         sh 'check-errs ./...'
-                        sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'staticcheck ./...'
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                         sh 'check-mod-tidy -mod .build/go.mod.orig'

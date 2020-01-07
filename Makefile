@@ -43,12 +43,9 @@ help:
 
 .PHONY: build-dev-deps
 build-dev-deps: ## Install dependencies for builds
-	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
-	go get github.com/modocache/gover
 	go get github.com/go-bindata/go-bindata/go-bindata
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
 lint: ## Analyze and find programs in source code
