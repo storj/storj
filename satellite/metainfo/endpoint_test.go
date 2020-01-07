@@ -71,14 +71,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-					ctx, *projectID, []byte(bucketName), encryptedPath,
-				)
-				require.NoError(t, err)
-
-				// Check that storage nodes don't hold any data after the satellite
-				// delete the pieces
+				// calculate the SNs total used space after data upload
 				var totalUsedSpace int64
 				for _, sn := range planet.StorageNodes {
 					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
@@ -86,7 +79,26 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					totalUsedSpace += usedSpace
 				}
 
-				require.Zero(t, totalUsedSpace, "totalUsedSpace")
+				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
+				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					ctx, *projectID, []byte(bucketName), encryptedPath,
+				)
+				require.NoError(t, err)
+
+				// calculate the SNs used space after delete the pieces
+				var totalUsedSpaceAfterDelete int64
+				for _, sn := range planet.StorageNodes {
+					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+					require.NoError(t, err)
+					totalUsedSpaceAfterDelete += usedSpace
+				}
+
+				// At this point we can only guarantee that the 75% of the SNs pieces
+				// are delete due to the success threshold
+				deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
+				if deletedUsedSpace < 0.75 {
+					t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+				}
 			})
 		}
 	})

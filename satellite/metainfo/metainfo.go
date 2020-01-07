@@ -20,13 +20,13 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
-	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -44,8 +44,10 @@ const (
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000
+
 	// TODO: orange/v3-3406 this value may change once it's used in production
 	deleteObjectPiecesConcurrencyLimit = 100
+	deleteObjectPiecesSuccessThreshold = 0.75
 )
 
 var (
@@ -2380,6 +2382,32 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		return nil
 	}
 
+	var successThreshold *sync2.SuccessThreshold
+	{
+		var numPieces int
+		for _, node := range nodes {
+			numPieces += len(nodesPieces[node.Id])
+		}
+
+		var err error
+		successThreshold, err = sync2.NewSuccessThreshold(numPieces, deleteObjectPiecesSuccessThreshold)
+		if err != nil {
+			endpoint.log.Error("error creating success threshold",
+				zap.Int("num_tasks", numPieces),
+				zap.Float32("success_threshold", deleteObjectPiecesSuccessThreshold),
+				zap.Error(err),
+			)
+
+			return rpcstatus.Errorf(rpcstatus.Internal,
+				"error creating success threshold: %+v", err.Error(),
+			)
+		}
+	}
+
+	// TODO: v3-3476 This timeout will go away when the service is implemented
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// TODO: v3-3406 Should we use a global limiter?
 	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
 	for _, node := range nodes {
@@ -2396,6 +2424,12 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 					zap.Stringer("node_info", node),
 					zap.Error(err),
 				)
+
+				// Mark all the pieces of this node as failure in the success threshold
+				for range nodePieces {
+					successThreshold.Failure()
+				}
+
 				// Pieces will be collected by garbage collector
 				return
 			}
@@ -2419,10 +2453,21 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 						zap.Stringer("piece_id", pieceID),
 						zap.Error(err),
 					)
+
+					successThreshold.Failure()
+					continue
 				}
+
+				successThreshold.Success()
 			}
 		})
 	}
+
+	successThreshold.Wait(ctx)
+	// return to the client after the success threshold but wait some time before
+	// canceling the remaining deletes
+	timer := time.AfterFunc(200*time.Millisecond, cancel)
+	defer timer.Stop()
 
 	limiter.Wait()
 	return nil
