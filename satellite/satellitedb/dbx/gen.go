@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/private/dbutil/txutil"
 
 	// load our cockroach sql driver for anywhere that uses this dbx.Open
 	_ "storj.io/storj/private/dbutil/cockroachutil"
@@ -63,12 +64,7 @@ func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
-		}
-	}()
-	return fn(ctx, tx)
+	return txutil.ExecuteInTx(ctx, db.Driver(), tx.Tx, func() error {
+		return fn(ctx, tx)
+	})
 }
