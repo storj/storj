@@ -261,7 +261,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
-			log.Named("pieces:trashchore"),
+			log.Named("pieces:trash"),
 			24*time.Hour,   // choreInterval: how often to run the chore
 			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
 			peer.Storage2.Trust,
@@ -269,7 +269,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		peer.Storage2.CacheService = pieces.NewService(
-			log.Named("piecestore:cacheUpdate"),
+			log.Named("piecestore:cache"),
 			peer.Storage2.BlobsCache,
 			peer.Storage2.Store,
 			config.Storage2.CacheSyncInterval,

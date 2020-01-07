@@ -28,40 +28,29 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 		return Error.New("identitiy is nil")
 	}
 
-	tx, err := idents.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
+	err = idents.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+		if serial == nil || err != nil {
+			if serial == nil || err == sql.ErrNoRows {
+				return tx.CreateNoReturn_PeerIdentity(ctx,
+					dbx.PeerIdentity_NodeId(nodeID.Bytes()),
+					dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+					dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+				)
+			}
+			return err
 		}
-	}()
-
-	serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
-	if serial == nil || err != nil {
-		if serial == nil || err == sql.ErrNoRows {
-			return Error.Wrap(tx.CreateNoReturn_PeerIdentity(ctx,
+		if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
+			return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx,
 				dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-				dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
-				dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
-			))
+				dbx.PeerIdentity_Update_Fields{
+					LeafSerialNumber: dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+					Chain:            dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+				},
+			)
 		}
-		return Error.Wrap(err)
-	}
-	if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
-		return Error.Wrap(tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx,
-			dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-			dbx.PeerIdentity_Update_Fields{
-				LeafSerialNumber: dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
-				Chain:            dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
-			},
-		))
-	}
-
+		return nil
+	})
 	return Error.Wrap(err)
 }
 

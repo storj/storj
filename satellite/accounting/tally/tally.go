@@ -58,7 +58,6 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 // Run the tally service loop
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Info("Tally service starting up")
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.Tally(ctx)

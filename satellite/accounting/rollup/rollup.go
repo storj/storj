@@ -46,7 +46,6 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time
 // Run the Rollup loop
 func (r *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	r.logger.Info("Rollup service starting up")
 	return r.Loop.Run(ctx, func(ctx context.Context) error {
 		err := r.Rollup(ctx)
 		if err != nil {

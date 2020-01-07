@@ -57,7 +57,6 @@ func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Repo
 // Run runs audit service 2.0.
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	worker.log.Debug("starting")
 
 	// Wait for all audits to run.
 	defer worker.limiter.Wait()
