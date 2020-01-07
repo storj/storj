@@ -480,6 +480,12 @@ func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
 	return *ipAddr, nil
 }
 
+// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (offlineNodes []NodeLastContact, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.GetOfflineNodesLimited(ctx, limit)
+}
+
 // GetNetwork resolves the target address and determines its IP /24 Subnet
 func GetNetwork(ctx context.Context, target string) (network string, err error) {
 	defer mon.Task()(&ctx)(&err)

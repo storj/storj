@@ -117,8 +117,9 @@ type Core struct {
 	}
 
 	DowntimeTracking struct {
-		DetectionChore *downtime.DetectionChore
-		Service        *downtime.Service
+		DetectionChore  *downtime.DetectionChore
+		EstimationChore *downtime.EstimationChore
+		Service         *downtime.Service
 	}
 }
 
@@ -361,6 +362,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 			peer.DowntimeTracking.Service,
 			peer.DB.DowntimeTracking(),
 		)
+
+		peer.DowntimeTracking.EstimationChore = downtime.NewEstimationChore(
+			peer.Log.Named("downtime:estimation"),
+			config.Downtime,
+			peer.Overlay.Service,
+			peer.DowntimeTracking.Service,
+			peer.DB.DowntimeTracking(),
+		)
 	}
 
 	return peer, nil
@@ -419,6 +428,10 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.DowntimeTracking.DetectionChore.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DowntimeTracking.EstimationChore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -429,6 +442,10 @@ func (peer *Core) Close() error {
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
+	if peer.DowntimeTracking.EstimationChore != nil {
+		errlist.Add(peer.DowntimeTracking.EstimationChore.Close())
+	}
+
 	if peer.DowntimeTracking.DetectionChore != nil {
 		errlist.Add(peer.DowntimeTracking.DetectionChore.Close())
 	}
