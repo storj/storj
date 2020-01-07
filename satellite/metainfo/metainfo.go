@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
@@ -2423,7 +2424,7 @@ func (endpoint *Endpoint) deletePointer(
 
 	pointer, path, err := endpoint.getPointer(ctx, projectID, segmentIndex, bucket, encryptedPath)
 	if err != nil {
-		if rpcstatus.Code(err) == rpcstatus.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return nil, storj.ErrObjectNotFound.New("%s", err.Error())
 		}
 		return nil, err
