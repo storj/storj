@@ -18,25 +18,27 @@ node('node') {
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          sh 'docker run --rm -d --name postgres postgres:9.6'
-          sh 'docker run --rm -d --name redis redis:latest'
+          sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+          sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
-          sh '''until $(docker logs postgres | grep "database system is ready to accept connections" > /dev/null)
+          sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
                 do printf '.'
                 sleep 5
                 done
             '''
-          sh 'docker exec postgres createdb -U postgres teststorj'
+          sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis:redis --link postgres:postgres -e CC=gcc storjlabs/golang:1.13.5'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.5'
         }
         catch(err){
             throw err
         }
         finally {
-          sh 'docker stop postgres || true'
-          sh 'docker stop redis || true'
+          sh 'docker stop postgres-$BUILD_NUMBER || true'
+          sh 'docker rm postgres-$BUILD_NUMBER || true'
+          sh 'docker stop redis-$BUILD_NUMBER || true'
+          sh 'docker rm redis-$BUILD_NUMBER || true'
         }
     }
 
@@ -49,25 +51,27 @@ node('node') {
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          sh 'docker run --rm -d --name postgres postgres:9.6'
-          sh 'docker run --rm -d --name redis redis:latest'
+          sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+          sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
-          sh '''until $(docker logs postgres | grep "database system is ready to accept connections" > /dev/null)
+          sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
                 do printf '.'
                 sleep 5
                 done
             '''
-          sh 'docker exec postgres createdb -U postgres teststorj'
+          sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis:redis --link postgres:postgres -e CC=gcc storjlabs/golang:1.13.5'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.5'
         }
         catch(err){
             throw err
         }
         finally {
-          sh 'docker stop postgres || true'
-          sh 'docker stop redis || true'
+          sh 'docker stop postgres-$BUILD_NUMBER || true'
+          sh 'docker rm postgres-$BUILD_NUMBER || true'
+          sh 'docker stop redis-$BUILD_NUMBER || true'
+          sh 'docker rm redis-$BUILD_NUMBER || true'
         }
     }
 
