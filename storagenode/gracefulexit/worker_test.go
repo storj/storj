@@ -204,7 +204,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		spaceUsed, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
+		_, spaceUsed, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
 		require.NoError(t, err)
 		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), spaceUsed)
 		require.NoError(t, err)

@@ -75,9 +75,9 @@ func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
 		)
 		for _, sn := range planet.StorageNodes {
 			// calculate the SNs total used space after data upload
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			totalUsedSpace += usedSpace
+			totalUsedSpace += piecesTotal
 
 			// Get pb node and all the pieces of the storage node
 			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
@@ -104,9 +104,9 @@ func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
 		// calculate the SNs used space after delete the pieces
 		var totalUsedSpaceAfterDelete int64
 		for _, sn := range planet.StorageNodes {
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			totalUsedSpaceAfterDelete += usedSpace
+			totalUsedSpaceAfterDelete += piecesTotal
 		}
 
 		// At this point we can only guarantee that the 75% of the SNs pieces
@@ -178,9 +178,9 @@ func TestDeletePiecesService_DeletePieces_SomeNodesDown(t *testing.T) {
 		// hold any piece
 		var totalUsedSpace int64
 		for i := 2; i < len(planet.StorageNodes); i++ {
-			usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			totalUsedSpace += usedSpace
+			totalUsedSpace += piecesTotal
 		}
 
 		require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
@@ -220,9 +220,9 @@ func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
 		)
 		for _, sn := range planet.StorageNodes {
 			// calculate the SNs total used space after data upload
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			expectedTotalUsedSpace += usedSpace
+			expectedTotalUsedSpace += piecesTotal
 
 			// Get pb node and all the pieces of the storage node
 			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
@@ -250,9 +250,9 @@ func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
 		var totalUsedSpace int64
 		for _, sn := range planet.StorageNodes {
 			// calculate the SNs total used space after data upload
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			totalUsedSpace += usedSpace
+			totalUsedSpace += piecesTotal
 		}
 
 		require.Equal(t, expectedTotalUsedSpace, totalUsedSpace, "totalUsedSpace")
@@ -292,9 +292,9 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 		)
 		for _, sn := range planet.StorageNodes {
 			// calculate the SNs total used space after data upload
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			expectedTotalUsedSpace += usedSpace
+			expectedTotalUsedSpace += piecesTotal
 
 			// Get pb node and all the pieces of the storage node
 			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
@@ -329,9 +329,9 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 
 		var totalUsedSpaceAfterDelete int64
 		for _, sn := range planet.StorageNodes {
-			usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
-			totalUsedSpaceAfterDelete += usedSpace
+			totalUsedSpaceAfterDelete += piecesTotal
 		}
 
 		// because no node can be dialed the SNs used space should be the same

@@ -118,9 +118,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if w.closed {
 		return Error.New("already closed")
 	}
-	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
-		cache.Update(ctx, w.satellite, w.Size(), 0)
-	}
+
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
 	defer func() {
@@ -130,6 +128,21 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 			err = Error.Wrap(w.blob.Commit(ctx))
 		}
 	}()
+
+	// if the blob store is a cache, update the cache, but only if we did not
+	// encounter an error
+	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
+		defer func() {
+			if err == nil {
+				totalSize, sizeErr := w.blob.Size()
+				if sizeErr != nil {
+					// Nothing to do here. If we cannot get the size, we cannot update the cache
+					return
+				}
+				cache.Update(ctx, w.satellite, totalSize, w.Size(), 0)
+			}
+		}()
+	}
 
 	formatVer := w.blob.StorageFormatVersion()
 	if formatVer == filestore.FormatV0 {

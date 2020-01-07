@@ -74,7 +74,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
-	startingDiskUsage, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
+	_, startingDiskUsage, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
 	require.NoError(t, err)
 	require.NotZero(t, startingDiskUsage)
 

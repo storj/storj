@@ -1024,6 +1024,24 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Rename total column to content_size",
+				Version:     29,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_space_used RENAME TO _piece_space_used_old`,
+					`CREATE TABLE piece_space_used (
+						total INTEGER NOT NULL DEFAULT 0,
+						content_size INTEGER NOT NULL,
+						satellite_id BLOB
+					)`,
+					`INSERT INTO piece_space_used (content_size, satellite_id)
+						SELECT total, satellite_id
+						FROM _piece_space_used_old`,
+					`DROP TABLE _piece_space_used_old`,
+					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
+				},
+			},
 		},
 	}
 }

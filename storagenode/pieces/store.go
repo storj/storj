@@ -113,14 +113,14 @@ type V0PieceInfoDBForTest interface {
 type PieceSpaceUsedDB interface {
 	// Init creates the one total and trash record if it doesn't already exist
 	Init(ctx context.Context) error
-	// GetPieceTotal returns the total space used by all pieces stored on disk
-	GetPieceTotal(ctx context.Context) (int64, error)
-	// UpdatePieceTotal updates the record for total spaced used for pieces with a new value
-	UpdatePieceTotal(ctx context.Context, newTotal int64) error
-	// GetTotalsForAllSatellites returns how much total space used by pieces stored on disk for each satelliteID
-	GetPieceTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]int64, error)
+	// GetPieceTotals returns the space used (total and contentSize) by all pieces stored
+	GetPieceTotals(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error)
+	// UpdatePieceTotals updates the record for aggregate spaced used for pieces (total and contentSize) with new values
+	UpdatePieceTotals(ctx context.Context, piecesTotal, piecesContentSize int64) error
+	// GetTotalsForAllSatellites returns how much total space used by pieces stored for each satelliteID
+	GetPieceTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]SatelliteUsage, error)
 	// UpdatePieceTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
-	UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]int64) error
+	UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]SatelliteUsage) error
 	// GetTrashTotal returns the total space used by trash
 	GetTrashTotal(ctx context.Context) (int64, error)
 	// UpdateTrashTotal updates the record for total spaced used for trash with a new value
@@ -148,6 +148,12 @@ type StoredPieceAccess interface {
 	// much faster. For non-FormatV0 pieces, this gets the piece creation time from to the
 	// filesystem instead of the piece header.
 	ModTime(ctx context.Context) (time.Time, error)
+}
+
+// SatelliteUsage contains information of how much space is used by a satellite
+type SatelliteUsage struct {
+	Total       int64 // the total space used (including headers)
+	ContentSize int64 // only content size used (excluding things like headers)
 }
 
 // Store implements storing pieces onto a blob storage implementation.
@@ -508,25 +514,24 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 // this information is collected, and because it is possible that various errors in directory
 // traversal could cause this count to be undersized.
 //
-// Important note: this metric does not include space used by piece headers, whereas
-// storj/filestore/store.(*Store).SpaceUsedForBlobs() *does* include all space used by the blobs.
-func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
+// This returns both the total size of pieces plus the contentSize of pieces.
+func (store *Store) SpaceUsedForPieces(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error) {
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedForPieces(ctx)
 	}
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	var total int64
 	for _, satellite := range satellites {
-		spaceUsed, err := store.SpaceUsedBySatellite(ctx, satellite)
+		pieceTotal, pieceContentSize, err := store.SpaceUsedBySatellite(ctx, satellite)
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
-		total += spaceUsed
+		piecesTotal += pieceTotal
+		piecesContentSize += pieceContentSize
 	}
-	return total, nil
+	return piecesTotal, piecesContentSize, nil
 }
 
 // SpaceUsedForTrash returns the total space used by the the piece store's trash
@@ -538,17 +543,17 @@ func (store *Store) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 // SpaceUsedForPiecesAndTrash returns the total space used by both active
 // pieces and the trash directory
 func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, error) {
-	pieces, err := store.SpaceUsedForPieces(ctx)
+	piecesTotal, _, err := store.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	trash, err := store.SpaceUsedForTrash(ctx)
+	trashTotal, err := store.SpaceUsedForTrash(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return pieces + trash, nil
+	return piecesTotal + trashTotal, nil
 }
 
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
@@ -571,60 +576,54 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // be being applied to the filestore as this information is collected, and because it is possible
 // that various errors in directory traversal could cause this count to be undersized.
 //
-// Important note: this metric does not include space used by piece headers, whereas
-// storj/filestore/store.(*Store).SpaceUsedForBlobsInNamespace() *does* include all space used by the
-// blobs.
-func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
+// This returns both the total size of pieces plus the contentSize of pieces.
+func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal, piecesContentSize int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedBySatellite(ctx, satelliteID)
 	}
 
-	var totalUsed int64
-	err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
-		_, contentSize, statErr := access.Size(ctx)
+	err = store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+		pieceTotal, pieceContentSize, statErr := access.Size(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat", zap.Error(statErr), zap.Stringer("Piece ID", access.PieceID()), zap.Stringer("Satellite ID", satelliteID))
 			// keep iterating; we want a best effort total here.
 			return nil
 		}
-		totalUsed += contentSize
+		piecesTotal += pieceTotal
+		piecesContentSize += pieceContentSize
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return totalUsed, nil
+	return piecesTotal, piecesContentSize, nil
 }
 
 // SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage
-func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int64, totalBySatellite map[storj.NodeID]int64, err error) {
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTotal, piecesContentSize int64, totalBySatellite map[storj.NodeID]SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satelliteIDs, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
-		return total, totalBySatellite, Error.New("failed to enumerate satellites: %w", err)
+		return 0, 0, nil, Error.New("failed to enumerate satellites: %w", err)
 	}
 
-	totalBySatellite = map[storj.NodeID]int64{}
+	totalBySatellite = map[storj.NodeID]SatelliteUsage{}
 	for _, satelliteID := range satelliteIDs {
-		var totalUsed int64
-
-		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
-			_, contentSize, err := access.Size(ctx)
-			if err != nil {
-				return err
-			}
-			totalUsed += contentSize
-			return nil
-		})
+		pieceTotal, pieceContentSize, err := store.SpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
-			return total, totalBySatellite, err
+			return 0, 0, nil, err
 		}
 
-		total += totalUsed
-		totalBySatellite[satelliteID] = totalUsed
+		piecesTotal += pieceTotal
+		piecesContentSize += pieceContentSize
+		totalBySatellite[satelliteID] = SatelliteUsage{
+			Total:       pieceTotal,
+			ContentSize: pieceContentSize,
+		}
 	}
-	return total, totalBySatellite, nil
+	return piecesTotal, piecesContentSize, totalBySatellite, nil
 }
 
 // GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,

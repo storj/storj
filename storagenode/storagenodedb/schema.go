@@ -244,6 +244,11 @@ func Schema() map[string]*dbschema.Schema {
 					Name: "piece_space_used",
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
+							Name:       "content_size",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: true,

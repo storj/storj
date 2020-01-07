@@ -68,7 +68,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// calculate the SNs total used space after data upload
 					var totalUsedSpace int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += usedSpace
 					}
@@ -82,7 +82,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += usedSpace
 					}
@@ -153,7 +153,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// they are still holding data
 					var totalUsedSpace int64
 					for i := 0; i < 2; i++ {
-						usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						usedSpace, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += usedSpace
 					}
@@ -164,7 +164,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// hold any piece
 					totalUsedSpace = 0
 					for i := 2; i < len(planet.StorageNodes); i++ {
-						usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						usedSpace, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += usedSpace
 					}
@@ -230,7 +230,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// they are still holding data
 					var totalUsedSpace int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += usedSpace
 					}

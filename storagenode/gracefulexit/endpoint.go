@@ -68,7 +68,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 			continue
 		}
 		// get space usage by satellites
-		spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, trusted)
+		_, piecesContentSize, err := e.usageCache.SpaceUsedBySatellite(ctx, trusted)
 		if err != nil {
 			e.log.Debug("graceful exit: get space used by satellite", zap.Stringer("Satellite ID", trusted), zap.Error(err))
 			continue
@@ -76,7 +76,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 		availableSatellites = append(availableSatellites, &pb.NonExitingSatellite{
 			DomainName: domain,
 			NodeId:     trusted,
-			SpaceUsed:  float64(spaceUsed),
+			SpaceUsed:  float64(piecesContentSize),
 		})
 	}
 
@@ -96,13 +96,13 @@ func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGra
 	}
 
 	// get space usage by satellites
-	spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
+	_, piecesContentSize, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: retrieve space used", zap.Stringer("Satellite ID", req.NodeId), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), spaceUsed)
+	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), piecesContentSize)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: save info into satellites table", zap.Stringer("Satellite ID", req.NodeId), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())

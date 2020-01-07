@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/pieces"
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
@@ -73,41 +74,40 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 
 func (db *pieceSpaceUsedDB) createInitTotalPieces(ctx context.Context) (err error) {
 	_, err = db.ExecContext(ctx, `
-		INSERT INTO piece_space_used (total) VALUES (0)
+		INSERT INTO piece_space_used (total, content_size) VALUES (0, 0)
 	`)
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
 func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error) {
 	_, err = db.ExecContext(ctx, `
-		INSERT INTO piece_space_used (total, satellite_id) VALUES (0, ?)
+		INSERT INTO piece_space_used (total, content_size, satellite_id) VALUES (0, 0, ?)
 	`, trashTotalRowName)
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
-// GetPieceTotal returns the total space used by all pieces stored on disk
-func (db *pieceSpaceUsedDB) GetPieceTotal(ctx context.Context) (_ int64, err error) {
+// GetPieceTotal returns the total space used (total and contentSize) for all pieces stored
+func (db *pieceSpaceUsedDB) GetPieceTotals(ctx context.Context) (total int64, contentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row := db.QueryRowContext(ctx, `
-		SELECT total
+		SELECT total, content_size
 		FROM piece_space_used
 		WHERE satellite_id IS NULL;
 	`)
 
-	var total int64
-	err = row.Scan(&total)
+	err = row.Scan(&total, &contentSize)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return total, nil
+			return 0, 0, nil
 		}
-		return total, ErrPieceSpaceUsed.Wrap(err)
+		return 0, 0, ErrPieceSpaceUsed.Wrap(err)
 	}
-	return total, nil
+	return total, contentSize, nil
 }
 
 // GetTrashTotal returns the total space used by all trash
-func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (_ int64, err error) {
+func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row := db.QueryRowContext(ctx, `
@@ -116,7 +116,6 @@ func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (_ int64, err err
 		WHERE satellite_id = ?
 	`, trashTotalRowName)
 
-	var total int64
 	err = row.Scan(&total)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -127,12 +126,12 @@ func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (_ int64, err err
 	return total, nil
 }
 
-// GetPieceTotalsForAllSatellites returns how much total space used by pieces stored on disk for each satelliteID
-func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
+// GetPieceTotalsForAllSatellites returns how much space used by pieces stored for each satelliteID
+func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) (_ map[storj.NodeID]pieces.SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT total, satellite_id
+		SELECT total, content_size, satellite_id
 		FROM piece_space_used
 		WHERE satellite_id IS NOT NULL
 			AND satellite_id IS NOT ?
@@ -145,29 +144,32 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	totalBySatellite := map[storj.NodeID]int64{}
+	totalBySatellite := map[storj.NodeID]pieces.SatelliteUsage{}
 	for rows.Next() {
-		var total int64
+		var total, contentSize int64
 		var satelliteID storj.NodeID
 
-		err = rows.Scan(&total, &satelliteID)
+		err = rows.Scan(&total, &contentSize, &satelliteID)
 		if err != nil {
 			return nil, ErrPieceSpaceUsed.Wrap(err)
 		}
-		totalBySatellite[satelliteID] = total
+		totalBySatellite[satelliteID] = pieces.SatelliteUsage{
+			Total:       total,
+			ContentSize: contentSize,
+		}
 	}
 	return totalBySatellite, rows.Err()
 }
 
-// UpdatePieceTotal updates the record for total spaced used with a new value
-func (db *pieceSpaceUsedDB) UpdatePieceTotal(ctx context.Context, newTotal int64) (err error) {
+// UpdatePieceTotals updates the record for total spaced used with new total and contentSize values
+func (db *pieceSpaceUsedDB) UpdatePieceTotals(ctx context.Context, newTotal, newContentSize int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
 		UPDATE piece_space_used
-		SET total = ?
+		SET total = ?, content_size = ?
 		WHERE satellite_id IS NULL
-	`, newTotal)
+	`, newTotal, newContentSize)
 
 	return ErrPieceSpaceUsed.Wrap(err)
 }
@@ -185,12 +187,12 @@ func (db *pieceSpaceUsedDB) UpdateTrashTotal(ctx context.Context, newTotal int64
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
-// UpdatePieceTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
-func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]int64) (err error) {
+// UpdatePieceTotalsForAllSatellites updates each record with new values for each satelliteID
+func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]pieces.SatelliteUsage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for satelliteID, newTotal := range newTotalsBySatellites {
-		if newTotal == 0 {
+	for satelliteID, vals := range newTotalsBySatellites {
+		if vals.ContentSize == 0 && vals.Total == 0 {
 			if err := db.deleteTotalBySatellite(ctx, satelliteID); err != nil {
 				return ErrPieceSpaceUsed.Wrap(err)
 			}
@@ -198,12 +200,12 @@ func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Contex
 		}
 
 		_, err = db.ExecContext(ctx, `
-			INSERT INTO piece_space_used (total, satellite_id)
-			VALUES (?, ?)
+			INSERT INTO piece_space_used (total, content_size, satellite_id)
+			VALUES (?, ?, ?)
 			ON CONFLICT (satellite_id)
-			DO UPDATE SET total = ?
+			DO UPDATE SET total = ?, content_size = ?
 			WHERE satellite_id = ?
-		`, newTotal, satelliteID, newTotal, satelliteID)
+		`, vals.Total, vals.ContentSize, satelliteID, vals.Total, vals.ContentSize, satelliteID)
 
 		if err != nil {
 			if err == sql.ErrNoRows {

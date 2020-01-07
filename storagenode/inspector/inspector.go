@@ -78,7 +78,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	totalUsedSpace, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	_, piecesContentSize, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -92,8 +92,8 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	totalUsedBandwidth := usage.Total()
 
 	return &pb.StatSummaryResponse{
-		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		UsedSpace:          piecesContentSize,
+		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize,
 		UsedIngress:        ingress,
 		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
