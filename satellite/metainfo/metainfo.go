@@ -2363,6 +2363,11 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		}
 	}
 
+	if len(nodeIDs) == 0 {
+		// Pieces will be collected by garbage collector
+		return
+	}
+
 	nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
 	if err != nil {
 		endpoint.log.Warn("unable to look up nodes from overlay",
