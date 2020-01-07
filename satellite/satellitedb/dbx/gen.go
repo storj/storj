@@ -17,7 +17,7 @@ import (
 
 //go:generate dbx schema -d postgres -d cockroach satellitedb.dbx .
 //go:generate dbx golang -d postgres -d cockroach -t templates satellitedb.dbx .
-//go:generate bash -c "sed -i'' '1i //lint:file-ignore * generated file\n' satellitedb.dbx.go"
+//go:generate bash -c "( echo '//lint:file-ignore * generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go{.tmp,}"
 //go:generate perl -p0i -e "s,^(\\s*\"github.com/lib/pq\")\\n\\n\\1,\\1,gm" satellitedb.dbx.go
 
 var mon = monkit.Package()
