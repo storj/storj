@@ -30,4 +30,6 @@ const (
 	Transaction BillingHistoryItemType = 1
 	// Charge is a credit card charge billing item.
 	Charge BillingHistoryItemType = 2
+	// Coupon is an entity that adds some funds to Accounts balance for some fixed period.
+	Coupon BillingHistoryItemType = 3
 )

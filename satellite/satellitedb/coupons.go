@@ -44,6 +44,7 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err
 		dbx.Coupon_UserId(coupon.UserID[:]),
 		dbx.Coupon_Amount(coupon.Amount),
 		dbx.Coupon_Description(coupon.Description),
+		dbx.Coupon_Type(int(coupon.Type)),
 		dbx.Coupon_Status(int(coupon.Status)),
 		dbx.Coupon_Duration(int64(coupon.Duration)),
 	)
@@ -66,6 +67,18 @@ func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status p
 	return err
 }
 
+// Get returns coupon by ID.
+func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments.Coupon, err error) {
+	defer mon.Task()(&ctx, couponID)(&err)
+
+	dbxCoupon, err := coupons.db.Get_Coupon_By_Id(ctx, dbx.Coupon_Id(couponID[:]))
+	if err != nil {
+		return payments.Coupon{}, err
+	}
+
+	return fromDBXCoupon(dbxCoupon)
+}
+
 // List returns all coupons of specified user.
 func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -73,6 +86,22 @@ func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ [
 	dbxCoupons, err := coupons.db.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(
 		ctx,
 		dbx.Coupon_UserId(userID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return couponsFromDbxSlice(dbxCoupons)
+}
+
+// ListByUserIDAndStatus returns all coupons of specified user and status.
+func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) (_ []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	dbxCoupons, err := coupons.db.All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(
+		ctx,
+		dbx.Coupon_UserId(userID[:]),
+		dbx.Coupon_Status(int(status)),
 	)
 	if err != nil {
 		return nil, err
@@ -128,6 +157,21 @@ func (coupons *coupons) ListPaged(ctx context.Context, offset int64, limit int, 
 	return page, nil
 }
 
+// ListByProjectID returns all active coupons for specified project.
+func (coupons *coupons) ListByProjectID(ctx context.Context, projectID uuid.UUID) (_ []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	dbxCoupons, err := coupons.db.All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(
+		ctx,
+		dbx.Coupon_ProjectId(projectID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return couponsFromDbxSlice(dbxCoupons)
+}
+
 // fromDBXCoupon converts *dbx.Coupon to *payments.Coupon.
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 	coupon.UserID, err = dbutil.BytesToUUID(dbxCoupon.UserId)
@@ -145,7 +189,7 @@ func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 		return payments.Coupon{}, err
 	}
 
-	coupon.Duration = time.Duration(dbxCoupon.Duration)
+	coupon.Duration = int(dbxCoupon.Duration)
 	coupon.Description = dbxCoupon.Description
 	coupon.Amount = dbxCoupon.Amount
 	coupon.Created = dbxCoupon.CreatedAt
@@ -158,17 +202,12 @@ func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 func (coupons *coupons) AddUsage(ctx context.Context, usage stripecoinpayments.CouponUsage) (err error) {
 	defer mon.Task()(&ctx, usage)(&err)
 
-	id, err := uuid.New()
-	if err != nil {
-		return err
-	}
-
 	_, err = coupons.db.Create_CouponUsage(
 		ctx,
-		dbx.CouponUsage_Id(id[:]),
 		dbx.CouponUsage_CouponId(usage.CouponID[:]),
 		dbx.CouponUsage_Amount(usage.Amount),
-		dbx.CouponUsage_IntervalEnd(usage.End),
+		dbx.CouponUsage_Status(int(usage.Status)),
+		dbx.CouponUsage_Period(usage.Period),
 	)
 
 	return err
@@ -192,15 +231,33 @@ func (coupons *coupons) TotalUsage(ctx context.Context, couponID uuid.UUID) (_ i
 	return amount, err
 }
 
+// TotalUsage gets sum of all usage records for specified coupon.
+func (coupons *coupons) TotalUsageForPeriod(ctx context.Context, couponID uuid.UUID, period time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx, couponID)(&err)
+
+	query := coupons.db.Rebind(
+		`SELECT COALESCE(SUM(amount), 0)
+			  FROM coupon_usages
+			  WHERE coupon_id = ?;`,
+	)
+
+	amountRow := coupons.db.QueryRowContext(ctx, query, couponID[:])
+
+	var amount int64
+	err = amountRow.Scan(&amount)
+
+	return amount, err
+}
+
 // GetLatest return period_end of latest coupon charge.
 func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ time.Time, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
 	query := coupons.db.Rebind(
-		`SELECT interval_end 
+		`SELECT period 
 			  FROM coupon_usages 
 			  WHERE coupon_id = ? 
-			  ORDER BY interval_end DESC
+			  ORDER BY period DESC
 			  LIMIT 1;`,
 	)
 
@@ -212,7 +269,58 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 		return created, stripecoinpayments.ErrNoCouponUsages.Wrap(err)
 	}
 
-	return created.UTC(), err
+	return created, err
+}
+
+// ListUnapplied returns coupon usage page with unapplied coupon usages.
+func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
+	defer mon.Task()(&ctx, offset, limit, before)(&err)
+
+	var page stripecoinpayments.CouponUsagePage
+
+	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(
+		ctx,
+		dbx.CouponUsage_Period(before),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return stripecoinpayments.CouponUsagePage{}, err
+	}
+
+	if len(dbxRecords) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit) + 1
+
+		dbxRecords = dbxRecords[:len(dbxRecords)-1]
+	}
+
+	for _, dbxRecord := range dbxRecords {
+		record, err := couponUsageFromDbxSlice(dbxRecord)
+		if err != nil {
+			return stripecoinpayments.CouponUsagePage{}, err
+		}
+
+		page.Usages = append(page.Usages, record)
+	}
+
+	return page, nil
+}
+
+// ApplyUsage applies coupon usage and updates its status.
+func (coupons *coupons) ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) (err error) {
+	defer mon.Task()(&ctx, couponID, period)(&err)
+
+	_, err = coupons.db.Update_CouponUsage_By_CouponId_And_Period(
+		ctx,
+		dbx.CouponUsage_CouponId(couponID[:]),
+		dbx.CouponUsage_Period(period),
+		dbx.CouponUsage_Update_Fields{
+			Status: dbx.CouponUsage_Status(int(stripecoinpayments.CouponUsageStatusApplied)),
+		},
+	)
+
+	return err
 }
 
 // couponsFromDbxSlice is used for creating []payments.Coupon entities from autogenerated []dbx.Coupon struct.
@@ -232,4 +340,18 @@ func couponsFromDbxSlice(couponsDbx []*dbx.Coupon) (_ []payments.Coupon, err err
 	}
 
 	return coupons, errs.Combine(errors...)
+}
+
+// couponUsageFromDbxSlice is used for creating stripecoinpayments.CouponUsage entity from autogenerated dbx.CouponUsage struct.
+func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinpayments.CouponUsage, err error) {
+	usage.Status = stripecoinpayments.CouponUsageStatus(couponUsageDbx.Status)
+	usage.Period = couponUsageDbx.Period
+	usage.Amount = couponUsageDbx.Amount
+
+	usage.CouponID, err = dbutil.BytesToUUID(couponUsageDbx.CouponId)
+	if err != nil {
+		return stripecoinpayments.CouponUsage{}, err
+	}
+
+	return usage, err
 }

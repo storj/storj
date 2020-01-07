@@ -95,6 +95,16 @@ var (
 		Short: "Creates stripe invoice line items for not consumed project records",
 		RunE:  createInvoiceItems,
 	}
+	prepareInvoiceCouponsCmd = &cobra.Command{
+		Use:   "prepare-invoice-coupons",
+		Short: "Creates coupon usage for all satellite projects",
+		RunE:  prepareInvoiceCoupons,
+	}
+	createInvoiceCouponsCmd = &cobra.Command{
+		Use:   "create-invoice-coupons",
+		Short: "Creates stripe invoice line items for not consumed coupons",
+		RunE:  createInvoiceCoupons,
+	}
 	createInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices",
 		Short: "Creates stripe invoices for all stripe customers known to satellite",
@@ -447,6 +457,7 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 }
 
 func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
@@ -459,7 +470,7 @@ func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
 		return ErrArgs.New("invalid period specified: %v", err)
 	}
 
-	_, err = i.paymentsClient.PrepareInvoiceRecords(context.Background(),
+	_, err = i.paymentsClient.PrepareInvoiceRecords(ctx,
 		&pb.PrepareInvoiceRecordsRequest{
 			Period: period,
 		},
@@ -473,6 +484,7 @@ func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
 }
 
 func createInvoiceItems(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
@@ -480,12 +492,50 @@ func createInvoiceItems(cmd *cobra.Command, args []string) error {
 
 	defer func() { err = errs.Combine(err, i.Close()) }()
 
-	_, err = i.paymentsClient.ApplyInvoiceRecords(context.Background(), &pb.ApplyInvoiceRecordsRequest{})
+	_, err = i.paymentsClient.ApplyInvoiceRecords(ctx, &pb.ApplyInvoiceRecordsRequest{})
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("successfully created invoice line items")
+	return nil
+}
+
+func prepareInvoiceCoupons(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.PrepareInvoiceCoupons(ctx,
+		&pb.PrepareInvoiceCouponsRequest{},
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice coupons")
+	return nil
+}
+
+func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.ApplyInvoiceCoupons(ctx, &pb.ApplyInvoiceCouponsRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice coupon line items")
 	return nil
 }
 
@@ -542,6 +592,8 @@ func init() {
 
 	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
 	paymentsCmd.AddCommand(createInvoiceItemsCmd)
+	paymentsCmd.AddCommand(prepareInvoiceCouponsCmd)
+	paymentsCmd.AddCommand(createInvoiceCouponsCmd)
 	paymentsCmd.AddCommand(createInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")

@@ -55,7 +55,12 @@ func (endpoint *Endpoint) PrepareInvoiceCoupons(ctx context.Context, req *pb.Pre
 func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.ApplyInvoiceCouponsRequest) (_ *pb.ApplyInvoiceCouponsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return &pb.ApplyInvoiceCouponsResponse{}, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+	err = endpoint.service.InvoiceApplyCoupons(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ApplyInvoiceCouponsResponse{}, nil
 }
 
 // CreateInvoices creates invoice for all user accounts on the satellite.

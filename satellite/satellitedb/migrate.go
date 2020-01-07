@@ -560,6 +560,41 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated SET DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Drop coupon related tables",
+				Version:     75,
+				Action: migrate.SQL{
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupons;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Update coupon related tables",
+				Version:     76,
+				Action: migrate.SQL{
+					`CREATE TABLE coupons (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						status integer NOT NULL,
+						duration bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE TABLE coupon_usages (
+						coupon_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						status integer NOT NULL,
+						period timestamp with time zone NOT NULL,
+						PRIMARY KEY ( coupon_id, period )
+					);`,
+				},
+			},
 		},
 	}
 }

@@ -189,16 +189,16 @@ CREATE TABLE storagenode_storage_tallies
     PRIMARY KEY (id)
 );
 CREATE TABLE users (
-                       id bytea NOT NULL,
-                       email text NOT NULL,
-                       normalized_email text NOT NULL,
-                       full_name text NOT NULL,
-                       short_name text,
-                       password_hash bytea NOT NULL,
-                       status integer NOT NULL,
-                       partner_id bytea,
-                       created_at timestamp with time zone NOT NULL,
-                       PRIMARY KEY ( id )
+    id bytea NOT NULL,
+    email text NOT NULL,
+    normalized_email text NOT NULL,
+    full_name text NOT NULL,
+    short_name text,
+    password_hash bytea NOT NULL,
+    status integer NOT NULL,
+    partner_id bytea,
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions
 (
@@ -352,6 +352,13 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY ( tx_id )
 );
+CREATE TABLE nodes_offline_times
+(
+    node_id bytea NOT NULL,
+    tracked_at timestamp with time zone NOT NULL,
+    seconds integer NOT NULL,
+    PRIMARY KEY ( node_id, tracked_at )
+);
 CREATE TABLE coupons
 (
     id bytea NOT NULL,
@@ -359,25 +366,19 @@ CREATE TABLE coupons
     user_id bytea NOT NULL,
     amount bigint NOT NULL,
     description text NOT NULL,
+    type integer NOT NULL,
     status integer NOT NULL,
     duration bigint NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY ( id ),
-    UNIQUE ( project_id )
+    PRIMARY KEY ( id )
 );
 CREATE TABLE coupon_usages
 (
-    id bytea NOT NULL,
     coupon_id bytea NOT NULL,
     amount bigint NOT NULL,
-    interval_end timestamp with time zone NOT NULL,
-    PRIMARY KEY ( id )
-);
-CREATE TABLE nodes_offline_times (
-                                     node_id bytea NOT NULL,
-                                     tracked_at timestamp with time zone NOT NULL,
-                                     seconds integer NOT NULL,
-                                     PRIMARY KEY ( node_id, tracked_at )
+    status integer NOT NULL,
+    period timestamp with time zone NOT NULL,
+    PRIMARY KEY ( coupon_id, period )
 );
 
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
@@ -464,10 +465,12 @@ INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate", "created_
 INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount", "received", "status", "key", "timeout", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 1, 'key', 60, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
-INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 111111111121, '2019-06-01 08:28:24.267934+00');
-INSERT INTO "coupon_usages" ("id", "coupon_id", "amount", "interval_end") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, '2019-06-01 09:28:24.267934+00');
 INSERT INTO "nodes_offline_times" ("node_id", "tracked_at", "seconds") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001'::bytea, '2019-06-01 09:28:24.267934+00', 3600);
 INSERT INTO "nodes_offline_times" ("node_id", "tracked_at", "seconds") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001'::bytea, '2017-06-01 09:28:24.267934+00', 100);
 INSERT INTO "nodes_offline_times" ("node_id", "tracked_at", "seconds") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n'::bytea, '2019-06-01 09:28:24.267934+00', 3600);
--- NEW DATA --
+
 INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "interval_seconds", "action", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2020-01-11 08:00:00.000000+00', 3600, 1, 2024);
+
+-- NEW DATA --
+INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "type", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 0, 2, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coupon_usages" ("coupon_id", "amount", "status", "period") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, 0, '2019-06-01 09:28:24.267934+00');

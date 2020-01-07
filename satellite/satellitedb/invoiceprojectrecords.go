@@ -42,7 +42,7 @@ type invoiceProjectRecords struct {
 }
 
 // Create creates new invoice project record in the DB.
-func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, start, end time.Time) (err error) {
+func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, couponUsages []stripecoinpayments.CouponUsage, start, end time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -57,7 +57,7 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 				dbx.StripecoinpaymentsInvoiceProjectRecord_ProjectId(record.ProjectID[:]),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Storage(record.Storage),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Egress(record.Egress),
-				dbx.StripecoinpaymentsInvoiceProjectRecord_Objects(record.Objects),
+				dbx.StripecoinpaymentsInvoiceProjectRecord_Objects(int64(record.Objects)),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
@@ -67,6 +67,18 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 			}
 		}
 
+		for _, couponUsage := range couponUsages {
+			_, err = db.db.Create_CouponUsage(
+				ctx,
+				dbx.CouponUsage_CouponId(couponUsage.CouponID[:]),
+				dbx.CouponUsage_Amount(couponUsage.Amount),
+				dbx.CouponUsage_Status(int(couponUsage.Status)),
+				dbx.CouponUsage_Period(couponUsage.Period),
+			)
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 }
@@ -90,6 +102,23 @@ func (db *invoiceProjectRecords) Check(ctx context.Context, projectID uuid.UUID,
 	}
 
 	return stripecoinpayments.ErrProjectRecordExists
+}
+
+// Get returns record for specified project and billing period.
+func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, start, end time.Time) (record *stripecoinpayments.ProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxRecord, err := db.db.Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx,
+		dbx.StripecoinpaymentsInvoiceProjectRecord_ProjectId(projectID[:]),
+		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
+		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fromDBXInvoiceProjectRecord(dbxRecord)
 }
 
 // Consume consumes invoice project record.
@@ -157,7 +186,7 @@ func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProject
 		ProjectID:   projectID,
 		Storage:     dbxRecord.Storage,
 		Egress:      dbxRecord.Egress,
-		Objects:     dbxRecord.Objects,
+		Objects:     float64(dbxRecord.Objects),
 		PeriodStart: dbxRecord.PeriodStart,
 		PeriodEnd:   dbxRecord.PeriodEnd,
 	}, nil

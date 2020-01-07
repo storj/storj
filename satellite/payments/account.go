@@ -5,7 +5,6 @@ package payments
 
 import (
 	"context"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 )
@@ -21,6 +20,9 @@ type Accounts interface {
 
 	// Balance returns an integer amount in cents that represents the current balance of payment account.
 	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
+
+	// AddCoupon creates new coupon for specified user and project.
+	AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration int, description string, couponType CouponType) (err error)
 
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID) ([]ProjectCharge, error)
