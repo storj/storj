@@ -106,6 +106,12 @@ contact.external-address: ""
 # how often to run the downtime detection chore.
 # downtime.detection-interval: 1h0m0s
 
+# the downtime estimation chore should check this many offline nodes
+# downtime.estimation-batch-size: 100
+
+# how often to run the downtime estimation chore
+# downtime.estimation-interval: 1h0m0s
+
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 

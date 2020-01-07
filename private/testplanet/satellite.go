@@ -165,8 +165,9 @@ type SatelliteSystem struct {
 	}
 
 	DowntimeTracking struct {
-		DetectionChore *downtime.DetectionChore
-		Service        *downtime.Service
+		DetectionChore  *downtime.DetectionChore
+		EstimationChore *downtime.EstimationChore
+		Service         *downtime.Service
 	}
 }
 
@@ -404,7 +405,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				ChoreInterval: defaultInterval,
 			},
 			Downtime: downtime.Config{
-				DetectionInterval: defaultInterval,
+				DetectionInterval:   defaultInterval,
+				EstimationInterval:  defaultInterval,
+				EstimationBatchSize: 0,
 			},
 		}
 
@@ -524,6 +527,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Metrics.Chore = peer.Metrics.Chore
 
 	system.DowntimeTracking.DetectionChore = peer.DowntimeTracking.DetectionChore
+	system.DowntimeTracking.EstimationChore = peer.DowntimeTracking.EstimationChore
 	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system
