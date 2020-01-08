@@ -25,7 +25,7 @@ describe('Pagination.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('inits correctly with totalPageCount equals 10 and current pageNumber in first block', () => {
+    it('inits correctly with totalPageCount equals 10 and current pageNumber in first block', async () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 10,
@@ -33,7 +33,7 @@ describe('Pagination.vue', () => {
             },
         });
 
-        const wrapperData = wrapper.vm.$data;
+        const wrapperData = await wrapper.vm.$data;
 
         expect(wrapperData.currentPageNumber).toBe(1);
         expect(wrapperData.pagesArray.length).toBe(10);
@@ -70,9 +70,9 @@ describe('Pagination.vue', () => {
             },
         });
 
-        const wrapperData = wrapper.vm.$data;
+        const wrapperData = await wrapper.vm.$data;
 
-        wrapper.findAll('span').at(2).trigger('click');
+        await wrapper.findAll('span').at(2).trigger('click');
         await expect(callbackSpy.callCount).toBe(1);
 
         expect(wrapperData.currentPageNumber).toBe(3);
@@ -201,7 +201,7 @@ describe('Pagination.vue', () => {
 
         expect(wrapper.vm.$data.currentPageNumber).toBe(2);
 
-        wrapper.setProps({totalPageCount: 7});
+        await wrapper.setProps({totalPageCount: 7});
 
         const wrapperData = wrapper.vm.$data;
 

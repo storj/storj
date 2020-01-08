@@ -10,6 +10,7 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
@@ -18,8 +19,10 @@ import { ProjectsApiMock } from '../mock/api/projects';
 
 const localVue = createLocalVue();
 const segmentioPlugin = new SegmentioPlugin();
+const notificationPlugin = new NotificatorPlugin();
 localVue.use(Vuex);
 localVue.use(segmentioPlugin);
+localVue.use(notificationPlugin);
 
 const apiKeysApi = new ApiKeysMock();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
@@ -63,7 +66,7 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.apiKeyList).toEqual([apiKey]);
     });
 
-    it('action on toggleSelection works correctly', () => {
+    it('action on toggleSelection works correctly', async () => {
         store.commit(SET_PAGE, testApiKeysPage);
 
         const wrapper = shallowMount(ApiKeysArea, {
@@ -71,40 +74,40 @@ describe('ApiKeysArea', () => {
             localVue,
         });
 
-        wrapper.vm.toggleSelection(apiKey);
+        await wrapper.vm.toggleSelection(apiKey);
 
         expect(store.getters.selectedApiKeys.length).toBe(1);
     });
 
-    it('action on onClearSelection works correctly', () => {
+    it('action on onClearSelection works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onClearSelection();
+        await wrapper.vm.onClearSelection();
 
         expect(wrapper.vm.$data.isDeleteClicked).toBe(false);
     });
 
-    it('function onCreateApiKeyClick works correctly', () => {
+    it('function onCreateApiKeyClick works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onCreateApiKeyClick();
+        await wrapper.vm.onCreateApiKeyClick();
 
         expect(wrapper.vm.$data.isNewApiKeyPopupShown).toBe(true);
     });
 
-    it('function onFirstDeleteClick works correctly', () => {
+    it('function onFirstDeleteClick works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onFirstDeleteClick();
+        await wrapper.vm.onFirstDeleteClick();
 
         expect(wrapper.vm.$data.isDeleteClicked).toBe(true);
     });
@@ -163,18 +166,18 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.apiKeyCountTitle).toMatch('api keys');
     });
 
-    it('function closeNewApiKeyPopup works correctly', () => {
+    it('function closeNewApiKeyPopup works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.closeNewApiKeyPopup();
+        await wrapper.vm.closeNewApiKeyPopup();
 
         expect(wrapper.vm.$data.isNewApiKeyPopupShown).toBe(false);
     });
 
-    it('function showCopyApiKeyPopup works correctly', () => {
+    it('function showCopyApiKeyPopup works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
@@ -182,30 +185,30 @@ describe('ApiKeysArea', () => {
 
         const testSecret = 'testSecret';
 
-        wrapper.vm.showCopyApiKeyPopup(testSecret);
+        await wrapper.vm.showCopyApiKeyPopup(testSecret);
 
         expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(true);
         expect(wrapper.vm.$data.apiKeySecret).toMatch('testSecret');
     });
 
-    it('function closeCopyNewApiKeyPopup works correctly', () => {
+    it('function closeCopyNewApiKeyPopup works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.closeCopyNewApiKeyPopup();
+        await wrapper.vm.closeCopyNewApiKeyPopup();
 
         expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(false);
     });
 
-    it('action on onDelete with name works correctly', () => {
+    it('action on onDelete with name works correctly', async () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onDelete();
+        await wrapper.vm.onDelete();
 
         expect(wrapper.vm.$data.isDeleteClicked).toBe(false);
     });

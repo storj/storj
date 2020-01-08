@@ -87,33 +87,33 @@ describe('NavigationArea', () => {
         });
     });
 
-    it('trigger show/hide events works correctly', () => {
+    it('trigger show/hide events works correctly', async () => {
         const wrapper = shallowMount(NavigationArea, {
             store,
             localVue,
         });
 
-        wrapper.find('.navigation-area__resources-title').trigger('mouseenter');
-        wrapper.find('.navigation-area__account-title').trigger('mouseenter');
+        await wrapper.find('.navigation-area__resources-title').trigger('mouseenter');
+        await wrapper.find('.navigation-area__account-title').trigger('mouseenter');
 
         expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Hide');
-        wrapper.find('.navigation-area__resources-title__button').trigger('click');
+        await wrapper.find('.navigation-area__resources-title__button').trigger('click');
 
         expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Hide');
-        wrapper.find('.navigation-area__account-title__button').trigger('click');
+        await wrapper.find('.navigation-area__account-title__button').trigger('click');
 
         expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Show');
         expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Show');
 
         expect(wrapper.findAll('.navigation-area__item-container').length).toBe(4);
 
-        wrapper.find('.navigation-area__resources-title__button').trigger('click');
-        wrapper.find('.navigation-area__account-title__button').trigger('click');
+        await wrapper.find('.navigation-area__resources-title__button').trigger('click');
+        await wrapper.find('.navigation-area__account-title__button').trigger('click');
 
         expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
 
-        wrapper.find('.navigation-area__resources-title').trigger('mouseleave');
-        wrapper.find('.navigation-area__account-title').trigger('mouseleave');
+        await wrapper.find('.navigation-area__resources-title').trigger('mouseleave');
+        await wrapper.find('.navigation-area__account-title').trigger('mouseleave');
 
         expect(wrapper.findAll('.navigation-area__resources-title__button').length).toBe(0);
         expect(wrapper.findAll('.navigation-area__account-title__button').length).toBe(0);
