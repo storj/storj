@@ -590,3 +590,5 @@ storj.io/common v0.0.0-20200108114547-1c62e5708bce h1:0okFmuEp38BNSKXQ72PXMTouSY
 storj.io/common v0.0.0-20200108114547-1c62e5708bce/go.mod h1:mDnchZF+e7g7u630Wwgu/X/zCmqpU0lvy5kQ3jQgs5k=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2 h1:8SgLYEhe99R8QlAD1EAOBPRyIR+cn2hqkXtWlAUPf/c=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
+storj.io/uplink v0.0.0-20200108132132-c2c5e0d46c1a h1:w/588H+U5IfTXCHA2GTFVLzpUbworS0DtoB4sR9h/8M=
+storj.io/uplink v0.0.0-20200108132132-c2c5e0d46c1a/go.mod h1:3498FK1ewiOxrVTbPwGJmE/kwIWA3q9ULtAU/WAreys=

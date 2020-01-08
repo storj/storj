@@ -2,8 +2,6 @@ module storj.io/storj
 
 go 1.13
 
-replace storj.io/uplink => ./uplink
-
 // force specific versions for minio
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
@@ -115,5 +113,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	storj.io/common v0.0.0-20200108114547-1c62e5708bce
 	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
-	storj.io/uplink v0.0.0-00010101000000-000000000000
+	storj.io/uplink v0.0.0-20200108132132-c2c5e0d46c1a
 )
