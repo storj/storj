@@ -78,7 +78,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 95
+		cfg.Volatile.RedundancyScheme.TotalShares = 110
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
