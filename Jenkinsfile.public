@@ -3,14 +3,14 @@ pipeline {
         docker {
             label 'main'
             image docker.build("storj-ci", "--pull https://github.com/storj/ci.git").id
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
           timeout(time: 26, unit: 'MINUTES')
     }
     environment {
-        NPM_CONFIG_CACHE = '/tmp/npm/cache'
+        NPM_CONFIG_CACHE = '/npm/cache'
     }
     stages {
         stage('Build') {
@@ -30,7 +30,7 @@ pipeline {
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
-                sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
             }
         }
 
