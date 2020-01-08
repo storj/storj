@@ -14,9 +14,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -84,6 +86,15 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		if errs.Is(err, io.EOF) {
 			// Done
 			return nil
+		}
+		if errs2.IsRPC(err, rpcstatus.FailedPrecondition) {
+			// delete the entry from satellite table and inform graceful exit has failed to start
+			deleteErr := worker.satelliteDB.CancelGracefulExit(ctx, worker.satelliteID)
+			if deleteErr != nil {
+				// TODO: what to do now?
+				return errs.Combine(deleteErr, err)
+			}
+			return errs.Wrap(err)
 		}
 		if err != nil {
 			// TODO what happened
