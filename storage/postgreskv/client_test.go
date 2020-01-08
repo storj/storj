@@ -18,8 +18,6 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-var ctx = context.Background() // test context
-
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
@@ -91,7 +89,7 @@ func BenchmarkSuite(b *testing.B) {
 	testsuite.RunBenchmarks(b, store)
 }
 
-func bulkImport(db *sql.DB, iter storage.Iterator) error {
+func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
 	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn *sql.Tx) (err error) {
 		stmt, err := txn.Prepare(pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
 		if err != nil {
@@ -129,8 +127,8 @@ type pgLongBenchmarkStore struct {
 	*Client
 }
 
-func (store *pgLongBenchmarkStore) BulkImport(iter storage.Iterator) error {
-	return bulkImport(store.pgConn, iter)
+func (store *pgLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) error {
+	return bulkImport(ctx, store.pgConn, iter)
 }
 
 func (store *pgLongBenchmarkStore) BulkDeleteAll() error {

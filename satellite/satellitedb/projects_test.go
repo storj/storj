@@ -12,11 +12,9 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-var (
-	ctx = context.Background() // test context
-)
-
 func TestProjectFromDbx(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		project, err := projectFromDBX(ctx, nil)
 

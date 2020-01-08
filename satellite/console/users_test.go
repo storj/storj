@@ -30,7 +30,6 @@ const (
 )
 
 func TestUserRepository(t *testing.T) {
-
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
