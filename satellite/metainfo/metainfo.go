@@ -2399,6 +2399,14 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 				// Pieces will be collected by garbage collector
 				return
 			}
+			defer func() {
+				err := client.Close()
+				endpoint.log.Warn("error closing the storage node client connection",
+					zap.Stringer("node_id", node.Id),
+					zap.Stringer("node_info", node),
+					zap.Error(err),
+				)
+			}()
 
 			for _, pieceID := range nodePieces {
 				err := client.DeletePiece(ctx, pieceID)
