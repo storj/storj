@@ -70,7 +70,7 @@ func TestSetGetMeta(t *testing.T) {
 		err = json.Unmarshal(metadataBs, &metadataNorm)
 		require.NoError(t, err)
 
-		path := testrand.Path()
+		path := testrand.URLPathNonFolder()
 		uri := "sj://" + bucketName + "/" + path
 
 		{

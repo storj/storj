@@ -23,8 +23,6 @@ github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053 h1:H/GMMKYPkEI
 github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053/go.mod h1:xW8sBma2LE3QxFSzCnH9qe6gAE2yO9GvQaWwX89HxbE=
 github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 h1:45bxf7AZMwWcqkLzDAQugVEwedisr5nRJ1r+7LYnv0U=
 github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
-github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629 h1:gLoh8jzwIxdisBnHiWRIuReqtH9cpslSE2564UWXun0=
-github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629/go.mod h1:8HZjEj4yU0dwhYHky+DxYx+6BMjkBbe5ONFIF1MXffk=
 github.com/alicebob/miniredis v2.5.0+incompatible h1:yBHoLpsyjupjz3NL3MhKMVkR41j82Yjf3KFv7ApYzUI=
 github.com/alicebob/miniredis v2.5.0+incompatible/go.mod h1:8HZjEj4yU0dwhYHky+DxYx+6BMjkBbe5ONFIF1MXffk=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
@@ -588,9 +586,7 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-storj.io/common v0.0.0-20200106135405-39554aa91cb3 h1:QcvYJ7obUZbddD4+to4UwmwwropFc5PbuyjZ4zORWU4=
-storj.io/common v0.0.0-20200106135405-39554aa91cb3/go.mod h1:mDnchZF+e7g7u630Wwgu/X/zCmqpU0lvy5kQ3jQgs5k=
-storj.io/common v0.0.0-20200107155525-ccc8474e4234 h1:PwVsx+ON4CiuZNZE+TSa6UiBx44rnbYtlKwUyNAfHec=
-storj.io/common v0.0.0-20200107155525-ccc8474e4234/go.mod h1:mDnchZF+e7g7u630Wwgu/X/zCmqpU0lvy5kQ3jQgs5k=
+storj.io/common v0.0.0-20200108114547-1c62e5708bce h1:0okFmuEp38BNSKXQ72PXMTouSYMKMfC6H+GlNRfthbA=
+storj.io/common v0.0.0-20200108114547-1c62e5708bce/go.mod h1:mDnchZF+e7g7u630Wwgu/X/zCmqpU0lvy5kQ3jQgs5k=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2 h1:8SgLYEhe99R8QlAD1EAOBPRyIR+cn2hqkXtWlAUPf/c=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
