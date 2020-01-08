@@ -91,6 +91,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satelliteID))
 					chore.exitingMap.Delete(satelliteID)
 				})
+
 				if err != nil {
 					chore.log.Error("worker failed", zap.Error(err))
 				}
