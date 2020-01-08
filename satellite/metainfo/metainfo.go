@@ -2401,11 +2401,13 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			}
 			defer func() {
 				err := client.Close()
-				endpoint.log.Warn("error closing the storage node client connection",
-					zap.Stringer("node_id", node.Id),
-					zap.Stringer("node_info", node),
-					zap.Error(err),
-				)
+				if err != nil {
+					endpoint.log.Warn("error closing the storage node client connection",
+						zap.Stringer("node_id", node.Id),
+						zap.Stringer("node_info", node),
+						zap.Error(err),
+					)
+				}
 			}()
 
 			for _, pieceID := range nodePieces {
