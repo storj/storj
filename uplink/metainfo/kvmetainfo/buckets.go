@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/metainfo"
+	"storj.io/uplink/metainfo"
 )
 
 // CreateBucket creates a new bucket

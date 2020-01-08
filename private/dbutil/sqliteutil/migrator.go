@@ -11,6 +11,7 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/migrate"
 )

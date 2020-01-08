@@ -34,9 +34,9 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/piecestore"
-	"storj.io/storj/uplink/storage/meta"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/piecestore"
+	"storj.io/uplink/storage/meta"
 )
 
 const (

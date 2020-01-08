@@ -11,7 +11,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/ranger"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/storage/objects"
+	"storj.io/uplink/storage/objects"
 )
 
 type prefixedObjStore struct {

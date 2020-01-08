@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/piecestore"
 )
 
 func TestUploadAndPartialDownload(t *testing.T) {

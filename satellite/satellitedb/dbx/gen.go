@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/private/dbutil/txutil"
 
 	// load our cockroach sql driver for anywhere that uses this dbx.Open

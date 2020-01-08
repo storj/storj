@@ -22,9 +22,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/uplink/metainfo/kvmetainfo"
-	"storj.io/storj/uplink/storage/streams"
-	"storj.io/storj/uplink/stream"
+	"storj.io/uplink/metainfo/kvmetainfo"
+	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/stream"
 )
 
 const TestFile = "test-file"

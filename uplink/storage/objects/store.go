@@ -15,7 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/ranger"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/storage/streams"
+	"storj.io/uplink/storage/streams"
 )
 
 var mon = monkit.Package()

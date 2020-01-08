@@ -10,10 +10,10 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/storage/segments"
-	"storj.io/storj/uplink/storage/streams"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/storage/segments"
+	"storj.io/uplink/storage/streams"
 )
 
 var (
