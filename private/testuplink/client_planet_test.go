@@ -1,7 +1,7 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package ecclient_test
+package testuplink_test
 
 import (
 	"bytes"

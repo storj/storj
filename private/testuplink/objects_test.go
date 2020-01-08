@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kvmetainfo_test
+package testuplink_test
 
 import (
 	"context"

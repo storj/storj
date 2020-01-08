@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/pb"
-	"storj.io/storj/private/teststorj"
+	"storj.io/common/testrand"
 )
 
 func TestUnique(t *testing.T) {
@@ -18,7 +18,7 @@ func TestUnique(t *testing.T) {
 	for i := 0; i < len(limits); i++ {
 		limits[i] = &pb.AddressedOrderLimit{
 			Limit: &pb.OrderLimit{
-				StorageNodeId: teststorj.NodeIDFromString(fmt.Sprintf("node-%d", i)),
+				StorageNodeId: testrand.NodeID(),
 			},
 		}
 	}
