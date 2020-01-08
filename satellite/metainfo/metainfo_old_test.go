@@ -24,8 +24,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/metainfo"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/metainfo"
 )
 
 func TestInvalidAPIKeyOld(t *testing.T) {

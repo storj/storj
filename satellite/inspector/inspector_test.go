@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/uplink/eestream"
 )
 
 func TestInspectorStats(t *testing.T) {

@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/metainfo/kvmetainfo"
-	"storj.io/storj/uplink/storage/streams"
-	"storj.io/storj/uplink/stream"
+	"storj.io/uplink/metainfo/kvmetainfo"
+	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/stream"
 )
 
 // Bucket represents operations you can perform on a bucket

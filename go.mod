@@ -82,7 +82,6 @@ require (
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/smartystreets/assertions v0.0.0-20180820201707-7c9eb446e3cf // indirect
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
-	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
@@ -114,4 +113,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	storj.io/common v0.0.0-20200108114547-1c62e5708bce
 	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
+	storj.io/uplink v0.0.0-20200108132132-c2c5e0d46c1a
 )
