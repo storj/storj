@@ -28,8 +28,8 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/piecestore"
 )
 
 // Uplink is a general purpose

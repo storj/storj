@@ -4,9 +4,9 @@
 package kvmetainfo
 
 import (
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/storage/streams"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/storage/streams"
 )
 
 // Project implements project management operations

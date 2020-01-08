@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/storage/segments"
+	"storj.io/uplink/storage/segments"
 )
 
 func TestCalcNeededNodes(t *testing.T) {

@@ -13,8 +13,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/metainfo/kvmetainfo"
-	"storj.io/storj/uplink/storage/streams"
+	"storj.io/uplink/metainfo/kvmetainfo"
+	"storj.io/uplink/storage/streams"
 )
 
 // Upload implements Writer and Closer for writing to stream.

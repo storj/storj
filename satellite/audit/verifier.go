@@ -27,8 +27,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/piecestore"
 )
 
 var (

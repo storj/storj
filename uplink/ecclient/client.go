@@ -24,8 +24,8 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/piecestore"
 )
 
 var mon = monkit.Package()

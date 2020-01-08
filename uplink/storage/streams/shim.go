@@ -11,8 +11,8 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/ranger"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/storage/segments"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/storage/segments"
 )
 
 // Store interface methods for streams to satisfy to be a store

@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/storj"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/uplink/eestream"
 )
 
 var (

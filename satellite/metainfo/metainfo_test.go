@@ -26,7 +26,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/uplink/metainfo"
+	"storj.io/uplink/metainfo"
 )
 
 func TestInvalidAPIKey(t *testing.T) {

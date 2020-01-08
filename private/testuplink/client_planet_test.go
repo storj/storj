@@ -24,8 +24,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/uplink/ecclient"
+	"storj.io/uplink/eestream"
 )
 
 const (

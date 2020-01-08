@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/overlay"
