@@ -57,7 +57,7 @@ pipeline {
                     environment {
                         STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
