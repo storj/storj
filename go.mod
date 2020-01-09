@@ -111,7 +111,7 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
-	storj.io/common v0.0.0-20200108114547-1c62e5708bce
+	storj.io/common v0.0.0-20200109103211-f95ce3581da7
 	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2
 	storj.io/uplink v0.0.0-20200108132132-c2c5e0d46c1a
 )
