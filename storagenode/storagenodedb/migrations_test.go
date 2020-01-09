@@ -139,6 +139,12 @@ func TestMigrate(t *testing.T) {
 
 			require.Equal(t, dbSnapshot.Schema, schemas[dbName], tag)
 			require.Equal(t, dbSnapshot.Data, data[dbName], tag)
+
+			// verify schema for last migration step matches expected production schema
+			if i == len(migrations.Steps)-1 {
+				prodSchema := storagenodedb.Schema()[dbName]
+				require.Equal(t, dbSnapshot.Schema, prodSchema, tag)
+			}
 		}
 	}
 }

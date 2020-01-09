@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -186,6 +186,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+	}
+
+	err = db.Preflight(ctx)
+	if err != nil {
+		return errs.New("Error during preflight check for storagenode databases: %+v", err)
 	}
 
 	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
