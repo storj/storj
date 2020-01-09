@@ -78,7 +78,7 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 	// override of the accesses.
 	// TODO: revisit when the configuration/flag code makes it easy
 	err = process.SaveConfig(cmd, filepath.Join(confDir, process.DefaultCfgFilename),
-		process.SaveConfigWithOverride("acceses", accesses),
+		process.SaveConfigWithOverride("accesses", accesses),
 		process.SaveConfigRemovingDeprecated())
 	if err != nil {
 		return Error.Wrap(err)
