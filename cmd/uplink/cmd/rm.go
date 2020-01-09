@@ -53,18 +53,18 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	scope, err := cfg.GetScope()
+	access, err := cfg.GetAccess()
 	if err != nil {
 		return err
 	}
 
-	access := scope.EncryptionAccess
+	encAccess := access.EncryptionAccess
 	if *rmEncryptedFlag {
-		access = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
-		access.Store().EncryptionBypass = true
+		encAccess = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+		encAccess.Store().EncryptionBypass = true
 	}
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), access)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), encAccess)
 	if err != nil {
 		return err
 	}

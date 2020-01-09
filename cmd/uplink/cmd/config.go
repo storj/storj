@@ -47,17 +47,21 @@ type ClientConfig struct {
 
 // Config uplink configuration
 type Config struct {
-	ScopeConfig
+	AccessConfig
 	Client ClientConfig
 	RS     RSConfig
 	Enc    EncryptionConfig
 	TLS    tlsopts.Config
 }
 
-// ScopeConfig holds information about which scopes exist and are selected.
-type ScopeConfig struct {
-	Scopes map[string]string `internal:"true"`
-	Scope  string            `help:"the serialized scope, or name of the scope to use" default:""`
+// AccessConfig holds information about which accesses exist and are selected.
+type AccessConfig struct {
+	Accesses map[string]string `internal:"true"`
+	Access   string            `help:"the serialized access, or name of the access to use" default:""`
+
+	// used for backward compatibility
+	Scopes map[string]string `internal:"true"` // deprecated
+	Scope  string            `internal:"true"` // deprecated
 
 	Legacy // Holds on to legacy configuration values
 }
@@ -75,34 +79,42 @@ type Legacy struct {
 	}
 }
 
-// GetScope returns the appropriate scope for the config.
-func (c ScopeConfig) GetScope() (_ *libuplink.Scope, err error) {
+// GetAccess returns the appropriate access for the config.
+func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
 	defer mon.Task()(nil)(&err)
 
-	// if a scope exists for that name, try to load it.
-	if data, ok := c.Scopes[c.Scope]; ok && c.Scope != "" {
+	// fallback to scope if access not found
+	if a.Access == "" {
+		if data, ok := a.Scopes[a.Scope]; ok && a.Scope != "" {
+			return libuplink.ParseScope(data)
+		}
+		a.Access = a.Scope
+	}
+
+	// if a access exists for that name, try to load it.
+	if data, ok := a.Accesses[a.Access]; ok && a.Access != "" {
 		return libuplink.ParseScope(data)
 	}
 
-	// Otherwise, try to load the scope name as a serialized scope.
-	if scope, err := libuplink.ParseScope(c.Scope); err == nil {
-		return scope, nil
+	// Otherwise, try to load the access name as a serialized access.
+	if access, err := libuplink.ParseScope(a.Access); err == nil {
+		return access, nil
 	}
 
 	// fall back to trying to load the legacy values.
-	apiKey, err := libuplink.ParseAPIKey(c.Legacy.Client.APIKey)
+	apiKey, err := libuplink.ParseAPIKey(a.Legacy.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	satelliteAddr := c.Legacy.Client.SatelliteAddr
+	satelliteAddr := a.Legacy.Client.SatelliteAddr
 	if satelliteAddr == "" {
 		return nil, errs.New("must specify a satellite address")
 	}
 
 	var encAccess *libuplink.EncryptionAccess
-	if c.Legacy.Enc.EncAccessFilepath != "" {
-		data, err := ioutil.ReadFile(c.Legacy.Enc.EncAccessFilepath)
+	if a.Legacy.Enc.EncAccessFilepath != "" {
+		data, err := ioutil.ReadFile(a.Legacy.Enc.EncAccessFilepath)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -111,9 +123,9 @@ func (c ScopeConfig) GetScope() (_ *libuplink.Scope, err error) {
 			return nil, err
 		}
 	} else {
-		data := []byte(c.Legacy.Enc.EncryptionKey)
-		if c.Legacy.Enc.KeyFilepath != "" {
-			data, err = ioutil.ReadFile(c.Legacy.Enc.KeyFilepath)
+		data := []byte(a.Legacy.Enc.EncryptionKey)
+		if a.Legacy.Enc.KeyFilepath != "" {
+			data, err = ioutil.ReadFile(a.Legacy.Enc.KeyFilepath)
 			if err != nil {
 				return nil, errs.Wrap(err)
 			}

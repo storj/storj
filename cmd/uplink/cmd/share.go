@@ -30,10 +30,10 @@ var shareCfg struct {
 	NotBefore         string   `help:"disallow access before this time"`
 	NotAfter          string   `help:"disallow access after this time"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
-	ExportTo          string   `default:"" help:"path to export the shared scope to"`
+	ExportTo          string   `default:"" help:"path to export the shared access to"`
 
-	// Share requires information about the current scope
-	ScopeConfig
+	// Share requires information about the current access
+	AccessConfig
 }
 
 func init() {
@@ -109,14 +109,14 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		})
 	}
 
-	scope, err := shareCfg.GetScope()
+	access, err := shareCfg.GetAccess()
 	if err != nil {
 		return err
 	}
-	key, access := scope.APIKey, scope.EncryptionAccess
+	key, encAccess := access.APIKey, access.EncryptionAccess
 
 	if len(restrictions) > 0 {
-		key, access, err = access.Restrict(key, restrictions...)
+		key, encAccess, err = encAccess.Restrict(key, restrictions...)
 		if err != nil {
 			return err
 		}
@@ -144,19 +144,19 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	newScope := &libuplink.Scope{
-		SatelliteAddr:    scope.SatelliteAddr,
+	newAccess := &libuplink.Scope{
+		SatelliteAddr:    access.SatelliteAddr,
 		APIKey:           key,
-		EncryptionAccess: access,
+		EncryptionAccess: encAccess,
 	}
 
-	scopeData, err := newScope.Serialize()
+	newAccessData, err := newAccess.Serialize()
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("=========== INTERNAL SCOPE INFO =========================================================")
-	fmt.Println("Satellite :", scope.SatelliteAddr)
+	fmt.Println("Satellite :", access.SatelliteAddr)
 	fmt.Println("API Key   :", key.Serialize())
 	fmt.Println("Enc Access:", accessData)
 	fmt.Println("=========== SHARE RESTRICTIONS ==========================================================")
@@ -168,7 +168,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Not After :", formatTimeRestriction(caveat.NotAfter))
 	fmt.Println("Paths     :", formatPaths(restrictions))
 	fmt.Println("=========== SERIALIZED SCOPE WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
-	fmt.Println("Scope     :", scopeData)
+	fmt.Println("Scope     :", newAccessData)
 
 	if shareCfg.ExportTo != "" {
 		// convert to an absolute path, mostly for output purposes.
@@ -176,7 +176,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		if err := ioutil.WriteFile(exportTo, []byte(scopeData+"\n"), 0600); err != nil {
+		if err := ioutil.WriteFile(exportTo, []byte(newAccessData+"\n"), 0600); err != nil {
 			return Error.Wrap(err)
 		}
 		fmt.Println("Exported to:", exportTo)

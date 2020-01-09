@@ -93,7 +93,7 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project
 		return nil, err
 	}
 
-	scope, err := cliCfg.GetScope()
+	access, err := cliCfg.GetAccess()
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +110,12 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project
 		}
 	}()
 
-	return uplk.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	return uplk.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
 func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
-	scope, err := cliCfg.GetScope()
+	access, err := cliCfg.GetAccess()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -132,7 +132,7 @@ func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName s
 		}
 	}()
 
-	project, err = uplk.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	project, err = uplk.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -144,7 +144,7 @@ func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName s
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
+	bucket, err = project.OpenBucket(ctx, bucketName, access.EncryptionAccess)
 	return project, bucket, err
 }
 

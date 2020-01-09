@@ -19,7 +19,7 @@ import (
 )
 
 var importCfg struct {
-	Overwrite bool `default:"false" help:"if true, allows a scope to be overwritten" source:"flag"`
+	Overwrite bool `default:"false" help:"if true, allows a access to be overwritten" source:"flag"`
 
 	UplinkFlags
 }
@@ -27,7 +27,7 @@ var importCfg struct {
 func init() {
 	importCmd := &cobra.Command{
 		Use:   "import NAME PATH",
-		Short: "Imports a scope under the given name from the supplied path",
+		Short: "Imports an access under the given name from the supplied path",
 		Args:  cobra.ExactArgs(2),
 		RunE:  importMain,
 	}
@@ -46,48 +46,48 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 	name := args[0]
 	path := args[1]
 
-	// This is a little hacky but viper deserializes scopes into a map[string]interface{}
+	// This is a little hacky but viper deserializes accesses into a map[string]interface{}
 	// and complains if we try and override with map[string]string{}.
-	scopes := map[string]interface{}{}
-	for k, v := range importCfg.Scopes {
-		scopes[k] = v
+	accesses := map[string]interface{}{}
+	for k, v := range importCfg.Accesses {
+		accesses[k] = v
 	}
 
 	overwritten := false
-	if _, ok := scopes[name]; ok {
+	if _, ok := accesses[name]; ok {
 		if !importCfg.Overwrite {
-			return fmt.Errorf("scope %q already exists", name)
+			return fmt.Errorf("access %q already exists", name)
 		}
 		overwritten = true
 	}
 
-	scopeData, err := readFirstUncommentedLine(path)
+	accessData, err := readFirstUncommentedLine(path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// Parse the scope data to ensure it is well formed
-	if _, err := libuplink.ParseScope(scopeData); err != nil {
+	if _, err := libuplink.ParseScope(accessData); err != nil {
 		return Error.Wrap(err)
 	}
 
-	scopes[name] = scopeData
+	accesses[name] = accessData
 
 	// There is no easy way currently to save off a "hidden" configurable into
 	// the config file without a larger refactoring. For now, just do a manual
-	// override of the scopes.
+	// override of the accesses.
 	// TODO: revisit when the configuration/flag code makes it easy
 	err = process.SaveConfig(cmd, filepath.Join(confDir, process.DefaultCfgFilename),
-		process.SaveConfigWithOverride("scopes", scopes),
+		process.SaveConfigWithOverride("acceses", accesses),
 		process.SaveConfigRemovingDeprecated())
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	if overwritten {
-		fmt.Printf("scope %q overwritten.\n", name)
+		fmt.Printf("access %q overwritten.\n", name)
 	} else {
-		fmt.Printf("scope %q imported.\n", name)
+		fmt.Printf("access %q imported.\n", name)
 	}
 	return nil
 }

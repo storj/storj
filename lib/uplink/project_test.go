@@ -26,14 +26,14 @@ func TestProjectListBuckets(t *testing.T) {
 			cfg.Volatile.Log = zaptest.NewLogger(t)
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-			scope, err := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetScope()
+			access, err := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetAccess()
 			require.NoError(t, err)
 
 			ul, err := uplink.NewUplink(ctx, &cfg)
 			require.NoError(t, err)
 			defer ctx.Check(ul.Close)
 
-			p, err := ul.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+			p, err := ul.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 			require.NoError(t, err)
 
 			// create 6 test buckets
@@ -67,13 +67,13 @@ func TestProjectListBuckets(t *testing.T) {
 			require.False(t, result.More)
 
 			// List with restrictions
-			scope.APIKey, scope.EncryptionAccess, err =
-				scope.EncryptionAccess.Restrict(scope.APIKey,
+			access.APIKey, access.EncryptionAccess, err =
+				access.EncryptionAccess.Restrict(access.APIKey,
 					uplink.EncryptionRestriction{Bucket: "test0"},
 					uplink.EncryptionRestriction{Bucket: "test1"})
 			require.NoError(t, err)
 
-			p, err = ul.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+			p, err = ul.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 			require.NoError(t, err)
 			defer ctx.Check(p.Close)
 

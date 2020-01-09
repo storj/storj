@@ -409,7 +409,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
 		})
 
-		scopeData, err := (&uplink.Scope{
+		accessData, err := (&uplink.Scope{
 			SatelliteAddr:    satellite.Address,
 			APIKey:           defaultAPIKey,
 			EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
@@ -424,7 +424,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"setup": {
 				"--non-interactive",
 
-				"--scope", scopeData,
+				"--access", accessData,
 				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
 
@@ -459,7 +459,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// check if gateway config has an api key, if it's not
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
-			if runScopeData := vip.GetString("scope"); !flags.OnlyEnv && runScopeData == scopeData {
+			if runAccessData := vip.GetString("access"); !flags.OnlyEnv && runAccessData == accessData {
 				var consoleAddress string
 				err := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if err != nil {
@@ -476,29 +476,29 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					time.Sleep(100 * time.Millisecond)
 				}
 
-				scope, err := uplink.ParseScope(runScopeData)
+				access, err := uplink.ParseScope(runAccessData)
 				if err != nil {
 					return err
 				}
-				scope.APIKey, err = uplink.ParseAPIKey(apiKey)
+				access.APIKey, err = uplink.ParseAPIKey(apiKey)
 				if err != nil {
 					return err
 				}
-				scopeData, err := scope.Serialize()
+				accessData, err := access.Serialize()
 				if err != nil {
 					return err
 				}
-				vip.Set("scope", scopeData)
+				vip.Set("access", accessData)
 
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
 			}
 
-			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
-				process.AddExtra("SCOPE", runScopeData)
-				if scope, err := uplink.ParseScope(runScopeData); err == nil {
-					process.AddExtra("API_KEY", scope.APIKey.Serialize())
+			if runAccessData := vip.GetString("access"); runAccessData != accessData {
+				process.AddExtra("ACCESS", runAccessData)
+				if access, err := uplink.ParseScope(runAccessData); err == nil {
+					process.AddExtra("API_KEY", access.APIKey.Serialize())
 				}
 			}
 
