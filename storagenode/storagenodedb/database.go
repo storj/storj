@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:generate sh -c "go run schemagen.go > schema.go.tmp && mv schema.go.tmp schema.go"
+
 package storagenodedb
 
 import (
@@ -10,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -41,6 +44,8 @@ var (
 	ErrDatabase = errs.Class("storage node database error")
 	// ErrNoRows represents database error if rows weren't affected.
 	ErrNoRows = errs.New("no rows affected")
+	// ErrPreflight represents an error during the preflight check.
+	ErrPreflight = errs.Class("storage node preflight database error")
 )
 
 var _ storagenode.DB = (*DB)(nil)
@@ -289,6 +294,81 @@ func (db *DB) filepathFromDBName(dbName string) string {
 func (db *DB) CreateTables(ctx context.Context) error {
 	migration := db.Migration(ctx)
 	return migration.Run(ctx, db.log.Named("migration"))
+}
+
+// Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
+func (db *DB) Preflight(ctx context.Context) (err error) {
+	for dbName, dbContainer := range db.SQLDBs {
+		nextDB := dbContainer.GetDB()
+		// Preflight stage 1: test schema correctness
+		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		// we don't care about changes in versions table
+		schema.DropTable("versions")
+		// If tables and indexes of the schema are empty, set to nil
+		// to help with comparison to the snapshot.
+		if len(schema.Tables) == 0 {
+			schema.Tables = nil
+		}
+		if len(schema.Indexes) == 0 {
+			schema.Indexes = nil
+		}
+
+		// get expected schema and expect it to match actual schema
+		expectedSchema := Schema()[dbName]
+		if diff := cmp.Diff(expectedSchema, schema); diff != "" {
+			return ErrPreflight.New("%s: expected schema does not match actual: %s", dbName, diff)
+		}
+
+		// Preflight stage 2: test basic read/write access
+		// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
+
+		// drop test table in case the last preflight check failed before table could be dropped
+		_, err = nextDB.Exec("DROP TABLE IF EXISTS test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		_, err = nextDB.Exec("CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+
+		var expectedID, actualID int
+		var expectedName, actualName string
+		expectedID = 1
+		expectedName = "TEST"
+		_, err = nextDB.Exec("INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+
+		rows, err := nextDB.Query("SELECT id, name FROM test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+		if !rows.Next() {
+			return ErrPreflight.New("%s: no rows in test_table", dbName)
+		}
+		err = rows.Scan(&actualID, &actualName)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		if expectedID != actualID || expectedName != actualName {
+			return ErrPreflight.New("%s: expected: (%d, '%s'), actual: (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
+		}
+		if rows.Next() {
+			return ErrPreflight.New("%s: more than one row in test_table", dbName)
+		}
+
+		_, err = nextDB.Exec("DROP TABLE test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Close closes any resources.
