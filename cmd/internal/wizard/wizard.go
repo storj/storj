@@ -52,6 +52,25 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }
 
+// PromptForAccessName handles user input for access name to be used with wizards
+func PromptForAccessName() (string, error) {
+	_, err := fmt.Printf("Choose an access name [\"default\"]: ")
+	if err != nil {
+		return "", err
+	}
+
+	var accessName string
+	n, err := fmt.Scanln(&accessName)
+	if err != nil && n != 0 {
+		return "", err
+	}
+
+	if accessName == "" {
+		return "default", nil
+	}
+	return accessName, nil
+}
+
 // PromptForSatellite handles user input for a satellite address to be used with wizards
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}

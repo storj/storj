@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/fpath"
 	"storj.io/storj/cmd/internal/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
@@ -36,14 +35,13 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	if cmd.Flag("access").Changed {
+		return ErrAccessFlag
+	}
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
-	}
-
-	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !valid {
-		return fmt.Errorf("uplink configuration already exists (%v)", setupDir)
 	}
 
 	err = os.MkdirAll(setupDir, 0700)
@@ -105,6 +103,27 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
+	var (
+		accessName                    string
+		defaultSerializedAccessExists bool
+	)
+
+	setupCfg.AccessConfig = setupCfg.AccessConfig.normalize()
+	defaultSerializedAccessExists = IsSerializedAccess(setupCfg.Access)
+
+	accessName, err = wizard.PromptForAccessName()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if accessName == "default" && defaultSerializedAccessExists {
+		return Error.New("a default access already exists")
+	}
+
+	if access, err := setupCfg.GetNamedAccess(accessName); err == nil && access != nil {
+		return Error.New("an access with the name %q already exists", accessName)
+	}
+
 	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
@@ -146,9 +165,22 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
-		process.SaveConfigWithOverride("access", accessData),
-		process.SaveConfigRemovingDeprecated())
+	// NB: accesses should always be `map[string]interface{}` for "conventional"
+	// config serialization/flattening.
+	accesses := toStringMapE(setupCfg.Accesses)
+	accesses[accessName] = accessData
+
+	saveCfgOpts := []process.SaveConfigOption{
+		process.SaveConfigWithOverride("accesses", accesses),
+		process.SaveConfigRemovingDeprecated(),
+	}
+
+	if setupCfg.Access == "" {
+		saveCfgOpts = append(saveCfgOpts, process.SaveConfigWithOverride("access", accessName))
+	}
+
+	configPath := filepath.Join(setupDir, process.DefaultCfgFilename)
+	err = process.SaveConfig(cmd, configPath, saveCfgOpts...)
 	if err != nil {
 		return Error.Wrap(err)
 	}

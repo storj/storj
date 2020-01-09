@@ -13,13 +13,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 )
 
 var importCfg struct {
-	Overwrite bool `default:"false" help:"if true, allows a access to be overwritten" source:"flag"`
+	Overwrite bool `default:"false" help:"if true, allows an access to be overwritten" source:"flag"`
 
 	UplinkFlags
 }
@@ -44,6 +43,10 @@ func init() {
 
 // importMain is the function executed when importCmd is called
 func importMain(cmd *cobra.Command, args []string) (err error) {
+	if cmd.Flag("access").Changed {
+		return ErrAccessFlag
+	}
+
 	saveConfig := func(saveConfigOption process.SaveConfigOption) error {
 		path := filepath.Join(confDir, process.DefaultCfgFilename)
 		exists, err := fileExists(path)
@@ -90,10 +93,7 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 
 		// This is a little hacky but viper deserializes accesses into a map[string]interface{}
 		// and complains if we try and override with map[string]string{}.
-		accesses := map[string]interface{}{}
-		for k, v := range importCfg.Accesses {
-			accesses[k] = v
-		}
+		accesses := toStringMapE(importCfg.Accesses)
 
 		overwritten := false
 		if _, ok := accesses[name]; ok {
@@ -129,7 +129,7 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 
 func findAccess(input string) (access string, err error) {
 	// check if parameter is a valid access, otherwise try to read it from file
-	if _, err := libuplink.ParseScope(input); err == nil {
+	if IsSerializedAccess(input) {
 		access = input
 	} else {
 		path := input
@@ -140,7 +140,7 @@ func findAccess(input string) (access string, err error) {
 		}
 
 		// Parse the access data to ensure it is well formed
-		if _, err := libuplink.ParseScope(access); err != nil {
+		if !IsSerializedAccess(access) {
 			return "", err
 		}
 	}

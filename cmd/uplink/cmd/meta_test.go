@@ -37,9 +37,8 @@ func TestSetGetMeta(t *testing.T) {
 		{
 			output, err := exec.Command(uplinkExe,
 				"--config-dir", ctx.Dir("uplink"),
-				"setup",
-				"--non-interactive",
-				"--access", planet.Uplinks[0].GetConfig(planet.Satellites[0]).Access,
+				"import",
+				planet.Uplinks[0].GetConfig(planet.Satellites[0]).Access,
 			).CombinedOutput()
 			t.Log(string(output))
 			require.NoError(t, err)

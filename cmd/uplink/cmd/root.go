@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -42,6 +43,8 @@ var (
 
 	// Error is the class of errors returned by this package
 	Error = errs.Class("uplink")
+	// ErrAccessFlag is used where the `--access` flag is registered but not supported.
+	ErrAccessFlag = Error.New("--access flag not supported with `setup` and `import` subcommands")
 )
 
 func init() {
@@ -203,4 +206,18 @@ func writeMemoryProfile() error {
 		return err
 	}
 	return f.Close()
+}
+
+func toStringMapE(from interface{}) (to map[string]interface{}) {
+	to = make(map[string]interface{})
+
+	switch f := from.(type) {
+	case map[string]string:
+		for key, value := range f {
+			to[key] = value
+		}
+		return to
+	default:
+		return cast.ToStringMap(from)
+	}
 }

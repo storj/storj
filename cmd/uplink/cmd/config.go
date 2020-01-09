@@ -79,14 +79,33 @@ type Legacy struct {
 	}
 }
 
-// GetAccess returns the appropriate access for the config.
-func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
-	defer mon.Task()(nil)(&err)
-
+// normalize looks for usage of deprecated config values and sets the respective
+// non-deprecated config values accordingly and returns them in a copy of the config.
+func (a AccessConfig) normalize() (_ AccessConfig) {
 	// fallback to scope if access not found
 	if a.Access == "" {
 		a.Access = a.Scope
 	}
+
+	if a.Accesses == nil {
+		a.Accesses = make(map[string]string)
+	}
+
+	// fallback to scopes if accesses not found
+	if len(a.Accesses) == 0 {
+		for name, access := range a.Scopes {
+			a.Accesses[name] = access
+		}
+	}
+
+	return a
+}
+
+// GetAccess returns the appropriate access for the config.
+func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
+	defer mon.Task()(nil)(&err)
+
+	a = a.normalize()
 
 	access, err := a.GetNamedAccess(a.Access)
 	if err != nil {
@@ -150,11 +169,6 @@ func (a AccessConfig) GetNamedAccess(name string) (_ *libuplink.Scope, err error
 	if data, ok := a.Accesses[name]; ok {
 		return libuplink.ParseScope(data)
 	}
-
-	// fallback to scopes
-	if data, ok := a.Scopes[name]; ok {
-		return libuplink.ParseScope(data)
-	}
 	return nil, nil
 }
 
@@ -190,4 +204,11 @@ func (c Config) GetEncryptionParameters() storj.EncryptionParameters {
 // GetSegmentSize returns the segment size set in uplink config
 func (c Config) GetSegmentSize() memory.Size {
 	return c.Client.SegmentSize
+}
+
+// IsSerializedAccess returns whether the passed access is a serialized
+// access string or not.
+func IsSerializedAccess(access string) bool {
+	_, err := libuplink.ParseScope(access)
+	return err == nil
 }
