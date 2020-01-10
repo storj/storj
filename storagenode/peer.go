@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
@@ -81,8 +82,9 @@ type Config struct {
 
 	Server server.Config
 
-	Contact  contact.Config
-	Operator OperatorConfig
+	Preflight preflight.Config
+	Contact   contact.Config
+	Operator  OperatorConfig
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -124,6 +126,10 @@ type Peer struct {
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Core
+
+	Preflight struct {
+		LocalTime *preflight.LocalTime
+	}
 
 	Contact struct {
 		Service   *contact.Service
@@ -211,6 +217,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{
+		peer.Preflight.LocalTime = preflight.NewLocalTime(peer.Log.Named("preflight:localtime"), config.Preflight, peer.Storage2.Trust, peer.Dialer)
 	}
 
 	{ // setup notification service.
@@ -438,6 +448,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	// Refresh the trust pool first. It will be updated periodically via
 	// Run() below.
 	if err := peer.Storage2.Trust.Refresh(ctx); err != nil {
+		return err
+	}
+
+	if err := peer.Preflight.LocalTime.Check(ctx); err != nil {
+		peer.Log.Fatal("failed preflight check", zap.Error(err))
 		return err
 	}
 
