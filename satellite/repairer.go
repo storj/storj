@@ -37,9 +37,13 @@ type Repairer struct {
 	Dialer  rpc.Dialer
 	Version *version_checker.Service
 
-	Metainfo        *metainfo.Service
-	Overlay         *overlay.Service
-	Orders          *orders.Service
+	Metainfo *metainfo.Service
+	Overlay  *overlay.Service
+	Orders   struct {
+		DB      orders.DB
+		Service *orders.Service
+		Chore   *orders.Chore
+	}
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
 }
@@ -80,11 +84,14 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 	}
 
 	{ // setup orders
-		peer.Orders = orders.NewService(
+		ordersWriteCache := orders.NewRollupsWriteCache(log, ordersDB, config.Orders.FlushBatchSize)
+		peer.Orders.DB = ordersWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
+		peer.Orders.Service = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
-			ordersDB,
+			peer.Orders.DB,
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -98,7 +105,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			peer.Metainfo,
-			peer.Orders,
+			peer.Orders.Service,
 			peer.Overlay,
 			peer.Dialer,
 			config.Repairer.Timeout,
@@ -123,6 +130,9 @@ func (peer *Repairer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
+	})
+	group.Go(func() error {
 		peer.Log.Info("Repairer started")
 		return errs2.IgnoreCanceled(peer.Repairer.Run(ctx))
 	})
@@ -141,6 +151,9 @@ func (peer *Repairer) Close() error {
 	}
 	if peer.Repairer != nil {
 		errlist.Add(peer.Repairer.Close())
+	}
+	if peer.Orders.Chore != nil {
+		errlist.Add(peer.Orders.Chore.Close())
 	}
 
 	return errlist.Err()

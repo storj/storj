@@ -70,7 +70,9 @@ type Core struct {
 	}
 
 	Orders struct {
+		DB      orders.DB
 		Service *orders.Service
+		Chore   *orders.Chore
 	}
 
 	Repair struct {
@@ -190,11 +192,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	}
 
 	{ // setup orders
+		ordersWriteCache := orders.NewRollupsWriteCache(log, peer.DB.Orders(), config.Orders.FlushBatchSize)
+		peer.Orders.DB = ordersWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.Orders(),
+			peer.Orders.DB,
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -431,6 +436,9 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.DowntimeTracking.EstimationChore.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -492,6 +500,9 @@ func (peer *Core) Close() error {
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())
+	}
+	if peer.Orders.Chore.Loop != nil {
+		errlist.Add(peer.Orders.Chore.Close())
 	}
 
 	return errlist.Err()

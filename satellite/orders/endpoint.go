@@ -51,6 +51,18 @@ type DB interface {
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
 	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
+
+	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
+	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BandwidthRollup) error
+}
+
+// BandwidthRollup contains all the info needed for a bucket bandwidth rollup
+type BandwidthRollup struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	Action     pb.PieceAction
+	Inline     int64
+	Allocated  int64
 }
 
 var (

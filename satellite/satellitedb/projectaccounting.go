@@ -287,7 +287,8 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
 func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
+	since = timeTruncateDown(since.UTC())
+	before = before.UTC()
 
 	buckets, err := db.getBuckets(ctx, projectID, since, before)
 	if err != nil {
