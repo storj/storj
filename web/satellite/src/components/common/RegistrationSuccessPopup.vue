@@ -37,6 +37,10 @@ export default class RegistrationSuccessPopup extends Vue {
     }
 
     public async onResendEmailButtonClick(): Promise<void> {
+        if (this.isResendEmailButtonDisabled) {
+            return;
+        }
+
         this.isResendEmailButtonDisabled = true;
 
         const userId = LocalData.getUserId();
@@ -47,7 +51,7 @@ export default class RegistrationSuccessPopup extends Vue {
         try {
             await this.auth.resendEmail(userId);
         } catch (error) {
-            await this.$notify.error('Could not send email ');
+            await this.$notify.error('Could not send email.');
         }
 
         this.startResendEmailCountdown();
