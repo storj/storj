@@ -7,11 +7,14 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -360,4 +363,68 @@ func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, st
 		}
 	}
 	return responses, nil
+}
+
+func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []orders.BandwidthRollup) error {
+	if len(rollups) == 0 {
+		return nil
+	}
+
+	const stmtBegin = `
+		INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES
+	`
+	const stmtEnd = `
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
+		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated, inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline
+	`
+
+	intervalStart = intervalStart.UTC()
+	intervalStart = time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, time.UTC)
+
+	var lastProjectID uuid.UUID
+	var lastBucketName string
+	var projectIDArgNum int
+	var bucketNameArgNum int
+	var args []interface{}
+
+	var stmt strings.Builder
+	stmt.WriteString(stmtBegin)
+
+	args = append(args, intervalStart)
+	for i, rollup := range rollups {
+		if i > 0 {
+			stmt.WriteString(",")
+		}
+		if lastProjectID != rollup.ProjectID {
+			lastProjectID = rollup.ProjectID
+			// take the slice over rollup.ProjectID, because it is going to stay
+			// the same up to the ExecContext call, whereas lastProjectID is likely
+			// to be overwritten
+			args = append(args, rollup.ProjectID[:])
+			projectIDArgNum = len(args)
+		}
+		if lastBucketName != rollup.BucketName {
+			lastBucketName = rollup.BucketName
+			args = append(args, lastBucketName)
+			bucketNameArgNum = len(args)
+		}
+		args = append(args, rollup.Action, rollup.Inline, rollup.Allocated)
+
+		stmt.WriteString(fmt.Sprintf(
+			"($%d,$%d,$1,%d,$%d,$%d,$%d,0)",
+			bucketNameArgNum,
+			projectIDArgNum,
+			defaultIntervalSeconds,
+			len(args)-2,
+			len(args)-1,
+			len(args),
+		))
+	}
+	stmt.WriteString(stmtEnd)
+	_, err := db.db.ExecContext(ctx, stmt.String(), args...)
+	if err != nil {
+		db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+	}
+	return err
 }

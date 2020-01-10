@@ -78,8 +78,10 @@ type API struct {
 	}
 
 	Orders struct {
+		DB       orders.DB
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
+		Chore    *orders.Chore
 	}
 
 	Metainfo struct {
@@ -231,18 +233,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup orders
+		ordersWriteCache := orders.NewRollupsWriteCache(log, peer.DB.Orders(), config.Orders.FlushBatchSize)
+		peer.Orders.DB = ordersWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.Orders(),
+			peer.Orders.DB,
 			config.Orders.SettlementBatchSize,
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.Orders(),
+			peer.Orders.DB,
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -524,6 +529,9 @@ func (peer *API) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -560,6 +568,9 @@ func (peer *API) Close() error {
 	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
+	}
+	if peer.Orders.Chore.Loop != nil {
+		errlist.Add(peer.Orders.Chore.Close())
 	}
 	return errlist.Err()
 }

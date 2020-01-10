@@ -97,8 +97,10 @@ type SatelliteSystem struct {
 	}
 
 	Orders struct {
+		DB       orders.DB
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
+		Chore    *orders.Chore
 	}
 
 	Repair struct {
@@ -327,7 +329,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				},
 			},
 			Orders: orders.Config{
-				Expiration: 7 * 24 * time.Hour,
+				Expiration:          7 * 24 * time.Hour,
+				SettlementBatchSize: 10,
+				FlushBatchSize:      10,
+				FlushInterval:       2 * time.Second,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
@@ -497,8 +502,10 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
+	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
 	system.Orders.Service = peer.Orders.Service
+	system.Orders.Chore = api.Orders.Chore
 
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer

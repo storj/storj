@@ -27,6 +27,8 @@ var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for downloa
 type Config struct {
 	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
 	SettlementBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
+	FlushBatchSize      int           `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
+	FlushInterval       time.Duration `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 }
 
 // Service for creating order limits.
