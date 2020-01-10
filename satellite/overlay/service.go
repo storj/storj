@@ -294,6 +294,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 			MinimumVersion: preferences.MinimumVersion,
 			OnlineWindow:   preferences.OnlineWindow,
 			DistinctIP:     preferences.DistinctIP,
+			ExcludedIPs:    excludedIPs,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
