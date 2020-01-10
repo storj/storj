@@ -149,9 +149,10 @@ func LoadConfig(cmd *cobra.Command, vip *viper.Viper) error {
 	cfgFlag := cmd.Flags().Lookup("config-dir")
 	if cfgFlag != nil && cfgFlag.Value.String() != "" {
 		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-		if cmd.Annotations["type"] != "setup" || fileExists(path) {
+		if fileExists(path) {
+			setupCommand := cmd.Annotations["type"] == "setup"
 			vip.SetConfigFile(path)
-			if err := vip.ReadInConfig(); err != nil {
+			if err := vip.ReadInConfig(); err != nil && !setupCommand {
 				return err
 			}
 		}
