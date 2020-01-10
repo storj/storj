@@ -152,7 +152,7 @@ func pgMigrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
 	// create a new satellitedb connection
-	db, err := satellitedb.New(log, tempDB.ConnStr)
+	db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 

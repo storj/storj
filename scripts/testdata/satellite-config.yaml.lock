@@ -79,6 +79,12 @@ contact.external-address: ""
 # satellite database connection string
 # database: postgres://
 
+# satellite database api key lru capacity
+# database-options.api-keys-cache.capacity: 1000
+
+# satellite database api key expiration
+# database-options.api-keys-cache.expiration: 1m0s
+
 # how often to delete expired serial numbers
 # db-cleanup.serials-interval: 24h0m0s
 

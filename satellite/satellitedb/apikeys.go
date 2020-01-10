@@ -10,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -21,6 +22,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys
 type apikeys struct {
 	methods dbx.Methods
+	lru     *cache.ExpiringLRU
 	db      *satelliteDB
 }
 
@@ -69,7 +71,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at 
+		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at
 		FROM api_keys ak
 		WHERE ak.project_id = ?
 		AND lower(ak.name) LIKE ?
@@ -147,11 +149,17 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 // GetByHead implements satellite.APIKeys
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKey, err := keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
+
+	dbKeyI, err := keys.lru.Get(string(head), func() (interface{}, error) {
+		return keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
+	})
 	if err != nil {
 		return nil, err
 	}
-
+	dbKey, ok := dbKeyI.(*dbx.ApiKey)
+	if !ok {
+		return nil, Error.New("invalid key type: %T", dbKeyI)
+	}
 	return fromDBXAPIKey(ctx, dbKey)
 }
 

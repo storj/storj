@@ -115,7 +115,7 @@ func CreateMasterDB(t testing.TB, category string, index int, dbInfo Database) (
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreateMasterDBOnTopOf(log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr)
+	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
