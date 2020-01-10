@@ -82,6 +82,8 @@ func Main(cmd *cobra.Command, args []string) error {
 		scope.RegisterVal("db", NewDBDest),
 		scope.RegisterVal("pbufprep", NewPacketBufPrep),
 		scope.RegisterVal("mbufprep", NewMetricBufPrep),
+		scope.RegisterVal("downgrade", NewMetricDowngrade),
+		scope.RegisterVal("versionsplit", NewVersionSplit),
 	)
 	if err != nil {
 		return err
