@@ -251,9 +251,11 @@ func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, st
 
 		var serialNumberID int64
 		var bucketID []byte
-		if err := row.Scan(&serialNumberID, &bucketID); err != nil {
+		if err := row.Scan(&serialNumberID, &bucketID); err == sql.ErrNoRows {
 			rejected[request.OrderLimit.SerialNumber] = true
 			continue
+		} else if err != nil {
+			return nil, Error.Wrap(err)
 		}
 
 		var result sql.Result
@@ -304,7 +306,7 @@ func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, st
 		}
 
 		_, err := tx.Exec(db.db.Rebind(`
-			INSERT INTO storagenode_bandwidth_rollups 
+			INSERT INTO storagenode_bandwidth_rollups
 				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT (storagenode_id, interval_start, action)
@@ -352,7 +354,7 @@ func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, st
 
 		_, err = tx.Exec(db.db.Rebind(`
 			INSERT INTO bucket_bandwidth_rollups
-				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled) 
+				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (bucket_name, project_id, interval_start, action)
 			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?
