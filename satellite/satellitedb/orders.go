@@ -135,35 +135,17 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 	return nil
 }
 
-// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// sort nodes to avoid update deadlock
-	sort.Sort(storj.NodeIDList(storageNodes))
-
-	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
-		INSERT INTO storagenode_bandwidth_rollups
-			(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
-	`), postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
-
-	return Error.Wrap(err)
-}
-
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
 func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
+		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -307,11 +289,11 @@ func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, st
 
 		_, err := tx.Exec(db.db.Rebind(`
 			INSERT INTO storagenode_bandwidth_rollups
-				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?)
+				(storagenode_id, interval_start, interval_seconds, action, settled)
+			VALUES (?, ?, ?, ?, ?)
 			ON CONFLICT (storagenode_id, interval_start, action)
 			DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?
-		`), storageNodeID, intervalStart, defaultIntervalSeconds, action, 0, amount, amount)
+		`), storageNodeID, intervalStart, defaultIntervalSeconds, action, amount, amount)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

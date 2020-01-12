@@ -550,6 +550,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Drop storagenode_bandwidth_rollups allocated not null constraint",
+				Version:     74,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated DROP NOT NULL;`,
+					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated SET DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }
