@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
+	"storj.io/storj/pkg/traces"
 	"storj.io/storj/private/version/checker"
 )
 
@@ -35,6 +37,8 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	mux.HandleFunc("/debug/run/trace/db", traceDB)
 
 	mux.Handle("/version/", http.StripPrefix("/version", checker.NewDebugHandler(logger.Named("version"))))
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
@@ -89,4 +93,16 @@ func prometheus(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %g\n",
 			metric, metric, val)
 	})
+}
+
+func traceDB(w http.ResponseWriter, r *http.Request) {
+	cancel := traces.CollectTraces()
+	defer cancel()
+	for {
+		_, err := w.Write([]byte{0})
+		if err != nil {
+			return
+		}
+		time.Sleep(time.Second)
+	}
 }
