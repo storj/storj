@@ -74,7 +74,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher on repairer: ", err)
 	}
 
-	err = db.CheckVersion()
+	err = db.CheckVersion(ctx)
 	if err != nil {
 		zap.S().Fatal("failed satellite database version check: ", err)
 		return errs.New("Error checking version for satellitedb: %+v", err)

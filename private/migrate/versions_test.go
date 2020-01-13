@@ -4,6 +4,7 @@
 package migrate_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -93,21 +94,21 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB m
 				DB:          testDB,
 				Description: "Move files",
 				Version:     2,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
 			},
 		},
 	}
 
-	dbVersion, err := m.CurrentVersion(nil, testDB)
+	dbVersion, err := m.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, -1)
 
-	err = m.Run(zap.NewNop())
+	err = m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 
-	dbVersion, err = m.CurrentVersion(nil, testDB)
+	dbVersion, err = m.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
@@ -120,7 +121,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB m
 			},
 		},
 	}
-	dbVersion, err = m2.CurrentVersion(nil, testDB)
+	dbVersion, err = m2.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
@@ -181,7 +182,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -190,7 +191,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 2",
 				Version:     2,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -198,7 +199,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err := m.Run(zap.NewNop())
+	err := m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 	assert.Equal(t, 2, steps)
 
@@ -206,12 +207,12 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		DB:          testDB,
 		Description: "Step 3",
 		Version:     3,
-		Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 			steps++
 			return nil
 		}),
 	})
-	err = m.Run(zap.NewNop())
+	err = m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 
 	var version int
@@ -256,14 +257,14 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return fmt.Errorf("migration failed")
 				}),
 			},
 		},
 	}
 
-	err := m.Run(zap.NewNop())
+	err := m.Run(ctx, zap.NewNop())
 	require.Error(t, err, "migration failed")
 
 	var version sql.NullInt64

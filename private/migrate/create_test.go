@@ -30,19 +30,19 @@ func TestCreate_Sqlite(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	require.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create(ctx, "conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	require.Error(t, err)
 }
 
@@ -74,19 +74,19 @@ func testCreateGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = migrate.Create("example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create("example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create("example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create("conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 }
 

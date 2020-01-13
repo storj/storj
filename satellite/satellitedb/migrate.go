@@ -62,7 +62,7 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
-		dbVersion, err := migration.CurrentVersion(db.log, db.DB)
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
 		}
@@ -72,18 +72,18 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 			)
 		}
 
-		return migration.Run(db.log.Named("migrate"))
+		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
-		return migrate.Create("database", db.DB)
+		return migrate.Create(ctx, "database", db.DB)
 	}
 }
 
 // CheckVersion confirms the database is at the desired version
-func (db *satelliteDB) CheckVersion() error {
+func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
-		return migration.ValidateVersions(db.log)
+		return migration.ValidateVersions(ctx, db.log)
 
 	default:
 		return nil

@@ -65,7 +65,7 @@ type Step struct {
 
 // Action is something that needs to be done
 type Action interface {
-	Run(log *zap.Logger, db DB, tx *sql.Tx) error
+	Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error
 }
 
 // TargetVersion returns migration with steps upto specified version
@@ -101,9 +101,9 @@ func (migration *Migration) ValidateSteps() error {
 }
 
 // ValidateVersions checks that the version of the migration matches the state of the database
-func (migration *Migration) ValidateVersions(log *zap.Logger) error {
+func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logger) error {
 	for _, step := range migration.Steps {
-		dbVersion, err := migration.getLatestVersion(log, step.DB)
+		dbVersion, err := migration.getLatestVersion(ctx, log, step.DB)
 		if err != nil {
 			return ErrValidateVersionQuery.Wrap(err)
 		}
@@ -124,7 +124,7 @@ func (migration *Migration) ValidateVersions(log *zap.Logger) error {
 }
 
 // Run runs the migration steps
-func (migration *Migration) Run(log *zap.Logger) error {
+func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	err := migration.ValidTableName()
 	if err != nil {
 		return err
@@ -142,12 +142,12 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
-		err = migration.ensureVersionTable(log, step.DB)
+		err = migration.ensureVersionTable(ctx, log, step.DB)
 		if err != nil {
 			return Error.New("creating version table failed: %v", err)
 		}
 
-		version, err := migration.getLatestVersion(log, step.DB)
+		version, err := migration.getLatestVersion(ctx, log, step.DB)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -164,13 +164,13 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = WithTx(context.Background(), step.DB, func(ctx context.Context, tx *sql.Tx) error {
-			err = step.Action.Run(stepLog, step.DB, tx)
+		err = WithTx(ctx, step.DB, func(ctx context.Context, tx *sql.Tx) error {
+			err = step.Action.Run(ctx, stepLog, step.DB, tx)
 			if err != nil {
 				return err
 			}
 
-			err = migration.addVersion(tx, step.DB, step.Version)
+			err = migration.addVersion(ctx, tx, step.DB, step.Version)
 			if err != nil {
 				return err
 			}
@@ -196,8 +196,8 @@ func (migration *Migration) Run(log *zap.Logger) error {
 }
 
 // createVersionTable creates a new version table
-func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
-	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) error {
+func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db DB) error {
+	err := WithTx(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 		return err
 	})
@@ -205,9 +205,9 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 }
 
 // getLatestVersion finds the latest version table
-func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
+func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db DB) (int, error) {
 	var version sql.NullInt64
-	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) error {
+	err := WithTx(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 		if err == sql.ErrNoRows || !version.Valid {
 			version.Int64 = -1
@@ -220,7 +220,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 }
 
 // addVersion adds information about a new migration
-func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
+func (migration *Migration) addVersion(ctx context.Context, tx *sql.Tx, db DB, version int) error {
 	_, err := tx.Exec(rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
@@ -229,19 +229,19 @@ func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
 }
 
 // CurrentVersion finds the latest version for the db
-func (migration *Migration) CurrentVersion(log *zap.Logger, db DB) (int, error) {
-	err := migration.ensureVersionTable(log, db)
+func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db DB) (int, error) {
+	err := migration.ensureVersionTable(ctx, log, db)
 	if err != nil {
 		return -1, Error.Wrap(err)
 	}
-	return migration.getLatestVersion(log, db)
+	return migration.getLatestVersion(ctx, log, db)
 }
 
 // SQL statements that are executed on the database
 type SQL []string
 
 // Run runs the SQL statements
-func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
+func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) (err error) {
 	for _, query := range sql {
 		_, err := tx.Exec(rebind(db, query))
 		if err != nil {
@@ -252,9 +252,9 @@ func (sql SQL) Run(log *zap.Logger, db DB, tx *sql.Tx) (err error) {
 }
 
 // Func is an arbitrary operation
-type Func func(log *zap.Logger, db DB, tx *sql.Tx) error
+type Func func(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error
 
 // Run runs the migration
-func (fn Func) Run(log *zap.Logger, db DB, tx *sql.Tx) error {
-	return fn(log, db, tx)
+func (fn Func) Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error {
+	return fn(ctx, log, db, tx)
 }

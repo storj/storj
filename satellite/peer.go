@@ -49,7 +49,7 @@ type DB interface {
 	// CreateTables initializes the database
 	CreateTables(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
-	CheckVersion() error
+	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
 

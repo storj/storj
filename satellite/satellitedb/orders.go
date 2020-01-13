@@ -210,13 +210,13 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	})
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		responses, err = db.processOrdersInTx(requests, storageNodeID, time.Now(), tx.Tx)
+		responses, err = db.processOrdersInTx(ctx, requests, storageNodeID, time.Now(), tx.Tx)
 		return err
 	})
 	return responses, errs.Wrap(err)
 }
 
-func (db *ordersDB) processOrdersInTx(requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx *sql.Tx) (responses []*orders.ProcessOrderResponse, err error) {
+func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx *sql.Tx) (responses []*orders.ProcessOrderResponse, err error) {
 	now = now.UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
