@@ -44,7 +44,8 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(db, mon)
 
-	err = schema.PrepareDB(db)
+	// TODO: new shouldn't be taking ctx as argument
+	err = schema.PrepareDB(context.TODO(), db)
 	if err != nil {
 		return nil, err
 	}

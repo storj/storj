@@ -4,6 +4,7 @@
 package cockroachutil
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"math/rand"
@@ -31,7 +32,7 @@ func CreateRandomTestingSchemaName(n int) string {
 // OpenUnique opens a temporary unique CockroachDB database that will be cleaned up when closed.
 // It is expected that this should normally be used by way of
 // "storj.io/storj/private/dbutil/tempdb".OpenUnique() instead of calling it directly.
-func OpenUnique(connStr string, schemaPrefix string) (db *dbutil.TempDatabase, err error) {
+func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *dbutil.TempDatabase, err error) {
 	if !strings.HasPrefix(connStr, "cockroach://") {
 		return nil, errs.New("expected a cockroachDB URI, but got %q", connStr)
 	}

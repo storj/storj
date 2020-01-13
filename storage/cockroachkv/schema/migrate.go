@@ -4,6 +4,7 @@
 package schema
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // PrepareDB creates the pathdata tables if they don't already exist.
-func PrepareDB(db *sql.DB) (err error) {
+func PrepareDB(ctx context.Context, db *sql.DB) (err error) {
 	var dbName string
 	if err := db.QueryRow(`SELECT current_database();`).Scan(&dbName); err != nil {
 		return errs.Wrap(err)

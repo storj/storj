@@ -21,7 +21,7 @@ func OpenUnique(ctx context.Context, connURL string, namePrefix string) (*dbutil
 		return pgutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	if strings.HasPrefix(connURL, "cockroach://") {
-		return cockroachutil.OpenUnique(connURL, namePrefix)
+		return cockroachutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	return nil, errs.New("OpenUnique does not yet support the db type for %q", connURL)
 }
