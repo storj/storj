@@ -18,6 +18,8 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
+
+	"storj.io/storj/private/dbutil/dbwrap"
 )
 
 // Prevent conditional imports from causing build failures
@@ -118,9 +120,9 @@ func constraintViolation(err error, constraint string) error {
 }
 
 type driver interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 var (
@@ -129,7 +131,7 @@ var (
 )
 
 type DB struct {
-	*sql.DB
+	dbwrap.DB
 	dbMethods
 
 	Hooks struct {
@@ -161,7 +163,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 
 	db = &DB{
-		DB: sql_db,
+		DB: dbwrap.SQLDB(sql_db),
 	}
 	db.Hooks.Now = time.Now
 
@@ -182,7 +184,7 @@ func (obj *DB) Close() (err error) {
 }
 
 func (obj *DB) Open(ctx context.Context) (*Tx, error) {
-	tx, err := obj.DB.Begin()
+	tx, err := obj.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -216,12 +218,12 @@ func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 }
 
 type Tx struct {
-	Tx *sql.Tx
+	Tx dbwrap.Tx
 	txMethods
 }
 
 type dialectTx struct {
-	tx *sql.Tx
+	tx dbwrap.Tx
 }
 
 func (tx *dialectTx) Commit() (err error) {
@@ -491,7 +493,7 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
+	allocated bigint,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
@@ -627,7 +629,7 @@ CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandw
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
-func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
+func (obj *postgresDB) wrapTx(tx dbwrap.Tx) txMethods {
 	return &postgresTx{
 		dialectTx: dialectTx{tx: tx},
 		postgresImpl: &postgresImpl{
@@ -909,7 +911,7 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
+	allocated bigint,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
@@ -1045,7 +1047,7 @@ CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandw
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
-func (obj *cockroachDB) wrapTx(tx *sql.Tx) txMethods {
+func (obj *cockroachDB) wrapTx(tx dbwrap.Tx) txMethods {
 	return &cockroachTx{
 		dialectTx: dialectTx{tx: tx},
 		cockroachImpl: &cockroachImpl{
@@ -4694,11 +4696,15 @@ type StoragenodeBandwidthRollup struct {
 	IntervalStart   time.Time
 	IntervalSeconds uint
 	Action          uint
-	Allocated       uint64
+	Allocated       *uint64
 	Settled         uint64
 }
 
 func (StoragenodeBandwidthRollup) _Table() string { return "storagenode_bandwidth_rollups" }
+
+type StoragenodeBandwidthRollup_Create_Fields struct {
+	Allocated StoragenodeBandwidthRollup_Allocated_Field
+}
 
 type StoragenodeBandwidthRollup_Update_Fields struct {
 	Allocated StoragenodeBandwidthRollup_Allocated_Field
@@ -4785,11 +4791,26 @@ func (StoragenodeBandwidthRollup_Action_Field) _Column() string { return "action
 type StoragenodeBandwidthRollup_Allocated_Field struct {
 	_set   bool
 	_null  bool
-	_value uint64
+	_value *uint64
 }
 
 func StoragenodeBandwidthRollup_Allocated(v uint64) StoragenodeBandwidthRollup_Allocated_Field {
-	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _value: v}
+	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _value: &v}
+}
+
+func StoragenodeBandwidthRollup_Allocated_Raw(v *uint64) StoragenodeBandwidthRollup_Allocated_Field {
+	if v == nil {
+		return StoragenodeBandwidthRollup_Allocated_Null()
+	}
+	return StoragenodeBandwidthRollup_Allocated(*v)
+}
+
+func StoragenodeBandwidthRollup_Allocated_Null() StoragenodeBandwidthRollup_Allocated_Field {
+	return StoragenodeBandwidthRollup_Allocated_Field{_set: true, _null: true}
+}
+
+func (f StoragenodeBandwidthRollup_Allocated_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f StoragenodeBandwidthRollup_Allocated_Field) value() interface{} {
@@ -6933,7 +6954,7 @@ func (obj *postgresImpl) Create_ValueAttribution(ctx context.Context,
 	obj.logStmt(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6965,7 +6986,7 @@ func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
 	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6992,7 +7013,7 @@ func (obj *postgresImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 
-	_, err = obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7013,7 +7034,7 @@ func (obj *postgresImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __name_val, __value_val)
 
-	_, err = obj.driver.Exec(__stmt, __name_val, __value_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __name_val, __value_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7046,7 +7067,7 @@ func (obj *postgresImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7129,7 +7150,7 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7164,7 +7185,7 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7197,7 +7218,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7225,7 +7246,7 @@ func (obj *postgresImpl) Create_ProjectInvoiceStamp(ctx context.Context,
 	obj.logStmt(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
 
 	project_invoice_stamp = &ProjectInvoiceStamp{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7250,7 +7271,7 @@ func (obj *postgresImpl) Create_ProjectMember(ctx context.Context,
 	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
 
 	project_member = &ProjectMember{}
-	err = obj.driver.QueryRow(__stmt, __member_id_val, __project_id_val, __created_at_val).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __member_id_val, __project_id_val, __created_at_val).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7283,7 +7304,7 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7306,7 +7327,7 @@ func (obj *postgresImpl) CreateNoReturn_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7327,7 +7348,7 @@ func (obj *postgresImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	_, err = obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7362,7 +7383,7 @@ func (obj *postgresImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	_, err = obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7385,7 +7406,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7411,7 +7432,7 @@ func (obj *postgresImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7438,7 +7459,7 @@ func (obj *postgresImpl) Create_RegistrationToken(ctx context.Context,
 	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7463,7 +7484,7 @@ func (obj *postgresImpl) Create_ResetPasswordToken(ctx context.Context,
 	obj.logStmt(__stmt, __secret_val, __owner_id_val, __created_at_val)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __created_at_val).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __secret_val, __owner_id_val, __created_at_val).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7502,7 +7523,7 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	obj.logStmt(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7536,7 +7557,7 @@ func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
 	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7585,7 +7606,7 @@ func (obj *postgresImpl) Create_BucketMetainfo(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7611,7 +7632,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7648,7 +7669,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -7672,7 +7693,7 @@ func (obj *postgresImpl) Create_NodesOfflineTime(ctx context.Context,
 	obj.logStmt(__stmt, __node_id_val, __tracked_at_val, __seconds_val)
 
 	nodes_offline_time = &NodesOfflineTime{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __tracked_at_val, __seconds_val).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __node_id_val, __tracked_at_val, __seconds_val).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7697,7 +7718,7 @@ func (obj *postgresImpl) Create_StripeCustomer(ctx context.Context,
 	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7734,7 +7755,7 @@ func (obj *postgresImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7759,7 +7780,7 @@ func (obj *postgresImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx context
 	obj.logStmt(__stmt, __tx_id_val, __state_val, __created_at_val)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRow(__stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7796,7 +7817,7 @@ func (obj *postgresImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx conte
 	obj.logStmt(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7821,7 +7842,7 @@ func (obj *postgresImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.C
 	obj.logStmt(__stmt, __tx_id_val, __rate_val, __created_at_val)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRow(__stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7858,7 +7879,7 @@ func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7884,7 +7905,7 @@ func (obj *postgresImpl) Create_CouponUsage(ctx context.Context,
 	obj.logStmt(__stmt, __coupon_id_val, __amount_val, __status_val, __period_val)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRow(__stmt, __coupon_id_val, __amount_val, __status_val, __period_val).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __coupon_id_val, __amount_val, __status_val, __period_val).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7907,7 +7928,7 @@ func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx co
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -7929,7 +7950,7 @@ func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return (*PendingAudits)(nil), obj.makeErr(err)
 	}
@@ -7951,7 +7972,7 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return (*Irreparabledb)(nil), obj.makeErr(err)
 	}
@@ -7975,7 +7996,7 @@ func (obj *postgresImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_As
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8010,7 +8031,7 @@ func (obj *postgresImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	row = &Value_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
 	if err == sql.ErrNoRows {
 		return (*Value_Row)(nil), nil
 	}
@@ -8035,7 +8056,7 @@ func (obj *postgresImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return (*AccountingRollup)(nil), obj.makeErr(err)
 	}
@@ -8056,7 +8077,7 @@ func (obj *postgresImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8091,7 +8112,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -8106,12 +8127,11 @@ func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8148,7 +8168,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8185,7 +8205,7 @@ func (obj *postgresImpl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8213,12 +8233,11 @@ func (obj *postgresImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ct
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8247,14 +8266,13 @@ func (obj *postgresImpl) Limited_Node_Id_Node_Address_Node_LastContactSuccess_No
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.last_contact_success < nodes.last_contact_failure AND nodes.disqualified is NULL ORDER BY nodes.last_contact_failure LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	__values = append(__values, limit, offset)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8288,7 +8306,7 @@ func (obj *postgresImpl) All_Node_Id_Node_Address_Node_LastContactSuccess_Node_L
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8322,7 +8340,7 @@ func (obj *postgresImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx c
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8367,7 +8385,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -8389,7 +8407,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -8411,7 +8429,7 @@ func (obj *postgresImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &UsageLimit_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.UsageLimit)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
 	if err != nil {
 		return (*UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -8426,12 +8444,11 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8465,7 +8482,7 @@ func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8499,7 +8516,7 @@ func (obj *postgresImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8533,7 +8550,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8570,7 +8587,7 @@ func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8605,7 +8622,7 @@ func (obj *postgresImpl) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8649,7 +8666,7 @@ func (obj *postgresImpl) All_ProjectInvoiceStamp_By_ProjectId_OrderBy_Desc_Start
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8683,7 +8700,7 @@ func (obj *postgresImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8720,7 +8737,7 @@ func (obj *postgresImpl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8755,7 +8772,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -8777,7 +8794,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Head(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -8800,7 +8817,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -8821,7 +8838,7 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8855,7 +8872,7 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8903,7 +8920,7 @@ func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*BucketBandwidthRollup)(nil), nil
 	}
@@ -8927,7 +8944,7 @@ func (obj *postgresImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_Inte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8957,12 +8974,11 @@ func (obj *postgresImpl) All_BucketStorageTally(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8999,7 +9015,7 @@ func (obj *postgresImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9036,7 +9052,7 @@ func (obj *postgresImpl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*StoragenodeBandwidthRollup)(nil), nil
 	}
@@ -9060,7 +9076,7 @@ func (obj *postgresImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Greater
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9095,7 +9111,7 @@ func (obj *postgresImpl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 	if err != nil {
 		return (*StoragenodeStorageTally)(nil), obj.makeErr(err)
 	}
@@ -9110,12 +9126,11 @@ func (obj *postgresImpl) All_StoragenodeStorageTally(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9149,7 +9164,7 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9184,7 +9199,7 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return (*PeerIdentity)(nil), obj.makeErr(err)
 	}
@@ -9206,7 +9221,7 @@ func (obj *postgresImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	row = &LeafSerialNumber_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
@@ -9228,7 +9243,7 @@ func (obj *postgresImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -9246,8 +9261,6 @@ func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values)
-
 	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, registration_token_owner_id.value())
@@ -9257,7 +9270,7 @@ func (obj *postgresImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -9279,7 +9292,7 @@ func (obj *postgresImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -9301,7 +9314,7 @@ func (obj *postgresImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -9323,7 +9336,7 @@ func (obj *postgresImpl) Get_Offer_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return (*Offer)(nil), obj.makeErr(err)
 	}
@@ -9338,12 +9351,11 @@ func (obj *postgresImpl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9378,7 +9390,7 @@ func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Cred
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9409,8 +9421,6 @@ func (obj *postgresImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM user_credits WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values)
-
 	if !user_credit_referred_by.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, user_credit_referred_by.value())
@@ -9419,7 +9429,7 @@ func (obj *postgresImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9443,7 +9453,7 @@ func (obj *postgresImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
@@ -9468,7 +9478,7 @@ func (obj *postgresImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrE
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9506,7 +9516,7 @@ func (obj *postgresImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Or
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9541,7 +9551,7 @@ func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -9565,7 +9575,7 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_Pi
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
 	if err != nil {
 		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
 	}
@@ -9588,7 +9598,7 @@ func (obj *postgresImpl) All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_An
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9623,7 +9633,7 @@ func (obj *postgresImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	row = &CustomerId_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.CustomerId)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
 	}
@@ -9647,7 +9657,7 @@ func (obj *postgresImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9681,7 +9691,7 @@ func (obj *postgresImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Crea
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9719,7 +9729,7 @@ func (obj *postgresImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqua
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9756,7 +9766,7 @@ func (obj *postgresImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -9781,7 +9791,7 @@ func (obj *postgresImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_Creat
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9816,7 +9826,7 @@ func (obj *postgresImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -9838,7 +9848,7 @@ func (obj *postgresImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -9859,7 +9869,7 @@ func (obj *postgresImpl) All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9893,7 +9903,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9928,7 +9938,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9962,7 +9972,7 @@ func (obj *postgresImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10000,7 +10010,7 @@ func (obj *postgresImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Orde
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10037,7 +10047,7 @@ func (obj *postgresImpl) Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Eq
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10089,7 +10099,7 @@ func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10144,7 +10154,7 @@ func (obj *postgresImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10181,7 +10191,7 @@ func (obj *postgresImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10375,7 +10385,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10571,7 +10581,7 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10634,7 +10644,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10680,7 +10690,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10720,7 +10730,7 @@ func (obj *postgresImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10763,7 +10773,7 @@ func (obj *postgresImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10801,7 +10811,7 @@ func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10886,7 +10896,7 @@ func (obj *postgresImpl) UpdateNoReturn_Offer_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10970,7 +10980,7 @@ func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11021,7 +11031,7 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -11090,7 +11100,7 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -11133,7 +11143,7 @@ func (obj *postgresImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11174,7 +11184,7 @@ func (obj *postgresImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11215,7 +11225,7 @@ func (obj *postgresImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11256,7 +11266,7 @@ func (obj *postgresImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11298,7 +11308,7 @@ func (obj *postgresImpl) Update_CouponUsage_By_CouponId_And_Period(ctx context.C
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11322,7 +11332,7 @@ func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11349,7 +11359,7 @@ func (obj *postgresImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11376,7 +11386,7 @@ func (obj *postgresImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11403,7 +11413,7 @@ func (obj *postgresImpl) Delete_AccountingRollup_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11430,7 +11440,7 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11457,7 +11467,7 @@ func (obj *postgresImpl) Delete_User_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11484,7 +11494,7 @@ func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11512,7 +11522,7 @@ func (obj *postgresImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11539,7 +11549,7 @@ func (obj *postgresImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11566,7 +11576,7 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11593,7 +11603,7 @@ func (obj *postgresImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11620,7 +11630,7 @@ func (obj *postgresImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11648,7 +11658,7 @@ func (obj *postgresImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11675,7 +11685,7 @@ func (obj *postgresImpl) Delete_GracefulExitProgress_By_NodeId(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11702,7 +11712,7 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11731,7 +11741,7 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11758,7 +11768,7 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Finished
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11785,7 +11795,7 @@ func (obj *postgresImpl) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11812,7 +11822,7 @@ func (obj *postgresImpl) Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11839,7 +11849,7 @@ func (obj *postgresImpl) Delete_Coupon_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11867,7 +11877,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	defer mon.Task()(&ctx)(&err)
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11877,7 +11887,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM used_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11887,7 +11897,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11897,7 +11907,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11907,7 +11917,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_invoice_stamps;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invoice_stamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11917,7 +11927,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_metainfos;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11927,7 +11937,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11937,7 +11947,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM value_attributions;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11947,7 +11957,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM users;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11957,7 +11967,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_tx_conversion_rates;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_tx_conversion_rates;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11967,7 +11977,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_invoice_project_records;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_invoice_project_records;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11977,7 +11987,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripe_customers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11987,7 +11997,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11997,7 +12007,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12007,7 +12017,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM serial_numbers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12017,7 +12027,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM reset_password_tokens;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12027,7 +12037,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12037,7 +12047,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM projects;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12047,7 +12057,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12057,7 +12067,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM peer_identities;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12067,7 +12077,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM offers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM offers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12077,7 +12087,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM nodes_offline_times;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes_offline_times;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12087,7 +12097,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12097,7 +12107,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12107,7 +12117,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12117,7 +12127,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_transfer_queue;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12127,7 +12137,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12137,7 +12147,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coupon_usages;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12147,7 +12157,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coupons;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12157,7 +12167,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12167,7 +12177,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12177,7 +12187,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12187,7 +12197,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_timestamps;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12197,7 +12207,7 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12231,7 +12241,7 @@ func (obj *cockroachImpl) Create_ValueAttribution(ctx context.Context,
 	obj.logStmt(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __project_id_val, __bucket_name_val, __partner_id_val, __last_updated_val).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12263,7 +12273,7 @@ func (obj *cockroachImpl) Create_PendingAudits(ctx context.Context,
 	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12290,7 +12300,7 @@ func (obj *cockroachImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 
-	_, err = obj.driver.Exec(__stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12311,7 +12321,7 @@ func (obj *cockroachImpl) CreateNoReturn_AccountingTimestamps(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __name_val, __value_val)
 
-	_, err = obj.driver.Exec(__stmt, __name_val, __value_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __name_val, __value_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12344,7 +12354,7 @@ func (obj *cockroachImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12427,7 +12437,7 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12462,7 +12472,7 @@ func (obj *cockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12495,7 +12505,7 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __name_val, __description_val, __usage_limit_val, __partner_id_val, __owner_id_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12523,7 +12533,7 @@ func (obj *cockroachImpl) Create_ProjectInvoiceStamp(ctx context.Context,
 	obj.logStmt(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val)
 
 	project_invoice_stamp = &ProjectInvoiceStamp{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __project_id_val, __invoice_id_val, __start_date_val, __end_date_val, __created_at_val).Scan(&project_invoice_stamp.ProjectId, &project_invoice_stamp.InvoiceId, &project_invoice_stamp.StartDate, &project_invoice_stamp.EndDate, &project_invoice_stamp.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12548,7 +12558,7 @@ func (obj *cockroachImpl) Create_ProjectMember(ctx context.Context,
 	obj.logStmt(__stmt, __member_id_val, __project_id_val, __created_at_val)
 
 	project_member = &ProjectMember{}
-	err = obj.driver.QueryRow(__stmt, __member_id_val, __project_id_val, __created_at_val).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __member_id_val, __project_id_val, __created_at_val).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12581,7 +12591,7 @@ func (obj *cockroachImpl) Create_ApiKey(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __partner_id_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12604,7 +12614,7 @@ func (obj *cockroachImpl) CreateNoReturn_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12625,7 +12635,7 @@ func (obj *cockroachImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	_, err = obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12660,7 +12670,7 @@ func (obj *cockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	_, err = obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12683,7 +12693,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12709,7 +12719,7 @@ func (obj *cockroachImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12736,7 +12746,7 @@ func (obj *cockroachImpl) Create_RegistrationToken(ctx context.Context,
 	obj.logStmt(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __secret_val, __owner_id_val, __project_limit_val, __created_at_val).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12761,7 +12771,7 @@ func (obj *cockroachImpl) Create_ResetPasswordToken(ctx context.Context,
 	obj.logStmt(__stmt, __secret_val, __owner_id_val, __created_at_val)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __secret_val, __owner_id_val, __created_at_val).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __secret_val, __owner_id_val, __created_at_val).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12800,7 +12810,7 @@ func (obj *cockroachImpl) Create_Offer(ctx context.Context,
 	obj.logStmt(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12834,7 +12844,7 @@ func (obj *cockroachImpl) Create_UserCredit(ctx context.Context,
 	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12883,7 +12893,7 @@ func (obj *cockroachImpl) Create_BucketMetainfo(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __name_val, __partner_id_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12909,7 +12919,7 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitProgress(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12946,7 +12956,7 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.C
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -12970,7 +12980,7 @@ func (obj *cockroachImpl) Create_NodesOfflineTime(ctx context.Context,
 	obj.logStmt(__stmt, __node_id_val, __tracked_at_val, __seconds_val)
 
 	nodes_offline_time = &NodesOfflineTime{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __tracked_at_val, __seconds_val).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __node_id_val, __tracked_at_val, __seconds_val).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12995,7 +13005,7 @@ func (obj *cockroachImpl) Create_StripeCustomer(ctx context.Context,
 	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13032,7 +13042,7 @@ func (obj *cockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __user_id_val, __address_val, __amount_val, __received_val, __status_val, __key_val, __timeout_val, __created_at_val).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13057,7 +13067,7 @@ func (obj *cockroachImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx contex
 	obj.logStmt(__stmt, __tx_id_val, __state_val, __created_at_val)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRow(__stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __tx_id_val, __state_val, __created_at_val).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13094,7 +13104,7 @@ func (obj *cockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx cont
 	obj.logStmt(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13119,7 +13129,7 @@ func (obj *cockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.
 	obj.logStmt(__stmt, __tx_id_val, __rate_val, __created_at_val)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRow(__stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __tx_id_val, __rate_val, __created_at_val).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13156,7 +13166,7 @@ func (obj *cockroachImpl) Create_Coupon(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13182,7 +13192,7 @@ func (obj *cockroachImpl) Create_CouponUsage(ctx context.Context,
 	obj.logStmt(__stmt, __coupon_id_val, __amount_val, __status_val, __period_val)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRow(__stmt, __coupon_id_val, __amount_val, __status_val, __period_val).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __coupon_id_val, __amount_val, __status_val, __period_val).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13205,7 +13215,7 @@ func (obj *cockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx c
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -13227,7 +13237,7 @@ func (obj *cockroachImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return (*PendingAudits)(nil), obj.makeErr(err)
 	}
@@ -13249,7 +13259,7 @@ func (obj *cockroachImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return (*Irreparabledb)(nil), obj.makeErr(err)
 	}
@@ -13273,7 +13283,7 @@ func (obj *cockroachImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_A
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13308,7 +13318,7 @@ func (obj *cockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	row = &Value_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.Value)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
 	if err == sql.ErrNoRows {
 		return (*Value_Row)(nil), nil
 	}
@@ -13333,7 +13343,7 @@ func (obj *cockroachImpl) Get_AccountingRollup_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 	if err != nil {
 		return (*AccountingRollup)(nil), obj.makeErr(err)
 	}
@@ -13354,7 +13364,7 @@ func (obj *cockroachImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx c
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13389,7 +13399,7 @@ func (obj *cockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -13404,12 +13414,11 @@ func (obj *cockroachImpl) All_Node_Id(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13446,7 +13455,7 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13483,7 +13492,7 @@ func (obj *cockroachImpl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protoco
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13511,12 +13520,11 @@ func (obj *cockroachImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(c
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13545,14 +13553,13 @@ func (obj *cockroachImpl) Limited_Node_Id_Node_Address_Node_LastContactSuccess_N
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_contact_success, nodes.last_contact_failure FROM nodes WHERE nodes.last_contact_success < nodes.last_contact_failure AND nodes.disqualified is NULL ORDER BY nodes.last_contact_failure LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	__values = append(__values, limit, offset)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13586,7 +13593,7 @@ func (obj *cockroachImpl) All_Node_Id_Node_Address_Node_LastContactSuccess_Node_
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13620,7 +13627,7 @@ func (obj *cockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13665,7 +13672,7 @@ func (obj *cockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -13687,7 +13694,7 @@ func (obj *cockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -13709,7 +13716,7 @@ func (obj *cockroachImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &UsageLimit_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.UsageLimit)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
 	if err != nil {
 		return (*UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -13724,12 +13731,11 @@ func (obj *cockroachImpl) All_Project(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13763,7 +13769,7 @@ func (obj *cockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ct
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13797,7 +13803,7 @@ func (obj *cockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13831,7 +13837,7 @@ func (obj *cockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proj
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13868,7 +13874,7 @@ func (obj *cockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedA
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13903,7 +13909,7 @@ func (obj *cockroachImpl) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13947,7 +13953,7 @@ func (obj *cockroachImpl) All_ProjectInvoiceStamp_By_ProjectId_OrderBy_Desc_Star
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13981,7 +13987,7 @@ func (obj *cockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14018,7 +14024,7 @@ func (obj *cockroachImpl) Limited_ProjectMember_By_ProjectId(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14053,7 +14059,7 @@ func (obj *cockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -14075,7 +14081,7 @@ func (obj *cockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -14098,7 +14104,7 @@ func (obj *cockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -14119,7 +14125,7 @@ func (obj *cockroachImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.C
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14153,7 +14159,7 @@ func (obj *cockroachImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14201,7 +14207,7 @@ func (obj *cockroachImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*BucketBandwidthRollup)(nil), nil
 	}
@@ -14225,7 +14231,7 @@ func (obj *cockroachImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_Int
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14255,12 +14261,11 @@ func (obj *cockroachImpl) All_BucketStorageTally(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14297,7 +14302,7 @@ func (obj *cockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14334,7 +14339,7 @@ func (obj *cockroachImpl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_I
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*StoragenodeBandwidthRollup)(nil), nil
 	}
@@ -14358,7 +14363,7 @@ func (obj *cockroachImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14393,7 +14398,7 @@ func (obj *cockroachImpl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 	if err != nil {
 		return (*StoragenodeStorageTally)(nil), obj.makeErr(err)
 	}
@@ -14408,12 +14413,11 @@ func (obj *cockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14447,7 +14451,7 @@ func (obj *cockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Greater
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14482,7 +14486,7 @@ func (obj *cockroachImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return (*PeerIdentity)(nil), obj.makeErr(err)
 	}
@@ -14504,7 +14508,7 @@ func (obj *cockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	row = &LeafSerialNumber_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
@@ -14526,7 +14530,7 @@ func (obj *cockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -14544,8 +14548,6 @@ func (obj *cockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values)
-
 	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, registration_token_owner_id.value())
@@ -14555,7 +14557,7 @@ func (obj *cockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -14577,7 +14579,7 @@ func (obj *cockroachImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -14599,7 +14601,7 @@ func (obj *cockroachImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -14621,7 +14623,7 @@ func (obj *cockroachImpl) Get_Offer_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return (*Offer)(nil), obj.makeErr(err)
 	}
@@ -14636,12 +14638,11 @@ func (obj *cockroachImpl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
-	__values = append(__values)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14676,7 +14677,7 @@ func (obj *cockroachImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Cre
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14707,8 +14708,6 @@ func (obj *cockroachImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM user_credits WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values)
-
 	if !user_credit_referred_by.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, user_credit_referred_by.value())
@@ -14717,7 +14716,7 @@ func (obj *cockroachImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -14741,7 +14740,7 @@ func (obj *cockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.C
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
@@ -14766,7 +14765,7 @@ func (obj *cockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOr
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14804,7 +14803,7 @@ func (obj *cockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_O
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14839,7 +14838,7 @@ func (obj *cockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -14863,7 +14862,7 @@ func (obj *cockroachImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_P
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
 	if err != nil {
 		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
 	}
@@ -14886,7 +14885,7 @@ func (obj *cockroachImpl) All_NodesOfflineTime_By_NodeId_And_TrackedAt_Greater_A
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14921,7 +14920,7 @@ func (obj *cockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	row = &CustomerId_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.CustomerId)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
 	}
@@ -14945,7 +14944,7 @@ func (obj *cockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderB
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14979,7 +14978,7 @@ func (obj *cockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Cre
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15017,7 +15016,7 @@ func (obj *cockroachImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqu
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15054,7 +15053,7 @@ func (obj *cockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectI
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -15079,7 +15078,7 @@ func (obj *cockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_Crea
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15114,7 +15113,7 @@ func (obj *cockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -15136,7 +15135,7 @@ func (obj *cockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -15157,7 +15156,7 @@ func (obj *cockroachImpl) All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderB
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15191,7 +15190,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15226,7 +15225,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15260,7 +15259,7 @@ func (obj *cockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15298,7 +15297,7 @@ func (obj *cockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Ord
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15335,7 +15334,7 @@ func (obj *cockroachImpl) Limited_CouponUsage_By_Period_LessOrEqual_And_Status_E
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15387,7 +15386,7 @@ func (obj *cockroachImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15442,7 +15441,7 @@ func (obj *cockroachImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -15479,7 +15478,7 @@ func (obj *cockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -15673,7 +15672,7 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15869,7 +15868,7 @@ func (obj *cockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -15932,7 +15931,7 @@ func (obj *cockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15978,7 +15977,7 @@ func (obj *cockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16018,7 +16017,7 @@ func (obj *cockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -16061,7 +16060,7 @@ func (obj *cockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -16099,7 +16098,7 @@ func (obj *cockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16184,7 +16183,7 @@ func (obj *cockroachImpl) UpdateNoReturn_Offer_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -16268,7 +16267,7 @@ func (obj *cockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16319,7 +16318,7 @@ func (obj *cockroachImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -16388,7 +16387,7 @@ func (obj *cockroachImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	_, err = obj.driver.Exec(__stmt, __values...)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -16431,7 +16430,7 @@ func (obj *cockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16472,7 +16471,7 @@ func (obj *cockroachImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ct
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16513,7 +16512,7 @@ func (obj *cockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ct
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16554,7 +16553,7 @@ func (obj *cockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16596,7 +16595,7 @@ func (obj *cockroachImpl) Update_CouponUsage_By_CouponId_And_Period(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16620,7 +16619,7 @@ func (obj *cockroachImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ct
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16647,7 +16646,7 @@ func (obj *cockroachImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16674,7 +16673,7 @@ func (obj *cockroachImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16701,7 +16700,7 @@ func (obj *cockroachImpl) Delete_AccountingRollup_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16728,7 +16727,7 @@ func (obj *cockroachImpl) Delete_Node_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16755,7 +16754,7 @@ func (obj *cockroachImpl) Delete_User_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16782,7 +16781,7 @@ func (obj *cockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16810,7 +16809,7 @@ func (obj *cockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16837,7 +16836,7 @@ func (obj *cockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16864,7 +16863,7 @@ func (obj *cockroachImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -16891,7 +16890,7 @@ func (obj *cockroachImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16918,7 +16917,7 @@ func (obj *cockroachImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16946,7 +16945,7 @@ func (obj *cockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -16973,7 +16972,7 @@ func (obj *cockroachImpl) Delete_GracefulExitProgress_By_NodeId(ctx context.Cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17000,7 +16999,7 @@ func (obj *cockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17029,7 +17028,7 @@ func (obj *cockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_An
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17056,7 +17055,7 @@ func (obj *cockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Finishe
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17083,7 +17082,7 @@ func (obj *cockroachImpl) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ct
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17110,7 +17109,7 @@ func (obj *cockroachImpl) Delete_StripecoinpaymentsInvoiceProjectRecord_By_Id(ct
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17137,7 +17136,7 @@ func (obj *cockroachImpl) Delete_Coupon_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__res, err := obj.driver.Exec(__stmt, __values...)
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17165,7 +17164,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 	defer mon.Task()(&ctx)(&err)
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17175,7 +17174,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM used_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17185,7 +17184,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_apply_balance_intents;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17195,7 +17194,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_members;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17205,7 +17204,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM project_invoice_stamps;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invoice_stamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17215,7 +17214,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_metainfos;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17225,7 +17224,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17235,7 +17234,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM value_attributions;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17245,7 +17244,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM users;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17255,7 +17254,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_tx_conversion_rates;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_tx_conversion_rates;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17265,7 +17264,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripecoinpayments_invoice_project_records;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_invoice_project_records;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17275,7 +17274,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM stripe_customers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17285,7 +17284,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_storage_tallies;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17295,7 +17294,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM storagenode_bandwidth_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17305,7 +17304,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM serial_numbers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM serial_numbers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17315,7 +17314,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM reset_password_tokens;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17325,7 +17324,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM registration_tokens;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17335,7 +17334,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM projects;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17345,7 +17344,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17355,7 +17354,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM peer_identities;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17365,7 +17364,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM offers;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM offers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17375,7 +17374,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM nodes_offline_times;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes_offline_times;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17385,7 +17384,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17395,7 +17394,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM irreparabledbs;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17405,7 +17404,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17415,7 +17414,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_transfer_queue;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17425,7 +17424,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17435,7 +17434,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coupon_usages;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17445,7 +17444,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coupons;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17455,7 +17454,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM coinpayments_transactions;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17465,7 +17464,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17475,7 +17474,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bucket_bandwidth_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17485,7 +17484,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_timestamps;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17495,7 +17494,7 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM accounting_rollups;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17515,7 +17514,7 @@ type Rx struct {
 	tx *Tx
 }
 
-func (rx *Rx) UnsafeTx(ctx context.Context) (unsafe_tx *sql.Tx, err error) {
+func (rx *Rx) UnsafeTx(ctx context.Context) (unsafe_tx dbwrap.Tx, err error) {
 	tx, err := rx.getTx(ctx)
 	if err != nil {
 		return nil, err
@@ -19997,7 +19996,7 @@ type DBMethods interface {
 type dbMethods interface {
 	DBMethods
 
-	wrapTx(tx *sql.Tx) txMethods
+	wrapTx(tx dbwrap.Tx) txMethods
 	makeErr(err error) error
 }
 

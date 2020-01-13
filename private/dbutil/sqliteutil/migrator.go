@@ -9,9 +9,10 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/migrate"
 )
@@ -19,8 +20,7 @@ import (
 // DB is the minimal interface required to perform migrations.
 type DB interface {
 	migrate.DB
-	Conn(ctx context.Context) (*sql.Conn, error)
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	Conn(ctx context.Context) (dbwrap.Conn, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
@@ -38,7 +38,9 @@ func getSqlite3Conn(conn interface{}) (*sqlite3.SQLiteConn, error) {
 		switch c := conn.(type) {
 		case *sqlite3.SQLiteConn:
 			return c, nil
-		case interface{ Unwrap() driver.Conn }:
+		case interface {
+			Unwrap() driver.Conn
+		}:
 			conn = c.Unwrap()
 		default:
 			return nil, ErrMigrateTables.New("unable to get raw database connection")
@@ -82,13 +84,13 @@ func backupDBs(ctx context.Context, srcDB, destDB DB) error {
 
 	// The references to the driver connections are only guaranteed to be valid
 	// for the life of the callback so we must do the work within both callbacks.
-	err = srcConn.Raw(func(srcDriverConn interface{}) error {
+	err = srcConn.RawContext(ctx, func(srcDriverConn interface{}) error {
 		srcSqliteConn, err := getSqlite3Conn(srcDriverConn)
 		if err != nil {
 			return err
 		}
 
-		err = destConn.Raw(func(destDriverConn interface{}) error {
+		err = destConn.RawContext(ctx, func(destDriverConn interface{}) error {
 			destSqliteConn, err := getSqlite3Conn(destDriverConn)
 			if err != nil {
 				return err
@@ -187,7 +189,7 @@ func dropTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) 
 	if err != nil {
 		return err
 	}
-	err = txutil.ExecuteInTx(ctx, db.Driver(), tx, func() error {
+	err = txutil.ExecuteInTx(ctx, db.DriverContext(ctx), tx, func() error {
 		// Get a list of tables excluding sqlite3 system tables.
 		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 		if err != nil {

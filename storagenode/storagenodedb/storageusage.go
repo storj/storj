@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -33,7 +34,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start)
 			VALUES(?,?,?)`
 
-	return withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
+	return withTx(ctx, db.GetDB(), func(tx dbwrap.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 

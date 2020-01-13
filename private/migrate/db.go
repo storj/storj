@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/txutil"
 )
 
@@ -15,8 +16,8 @@ import (
 //
 // DB can optionally have `Rebind(string) string` for translating `? queries for the specific database.
 type DB interface {
-	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (*sql.Tx, error)
-	Driver() driver.Driver
+	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (dbwrap.Tx, error)
+	DriverContext(context.Context) driver.Driver
 }
 
 // DBX contains additional methods for migrations.
@@ -28,19 +29,21 @@ type DBX interface {
 
 // rebind uses Rebind method when the database has the func.
 func rebind(db DB, s string) string {
-	if dbx, ok := db.(interface{ Rebind(string) string }); ok {
+	if dbx, ok := db.(interface {
+		Rebind(string) string
+	}); ok {
 		return dbx.Rebind(s)
 	}
 	return s
 }
 
 // WithTx runs the given callback in the context of a transaction.
-func WithTx(ctx context.Context, db DB, fn func(ctx context.Context, tx *sql.Tx) error) error {
+func WithTx(ctx context.Context, db DB, fn func(ctx context.Context, tx dbwrap.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	return txutil.ExecuteInTx(ctx, db.Driver(), tx, func() error {
+	return txutil.ExecuteInTx(ctx, db.DriverContext(ctx), tx, func() error {
 		return fn(ctx, tx)
 	})
 }

@@ -5,12 +5,12 @@ package storagenodedb
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/storagenode/satellites"
 )
 
@@ -47,7 +47,7 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx dbwrap.Tx) error {
 		query := `INSERT OR REPLACE INTO satellites (node_id, status, added_at) VALUES (?,?, COALESCE((SELECT added_at FROM satellites WHERE node_id = ?), ?))`
 		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting, satelliteID, intitiatedAt.UTC()) // assume intitiatedAt < time.Now()
 		if err != nil {
@@ -78,7 +78,7 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 // CompleteGracefulExit updates the database when a graceful exit is completed or failed
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx dbwrap.Tx) error {
 		query := `UPDATE satellites SET status = ? WHERE node_id = ?`
 		_, err = tx.ExecContext(ctx, query, exitStatus, satelliteID)
 		if err != nil {

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/sqliteutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/storage"
@@ -50,18 +51,14 @@ var _ storagenode.DB = (*DB)(nil)
 type SQLDB interface {
 	Close() error
 
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (dbwrap.Tx, error)
 
-	Conn(ctx context.Context) (*sql.Conn, error)
-	Driver() driver.Driver
+	Conn(ctx context.Context) (dbwrap.Conn, error)
+	DriverContext(context.Context) driver.Driver
 
-	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 
-	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
@@ -72,7 +69,7 @@ type DBContainer interface {
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
+func withTx(ctx context.Context, db SQLDB, cb func(tx dbwrap.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -269,9 +266,9 @@ func (db *DB) openDatabase(dbName string) error {
 	}
 
 	mDB := db.SQLDBs[dbName]
-	mDB.Configure(sqlDB)
+	mDB.Configure(dbwrap.SQLDB(sqlDB))
 
-	dbutil.Configure(sqlDB, mon)
+	dbutil.Configure(dbwrap.SQLDB(sqlDB), mon)
 
 	return nil
 }
@@ -666,7 +663,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx dbwrap.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -691,7 +688,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx dbwrap.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -832,7 +829,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx dbwrap.Tx) error {
 					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
 					return err
 				}),
@@ -841,7 +838,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx dbwrap.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -878,7 +875,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx dbwrap.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables

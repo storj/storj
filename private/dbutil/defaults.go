@@ -4,10 +4,11 @@
 package dbutil
 
 import (
-	"database/sql"
 	"flag"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/private/dbutil/dbwrap"
 )
 
 var (
@@ -17,7 +18,7 @@ var (
 )
 
 // Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
-func Configure(db *sql.DB, mon *monkit.Scope) {
+func Configure(db dbwrap.DB, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)
 	}

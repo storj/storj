@@ -33,6 +33,7 @@ type pieceSpaceUsedDB struct {
 
 // Init creates the total pieces and total trash records if they don't already exist
 func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	totalPiecesRow := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
@@ -72,6 +73,7 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 }
 
 func (db *pieceSpaceUsedDB) createInitTotalPieces(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO piece_space_used (total) VALUES (0)
 	`)
@@ -79,6 +81,7 @@ func (db *pieceSpaceUsedDB) createInitTotalPieces(ctx context.Context) (err erro
 }
 
 func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO piece_space_used (total, satellite_id) VALUES (0, ?)
 	`, trashTotalRowName)

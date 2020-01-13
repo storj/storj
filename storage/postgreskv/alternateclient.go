@@ -71,7 +71,7 @@ func AltNew(dbURL string) (*AlternateClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.pgConn.Exec(alternateSQLSetup)
+	_, err = client.pgConn.ExecContext(context.TODO(), alternateSQLSetup)
 	if err != nil {
 		return nil, errs.Combine(err, client.Close())
 	}
@@ -80,7 +80,7 @@ func AltNew(dbURL string) (*AlternateClient, error) {
 
 // Close closes an AlternateClient and frees its resources.
 func (altClient *AlternateClient) Close() error {
-	_, err := altClient.pgConn.Exec(alternateSQLTeardown)
+	_, err := altClient.pgConn.ExecContext(context.TODO(), alternateSQLTeardown)
 	return errs.Combine(err, altClient.Client.Close())
 }
 
@@ -97,7 +97,7 @@ func (opi *alternateOrderedPostgresIterator) doNextQuery(ctx context.Context) (_
 	if start == nil {
 		start = opi.opts.First
 	}
-	return opi.client.pgConn.Query(alternateForwardQuery, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
+	return opi.client.pgConn.QueryContext(ctx, alternateForwardQuery, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }
 
 func newAlternateOrderedPostgresIterator(ctx context.Context, altClient *AlternateClient, opts storage.IterateOptions, batchSize int) (_ *alternateOrderedPostgresIterator, err error) {

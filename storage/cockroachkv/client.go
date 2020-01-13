@@ -14,6 +14,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv/schema"
@@ -42,7 +43,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	dbutil.Configure(db, mon)
+	dbutil.Configure(dbwrap.SQLDB(db), mon)
 
 	// TODO: new shouldn't be taking ctx as argument
 	err = schema.PrepareDB(context.TODO(), db)

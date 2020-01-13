@@ -5,13 +5,14 @@ package postgreskv
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	"storj.io/common/testcontext"
 
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/storage"
@@ -47,8 +48,10 @@ func TestSuite(t *testing.T) {
 func TestThatMigrationActuallyHappened(t *testing.T) {
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	rows, err := store.pgConn.Query(`
+	rows, err := store.pgConn.QueryContext(ctx, `
 		SELECT prosrc
 		  FROM pg_catalog.pg_proc p,
 		       pg_catalog.pg_namespace n
@@ -89,9 +92,9 @@ func BenchmarkSuite(b *testing.B) {
 	testsuite.RunBenchmarks(b, store)
 }
 
-func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
-	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn *sql.Tx) (err error) {
-		stmt, err := txn.Prepare(pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
+func bulkImport(ctx context.Context, db dbwrap.DB, iter storage.Iterator) error {
+	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn dbwrap.Tx) (err error) {
+		stmt, err := txn.PrepareContext(ctx, pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
 		if err != nil {
 			return errs.New("Failed to initialize COPY FROM: %v", err)
 		}
@@ -104,19 +107,19 @@ func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
 
 		var item storage.ListItem
 		for iter.Next(ctx, &item) {
-			if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
+			if _, err := stmt.ExecContext(ctx, []byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
 				return err
 			}
 		}
-		if _, err = stmt.Exec(); err != nil {
+		if _, err = stmt.ExecContext(ctx); err != nil {
 			return errs.New("Failed to complete COPY FROM: %v", err)
 		}
 		return nil
 	})
 }
 
-func bulkDeleteAll(db *sql.DB) error {
-	_, err := db.Exec("TRUNCATE pathdata")
+func bulkDeleteAll(db dbwrap.DB) error {
+	_, err := db.ExecContext(context.TODO(), "TRUNCATE pathdata")
 	if err != nil {
 		return errs.New("Failed to TRUNCATE pathdata table: %v", err)
 	}

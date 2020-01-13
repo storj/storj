@@ -221,7 +221,7 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	interval_start timestamp NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
+	allocated bigint,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );

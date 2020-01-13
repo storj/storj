@@ -540,7 +540,7 @@ model storagenode_bandwidth_rollup (
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64 ( updatable )
+	field allocated uint64 ( updatable, nullable )
 	field settled   uint64 ( updatable )
 )
 

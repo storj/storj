@@ -45,11 +45,11 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(`SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pq.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)

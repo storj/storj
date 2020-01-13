@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"storj.io/common/testcontext"
 
+	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
@@ -23,11 +24,12 @@ func TestCreate_Sqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := sql.Open("sqlite3", ":memory:")
+	rdb, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { assert.NoError(t, db.Close()) }()
+	defer func() { assert.NoError(t, rdb.Close()) }()
+	db := dbwrap.SQLDB(rdb)
 
 	// should create table
 	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
@@ -67,31 +69,33 @@ func TestCreate_Cockroach(t *testing.T) {
 }
 
 func testCreateGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
-	db, err := tempdb.OpenUnique(ctx, connStr, "create-")
+	rdb, err := tempdb.OpenUnique(ctx, connStr, "create-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { assert.NoError(t, db.Close()) }()
+	defer func() { assert.NoError(t, rdb.Close()) }()
+
+	db := dbwrap.SQLDB(rdb.DB)
 
 	// should create table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create(ctx, "conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 }
 
 type sqliteDB struct {
-	*sql.DB
+	dbwrap.DB
 	schema string
 }
 
@@ -99,7 +103,7 @@ func (db *sqliteDB) Rebind(s string) string { return s }
 func (db *sqliteDB) Schema() string         { return db.schema }
 
 type postgresDB struct {
-	*sql.DB
+	dbwrap.DB
 	schema string
 }
 
