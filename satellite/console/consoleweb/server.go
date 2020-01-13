@@ -401,6 +401,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var data struct {
+		SatelliteName string
+	}
+
+	data.SatelliteName = server.config.SatelliteName
+
 	switch r.Method {
 	case http.MethodPost:
 		err := r.ParseForm()
@@ -422,12 +428,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if err := server.templates.success.Execute(w, nil); err != nil {
+		if err := server.templates.success.Execute(w, data); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
 	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+		if err := server.templates.resetPassword.Execute(w, data); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
