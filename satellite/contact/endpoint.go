@@ -97,3 +97,9 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		PingErrorMessage: pingErrorMessage,
 	}, nil
 }
+
+// GetTime returns current timestamp
+func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+}
