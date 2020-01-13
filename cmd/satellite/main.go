@@ -248,7 +248,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
+
 	db, err := satellitedb.New(log.Named("migration"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
@@ -257,7 +259,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables()
+	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}

@@ -23,9 +23,7 @@ var (
 )
 
 // CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables() error {
-	ctx := context.TODO()
-
+func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should

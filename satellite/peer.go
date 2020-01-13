@@ -4,6 +4,8 @@
 package satellite
 
 import (
+	"context"
+
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/identity"
@@ -45,7 +47,7 @@ var mon = monkit.Package()
 // architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
-	CreateTables() error
+	CreateTables(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
 	CheckVersion() error
 	// Close closes the database

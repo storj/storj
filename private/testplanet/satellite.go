@@ -435,7 +435,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
-		err = db.CreateTables()
+		err = db.CreateTables(context.TODO())
 		if err != nil {
 			return nil, err
 		}

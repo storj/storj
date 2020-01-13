@@ -185,7 +185,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables()
+			err = db.CreateTables(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -220,7 +220,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables()
+			err = db.CreateTables(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}
