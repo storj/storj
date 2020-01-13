@@ -35,7 +35,6 @@ The installer will be a debian package. We choose to auto-update the binary, eve
   - Wallet address
   - Email
   - External address/port
-  - Advertised bandwidth
   - Advertised storage
   - Identity directory
   - Storage directory
