@@ -4,6 +4,7 @@
 package sqliteutil
 
 import (
+	"context"
 	"database/sql"
 	"regexp"
 	"strings"
@@ -19,7 +20,7 @@ type definition struct {
 }
 
 // QuerySchema loads the schema from sqlite database.
-func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
+func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	tableDefinitions := make([]*definition, 0)
@@ -54,12 +55,12 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 		return nil, err
 	}
 
-	err = discoverTables(db, schema, tableDefinitions)
+	err = discoverTables(ctx, db, schema, tableDefinitions)
 	if err != nil {
 		return nil, err
 	}
 
-	err = discoverIndexes(db, schema, indexDefinitions)
+	err = discoverIndexes(ctx, db, schema, indexDefinitions)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 	return schema, nil
 }
 
-func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitions []*definition) (err error) {
+func discoverTables(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema, tableDefinitions []*definition) (err error) {
 	for _, definition := range tableDefinitions {
 		table := schema.EnsureTable(definition.name)
 
@@ -148,7 +149,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 	return errs.Wrap(err)
 }
 
-func discoverIndexes(db dbschema.Queryer, schema *dbschema.Schema, indexDefinitions []*definition) (err error) {
+func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema, indexDefinitions []*definition) (err error) {
 	// TODO improve indexes discovery
 	for _, definition := range indexDefinitions {
 		index := &dbschema.Index{

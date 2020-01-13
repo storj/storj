@@ -4,6 +4,7 @@
 package storagenodedb_test
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,7 @@ import (
 // insertNewData will insert any NewData from the MultiDBState into the
 // appropriate rawDB. This prepares the rawDB for the test comparing schema and
 // data.
-func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.DBContainer) error {
+func insertNewData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.DBContainer) error {
 	for dbName, dbState := range mdbs.DBStates {
 		if dbState.NewData == "" {
 			continue
@@ -42,10 +43,10 @@ func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.
 
 // getSchemas queries the schema of each rawDB and returns a map of each rawDB's
 // schema keyed by dbName
-func getSchemas(rawDBs map[string]storagenodedb.DBContainer) (map[string]*dbschema.Schema, error) {
+func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer) (map[string]*dbschema.Schema, error) {
 	schemas := make(map[string]*dbschema.Schema)
 	for dbName, rawDB := range rawDBs {
-		schema, err := sqliteutil.QuerySchema(rawDB.GetDB())
+		schema, err := sqliteutil.QuerySchema(ctx, rawDB.GetDB())
 		if err != nil {
 			return nil, err
 		}
@@ -60,10 +61,10 @@ func getSchemas(rawDBs map[string]storagenodedb.DBContainer) (map[string]*dbsche
 
 // getSchemas queries the data of each rawDB and returns a map of each rawDB's
 // data keyed by dbName
-func getData(rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
+func getData(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
 	for dbName, rawDB := range rawDBs {
-		datum, err := sqliteutil.QueryData(rawDB.GetDB(), schemas[dbName])
+		datum, err := sqliteutil.QueryData(ctx, rawDB.GetDB(), schemas[dbName])
 		if err != nil {
 			return nil, err
 		}
@@ -109,18 +110,18 @@ func TestMigrate(t *testing.T) {
 		rawDBs := db.RawDatabases()
 
 		// insert data for new tables
-		err = insertNewData(expected, rawDBs)
+		err = insertNewData(ctx, expected, rawDBs)
 		require.NoError(t, err, tag)
 
 		// load schema from database
-		schemas, err := getSchemas(rawDBs)
+		schemas, err := getSchemas(ctx, rawDBs)
 		require.NoError(t, err, tag)
 
 		// load data from database
-		data, err := getData(rawDBs, schemas)
+		data, err := getData(ctx, rawDBs, schemas)
 		require.NoError(t, err, tag)
 
-		multiDBSnapshot, err := testdata.LoadMultiDBSnapshot(expected)
+		multiDBSnapshot, err := testdata.LoadMultiDBSnapshot(ctx, expected)
 		require.NoError(t, err, tag)
 
 		// verify schema and data for each db in the expected snapshot
