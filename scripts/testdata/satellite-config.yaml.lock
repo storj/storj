@@ -79,6 +79,12 @@ contact.external-address: ""
 # satellite database connection string
 # database: postgres://
 
+# satellite database api key lru capacity
+# database-options.api-keys-cache.capacity: 1000
+
+# satellite database api key expiration
+# database-options.api-keys-cache.expiration: 1m0s
+
 # how often to delete expired serial numbers
 # db-cleanup.serials-interval: 24h0m0s
 
@@ -99,6 +105,12 @@ contact.external-address: ""
 
 # how often to run the downtime detection chore.
 # downtime.detection-interval: 1h0m0s
+
+# the downtime estimation chore should check this many offline nodes
+# downtime.estimation-batch-size: 100
+
+# how often to run the downtime estimation chore
+# downtime.estimation-interval: 1h0m0s
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
@@ -327,27 +339,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
-
-# the initial shape 'alpha' used to calculate uptime SNs reputation
-# overlay.node.uptime-reputation-alpha0: 2
-
-# the initial shape 'beta' value used to calculate uptime SNs reputation
-# overlay.node.uptime-reputation-beta0: 0
-
-# the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0
-
-# the forgetting factor used to calculate the uptime SNs reputation
-# overlay.node.uptime-reputation-lambda: 0.99
-
-# weight to apply to uptime reputation for total repair reputation calculation
-# overlay.node.uptime-reputation-repair-weight: 1
-
-# weight to apply to uptime reputation for total uplink reputation calculation
-# overlay.node.uptime-reputation-uplink-weight: 1
-
-# the normalization weight used to calculate the uptime SNs reputation
-# overlay.node.uptime-reputation-weight: 1
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100

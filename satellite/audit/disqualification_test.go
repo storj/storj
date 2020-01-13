@@ -143,7 +143,8 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		require.NoError(t, err)
 
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
-		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode)
+		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
+		require.NoError(t, err)
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
 		require.NoError(t, err)
@@ -168,7 +169,8 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
-		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
+		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 4,
@@ -193,7 +195,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 	// - mark a node as disqualified
-	// - give it high uptime and audit rate
+	// - give it high audit rate
 	// - check that the node remains disqualified
 
 	testplanet.Run(t, testplanet.Config{
@@ -203,7 +205,8 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
-		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
+		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		require.NoError(t, err)
 
 		info := overlay.NodeCheckInInfo{
 			NodeID: disqualifiedNode.ID(),
@@ -218,12 +221,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 				Release:    false,
 			},
 		}
-		config := overlay.NodeSelectionConfig{
-			UptimeReputationLambda: 0,
-			UptimeReputationWeight: 1,
-			UptimeReputationDQ:     0,
-		}
-		err := satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
+		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -235,9 +233,6 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			AuditLambda:  0, // forget about history
 			AuditWeight:  1,
 			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
-			UptimeLambda: 0, // forget about history
-			UptimeWeight: 1,
-			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
 		}}, 100)
 		require.NoError(t, err)
 
@@ -250,27 +245,4 @@ func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplane
 	require.NoError(t, err)
 
 	return node.Disqualified != nil
-}
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
-	info := overlay.NodeCheckInInfo{
-		NodeID: nodeID,
-		IsUp:   false,
-		Address: &pb.NodeAddress{
-			Address: "1.2.3.4",
-		},
-		Version: &pb.NodeVersion{
-			Version:    "v0.0.0",
-			CommitHash: "",
-			Timestamp:  time.Time{},
-			Release:    false,
-		},
-	}
-	config := overlay.NodeSelectionConfig{
-		UptimeReputationLambda: 1,
-		UptimeReputationWeight: 1,
-		UptimeReputationDQ:     1,
-	}
-	err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
-	require.NoError(t, err)
-	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

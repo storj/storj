@@ -26,15 +26,15 @@ type DB interface {
 	// UserCredits is a getter for UserCredits repository.
 	UserCredits() UserCredits
 
-	// BeginTransaction is a method for opening transaction.
-	BeginTx(ctx context.Context) (DBTx, error)
+	// WithTx is a method for executing transactions with retrying as necessary.
+	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
 }
 
 // DBTx extends Database with transaction scope.
 type DBTx interface {
 	DB
-	// CommitTransaction is a method for committing and closing transaction.
+	// Commit is a method for committing and closing transaction.
 	Commit() error
-	// RollbackTransaction is a method for rollback and closing transaction.
+	// Rollback is a method for rollback and closing transaction.
 	Rollback() error
 }

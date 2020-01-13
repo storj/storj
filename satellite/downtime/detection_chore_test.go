@@ -34,16 +34,11 @@ func TestDetectionChore(t *testing.T) {
 			Version:  &nodeDossier.Version,
 		}
 
-		config := overlay.NodeSelectionConfig{
-			UptimeReputationLambda: 0.99,
-			UptimeReputationWeight: 1.0,
-			UptimeReputationDQ:     0,
-		}
 		sixtyOneMinutes := 61 * time.Minute
 		{ // test node ping back success
 			// check-in 1 hours, 1 minute ago for that node
 			oldCheckinTime := time.Now().UTC().Add(-sixtyOneMinutes)
-			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, config)
+			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			// get successful nodes that haven't checked in with the hour. should return 1
@@ -68,7 +63,7 @@ func TestDetectionChore(t *testing.T) {
 		{ // test node ping back failure
 			// check-in 1 hour, 1 minute ago for that node - again
 			oldCheckinTime := time.Now().UTC().Add(-sixtyOneMinutes)
-			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, config)
+			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			// close the node service so the ping back will fail

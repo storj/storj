@@ -66,7 +66,6 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
 
-        LocalData.removeSelectedProjectId();
         LocalData.removeUserId();
     }
 }

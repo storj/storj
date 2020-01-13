@@ -59,6 +59,14 @@ func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID st
 	}))
 }
 
+// CancelGracefulExit delete an entry by satellite ID
+func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, "DELETE FROM satellite_exit_progress WHERE satellite_id = ?", satelliteID)
+	return ErrSatellitesDB.Wrap(err)
+}
+
 // UpdateGracefulExit increments the total bytes deleted during a graceful exit
 func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, addToBytesDeleted int64) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/private/dbutil/cockroachutil"
 )
 

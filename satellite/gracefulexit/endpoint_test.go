@@ -46,7 +46,7 @@ type exitProcessClient interface {
 }
 
 func TestSuccess(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, numObjects, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
 		deletedCount := 0
@@ -321,7 +321,7 @@ func TestRecvTimeout(t *testing.T) {
 }
 
 func TestInvalidStorageNodeSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -406,7 +406,8 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
 
-		disqualifyNode(t, ctx, satellite, exitingNode.ID())
+		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
+		require.NoError(t, err)
 
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
@@ -431,21 +432,22 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 }
 
 func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
-	testTransfers(t, numObjects, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		disqualifyNode(t, ctx, satellite, exitingNode.ID())
-
-		deletedCount := 0
+	testTransfers(t, numObjects, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+		var disqualifiedError error
+		isDisqualified := false
 		for {
 			response, err := processClient.Recv()
 			if errs.Is(err, io.EOF) {
 				// Done
 				break
 			}
-			if deletedCount >= numPieces {
-				// when a disqualified node has finished transfer all pieces, it should receive an error
-				require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+			if errs2.IsRPC(err, rpcstatus.FailedPrecondition) {
+				disqualifiedError = err
 				break
-			} else {
+			}
+
+			if !isDisqualified {
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
 				require.NoError(t, err)
 			}
 
@@ -495,18 +497,19 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 				err = processClient.Send(success)
 				require.NoError(t, err)
 			case *pb.SatelliteMessage_DeletePiece:
-				deletedCount++
+				continue
 			default:
 				t.FailNow()
 			}
 		}
+		// check that the exit has failed due to node has been disqualified
+		require.True(t, errs2.IsRPC(disqualifiedError, rpcstatus.FailedPrecondition))
 
 		// check that the exit has completed and we have the correct transferred/failed values
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
 		require.EqualValues(t, numPieces, progress.PiecesTransferred)
-		require.EqualValues(t, numPieces, deletedCount)
 
 		// disqualified node should fail graceful exit
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
@@ -517,7 +520,7 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 }
 
 func TestFailureHashMismatch(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -595,7 +598,7 @@ func TestFailureHashMismatch(t *testing.T) {
 }
 
 func TestFailureUnknownError(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -636,7 +639,7 @@ func TestFailureUnknownError(t *testing.T) {
 }
 
 func TestFailureUplinkSignature(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -716,7 +719,7 @@ func TestFailureUplinkSignature(t *testing.T) {
 }
 
 func TestSuccessPointerUpdate(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var recNodeID storj.NodeID
 
 		response, err := processClient.Recv()
@@ -813,7 +816,7 @@ func TestSuccessPointerUpdate(t *testing.T) {
 }
 
 func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -1070,7 +1073,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 }
 
 func TestFailureNotFoundPieceHashVerified(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
 
@@ -1138,7 +1141,7 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 }
 
 func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
-	testTransfers(t, 1, func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
+	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		// retrieve remote segment
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
 		require.NoError(t, err)
@@ -1430,7 +1433,7 @@ func TestIneligibleNodeAge(t *testing.T) {
 	})
 }
 
-func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
+func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -1508,7 +1511,7 @@ func testTransfers(t *testing.T, objects int, verifier func(ctx *testcontext.Con
 		require.NoError(t, err)
 		defer ctx.Check(c.CloseSend)
 
-		verifier(ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
 	})
 }
 
@@ -1556,20 +1559,4 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	return nil, nil
-}
-
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
-	nodeStat, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-		NodeID:       nodeID,
-		IsUp:         true,
-		AuditSuccess: false,
-		AuditLambda:  0,
-		AuditWeight:  1,
-		AuditDQ:      0.5,
-		UptimeLambda: 1,
-		UptimeWeight: 1,
-		UptimeDQ:     0.5,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, nodeStat.Disqualified)
 }

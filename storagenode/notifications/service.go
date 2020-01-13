@@ -73,5 +73,21 @@ func (service *Service) List(ctx context.Context, cursor Cursor) (_ Page, err er
 		return Page{}, err
 	}
 
+	if notificationPage.Notifications == nil {
+		notificationPage = Page{Notifications: []Notification{}}
+	}
+
 	return notificationPage, nil
+}
+
+// UnreadAmount - returns amount on notifications with value is_read = nil.
+func (service *Service) UnreadAmount(ctx context.Context) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	amount, err := service.db.UnreadAmount(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return amount, nil
 }

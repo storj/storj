@@ -60,6 +60,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.Profile.name,
+    RouteConfig.Referral.name,
 ];
 
 export const router = new Router({

@@ -4,6 +4,7 @@
 package migrate
 
 import (
+	"context"
 	"database/sql"
 	"regexp"
 	"sort"
@@ -136,6 +137,7 @@ func (migration *Migration) Run(log *zap.Logger) error {
 
 	initialSetup := false
 	for i, step := range migration.Steps {
+		step := step
 		if step.DB == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
@@ -162,22 +164,19 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		tx, err := step.DB.Begin()
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		err = WithTx(context.Background(), step.DB, func(ctx context.Context, tx *sql.Tx) error {
+			err = step.Action.Run(stepLog, step.DB, tx)
+			if err != nil {
+				return err
+			}
 
-		err = step.Action.Run(stepLog, step.DB, tx)
+			err = migration.addVersion(tx, step.DB, step.Version)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		err = migration.addVersion(tx, step.DB, step.Version)
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		if err := tx.Commit(); err != nil {
 			return Error.Wrap(err)
 		}
 	}
@@ -198,36 +197,26 @@ func (migration *Migration) Run(log *zap.Logger) error {
 
 // createVersionTable creates a new version table
 func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, err = tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
-	if err != nil {
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	return Error.Wrap(tx.Commit())
+	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
+		return err
+	})
+	return Error.Wrap(err)
 }
 
 // getLatestVersion finds the latest version table
 func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return -1, Error.Wrap(err)
-	}
-
 	var version sql.NullInt64
-	err = tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
-	if err == sql.ErrNoRows || !version.Valid {
-		return -1, Error.Wrap(tx.Commit())
-	}
-	if err != nil {
-		return -1, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
+	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
+		if err == sql.ErrNoRows || !version.Valid {
+			version.Int64 = -1
+			return nil
+		}
+		return err
+	})
 
-	return int(version.Int64), Error.Wrap(tx.Commit())
+	return int(version.Int64), Error.Wrap(err)
 }
 
 // addVersion adds information about a new migration

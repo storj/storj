@@ -223,7 +223,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	scope, err := flags.GetScope()
+	access, err := flags.GetAccess()
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		scope.EncryptionAccess,
+		access.EncryptionAccess,
 		storj.CipherSuite(flags.Enc.PathType),
 		flags.GetEncryptionParameters(),
 		flags.GetRedundancyScheme(),
@@ -259,7 +259,7 @@ func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, er
 }
 
 func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
-	scope, err := flags.GetScope()
+	access, err := flags.GetAccess()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -268,7 +268,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	project, err := uplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	project, err := uplink.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -316,7 +316,7 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 		return Error.Wrap(err)
 	}
 
-	scopeData, err := (&libuplink.Scope{
+	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satelliteAddress,
 		APIKey:           apiKey,
 		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
@@ -324,7 +324,7 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	overrides["scope"] = scopeData
+	overrides["access"] = accessData
 
 	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
 		process.SaveConfigWithOverrides(overrides),
@@ -345,16 +345,16 @@ Some things to try next:
 
 // nonInteractive creates the configuration of the gateway non-interactively.
 func (flags GatewayFlags) nonInteractive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
-	// ensure we're using the scope for the setup
-	scope, err := setupCfg.GetScope()
+	// ensure we're using the access for the setup
+	access, err := setupCfg.GetAccess()
 	if err != nil {
 		return err
 	}
-	scopeData, err := scope.Serialize()
+	accessData, err := access.Serialize()
 	if err != nil {
 		return err
 	}
-	overrides["scope"] = scopeData
+	overrides["access"] = accessData
 
 	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
 		process.SaveConfigWithOverrides(overrides),

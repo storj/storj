@@ -28,8 +28,8 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/piecestore"
 )
 
 // Uplink is a general purpose
@@ -349,7 +349,7 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 	encAccess := libuplink.NewEncryptionAccess()
 	encAccess.SetDefaultKey(storj.Key{})
 
-	scopeData, err := (&libuplink.Scope{
+	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satellite.Addr(),
 		APIKey:           apiKey,
 		EncryptionAccess: encAccess,
@@ -358,7 +358,7 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 		panic(err)
 	}
 
-	config.Scope = scopeData
+	config.Access = accessData
 
 	// Support some legacy stuff
 	config.Legacy.Client.APIKey = apiKey.Serialize()
@@ -415,12 +415,12 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *SatelliteSystem
 	}
 	defer func() { err = errs.Combine(err, testLibuplink.Close()) }()
 
-	scope, err := client.GetConfig(satellite).GetScope()
+	access, err := client.GetConfig(satellite).GetAccess()
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := testLibuplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	project, err := testLibuplink.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +439,7 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *Satell
 		}
 	}()
 
-	scope, err := client.GetConfig(satellite).GetScope()
+	access, err := client.GetConfig(satellite).GetAccess()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -457,7 +457,7 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *Satell
 		}
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
+	bucket, err := project.OpenBucket(ctx, bucketName, access.EncryptionAccess)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -39,7 +39,7 @@ func TestSetGetMeta(t *testing.T) {
 				"--config-dir", ctx.Dir("uplink"),
 				"setup",
 				"--non-interactive",
-				"--scope", planet.Uplinks[0].GetConfig(planet.Satellites[0]).Scope,
+				"--access", planet.Uplinks[0].GetConfig(planet.Satellites[0]).Access,
 			).CombinedOutput()
 			t.Log(string(output))
 			require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestSetGetMeta(t *testing.T) {
 		err = json.Unmarshal(metadataBs, &metadataNorm)
 		require.NoError(t, err)
 
-		path := testrand.Path()
+		path := testrand.URLPathNonFolder()
 		uri := "sj://" + bucketName + "/" + path
 
 		{

@@ -165,8 +165,9 @@ type SatelliteSystem struct {
 	}
 
 	DowntimeTracking struct {
-		DetectionChore *downtime.DetectionChore
-		Service        *downtime.Service
+		DetectionChore  *downtime.DetectionChore
+		EstimationChore *downtime.EstimationChore
+		Service         *downtime.Service
 	}
 }
 
@@ -287,20 +288,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
 
-					AuditReputationRepairWeight:  1,
-					AuditReputationUplinkWeight:  1,
-					AuditReputationAlpha0:        1,
-					AuditReputationBeta0:         0,
-					AuditReputationLambda:        0.95,
-					AuditReputationWeight:        1,
-					AuditReputationDQ:            0.6,
-					UptimeReputationRepairWeight: 1,
-					UptimeReputationUplinkWeight: 1,
-					UptimeReputationAlpha0:       2,
-					UptimeReputationBeta0:        0,
-					UptimeReputationLambda:       0.99,
-					UptimeReputationWeight:       1,
-					UptimeReputationDQ:           0.6,
+					AuditReputationRepairWeight: 1,
+					AuditReputationUplinkWeight: 1,
+					AuditReputationAlpha0:       1,
+					AuditReputationBeta0:        0,
+					AuditReputationLambda:       0.95,
+					AuditReputationWeight:       1,
+					AuditReputationDQ:           0.6,
 				},
 				UpdateStatsBatchSize: 100,
 			},
@@ -404,7 +398,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				ChoreInterval: defaultInterval,
 			},
 			Downtime: downtime.Config{
-				DetectionInterval: defaultInterval,
+				DetectionInterval:   defaultInterval,
+				EstimationInterval:  defaultInterval,
+				EstimationBatchSize: 0,
 			},
 		}
 
@@ -524,6 +520,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Metrics.Chore = peer.Metrics.Chore
 
 	system.DowntimeTracking.DetectionChore = peer.DowntimeTracking.DetectionChore
+	system.DowntimeTracking.EstimationChore = peer.DowntimeTracking.EstimationChore
 	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system

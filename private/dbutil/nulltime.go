@@ -4,6 +4,7 @@
 package dbutil
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"time"
 
@@ -27,28 +28,41 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
+	nt.Time, nt.Valid = time.Time{}, false
+
 	if value == nil {
 		return nil
 	}
 
-	// check if it's time.Time which is what postgres returns
-	// for lagged time values
-	if nt.Time, nt.Valid = value.(time.Time); nt.Valid {
-		return nil
+	switch v := value.(type) {
+	// Postgres could return for lagged time values.
+	case time.Time:
+		nt.Time, nt.Valid = v, true
+
+		// Database could return for nullable time values.
+	case sql.NullTime:
+		nt.Time, nt.Valid = v.Time, v.Valid
+
+		// Sqlite may return this.
+	case string:
+		parsed, err := parseSqliteTimeString(v)
+		if err != nil {
+			return ErrNullTime.Wrap(err)
+		}
+		nt.Time, nt.Valid = parsed, true
+
+		// Sqlite may return this.
+	case []byte:
+		parsed, err := parseSqliteTimeString(string(v))
+		if err != nil {
+			return ErrNullTime.Wrap(err)
+		}
+		nt.Time, nt.Valid = parsed, true
+
+	default:
+		return ErrNullTime.New("sql null time: scan received unsupported value %T", value)
 	}
 
-	// try to parse time from bytes which is what sqlite returns
-	date, ok := value.([]byte)
-	if !ok {
-		return ErrNullTime.New("sql null time: scan received unsupported value type")
-	}
-
-	times, err := parseSqliteTimeString(string(date))
-	if err != nil {
-		return ErrNullTime.Wrap(err)
-	}
-
-	nt.Time, nt.Valid = times, true
 	return nil
 }
 

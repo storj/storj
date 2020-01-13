@@ -58,7 +58,7 @@ type pgAltLongBenchmarkStore struct {
 }
 
 func (store *pgAltLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) error {
-	return bulkImport(store.pgConn, iter)
+	return bulkImport(ctx, store.pgConn, iter)
 }
 
 func (store *pgAltLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {

@@ -81,7 +81,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -100,6 +99,7 @@ export default class ProjectDetailsArea extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
                 project_id: this.$store.getters.selectedProject.id,
             });
@@ -136,7 +136,6 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
-            LocalData.setSelectedProjectId(this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 

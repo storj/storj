@@ -80,8 +80,8 @@ describe('datepicker', () => {
     });
 
     it('DateFormat formats date to string correctly', () => {
-        const testDate1 = new Date(2019, 10, 7);
-        const testDate2 = new Date(2019, 1, 1);
+        const testDate1 = new Date(Date.UTC(2019, 10, 7));
+        const testDate2 = new Date(Date.UTC(2019, 1, 1));
 
         const expectedResult1 = '11/7/2019';
         const expectedResult2 = '2-1-2019';

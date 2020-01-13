@@ -114,16 +114,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
         },
         actions: {
-            [FETCH]: async function ({commit, state}: any): Promise<Project[]> {
+            [FETCH]: async function ({commit}: any): Promise<Project[]> {
                 const projects = await api.get();
 
                 commit(SET_PROJECTS, projects);
-
-                if (state.selectedProject.id) {
-                    const limits = await api.getLimits(state.selectedProject.id);
-
-                    commit(SET_LIMITS, limits);
-                }
 
                 return projects;
             },
@@ -134,12 +128,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return project;
             },
-            [SELECT]: async function ({commit}: any, projectID: string): Promise<void> {
+            [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
-
-                const limits = await api.getLimits(projectID);
-
-                commit(SET_LIMITS, limits);
             },
             [UPDATE]: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<void> {
                 await api.update(updateProjectModel.id, updateProjectModel.description);

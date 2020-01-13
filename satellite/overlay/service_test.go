@@ -45,20 +45,13 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 		OnlineWindow:      time.Hour,
 		DistinctIP:        distinctIP,
 
-		AuditReputationRepairWeight:  1,
-		AuditReputationUplinkWeight:  1,
-		AuditReputationAlpha0:        1,
-		AuditReputationBeta0:         0,
-		AuditReputationLambda:        1,
-		AuditReputationWeight:        1,
-		AuditReputationDQ:            0.5,
-		UptimeReputationRepairWeight: 1,
-		UptimeReputationUplinkWeight: 1,
-		UptimeReputationAlpha0:       1,
-		UptimeReputationBeta0:        0,
-		UptimeReputationLambda:       1,
-		UptimeReputationWeight:       1,
-		UptimeReputationDQ:           0.5,
+		AuditReputationRepairWeight: 1,
+		AuditReputationUplinkWeight: 1,
+		AuditReputationAlpha0:       1,
+		AuditReputationBeta0:        0,
+		AuditReputationLambda:       1,
+		AuditReputationWeight:       1,
+		AuditReputationDQ:           0.5,
 	}
 }
 
@@ -83,7 +76,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		err = service.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
 		require.NoError(t, err)
 
-		_, err = service.UpdateUptime(ctx, valid3ID, false)
+		// disqualify one node
+		err = service.DisqualifyNode(ctx, valid3ID)
 		require.NoError(t, err)
 	}
 
@@ -138,8 +132,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, valid1.Id, valid1ID)
 		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
 		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
-		require.EqualValues(t, valid1.Reputation.UptimeReputationAlpha, nodeSelectionConfig.UptimeReputationAlpha0)
-		require.EqualValues(t, valid1.Reputation.UptimeReputationBeta, nodeSelectionConfig.UptimeReputationBeta0)
 		require.Nil(t, valid1.Reputation.Disqualified)
 
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -150,26 +142,13 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.NoError(t, err)
 		newAuditAlpha := 1
 		newAuditBeta := 1
-		newUptimeAlpha := 2
-		newUptimeBeta := 0
 		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
 		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
-		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
-		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, stats.Disqualified)
 		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
 
-		stats, err = service.UpdateUptime(ctx, valid2ID, false)
+		err = service.DisqualifyNode(ctx, valid2ID)
 		require.NoError(t, err)
-		newUptimeAlpha = 1
-		newUptimeBeta = 1
-		require.EqualValues(t, stats.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
-		require.EqualValues(t, stats.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
-		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
-		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
-		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
-		dqTime := *stats.Disqualified
 
 		// should not update once already disqualified
 		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
@@ -183,11 +162,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.NoError(t, err)
 		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
 		require.EqualValues(t, dossier.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
-		require.EqualValues(t, dossier.Reputation.UptimeReputationAlpha, newUptimeAlpha)
-		require.EqualValues(t, dossier.Reputation.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, dossier.Disqualified)
-		require.Equal(t, *dossier.Disqualified, dqTime)
-
 	}
 }
 
@@ -207,10 +182,8 @@ func TestRandomizedSelection(t *testing.T) {
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 		defaults := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0:  1,
-			AuditReputationBeta0:   0,
-			UptimeReputationAlpha0: 1,
-			UptimeReputationBeta0:  0,
+			AuditReputationAlpha0: 1,
+			AuditReputationBeta0:  0,
 		}
 
 		// put nodes in cache
@@ -233,9 +206,6 @@ func TestRandomizedSelection(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-					UptimeLambda: 1,
-					UptimeWeight: 1,
-					UptimeDQ:     0.5,
 				})
 				require.NoError(t, err)
 			}
@@ -425,9 +395,8 @@ func TestUpdateCheckIn(t *testing.T) {
 				FreeDisk:      info.Capacity.GetFreeDisk(),
 			},
 			Reputation: overlay.NodeStats{
-				UptimeCount:           1,
-				UptimeSuccessCount:    1,
-				UptimeReputationAlpha: 1,
+				UptimeCount:        1,
+				UptimeSuccessCount: 1,
 			},
 			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
@@ -440,11 +409,6 @@ func TestUpdateCheckIn(t *testing.T) {
 			PieceCount:   0,
 			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
 		}
-		config := overlay.NodeSelectionConfig{
-			UptimeReputationLambda: 0.99,
-			UptimeReputationWeight: 1.0,
-			UptimeReputationDQ:     0,
-		}
 
 		// confirm the node doesn't exist in nodes table yet
 		_, err := db.OverlayCache().Get(ctx, nodeID)
@@ -454,7 +418,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
 		startOfTest := time.Now().UTC()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -492,7 +456,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -524,7 +488,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), config)
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -541,10 +505,8 @@ func TestCache_DowntimeTracking(t *testing.T) {
 
 		cache := db.OverlayCache()
 		defaults := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0:  1,
-			AuditReputationBeta0:   0,
-			UptimeReputationAlpha0: 1,
-			UptimeReputationBeta0:  0,
+			AuditReputationAlpha0: 1,
+			AuditReputationBeta0:  0,
 		}
 
 		totalNodes := 10
@@ -565,12 +527,14 @@ func TestCache_DowntimeTracking(t *testing.T) {
 
 			// make half of the nodes (0, 2, 4, 6, 8) offline + not disqualified
 			if i%2 == 0 {
-				_, err := cache.UpdateUptime(ctx, newID, false, 1, 0, 0)
+				_, err := cache.UpdateUptime(ctx, newID, false)
 				require.NoError(t, err)
 			}
 			// make first node (0) offline + disqualified
 			if i == 0 {
-				_, err := cache.UpdateUptime(ctx, newID, false, 1, 0, 1)
+				_, err := cache.UpdateUptime(ctx, newID, false)
+				require.NoError(t, err)
+				err = cache.DisqualifyNode(ctx, newID)
 				require.NoError(t, err)
 			}
 		}
@@ -603,22 +567,16 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		info1 := getNodeInfo(testrand.NodeID())
 		info2 := getNodeInfo(testrand.NodeID())
 
-		config := overlay.NodeSelectionConfig{
-			UptimeReputationLambda: 0.99,
-			UptimeReputationWeight: 1.0,
-			UptimeReputationDQ:     0,
-		}
-
 		{ // check-in the nodes, which should add them
 			twoHoursAgo := time.Now().UTC().Add(-2 * time.Hour)
-			err := db.OverlayCache().UpdateCheckIn(ctx, info1, twoHoursAgo, config)
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, twoHoursAgo, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
-			err = db.OverlayCache().UpdateCheckIn(ctx, info2, twoHoursAgo, config)
+			err = db.OverlayCache().UpdateCheckIn(ctx, info2, twoHoursAgo, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			// update uptime so that node 2 has a last contact failure > last contact success
-			_, err = db.OverlayCache().UpdateUptime(ctx, info2.NodeID, false, 0.99, 1.0, 0)
+			_, err = db.OverlayCache().UpdateUptime(ctx, info2.NodeID, false)
 			require.NoError(t, err)
 
 			// should just get 1 node
@@ -630,7 +588,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		}
 
 		{ // check-in again with current time
-			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now().UTC(), config)
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Minute)

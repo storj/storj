@@ -87,6 +87,7 @@ export enum DisplayedType {
 export class DateGenerator {
     private current: DateStamp;
     private isSundayFirst: boolean;
+    private now = new Date();
 
     public populateDays(current: DateStamp, isSundayFirst: boolean): DayItem[] {
         this.current = current;
@@ -114,17 +115,16 @@ export class DateGenerator {
 
     private populateSelectedMonthDays(days: DayItem[]): void {
         const daysInSelectedMonth = new Date(this.current.year, this.current.month + 1, 0).getDate();
-        const now = new Date();
-        const daysInCurrentMonth = now.getMonth();
+        const currentMonth = this.now.getMonth();
 
         for (let i = 1; i <= daysInSelectedMonth; i++) {
-            const moment = new Date(this.current.year, this.current.month, this.current.day);
+            const moment = new Date(this.current.year, this.current.month, this.current.day, 23, 59);
             moment.setDate(i);
 
             days.push(
                 new DayItem(
                     i,
-                    this.current.month !== daysInCurrentMonth || (this.current.month === daysInCurrentMonth && i <= now.getDate()),
+                    this.current.month !== currentMonth || (this.current.month === currentMonth && i <= this.now.getDate()),
                     false,
                     false,
                     moment,
@@ -145,7 +145,7 @@ export class DateGenerator {
         const daysInPreviousMonth = new Date(previousMonth.getFullYear(), previousMonth.getMonth() + 1, 0).getDate();
 
         for (let i = 0; i < firstDay - (this.isSundayFirst ? 0 : 1); i++) {
-            const moment = new Date(this.current.year, this.current.month, this.current.day);
+            const moment = new Date(this.current.year, this.current.month, this.current.day, 23, 59);
             moment.setDate(1);
             moment.setMonth(moment.getMonth() - 1);
             moment.setDate(new Date(moment.getFullYear(), moment.getMonth() + 1, 0).getDate() - i);
@@ -167,7 +167,7 @@ export class DateGenerator {
         const passiveDaysAtFinal = 42 - days.length;
 
         for (let i = 1; i <= passiveDaysAtFinal; i++) {
-            const moment = new Date(this.current.year, this.current.month, this.current.day);
+            const moment = new Date(this.current.year, this.current.month, this.current.day, 23, 59);
             moment.setMonth(moment.getMonth() + 1);
             moment.setDate(i);
 
@@ -185,13 +185,12 @@ export class DateGenerator {
     }
 
     private markToday(days: DayItem[]): void {
-        const now = new Date();
         const daysCount = days.length;
 
         for (let i = 0; i < daysCount; i++) {
             const day: DayItem = days[i];
 
-            if (day.equals(now)) {
+            if (day.equals(this.now)) {
                 day.today = true;
                 break;
             }
@@ -211,9 +210,9 @@ export class DateFormat {
      * @returns formatted date string
      */
     public static getUSDate(date: Date, separator: string): string {
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        const year = date.getFullYear();
+        const month = date.getUTCMonth() + 1;
+        const day = date.getUTCDate();
+        const year = date.getUTCFullYear();
 
         return [month, day, year].join(separator);
     }

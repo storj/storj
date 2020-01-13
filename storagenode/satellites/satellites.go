@@ -51,6 +51,8 @@ type DB interface {
 	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 	InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
+	// CancelGracefulExit removes that satellite by ID
+	CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) error
 	// UpdateGracefulExit increments the total bytes deleted during a graceful exit
 	UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, bytesDeleted int64) error
 	// CompleteGracefulExit updates the database when a graceful exit is completed or failed

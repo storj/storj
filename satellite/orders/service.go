@@ -17,7 +17,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/uplink/eestream"
 )
 
 // ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
@@ -88,22 +88,11 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	var action pb.PieceAction
 
 	var bucketAllocation int64
-	var nodesAllocation int64
-	nodes := make([]storj.NodeID, 0, len(addressedOrderLimits))
 
 	for _, addressedOrderLimit := range addressedOrderLimits {
 		if addressedOrderLimit != nil {
 			orderLimit := addressedOrderLimit.Limit
-
-			if nodesAllocation == 0 {
-				nodesAllocation = orderLimit.Limit
-			} else if nodesAllocation != orderLimit.Limit {
-				return Error.New("inconsistent allocations had %d got %d", nodesAllocation, orderLimit.Limit)
-			}
-
-			nodes = append(nodes, orderLimit.StorageNodeId)
 			action = orderLimit.Action
-
 			bucketAllocation += orderLimit.Limit
 		}
 	}
@@ -113,10 +102,6 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 
 	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, action, bucketAllocation, intervalStart); err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodes, action, nodesAllocation, intervalStart); err != nil {
 		return Error.Wrap(err)
 	}
 

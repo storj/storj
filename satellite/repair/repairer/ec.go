@@ -24,8 +24,8 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/piecestore"
 )
 
 // ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.

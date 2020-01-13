@@ -349,12 +349,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// store data
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		userID, err := uuid.New()
 		if err != nil {
 			return Error.Wrap(err)
@@ -780,12 +775,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description: projectInfo.Description,
@@ -895,26 +885,16 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	}
 
 	// add project members in transaction scope
-	tx, err := s.store.BeginTx(ctx)
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, user := range users {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, projectID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	for _, user := range users {
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
-
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 	}
 
 	return users, nil
@@ -957,29 +937,17 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	}
 
 	// delete project members in transaction scope
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, uID := range userIDs {
+			err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
-
-		err = tx.Commit()
-	}()
-
-	for _, uID := range userIDs {
-		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
-
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
+		return nil
+	})
+	return Error.Wrap(err)
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
@@ -1105,28 +1073,17 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		return Error.Wrap(err)
 	}
 
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, keyToDeleteID := range ids {
+			err = tx.APIKeys().Delete(ctx, keyToDeleteID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 
-		err = tx.Commit()
-	}()
-
-	for _, keyToDeleteID := range ids {
-		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
+		return nil
+	})
+	return Error.Wrap(err)
 }
 
 // GetAPIKeys returns paged api key list for given Project
@@ -1417,19 +1374,4 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
-}
-
-// withTx is a helper function for executing db operations
-// in transaction scope
-func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
 }

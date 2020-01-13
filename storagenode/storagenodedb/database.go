@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"os"
 	"path/filepath"
 
@@ -53,6 +54,7 @@ type SQLDB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 
 	Conn(ctx context.Context) (*sql.Conn, error)
+	Driver() driver.Driver
 
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)

@@ -44,6 +44,7 @@ export default class ProjectSelectionArea extends Vue {
     public async toggleSelection(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(error.message);
         }

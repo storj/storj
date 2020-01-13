@@ -6,6 +6,7 @@ package consolenotifications
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -93,23 +94,44 @@ func (notification *Notifications) ListNotifications(w http.ResponseWriter, r *h
 	defer mon.Task()(&ctx)(nil)
 	var err error
 
-	var request struct {
-		Cursor notifications.Cursor `json:"cursor"`
+	limit, err := strconv.ParseUint(r.URL.Query().Get("limit"), 10, 32)
+	if err != nil {
+		notification.writeError(w, http.StatusBadRequest, Error.Wrap(err))
+		return
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&request)
+	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 32)
+	if err != nil {
+		notification.writeError(w, http.StatusBadRequest, Error.Wrap(err))
+		return
+	}
+
+	cursor := notifications.Cursor{
+		Limit: uint(limit),
+		Page:  uint(page),
+	}
+
+	notificationList, err := notification.service.List(ctx, cursor)
 	if err != nil {
 		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
-	page, err := notification.service.List(ctx, request.Cursor)
+	unreadCount, err := notification.service.UnreadAmount(ctx)
 	if err != nil {
 		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
-	notification.writeData(w, page)
+	var result struct {
+		NotificationList notifications.Page
+		UnreadCount      int
+	}
+
+	result.NotificationList = notificationList
+	result.UnreadCount = unreadCount
+
+	notification.writeData(w, result)
 }
 
 // writeData is helper method to write JSON to http.ResponseWriter and log encoding error.

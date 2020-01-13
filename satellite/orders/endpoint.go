@@ -40,8 +40,6 @@ type DB interface {
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
-	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
