@@ -139,11 +139,6 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	accessData, err := access.Serialize()
-	if err != nil {
-		return err
-	}
-
 	newAccess := &libuplink.Scope{
 		SatelliteAddr:    access.SatelliteAddr,
 		APIKey:           key,
@@ -155,11 +150,8 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println("=========== INTERNAL SCOPE INFO =========================================================")
-	fmt.Println("Satellite :", access.SatelliteAddr)
-	fmt.Println("API Key   :", key.Serialize())
-	fmt.Println("Enc Access:", accessData)
-	fmt.Println("=========== SHARE RESTRICTIONS ==========================================================")
+	fmt.Println("Sharing access to satellite", access.SatelliteAddr)
+	fmt.Println("=========== ACCESS RESTRICTIONS ==========================================================")
 	fmt.Println("Reads     :", formatPermission(!caveat.GetDisallowReads()))
 	fmt.Println("Writes    :", formatPermission(!caveat.GetDisallowWrites()))
 	fmt.Println("Lists     :", formatPermission(!caveat.GetDisallowLists()))
@@ -167,8 +159,8 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Not Before:", formatTimeRestriction(caveat.NotBefore))
 	fmt.Println("Not After :", formatTimeRestriction(caveat.NotAfter))
 	fmt.Println("Paths     :", formatPaths(restrictions))
-	fmt.Println("=========== SERIALIZED SCOPE WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
-	fmt.Println("Scope     :", newAccessData)
+	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
+	fmt.Println("Access    :", newAccessData)
 
 	if shareCfg.ExportTo != "" {
 		// convert to an absolute path, mostly for output purposes.
