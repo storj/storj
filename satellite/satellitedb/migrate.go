@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -23,6 +24,8 @@ var (
 
 // CreateTables is a method for creating all tables for database
 func (db *satelliteDB) CreateTables() error {
+	ctx := context.TODO()
+
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
@@ -36,7 +39,7 @@ func (db *satelliteDB) CreateTables() error {
 		}
 
 		if schema != "" {
-			err = pgutil.CreateSchema(db, schema)
+			err = pgutil.CreateSchema(ctx, db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}

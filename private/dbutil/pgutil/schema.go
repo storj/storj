@@ -5,6 +5,7 @@
 package pgutil
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"math/rand"
@@ -67,7 +68,7 @@ type Execer interface {
 }
 
 // CreateSchema creates a schema if it doesn't exist.
-func CreateSchema(db Execer, schema string) (err error) {
+func CreateSchema(ctx context.Context, db Execer, schema string) (err error) {
 	for try := 0; try < 5; try++ {
 		_, err = db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
 
@@ -85,7 +86,7 @@ func CreateSchema(db Execer, schema string) (err error) {
 }
 
 // DropSchema drops the named schema
-func DropSchema(db Execer, schema string) error {
+func DropSchema(ctx context.Context, db Execer, schema string) error {
 	_, err := db.Exec(`drop schema ` + QuoteSchema(schema) + ` cascade;`)
 	return err
 }

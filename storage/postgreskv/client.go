@@ -40,10 +40,12 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(pgConn, mon)
 
-	err = schema.PrepareDB(pgConn, dbURL)
+	// TODO: this probably should not happen in constructor
+	err = schema.PrepareDB(context.TODO(), pgConn, dbURL)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Client{
 		URL:    dbURL,
 		pgConn: pgConn,

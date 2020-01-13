@@ -42,11 +42,11 @@ func doQueryTest(t *testing.T, connStr string) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tempdb.OpenUnique(connStr, "pgutil-query")
+	db, err := tempdb.OpenUnique(ctx, connStr, "pgutil-query")
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
-	emptySchema, err := pgutil.QuerySchema(db)
+	emptySchema, err := pgutil.QuerySchema(ctx, db)
 	require.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
@@ -70,7 +70,7 @@ func doQueryTest(t *testing.T, connStr string) {
 	`)
 	require.NoError(t, err)
 
-	schema, err := pgutil.QuerySchema(db)
+	schema, err := pgutil.QuerySchema(ctx, db)
 	require.NoError(t, err)
 
 	expected := &dbschema.Schema{

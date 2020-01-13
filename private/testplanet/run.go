@@ -47,12 +47,12 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			}
 
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				return satellitedbtest.CreateMasterDB(t, "S", index, satelliteDB.MasterDB)
+				return satellitedbtest.CreateMasterDB(ctx, t, "S", index, satelliteDB.MasterDB)
 			}
 
 			if satelliteDB.PointerDB.URL != "" {
 				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
-					return satellitedbtest.CreatePointerDB(t, "P", index, satelliteDB.PointerDB)
+					return satellitedbtest.CreatePointerDB(ctx, t, "P", index, satelliteDB.PointerDB)
 				}
 			}
 

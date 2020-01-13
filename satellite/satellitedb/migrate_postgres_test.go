@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+	"storj.io/common/testcontext"
 
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
@@ -27,7 +29,7 @@ import (
 )
 
 // loadSnapshots loads all the dbschemas from testdata/postgres.*
-func loadSnapshots(connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
 	// find all postgres sql files
@@ -52,7 +54,7 @@ func loadSnapshots(connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Sc
 				return errs.New("could not read testdata file for version %d: %v", version, err)
 			}
 
-			snapshot, err := loadSnapshotFromSQL(connstr, string(scriptData))
+			snapshot, err := loadSnapshotFromSQL(ctx, connstr, string(scriptData))
 			if err != nil {
 				if pqErr, ok := err.(*pq.Error); ok && pqErr.Detail != "" {
 					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pqErr, pqErr.Detail, pqErr.Hint)
@@ -68,7 +70,7 @@ func loadSnapshots(connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Sc
 	var dbschema *dbschema.Schema
 	group.Go(func() error {
 		var err error
-		dbschema, err = loadSchemaFromSQL(connstr, dbxscript)
+		dbschema, err = loadSchemaFromSQL(ctx, connstr, dbxscript)
 		return err
 	})
 	if err := group.Wait(); err != nil {
@@ -81,8 +83,8 @@ func loadSnapshots(connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Sc
 }
 
 // loadSnapshotFromSQL inserts script into connstr and loads schema.
-func loadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := tempdb.OpenUnique(connstr, "load-schema")
+func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbschema.Snapshot, err error) {
+	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func loadSnapshotFromSQL(connstr, script string) (_ *dbschema.Snapshot, err erro
 		return nil, err
 	}
 
-	snapshot, err := pgutil.QuerySnapshot(db)
+	snapshot, err := pgutil.QuerySnapshot(ctx, db)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +115,8 @@ func newData(snap *dbschema.Snapshot) string {
 }
 
 // loadSchemaFromSQL inserts script into connstr and loads schema.
-func loadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
-	db, err := tempdb.OpenUnique(connstr, "load-schema")
+func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema.Schema, err error) {
+	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +127,7 @@ func loadSchemaFromSQL(connstr, script string) (_ *dbschema.Schema, err error) {
 		return nil, err
 	}
 
-	return pgutil.QuerySchema(db)
+	return pgutil.QuerySchema(ctx, db)
 }
 
 func TestMigratePostgres(t *testing.T) {
@@ -144,10 +146,13 @@ type satelliteDB interface {
 }
 
 func pgMigrateTest(t *testing.T, connStr string) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	log := zaptest.NewLogger(t)
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(connStr, "migrate")
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
@@ -159,7 +164,7 @@ func pgMigrateTest(t *testing.T, connStr string) {
 	// we need raw database access unfortunately
 	rawdb := db.(satelliteDB).TestDBAccess()
 
-	snapshots, dbxschema, err := loadSnapshots(connStr, rawdb.Schema())
+	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
 	require.NoError(t, err)
 
 	var finalSchema *dbschema.Schema
@@ -184,14 +189,14 @@ func pgMigrateTest(t *testing.T, connStr string) {
 		}
 
 		// load schema from database
-		currentSchema, err := pgutil.QuerySchema(rawdb)
+		currentSchema, err := pgutil.QuerySchema(ctx, rawdb)
 		require.NoError(t, err, tag)
 
 		// we don't care changes in versions table
 		currentSchema.DropTable("versions")
 
 		// load data from database
-		currentData, err := pgutil.QueryData(rawdb, currentSchema)
+		currentData, err := pgutil.QueryData(ctx, rawdb, currentSchema)
 		require.NoError(t, err, tag)
 
 		// verify schema and data

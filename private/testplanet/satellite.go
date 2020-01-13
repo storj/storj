@@ -244,7 +244,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				connStr = *pgtest.CrdbConnStr
 			}
 			var tempDB *dbutil.TempDatabase
-			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
+			tempDB, err = tempdb.OpenUnique(context.TODO(), connStr, fmt.Sprintf("%s.%d", planet.id, i))
 			if err != nil {
 				return nil, err
 			}

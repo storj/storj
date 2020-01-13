@@ -4,6 +4,7 @@
 package pgutil
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,7 +16,7 @@ import (
 )
 
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
+func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
 
 	// find tables

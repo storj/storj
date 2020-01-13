@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
@@ -27,7 +28,9 @@ func TestBasicMigrationSqliteNoRebind(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, db)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	basicMigration(ctx, t, db, db)
 }
 
 func TestBasicMigrationSqlite(t *testing.T) {
@@ -35,37 +38,40 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, &sqliteDB{DB: db})
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	basicMigration(ctx, t, db, &sqliteDB{DB: db})
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
-	testBasicMigrationGeneric(t, *pgtest.ConnStr)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	testBasicMigrationGeneric(ctx, t, *pgtest.ConnStr)
 }
 
 func TestBasicMigrationCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
 	}
-	testBasicMigrationGeneric(t, *pgtest.CrdbConnStr)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	testBasicMigrationGeneric(ctx, t, *pgtest.CrdbConnStr)
 }
 
-func testBasicMigrationGeneric(t *testing.T, connStr string) {
-	db, err := tempdb.OpenUnique(connStr, "create-")
+func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
+	db, err := tempdb.OpenUnique(ctx, connStr, "create-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db.DB, &postgresDB{DB: db.DB})
+	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
 }
 
-func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
+func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB migrate.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
 

@@ -25,7 +25,7 @@ func TestTempCockroachDB(t *testing.T) {
 		t.Skip("CockroachDB flag missing")
 	}
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(*pgtest.CrdbConnStr, prefix)
+	testDB, err := tempdb.OpenUnique(ctx, *pgtest.CrdbConnStr, prefix)
 	require.NoError(t, err)
 
 	require.Equal(t, "cockroach", testDB.Driver)
