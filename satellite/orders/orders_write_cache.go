@@ -73,6 +73,8 @@ func (cache *RollupsWriteCache) UpdateBucketBandwidthInline(ctx context.Context,
 
 // FlushToDB resets cache then flushes the everything in the rollups write cache to the database
 func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
+	defer mon.Task()(&ctx)(nil)
+
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	pendingRollups := cache.pendingRollups
@@ -86,6 +88,8 @@ func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
 
 // flushToDB flushes the everything in the rollups write cache to the database
 func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
+	defer mon.Task()(&ctx)(nil)
+
 	rollups := make([]BandwidthRollup, 0, oldSize)
 	for cacheKey, cacheData := range pendingRollups {
 		rollups = append(rollups, BandwidthRollup{
@@ -135,6 +139,8 @@ func SortRollups(rollups []BandwidthRollup) {
 }
 
 func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline int64, intervalStart time.Time) {
+	defer mon.Task()(&ctx)(nil)
+
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
