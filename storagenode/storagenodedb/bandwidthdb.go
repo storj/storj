@@ -36,7 +36,7 @@ type bandwidthDB struct {
 // Add adds bandwidth usage to the table
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
@@ -133,7 +133,7 @@ func (db *bandwidthDB) getSummary(ctx context.Context, from, to time.Time, filte
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT action, sum(a) amount from(
 				SELECT action, sum(amount) a
 				FROM bandwidth_usage
@@ -243,7 +243,7 @@ func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 	SELECT satellite_id, action, sum(a) amount from(
 			SELECT satellite_id, action, sum(amount) a
 			FROM bandwidth_usage
@@ -295,7 +295,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 	// Go back an hour to give us room for late persists
 	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrBandwidth.Wrap(err)
 	}
@@ -308,7 +308,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 		}
 	}()
 
-	result, err := tx.Exec(`
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage

@@ -33,7 +33,7 @@ func insertNewData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[
 		if !ok {
 			return errs.New("Failed to find DB %s", dbName)
 		}
-		_, err := rawDB.GetDB().Exec(dbState.NewData)
+		_, err := rawDB.GetDB().ExecContext(ctx, dbState.NewData)
 		if err != nil {
 			return err
 		}

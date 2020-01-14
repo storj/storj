@@ -73,7 +73,7 @@ type DBContainer interface {
 
 // withTx is a helper method which executes callback in transaction scope
 func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -833,7 +833,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Vacuum info db",
 				Version:     22,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					_, err := db.deprecatedInfoDB.GetDB().Exec("VACUUM;")
+					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
 					return err
 				}),
 			},

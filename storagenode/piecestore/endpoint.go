@@ -707,6 +707,10 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 
 // saveOrder saves the order with all necessary information. It assumes it has been already verified.
 func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
+	// intentionally using background context to ensure that we always save the order,
+	// even when the client cancels the request.
+	alwaysctx := context.Background()
+
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -714,14 +718,14 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 	if order == nil || order.Amount <= 0 {
 		return
 	}
-	err = endpoint.orders.Enqueue(ctx, &orders.Info{
+	err = endpoint.orders.Enqueue(alwaysctx, &orders.Info{
 		Limit: limit,
 		Order: order,
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
 	} else {
-		err = endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
+		err = endpoint.usage.Add(alwaysctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
 		if err != nil {
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
