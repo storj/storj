@@ -180,11 +180,11 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 			},
 		)
 
-		// moment of transition to received state, which indicates
-		// that customer funds were accepted, so we can apply this
-		// amount to customer balance. So we create intent to update
-		// customer balance in the future.
-		if info.Status == coinpayments.StatusReceived {
+		// moment of transition to completed state, which indicates
+		// that customer funds were accepted and transferred to our
+		// account, so we can apply this amount to customer balance.
+		// Therefore, create intent to update customer balance in the future.
+		if info.Status == coinpayments.StatusCompleted {
 			applies = append(applies, id)
 		}
 	}

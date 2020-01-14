@@ -31,6 +31,8 @@ const (
 	StatusPending Status = 0
 	// StatusReceived defines transaction which successfully received required amount of funds.
 	StatusReceived Status = 1
+	// StatusCompleted defines transaction which is fully completed.
+	StatusCompleted Status = 100
 )
 
 // Int returns int representation of status.
@@ -47,6 +49,8 @@ func (s Status) String() string {
 		return "pending"
 	case StatusReceived:
 		return "received"
+	case StatusCompleted:
+		return "completed"
 	default:
 		return "unknown"
 	}

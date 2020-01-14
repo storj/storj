@@ -5,6 +5,7 @@ package consoleweb
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"html/template"
 	"mime"
@@ -344,8 +345,11 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 		}
 	}()
 
-	authToken := r.Header.Get("Authorization")
-	if authToken != server.config.AuthToken {
+	equality := subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("Authorization")),
+		[]byte(server.config.AuthToken),
+	)
+	if equality != 1 {
 		w.WriteHeader(401)
 		response.Error = "unauthorized"
 		return

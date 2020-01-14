@@ -40,7 +40,7 @@ func TestTransactionsDB(t *testing.T) {
 			Address:   "testAddress",
 			Amount:    *amount,
 			Received:  *received,
-			Status:    coinpayments.StatusReceived,
+			Status:    coinpayments.StatusPending,
 			Key:       "testKey",
 			Timeout:   time.Second * 60,
 		}
@@ -59,7 +59,7 @@ func TestTransactionsDB(t *testing.T) {
 
 			update := stripecoinpayments.TransactionUpdate{
 				TransactionID: createTx.ID,
-				Status:        coinpayments.StatusPending,
+				Status:        coinpayments.StatusReceived,
 				Received:      *received,
 			}
 
@@ -79,7 +79,7 @@ func TestTransactionsDB(t *testing.T) {
 				[]stripecoinpayments.TransactionUpdate{
 					{
 						TransactionID: createTx.ID,
-						Status:        coinpayments.StatusReceived,
+						Status:        coinpayments.StatusCompleted,
 						Received:      *received,
 					},
 				},
@@ -96,7 +96,7 @@ func TestTransactionsDB(t *testing.T) {
 
 			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
 			assert.Equal(t, update.Received, page.Transactions[0].Received)
-			assert.Equal(t, coinpayments.StatusReceived, page.Transactions[0].Status)
+			assert.Equal(t, coinpayments.StatusCompleted, page.Transactions[0].Status)
 		})
 
 		t.Run("consume", func(t *testing.T) {
@@ -132,18 +132,24 @@ func TestTransactionsDBList(t *testing.T) {
 		addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 		key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 
+		status := coinpayments.StatusPending
+		if i%2 == 0 {
+			status = coinpayments.StatusReceived
+		}
+
 		createTX := stripecoinpayments.Transaction{
 			ID:        coinpayments.TransactionID(id),
 			AccountID: uuid.UUID{},
 			Address:   addr,
 			Amount:    *amount,
 			Received:  *received,
-			Status:    coinpayments.StatusPending,
+			Status:    status,
 			Key:       key,
 		}
 
 		txs = append(txs, createTX)
 	}
+
 	t.Run("pending transactions", func(t *testing.T) {
 		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 			for _, tx := range txs {
@@ -153,6 +159,7 @@ func TestTransactionsDBList(t *testing.T) {
 
 			page, err := db.StripeCoinPayments().Transactions().ListPending(ctx, 0, transactionCount, time.Now())
 			require.NoError(t, err)
+			require.False(t, page.Next)
 			require.Equal(t, transactionCount, len(page.Transactions))
 
 			for _, act := range page.Transactions {
@@ -175,7 +182,7 @@ func TestTransactionsDBList(t *testing.T) {
 				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
 				require.NoError(t, err)
 
-				tx.Status = coinpayments.StatusReceived
+				tx.Status = coinpayments.StatusCompleted
 
 				updates = append(updates,
 					stripecoinpayments.TransactionUpdate{
@@ -194,6 +201,7 @@ func TestTransactionsDBList(t *testing.T) {
 
 			page, err := db.StripeCoinPayments().Transactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
 			require.NoError(t, err)
+			require.False(t, page.Next)
 			require.Equal(t, transactionCount, len(page.Transactions))
 
 			for _, act := range page.Transactions {
