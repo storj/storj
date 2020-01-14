@@ -116,6 +116,7 @@ export default class HeaderArea extends Vue {
 
     public beforeDestroy(): void {
         this.onClearSelection();
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
     }
 
     public get userCountTitle(): string {
@@ -139,7 +140,6 @@ export default class HeaderArea extends Vue {
         this.isDeleteClicked = false;
 
         this.$emit('onSuccessAction');
-        this.$refs.headerComponent.clearSearch();
     }
 
     public async onDelete(): Promise<void> {

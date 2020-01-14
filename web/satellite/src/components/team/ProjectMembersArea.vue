@@ -21,11 +21,11 @@
             </div>
         </div>
         <VPagination
-                v-if="totalPageCount > 1"
-                class="pagination-area"
-                ref="pagination"
-                :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick"
+            v-if="totalPageCount > 1"
+            class="pagination-area"
+            ref="pagination"
+            :total-page-count="totalPageCount"
+            :on-page-click-callback="onPageClick"
         />
         <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
