@@ -30,7 +30,7 @@ func TestQuery(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE users (
 			a integer NOT NULL,
 			b integer NOT NULL,

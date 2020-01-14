@@ -22,7 +22,7 @@ func LoadSchemaFromSQL(ctx context.Context, script string) (_ *dbschema.Schema, 
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -38,7 +38,7 @@ func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapsh
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
