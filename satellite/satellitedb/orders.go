@@ -365,7 +365,9 @@ func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.Pr
 	return responses, nil
 }
 
-func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []orders.BandwidthRollup) error {
+func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []orders.BandwidthRollup) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(rollups) == 0 {
 		return nil
 	}
@@ -422,7 +424,8 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 		))
 	}
 	stmt.WriteString(stmtEnd)
-	_, err := db.db.ExecContext(ctx, stmt.String(), args...)
+
+	_, err = db.db.ExecContext(ctx, stmt.String(), args...)
 	if err != nil {
 		db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}
