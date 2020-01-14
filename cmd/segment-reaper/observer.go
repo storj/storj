@@ -14,14 +14,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
 )
 
 const (
 	maxNumOfSegments = 64
 	lastSegment      = int(-1)
+	rateLimit        = 0
 )
 
 // object represents object with segments.
@@ -188,7 +189,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 }
 
 func (obsvr *observer) detectZombieSegments(ctx context.Context) error {
-	err := metainfo.IterateDatabase(ctx, obsvr.db, obsvr)
+	err := metainfo.IterateDatabase(ctx, rateLimit, obsvr.db, obsvr)
 	if err != nil {
 		return err
 	}

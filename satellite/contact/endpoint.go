@@ -5,16 +5,14 @@ package contact
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -65,7 +63,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
-	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
+	pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, req.Address, nodeID)
 	if err != nil {
 		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		if errPingBackDial.Has(err) {
@@ -100,32 +98,8 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (_ bool, _ string, err error) {
+// GetTime returns current timestamp
+func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	pingNodeSuccess := true
-	var pingErrorMessage string
-
-	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
-	if err != nil {
-		// If there is an error from trying to dial and ping the node, return that error as
-		// pingErrorMessage and not as the err. We want to use this info to update
-		// node contact info and do not want to terminate execution by returning an err
-		mon.Event("failed dial")
-		pingNodeSuccess = false
-		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q", peerID, req.Address, err)
-		endpoint.log.Info("pingBack failed to dial storage node", zap.Stringer("Node ID", peerID), zap.String("node address", req.Address), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
-		return pingNodeSuccess, pingErrorMessage, nil
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
-	if err != nil {
-		mon.Event("failed ping node")
-		pingNodeSuccess = false
-		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
-		endpoint.log.Info("pingBack pingNode error", zap.Stringer("Node ID", peerID), zap.String("pingErrorMessage", pingErrorMessage), zap.Error(err))
-	}
-
-	return pingNodeSuccess, pingErrorMessage, nil
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
 }

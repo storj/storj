@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestTempCockroachDB(t *testing.T) {
@@ -25,7 +25,7 @@ func TestTempCockroachDB(t *testing.T) {
 		t.Skip("CockroachDB flag missing")
 	}
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(*pgtest.CrdbConnStr, prefix)
+	testDB, err := tempdb.OpenUnique(ctx, *pgtest.CrdbConnStr, prefix)
 	require.NoError(t, err)
 
 	require.Equal(t, "cockroach", testDB.Driver)

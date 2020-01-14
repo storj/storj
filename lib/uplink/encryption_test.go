@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 )
 
 func TestAllowedPathPrefixListing(t *testing.T) {
@@ -36,12 +36,12 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 		defer ctx.Check(up.Close)
 
 		uplinkConfig := testUplink.GetConfig(testSatellite)
-		scope, err := uplinkConfig.GetScope()
+		access, err := uplinkConfig.GetAccess()
 		require.NoError(t, err)
 
-		encryptionAccess := scope.EncryptionAccess
+		encryptionAccess := access.EncryptionAccess
 		func() {
-			proj, err := up.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+			proj, err := up.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 			require.NoError(t, err)
 			defer ctx.Check(proj.Close)
 
@@ -54,13 +54,13 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 			require.Equal(t, 1, len(list.Items))
 		}()
 
-		restrictedAPIKey, restrictedEa, err := encryptionAccess.Restrict(scope.APIKey, uplink.EncryptionRestriction{
+		restrictedAPIKey, restrictedEa, err := encryptionAccess.Restrict(access.APIKey, uplink.EncryptionRestriction{
 			Bucket:     "testbucket",
 			PathPrefix: "videos",
 		})
 		require.NoError(t, err)
 		func() {
-			proj, err := up.OpenProject(ctx, scope.SatelliteAddr, restrictedAPIKey)
+			proj, err := up.OpenProject(ctx, access.SatelliteAddr, restrictedAPIKey)
 			require.NoError(t, err)
 			defer ctx.Check(proj.Close)
 

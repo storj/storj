@@ -27,10 +27,11 @@ exports[`Pagination.vue renders correctly with props 1`] = `
       <paginationlefticon-stub class="pagination-container__button__image"></paginationlefticon-stub>
     </div>
     <div class="pagination-container__items">
-      <pagesblock-stub pages="[object Object],[object Object],[object Object]" isselected="function () { [native code] }"></pagesblock-stub> <span class="pages-divider">...</span>
       <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
       <!---->
-      <pagesblock-stub pages="[object Object]" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <!---->
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
     </div>
     <div class="pagination-container__button">
       <paginationrighticon-stub class="pagination-container__button__image"></paginationrighticon-stub>

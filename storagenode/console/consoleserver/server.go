@@ -15,7 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consolenotifications"
 	"storj.io/storj/storagenode/notifications"

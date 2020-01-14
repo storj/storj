@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.5
+GO_VERSION ?= 1.13.6
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -43,12 +43,9 @@ help:
 
 .PHONY: build-dev-deps
 build-dev-deps: ## Install dependencies for builds
-	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
-	go get github.com/modocache/gover
 	go get github.com/go-bindata/go-bindata/go-bindata
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.21.0
 
 .PHONY: lint
 lint: ## Analyze and find programs in source code
@@ -62,12 +59,6 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
-
-.PHONY: proto
-proto: ## Rebuild protobuf files
-	@echo "Running ${@}"
-	go run scripts/protobuf.go install
-	go run scripts/protobuf.go generate
 
 .PHONY: build-packages
 build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally

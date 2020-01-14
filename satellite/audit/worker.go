@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
 // Error is the default audit errs class.
@@ -57,7 +57,6 @@ func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Repo
 // Run runs audit service 2.0.
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	worker.log.Debug("starting")
 
 	// Wait for all audits to run.
 	defer worker.limiter.Wait()

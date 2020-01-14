@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 

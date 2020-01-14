@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -42,6 +42,7 @@ func TestProjectRecords(t *testing.T) {
 						Objects:   3,
 					},
 				},
+				[]stripecoinpayments.CouponUsage{},
 				start, end,
 			)
 			require.NoError(t, err)
@@ -92,12 +93,12 @@ func TestProjectRecordsList(t *testing.T) {
 					ProjectID: *projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,
-					Objects:   int64(i) + 3,
+					Objects:   float64(i) + 3,
 				},
 			)
 		}
 
-		err := projectRecordsDB.Create(ctx, createProjectRecords, start, end)
+		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, start, end)
 		require.NoError(t, err)
 
 		page, err := projectRecordsDB.ListUnapplied(ctx, 0, recordsLen, time.Now())

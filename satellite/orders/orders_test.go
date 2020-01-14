@@ -13,17 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	snorders "storj.io/storj/storagenode/orders"
-	"storj.io/storj/uplink"
 )
 
 func TestSendingReceivingOrders(t *testing.T) {
@@ -235,9 +234,9 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	})
 }
 
-func noLongTailRedundancy(planet *testplanet.Planet) uplink.RSConfig {
-	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).RS
-	redundancy.SuccessThreshold = redundancy.MaxThreshold
+func noLongTailRedundancy(planet *testplanet.Planet) storj.RedundancyScheme {
+	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetRedundancyScheme()
+	redundancy.OptimalShares = redundancy.TotalShares
 	return redundancy
 }
 

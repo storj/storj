@@ -13,11 +13,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
-
-var ctx = context.Background() // test context
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 	if *pgtest.ConnStr == "" {
@@ -90,40 +89,30 @@ func BenchmarkSuite(b *testing.B) {
 	testsuite.RunBenchmarks(b, store)
 }
 
-func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
-	txn, err2 := db.Begin()
-	if err2 != nil {
-		return errs.New("Failed to start transaction: %v", err2)
-	}
-	defer func() {
-		if err == nil {
-			err = errs.Combine(err, txn.Commit())
-		} else {
-			err = errs.Combine(err, txn.Rollback())
+func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
+	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn *sql.Tx) (err error) {
+		stmt, err := txn.Prepare(pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
+		if err != nil {
+			return errs.New("Failed to initialize COPY FROM: %v", err)
 		}
-	}()
+		defer func() {
+			err2 := stmt.Close()
+			if err2 != nil {
+				err = errs.Combine(err, errs.New("Failed to close COPY FROM statement: %v", err2))
+			}
+		}()
 
-	stmt, err2 := txn.Prepare(pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
-	if err2 != nil {
-		return errs.New("Failed to initialize COPY FROM: %v", err)
-	}
-	defer func() {
-		err2 := stmt.Close()
-		if err2 != nil {
-			err = errs.Combine(err, errs.New("Failed to close COPY FROM statement: %v", err2))
+		var item storage.ListItem
+		for iter.Next(ctx, &item) {
+			if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
+				return err
+			}
 		}
-	}()
-
-	var item storage.ListItem
-	for iter.Next(ctx, &item) {
-		if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
-			return err
+		if _, err = stmt.Exec(); err != nil {
+			return errs.New("Failed to complete COPY FROM: %v", err)
 		}
-	}
-	if _, err = stmt.Exec(); err != nil {
-		return errs.New("Failed to complete COPY FROM: %v", err)
-	}
-	return nil
+		return nil
+	})
 }
 
 func bulkDeleteAll(db *sql.DB) error {
@@ -138,8 +127,8 @@ type pgLongBenchmarkStore struct {
 	*Client
 }
 
-func (store *pgLongBenchmarkStore) BulkImport(iter storage.Iterator) error {
-	return bulkImport(store.pgConn, iter)
+func (store *pgLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) error {
+	return bulkImport(ctx, store.pgConn, iter)
 }
 
 func (store *pgLongBenchmarkStore) BulkDeleteAll() error {

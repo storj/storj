@@ -4,9 +4,11 @@
 package satellite
 
 import (
+	"context"
+
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
+	"storj.io/common/identity"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -19,6 +21,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -44,9 +47,9 @@ var mon = monkit.Package()
 // architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
-	CreateTables() error
+	CreateTables(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
-	CheckVersion() error
+	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
@@ -78,6 +81,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
+	// DowntimeTracking returns database for downtime tracking
+	DowntimeTracking() downtime.DB
 }
 
 // Config is the global config satellite
@@ -118,4 +123,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
+
+	Downtime downtime.Config
 }

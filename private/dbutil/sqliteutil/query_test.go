@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/sqliteutil"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestQuery(t *testing.T) {
@@ -26,7 +26,7 @@ func TestQuery(t *testing.T) {
 
 	defer ctx.Check(db.Close)
 
-	emptySchema, err := sqliteutil.QuerySchema(db)
+	emptySchema, err := sqliteutil.QuerySchema(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
@@ -52,7 +52,7 @@ func TestQuery(t *testing.T) {
 
 	require.NoError(t, err)
 
-	schema, err := sqliteutil.QuerySchema(db)
+	schema, err := sqliteutil.QuerySchema(ctx, db)
 	assert.NoError(t, err)
 
 	expected := &dbschema.Schema{

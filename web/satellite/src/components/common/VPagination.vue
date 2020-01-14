@@ -141,21 +141,14 @@ export default class VPagination extends Vue {
             return;
         }
 
-        if (this.$route.query.pageNumber) {
-            const pageNumber = parseInt(this.$route.query.pageNumber as string);
-            this.setCurrentPage(pageNumber);
-
-            // Here we need to set short timeout to let router to set up after page
-            // hard reload before we can replace query with current page number
-            setTimeout(this.updateRouterPathWithPageNumber, 1);
-        }
-
         for (let i = 1; i <= this.totalPageCount; i++) {
             this.pagesArray.push(new Page(i, this.onPageClick));
         }
 
         if (this.isPagesTotalOffBlocks()) {
             this.firstBlockPages = this.pagesArray.slice();
+            this.middleBlockPages = [];
+            this.lastBlockPages = [];
 
             return;
         }
@@ -217,21 +210,14 @@ export default class VPagination extends Vue {
 
     private incrementCurrentPage(): void {
         this.currentPageNumber++;
-        this.updateRouterPathWithPageNumber();
     }
 
     private decrementCurrentPage(): void {
         this.currentPageNumber--;
-        this.updateRouterPathWithPageNumber();
     }
 
     private setCurrentPage(pageNumber: number): void {
         this.currentPageNumber = pageNumber;
-        this.updateRouterPathWithPageNumber();
-    }
-
-    private updateRouterPathWithPageNumber() {
-        this.$router.replace({ query: { pageNumber: this.currentPageNumber.toString() } });
     }
 }
 </script>

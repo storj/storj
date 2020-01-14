@@ -14,19 +14,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testidentity"
 )
 
 // TODO: test sad path

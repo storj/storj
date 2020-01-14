@@ -55,9 +55,14 @@ func Bind(cmd *cobra.Command, config interface{}, opts ...cfgstruct.BindOpt) {
 	configs[cmd] = append(configs[cmd], config)
 }
 
-// Exec runs a Cobra command. If a "config" flag is defined it will be parsed
+// Exec runs a Cobra command. If a "config-dir" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
+	ExecWithCustomConfig(cmd, LoadConfig)
+}
+
+// ExecWithCustomConfig runs a Cobra command. Custom configuration can be loaded.
+func ExecWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	cmd.AddCommand(&cobra.Command{
 		Use:         "version",
 		Short:       "output the version's build information, if any",
@@ -70,7 +75,7 @@ func Exec(cmd *cobra.Command) {
 	}
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	cleanup(cmd)
+	cleanup(cmd, loadConfig)
 	err = cmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -109,6 +114,12 @@ func Ctx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 
 // Viper returns the appropriate *viper.Viper for the command, creating if necessary.
 func Viper(cmd *cobra.Command) (*viper.Viper, error) {
+	return ViperWithCustomConfig(cmd, LoadConfig)
+}
+
+// ViperWithCustomConfig returns the appropriate *viper.Viper for the command, creating if necessary. Custom
+// config load logic can be defined with "loadConfig" parameter.
+func ViperWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) (*viper.Viper, error) {
 	commandMtx.Lock()
 	defer commandMtx.Unlock()
 
@@ -124,26 +135,36 @@ func Viper(cmd *cobra.Command) (*viper.Viper, error) {
 	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	vip.AutomaticEnv()
 
-	cfgFlag := cmd.Flags().Lookup("config-dir")
-	if cfgFlag != nil && cfgFlag.Value.String() != "" {
-		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-		if cmd.Annotations["type"] != "setup" || fileExists(path) {
-			vip.SetConfigFile(path)
-			if err := vip.ReadInConfig(); err != nil {
-				return nil, err
-			}
-		}
+	err := loadConfig(cmd, vip)
+	if err != nil {
+		return nil, err
 	}
 
 	vipers[cmd] = vip
 	return vip, nil
 }
 
+// LoadConfig loads configuration into *viper.Viper from file specified with "config-dir" flag.
+func LoadConfig(cmd *cobra.Command, vip *viper.Viper) error {
+	cfgFlag := cmd.Flags().Lookup("config-dir")
+	if cfgFlag != nil && cfgFlag.Value.String() != "" {
+		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
+		if fileExists(path) {
+			setupCommand := cmd.Annotations["type"] == "setup"
+			vip.SetConfigFile(path)
+			if err := vip.ReadInConfig(); err != nil && !setupCommand {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
-func cleanup(cmd *cobra.Command) {
+func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	for _, ccmd := range cmd.Commands() {
-		cleanup(ccmd)
+		cleanup(ccmd, loadConfig)
 	}
 	if cmd.Run != nil {
 		panic("Please use cobra's RunE instead of Run")
@@ -157,7 +178,7 @@ func cleanup(cmd *cobra.Command) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
-		vip, err := Viper(cmd)
+		vip, err := ViperWithCustomConfig(cmd, loadConfig)
 		if err != nil {
 			return err
 		}

@@ -9,9 +9,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
 )
@@ -55,21 +55,14 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	uptimeScore := calculateReputationScore(
-		node.Reputation.UptimeReputationAlpha,
-		node.Reputation.UptimeReputationBeta)
-
 	auditScore := calculateReputationScore(
 		node.Reputation.AuditReputationAlpha,
 		node.Reputation.AuditReputationBeta)
 
 	return &pb.GetStatsResponse{
 		UptimeCheck: &pb.ReputationStats{
-			TotalCount:      node.Reputation.UptimeCount,
-			SuccessCount:    node.Reputation.UptimeSuccessCount,
-			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
-			ReputationBeta:  node.Reputation.UptimeReputationBeta,
-			ReputationScore: uptimeScore,
+			TotalCount:   node.Reputation.UptimeCount,
+			SuccessCount: node.Reputation.UptimeSuccessCount,
 		},
 		AuditCheck: &pb.ReputationStats{
 			TotalCount:      node.Reputation.AuditCount,

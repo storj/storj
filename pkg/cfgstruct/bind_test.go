@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
 )
 
 func assertEqual(actual, expected interface{}) {

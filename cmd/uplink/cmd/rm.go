@@ -8,10 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -53,18 +53,18 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	scope, err := cfg.GetScope()
+	access, err := cfg.GetAccess()
 	if err != nil {
 		return err
 	}
 
-	access := scope.EncryptionAccess
+	encAccess := access.EncryptionAccess
 	if *rmEncryptedFlag {
-		access = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
-		access.Store().EncryptionBypass = true
+		encAccess = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+		encAccess.Store().EncryptionBypass = true
 	}
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), access)
+	bucket, err := project.OpenBucket(ctx, dst.Bucket(), encAccess)
 	if err != nil {
 		return err
 	}

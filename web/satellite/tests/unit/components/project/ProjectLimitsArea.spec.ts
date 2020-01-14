@@ -6,12 +6,15 @@ import Vuex from 'vuex';
 import ProjectLimitsArea from '@/components/project/ProjectLimitsArea.vue';
 
 import { makeProjectsModule } from '@/store/modules/projects';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../mock/api/projects';
 
 const localVue = createLocalVue();
+const notificationPlugin = new NotificatorPlugin();
 localVue.use(Vuex);
+localVue.use(notificationPlugin);
 
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);

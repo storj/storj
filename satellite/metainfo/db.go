@@ -8,8 +8,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 )
 
 // BucketsDB is the interface for the database to interact with buckets

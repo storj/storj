@@ -121,7 +121,7 @@ read all (
 	where  accounting_rollup.start_time >= ?
 )
 
-//--- statdb ---//
+//--- overlay cache ---//
 
 model node (
 	key id
@@ -208,6 +208,21 @@ read limitoffset (
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
+)
+
+read limitoffset (
+	select node.id node.address node.last_contact_success node.last_contact_failure
+    where node.last_contact_success < node.last_contact_failure
+	where  node.disqualified = null
+	orderby asc node.last_contact_failure
+)
+
+read all (
+	select node.id node.address node.last_contact_success node.last_contact_failure
+	where node.last_contact_success < ?
+	where node.last_contact_success > node.last_contact_failure
+	where  node.disqualified = null
+	orderby asc node.last_contact_success
 )
 
 //--- repairqueue ---//
@@ -855,6 +870,29 @@ read one (
 	where graceful_exit_transfer_queue.piece_num = ?
 )
 
+//--- downtime tracking ---//
+
+model nodes_offline_time (
+    key node_id tracked_at
+
+    index (
+        fields node_id
+    )
+
+    field node_id blob
+    field tracked_at timestamp
+    field seconds int
+)
+
+create nodes_offline_time ()
+
+read all (
+    select nodes_offline_time
+    where nodes_offline_time.node_id = ?
+    where nodes_offline_time.tracked_at > ?
+    where nodes_offline_time.tracked_at <= ?
+)
+
 //--- satellite payments ---//
 
 model stripe_customer (
@@ -981,13 +1019,13 @@ read one (
 
 model coupon (
     key id
-    unique project_id
 
     field id               blob
     field project_id       blob
     field user_id          blob
     field amount           int64
     field description      text
+    field type             int
     field status           int   ( updatable )
     field duration         int64
 
@@ -1001,9 +1039,25 @@ update coupon (
 delete coupon (
     where coupon.id = ?
 )
+read one (
+    select coupon
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.project_id = ?
+    where coupon.status = 0
+    orderby desc coupon.created_at
+)
 read all (
     select coupon
     where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    where coupon.status = ?
     orderby desc coupon.created_at
 )
 read all (
@@ -1018,11 +1072,21 @@ read limitoffset (
     orderby desc coupon.created_at
 )
 model coupon_usage (
-    key id
+    key coupon_id period
 
-    field id             blob
-    field coupon_id      blob
-    field amount         int64
-    field interval_end   timestamp
+    field coupon_id  blob
+    field amount     int64
+    field status     int       ( updatable )
+    field period     timestamp
 )
 create coupon_usage ()
+read limitoffset (
+    select coupon_usage
+    where coupon_usage.period <= ?
+    where coupon_usage.status = 0
+    orderby desc coupon_usage.period
+)
+update coupon_usage (
+    where coupon_usage.coupon_id = ?
+    where coupon_usage.period = ?
+)

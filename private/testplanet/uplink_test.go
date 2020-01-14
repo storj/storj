@@ -15,19 +15,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink"
-	"storj.io/storj/uplink/metainfo"
+	"storj.io/uplink/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -81,11 +80,12 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		testData := testrand.Bytes(memory.MiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -176,9 +176,15 @@ func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error 
 func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	return nil, nil
 }
+
 func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.PieceDeletePieceRequest) (_ *pb.PieceDeletePieceResponse, err error) {
 	return nil, nil
 }
+
+func (mock *piecestoreMock) DeletePieces(ctx context.Context, delete *pb.DeletePiecesRequest) (_ *pb.DeletePiecesResponse, err error) {
+	return nil, nil
+}
+
 func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest) (_ *pb.RetainResponse, err error) {
 	return nil, nil
 }
@@ -192,11 +198,12 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(memory.MiB)
 
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
 		}, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
@@ -284,10 +291,13 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		}
 
 		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		require.NoError(t, err)
+
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.Error(t, err)
+		require.True(t, storj.ErrObjectNotFound.Has(err))
 
 		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)

@@ -8,10 +8,10 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/currency"
+	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -108,7 +108,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	var id int64
 
-	err := crdb.ExecuteTx(ctx, db.db.DB.DB, nil, func(tx *sql.Tx) error {
+	err := txutil.WithTx(ctx, db.db.DB.DB, nil, func(ctx context.Context, tx *sql.Tx) error {
 		// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
 		switch o.Type {
 		case rewards.Partner:

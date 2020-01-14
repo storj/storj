@@ -8,35 +8,71 @@ node('node') {
 
       echo "Current build result: ${currentBuild.result}"
     }
+    if (env.BRANCH_NAME == "master") {
+        stage('Run Versions Test') {
+            try {
+              echo "Running Versions test"
 
-    stage('Run Versions Test') {
+              env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
+              env.STORJ_SIM_REDIS = 'redis:6379'
+
+              echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
+              echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
+              sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+              sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
+
+              sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+                    do printf '.'
+                    sleep 5
+                    done
+                '''
+              sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
+              // fetch the remote master branch
+              sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
+              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.6'
+            }
+            catch(err){
+                throw err
+            }
+            finally {
+              sh 'docker stop postgres-$BUILD_NUMBER || true'
+              sh 'docker rm postgres-$BUILD_NUMBER || true'
+              sh 'docker stop redis-$BUILD_NUMBER || true'
+              sh 'docker rm redis-$BUILD_NUMBER || true'
+            }
+        }
+    }
+
+    stage('Run Rolling Upgrade Test') {
         try {
-          echo "Running Versions test"
+          echo "Running Rolling Upgrade test"
 
           env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
           env.STORJ_SIM_REDIS = 'redis:6379'
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          sh 'docker run --rm -d --name postgres postgres:9.6'
-          sh 'docker run --rm -d --name redis redis:latest'
+          sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+          sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
-          sh '''until $(docker logs postgres | grep "database system is ready to accept connections" > /dev/null)
+          sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
                 do printf '.'
                 sleep 5
                 done
             '''
-          sh 'docker exec postgres createdb -U postgres teststorj'
+          sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis:redis --link postgres:postgres -e CC=gcc storjlabs/golang:1.13.5'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.6'
         }
         catch(err){
             throw err
         }
         finally {
-          sh 'docker stop postgres || true'
-          sh 'docker stop redis || true'
+          sh 'docker stop postgres-$BUILD_NUMBER || true'
+          sh 'docker rm postgres-$BUILD_NUMBER || true'
+          sh 'docker stop redis-$BUILD_NUMBER || true'
+          sh 'docker rm redis-$BUILD_NUMBER || true'
         }
     }
 
@@ -54,7 +90,7 @@ node('node') {
 
         unstash "storagenode-binaries"
 
-        bat 'installer\\windows\\build.bat'
+        bat 'installer\\windows\\buildrelease.bat'
 
         stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
 
@@ -93,7 +129,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',

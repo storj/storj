@@ -9,18 +9,20 @@ import (
 	"os"
 	"path/filepath"
 	"text/tabwriter"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/storj/cmd/satellite/reports"
+	"storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
@@ -32,7 +34,22 @@ import (
 type Satellite struct {
 	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 
+	DatabaseOptions struct {
+		APIKeysCache struct {
+			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
+			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
+		}
+	}
+
 	satellite.Config
+}
+
+// APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config
+func (s *Satellite) APIKeysLRUOptions() cache.Options {
+	return cache.Options{
+		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
+		Capacity:   s.DatabaseOptions.APIKeysCache.Capacity,
+	}
 }
 
 var (
@@ -171,7 +188,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
@@ -219,7 +236,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CheckVersion()
+	err = db.CheckVersion(ctx)
 	if err != nil {
 		zap.S().Fatal("failed satellite database version check: ", err)
 		return errs.New("Error checking version for satellitedb: %+v", err)
@@ -231,8 +248,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
-	db, err := satellitedb.New(log.Named("db migration"), runCfg.Database)
+
+	db, err := satellitedb.New(log.Named("migration"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
@@ -240,14 +259,14 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables()
+	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
 	// There should be an explicit CreateTables call for the pointerdb as well.
 	// This is tracked in jira ticket #3337.
-	pdb, err := metainfo.NewStore(log.Named("db migration"), runCfg.Metainfo.DatabaseURL)
+	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
 	}
@@ -280,7 +299,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 
 	// open the master db
-	database, err := satellitedb.New(zap.L().Named("db"), qdiagCfg.Database)
+	database, err := satellitedb.New(zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}

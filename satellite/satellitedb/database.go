@@ -4,17 +4,20 @@
 package satellitedb
 
 import (
+	"sync"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -34,16 +37,26 @@ var (
 // of the db driver, db implementation, and db source URL.
 type satelliteDB struct {
 	*dbx.DB
+
+	opts           Options
 	log            *zap.Logger
 	driver         string
 	implementation dbutil.Implementation
 	source         string
+
+	consoleDBOnce sync.Once
+	consoleDB     *ConsoleDB
+}
+
+// Options includes options for how a satelliteDB runs
+type Options struct {
+	APIKeysLRUOptions cache.Options
 }
 
 var _ dbx.DBMethods = &satelliteDB{}
 
 // New creates instance of database supports postgres
-func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
+func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -53,9 +66,8 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 
 	source = pgutil.CheckApplicationName(source)
-	source = cockroachutil.TranslateName(source)
 
-	dbxDB, err := dbx.Open("postgres", source)
+	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
@@ -65,11 +77,13 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	dbutil.Configure(dbxDB.DB, mon)
 
 	core := &satelliteDB{
-		DB:             dbxDB,
+		DB: dbxDB,
+
+		opts:           opts,
 		log:            log,
 		driver:         driver,
-		source:         source,
 		implementation: implementation,
+		source:         source,
 	}
 	return core, nil
 }
@@ -115,10 +129,18 @@ func (db *satelliteDB) Irreparable() irreparable.DB {
 
 // Console returns database for storing users, projects and api keys
 func (db *satelliteDB) Console() console.DB {
-	return &ConsoleDB{
-		db:      db,
-		methods: db,
-	}
+	db.consoleDBOnce.Do(func() {
+		db.consoleDB = &ConsoleDB{
+			apikeysLRUOptions: db.opts.APIKeysLRUOptions,
+
+			db:      db,
+			methods: db,
+
+			apikeysOnce: new(sync.Once),
+		}
+	})
+
+	return db.consoleDB
 }
 
 // Rewards returns database for storing offers
@@ -144,4 +166,9 @@ func (db *satelliteDB) GracefulExit() gracefulexit.DB {
 // StripeCoinPayments returns database for stripecoinpayments.
 func (db *satelliteDB) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: db}
+}
+
+// DowntimeTracking returns database for downtime tracking
+func (db *satelliteDB) DowntimeTracking() downtime.DB {
+	return &downtimeTrackingDB{db: db}
 }

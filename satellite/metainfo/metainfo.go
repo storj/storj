@@ -18,24 +18,25 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/sync2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/piecestore"
-	"storj.io/storj/uplink/storage/meta"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/piecestore"
+	"storj.io/uplink/storage/meta"
 )
 
 const (
@@ -43,9 +44,10 @@ const (
 	satIDExpiration     = 24 * time.Hour
 	lastSegment         = -1
 	listLimit           = 1000
-	// TODO: orange/v3-3184 no idea what value should be set here. In the future
-	// we may want to make this value configurable.
-	deleteObjectPiecesConcurrencyLimit = 10
+
+	// TODO: orange/v3-3406 this value may change once it's used in production
+	deleteObjectPiecesConcurrencyLimit = 100
+	deleteObjectPiecesSuccessThreshold = 0.75
 )
 
 var (
@@ -1079,6 +1081,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
+	if !req.ExpiresAt.IsZero() && !req.ExpiresAt.After(time.Now()) {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
+	}
+
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1409,12 +1415,11 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	_, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, satStreamID.Bucket, satStreamID.EncryptedPath)
+	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath)
 	if err != nil {
 		return nil, err
 	}
 
-	endpoint.log.Info("Delete Object", zap.Stringer("Project ID", keyInfo.ProjectID))
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
 	}, nil
@@ -1856,6 +1861,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.NotFound {
+			return &pb.SegmentListResponse{}, nil
+		}
 		return nil, err
 	}
 
@@ -1937,24 +1945,33 @@ func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, 
 	}, nil
 }
 
-func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
-	index := int64(cursorIndex)
+// listSegmentManually lists the segments that belongs to projectID and streamID
+// from the cursorIndex up to the limit. It stops before the limit when
+// cursorIndex + n returns a not found pointer.
+//
+// limit must be greater than 0 and cursorIndex greater than or equal than 0,
+// otherwise an error is returned.
+func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+	if limit <= 0 {
+		return nil, rpcstatus.Errorf(
+			rpcstatus.InvalidArgument, "invalid limit, cannot be 0 or negative. Got %d", limit,
+		)
+	}
 
+	index := int64(cursorIndex)
 	segmentItems := make([]*pb.SegmentListItem, 0)
 	more := false
 
 	for {
-		path, err := CreatePath(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
+		_, _, err := endpoint.getPointer(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-		_, err = endpoint.metainfo.Get(ctx, path)
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				break
+			if rpcstatus.Code(err) != rpcstatus.NotFound {
+				return nil, err
 			}
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+
+			break
 		}
+
 		if limit == int32(len(segmentItems)) {
 			more = true
 			break
@@ -2271,36 +2288,62 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	}
 
 	var (
-		// TODO: orange/v3-3184 initialize this map to an approximated number of nodes
-		// if it's possible. Also figure out how much memory is required for an object
-		// of a big size like 10GiB.
 		nodesPieces = make(map[storj.NodeID][]storj.PieceID)
 		nodeIDs     storj.NodeIDList
 	)
 
-	for i := int64(lastSegment); i < (numOfSegments - 1); i++ {
-		pointer, _, err := endpoint.getPointer(ctx, projectID, i, bucket, encryptedPath)
+	for segmentIdx := int64(lastSegment); segmentIdx < (numOfSegments - 1); segmentIdx++ {
+		pointer, err := endpoint.deletePointer(ctx, projectID, segmentIdx, bucket, encryptedPath)
 		if err != nil {
-			if rpcstatus.Code(err) != rpcstatus.NotFound {
-				return err
-			}
-			if !knownNumOfSegments {
-				// Because we don't know the number of segments, we assume that if the
-				// pointer isn't found then we reached in the previous iteration the
-				// segment before the last one.
-				break
+			// Only return the error for aborting the operation if it happens on the
+			// first iteration
+			if segmentIdx == int64(lastSegment) {
+				if storj.ErrObjectNotFound.Has(err) {
+					return rpcstatus.Error(rpcstatus.NotFound, "object doesn't exist")
+				}
+
+				endpoint.log.Error("unexpected error while deleting object pieces",
+					zap.Stringer("project_id", projectID),
+					zap.ByteString("bucket_name", bucket),
+					zap.Binary("encrypted_path", encryptedPath),
+					zap.Error(err),
+				)
+				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
-			segment := "l"
-			if i != lastSegment {
-				segment = "s" + strconv.FormatInt(i, 10)
+			if storj.ErrObjectNotFound.Has(err) {
+				if !knownNumOfSegments {
+					// Because we don't know the number of segments, we assume that if the
+					// pointer isn't found then we reached in the previous iteration the
+					// segment before the last one.
+					break
+				}
+
+				segment := "s" + strconv.FormatInt(segmentIdx, 10)
+				endpoint.log.Warn(
+					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
+					zap.String("pointer_path",
+						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
+					),
+					zap.String("segment", segment),
+				)
+			} else {
+				segment := "s" + strconv.FormatInt(segmentIdx, 10)
+				endpoint.log.Warn(
+					"unexpected error while deleting a pointer",
+					zap.String("pointer_path",
+						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
+					),
+					zap.String("segment", segment),
+					zap.Error(err),
+				)
 			}
-			endpoint.log.Warn(
-				"expected pointer not found, it may have been deleted concurrently",
-				zap.String("pointer_path",
-					fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
-				),
-			)
+
+			// We continue with the next segment for not deleting the pieces of this
+			// pointer and avoiding that some storage nodes fail audits due to a
+			// missing piece.
+			// If it was not found them we assume that the pieces were deleted by
+			// another request running concurrently.
 			continue
 		}
 
@@ -2322,6 +2365,11 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		}
 	}
 
+	if len(nodeIDs) == 0 {
+		// Pieces will be collected by garbage collector
+		return
+	}
+
 	nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
 	if err != nil {
 		endpoint.log.Warn("unable to look up nodes from overlay",
@@ -2334,6 +2382,33 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		return nil
 	}
 
+	var successThreshold *sync2.SuccessThreshold
+	{
+		var numPieces int
+		for _, node := range nodes {
+			numPieces += len(nodesPieces[node.Id])
+		}
+
+		var err error
+		successThreshold, err = sync2.NewSuccessThreshold(numPieces, deleteObjectPiecesSuccessThreshold)
+		if err != nil {
+			endpoint.log.Error("error creating success threshold",
+				zap.Int("num_tasks", numPieces),
+				zap.Float32("success_threshold", deleteObjectPiecesSuccessThreshold),
+				zap.Error(err),
+			)
+
+			return rpcstatus.Errorf(rpcstatus.Internal,
+				"error creating success threshold: %+v", err.Error(),
+			)
+		}
+	}
+
+	// TODO: v3-3476 This timeout will go away when the service is implemented
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// TODO: v3-3406 Should we use a global limiter?
 	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
 	for _, node := range nodes {
 		node := node
@@ -2349,9 +2424,25 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 					zap.Stringer("node_info", node),
 					zap.Error(err),
 				)
+
+				// Mark all the pieces of this node as failure in the success threshold
+				for range nodePieces {
+					successThreshold.Failure()
+				}
+
 				// Pieces will be collected by garbage collector
 				return
 			}
+			defer func() {
+				err := client.Close()
+				if err != nil {
+					endpoint.log.Warn("error closing the storage node client connection",
+						zap.Stringer("node_id", node.Id),
+						zap.Stringer("node_info", node),
+						zap.Error(err),
+					)
+				}
+			}()
 
 			for _, pieceID := range nodePieces {
 				err := client.DeletePiece(ctx, pieceID)
@@ -2362,11 +2453,47 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 						zap.Stringer("piece_id", pieceID),
 						zap.Error(err),
 					)
+
+					successThreshold.Failure()
+					continue
 				}
+
+				successThreshold.Success()
 			}
 		})
 	}
 
+	successThreshold.Wait(ctx)
+	// return to the client after the success threshold but wait some time before
+	// canceling the remaining deletes
+	timer := time.AfterFunc(200*time.Millisecond, cancel)
+	defer timer.Stop()
+
 	limiter.Wait()
 	return nil
+}
+
+// deletePointer deletes a pointer returning the deleted pointer.
+//
+// If the pointer isn't found when getting or deleting it, it returns
+// storj.ErrObjectNotFound error.
+func (endpoint *Endpoint) deletePointer(
+	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
+) (_ *pb.Pointer, err error) {
+	defer mon.Task()(&ctx, projectID, segmentIndex, bucket, encryptedPath)(&err)
+
+	pointer, path, err := endpoint.getPointer(ctx, projectID, segmentIndex, bucket, encryptedPath)
+	if err != nil {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
+			return nil, storj.ErrObjectNotFound.New("%s", err.Error())
+		}
+		return nil, err
+	}
+
+	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return pointer, nil
 }

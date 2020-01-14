@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -22,7 +23,7 @@ var (
 )
 
 // CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables() error {
+func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
@@ -36,7 +37,7 @@ func (db *satelliteDB) CreateTables() error {
 		}
 
 		if schema != "" {
-			err = pgutil.CreateSchema(db, schema)
+			err = pgutil.CreateSchema(ctx, db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
@@ -61,7 +62,7 @@ func (db *satelliteDB) CreateTables() error {
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
-		dbVersion, err := migration.CurrentVersion(db.log, db.DB)
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
 		}
@@ -71,18 +72,18 @@ func (db *satelliteDB) CreateTables() error {
 			)
 		}
 
-		return migration.Run(db.log.Named("migrate"))
+		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
-		return migrate.Create("database", db.DB)
+		return migrate.Create(ctx, "database", db.DB)
 	}
 }
 
 // CheckVersion confirms the database is at the desired version
-func (db *satelliteDB) CheckVersion() error {
+func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
-		return migration.ValidateVersions(db.log)
+		return migration.ValidateVersions(ctx, db.log)
 
 	default:
 		return nil
@@ -534,6 +535,64 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     72,
 				Action: migrate.SQL{
 					`ALTER TABLE user_credits ADD UNIQUE (id, offer_id);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add node downtime tracking table",
+				Version:     73,
+				Action: migrate.SQL{
+					`CREATE TABLE nodes_offline_times (
+						node_id bytea NOT NULL,
+						tracked_at timestamp with time zone NOT NULL,
+						seconds integer NOT NULL,
+						PRIMARY KEY ( node_id, tracked_at )
+					);`,
+					`CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Drop storagenode_bandwidth_rollups allocated not null constraint",
+				Version:     74,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated DROP NOT NULL;`,
+					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated SET DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Drop coupon related tables",
+				Version:     75,
+				Action: migrate.SQL{
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupons;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Update coupon related tables",
+				Version:     76,
+				Action: migrate.SQL{
+					`CREATE TABLE coupons (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						status integer NOT NULL,
+						duration bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE TABLE coupon_usages (
+						coupon_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						status integer NOT NULL,
+						period timestamp with time zone NOT NULL,
+						PRIMARY KEY ( coupon_id, period )
+					);`,
 				},
 			},
 		},

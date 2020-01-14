@@ -4,6 +4,7 @@
 package testdata
 
 import (
+	"context"
 	"fmt"
 
 	"storj.io/storj/private/dbutil/dbschema"
@@ -103,10 +104,10 @@ type DBSnapshot struct {
 
 // LoadMultiDBSnapshot converts a MultiDBState into a MultiDBSnapshot. It
 // executes the SQL and stores the shema and data.
-func LoadMultiDBSnapshot(multiDBState *MultiDBState) (*MultiDBSnapshot, error) {
+func LoadMultiDBSnapshot(ctx context.Context, multiDBState *MultiDBState) (*MultiDBSnapshot, error) {
 	multiDBSnapshot := NewMultiDBSnapshot()
 	for dbName, dbState := range multiDBState.DBStates {
-		snapshot, err := sqliteutil.LoadSnapshotFromSQL(fmt.Sprintf("%s\n%s", dbState.SQL, dbState.NewData))
+		snapshot, err := sqliteutil.LoadSnapshotFromSQL(ctx, fmt.Sprintf("%s\n%s", dbState.SQL, dbState.NewData))
 		if err != nil {
 			return nil, err
 		}

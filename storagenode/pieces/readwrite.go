@@ -12,9 +12,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )

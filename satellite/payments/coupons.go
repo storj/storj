@@ -13,15 +13,36 @@ import (
 // Coupon is attached to the project.
 // At the end of the period, the entire remaining coupon amount will be returned from the account balance.
 type Coupon struct {
-	ID          uuid.UUID     `json:"id"`
-	UserID      uuid.UUID     `json:"userId"`
-	ProjectID   uuid.UUID     `json:"projectId"`
-	Amount      int64         `json:"amount"`   // Amount is stored in cents.
-	Duration    time.Duration `json:"duration"` // Duration is stored in days.
-	Description string        `json:"description"`
-	Status      CouponStatus  `json:"status"`
-	Created     time.Time     `json:"created"`
+	ID          uuid.UUID    `json:"id"`
+	UserID      uuid.UUID    `json:"userId"`
+	ProjectID   uuid.UUID    `json:"projectId"`
+	Amount      int64        `json:"amount"`   // Amount is stored in cents.
+	Duration    int          `json:"duration"` // Duration is stored in number ob billing periods.
+	Description string       `json:"description"`
+	Type        CouponType   `json:"type"`
+	Status      CouponStatus `json:"status"`
+	Created     time.Time    `json:"created"`
 }
+
+// IsExpired checks if coupon is not after its rollup period.
+func (coupon *Coupon) IsExpired() bool {
+	expirationDate := time.Date(coupon.Created.Year(), coupon.Created.Month(), 0, 0, 0, 0, 0, coupon.Created.Location())
+	expirationDate.AddDate(0, coupon.Duration, 0)
+
+	now := time.Now().UTC()
+	now = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, coupon.Created.Location())
+
+	return expirationDate.Before(now)
+}
+
+// CouponType indicates the type of the coupon.
+type CouponType int
+
+const (
+	// CouponTypePromotional defines that this coupon is a promotional coupon.
+	// Promotional coupon is added only once after adding payment method or 50$ with storj tokens.
+	CouponTypePromotional CouponType = 0
+)
 
 // CouponStatus indicates the state of the coupon.
 type CouponStatus int

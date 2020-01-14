@@ -13,6 +13,7 @@ trap cleanup EXIT
 BUCKET=bucket-123
 SRC_DIR=$TMPDIR/source
 DST_DIR=$TMPDIR/dst
+UPLINK_DIR=$TMPDIR/uplink
 
 mkdir -p "$SRC_DIR" "$DST_DIR"
 
@@ -29,27 +30,37 @@ random_bytes_file "9437184"    "$SRC_DIR/diff-size-segments"             # creat
 
 UPLINK_DEBUG_ADDR=""
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/diff-size-segments" "sj://$BUCKET/"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/diff-size-segments" "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/diff-size-segments" "$DST_DIR"
+uplink --config-dir "$UPLINK_DIR" import named-access $GATEWAY_0_ACCESS
+FILES=$(uplink --config-dir "$UPLINK_DIR" --access named-access ls "sj://$BUCKET" | wc -l)
+EXPECTED_FILES="4"
+if [ "$FILES" == $EXPECTED_FILES ]
+then
+    echo "listing returns $FILES files"
+else
+    echo "listing returns $FILES files but want $EXPECTED_FILES"
+    exit 1
+fi
 
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
+uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/diff-size-segments" "$DST_DIR"
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/multisegment-upload-testfile"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/diff-size-segments"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/multisegment-upload-testfile"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/diff-size-segments"
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rb "sj://$BUCKET"
+uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rb "sj://$BUCKET"
 
 if cmp "$SRC_DIR/small-upload-testfile" "$DST_DIR/small-upload-testfile"
 then

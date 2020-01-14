@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"os"
 	"path/filepath"
 
@@ -53,6 +54,7 @@ type SQLDB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 
 	Conn(ctx context.Context) (*sql.Conn, error)
+	Driver() driver.Driver
 
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
@@ -286,7 +288,7 @@ func (db *DB) filepathFromDBName(dbName string) string {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables(ctx context.Context) error {
 	migration := db.Migration(ctx)
-	return migration.Run(db.log.Named("migration"))
+	return migration.Run(ctx, db.log.Named("migration"))
 }
 
 // Close closes any resources.
@@ -664,7 +666,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -689,7 +691,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -830,7 +832,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					_, err := db.deprecatedInfoDB.GetDB().Exec("VACUUM;")
 					return err
 				}),
@@ -839,7 +841,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -876,7 +878,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables

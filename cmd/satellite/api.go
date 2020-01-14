@@ -26,7 +26,9 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database)
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
+		APIKeysLRUOptions: runCfg.APIKeysLRUOptions(),
+	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite api: %+v", err)
 	}
@@ -72,7 +74,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
 	}
 
-	err = db.CheckVersion()
+	err = db.CheckVersion(ctx)
 	if err != nil {
 		zap.S().Fatal("failed satellite database version check: ", err)
 		return errs.New("Error checking version for satellitedb: %+v", err)

@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/satellites"
 )
 
@@ -57,6 +57,14 @@ func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID st
 		_, err = tx.ExecContext(ctx, query, satelliteID, intitiatedAt.UTC(), startingDiskUsage)
 		return err
 	}))
+}
+
+// CancelGracefulExit delete an entry by satellite ID
+func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, "DELETE FROM satellite_exit_progress WHERE satellite_id = ?", satelliteID)
+	return ErrSatellitesDB.Wrap(err)
 }
 
 // UpdateGracefulExit increments the total bytes deleted during a graceful exit

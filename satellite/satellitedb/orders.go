@@ -7,14 +7,17 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -135,35 +138,17 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 	return nil
 }
 
-// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// sort nodes to avoid update deadlock
-	sort.Sort(storj.NodeIDList(storageNodes))
-
-	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
-		INSERT INTO storagenode_bandwidth_rollups
-			(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
-	`), postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
-
-	return Error.Wrap(err)
-}
-
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
 func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
+		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -227,19 +212,15 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
 	})
 
-	tx, err := db.db.Begin()
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
-		}
-	}()
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		responses, err = db.processOrdersInTx(ctx, requests, storageNodeID, time.Now(), tx.Tx)
+		return err
+	})
+	return responses, errs.Wrap(err)
+}
 
-	now := time.Now().UTC()
+func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx *sql.Tx) (responses []*orders.ProcessOrderResponse, err error) {
+	now = now.UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	rejected := make(map[storj.SerialNumber]bool)
@@ -255,9 +236,11 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 		var serialNumberID int64
 		var bucketID []byte
-		if err := row.Scan(&serialNumberID, &bucketID); err != nil {
+		if err := row.Scan(&serialNumberID, &bucketID); err == sql.ErrNoRows {
 			rejected[request.OrderLimit.SerialNumber] = true
 			continue
+		} else if err != nil {
+			return nil, Error.Wrap(err)
 		}
 
 		var result sql.Result
@@ -308,12 +291,12 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		}
 
 		_, err := tx.Exec(db.db.Rebind(`
-			INSERT INTO storagenode_bandwidth_rollups 
-				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO storagenode_bandwidth_rollups
+				(storagenode_id, interval_start, interval_seconds, action, settled)
+			VALUES (?, ?, ?, ?, ?)
 			ON CONFLICT (storagenode_id, interval_start, action)
 			DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?
-		`), storageNodeID, intervalStart, defaultIntervalSeconds, action, 0, amount, amount)
+		`), storageNodeID, intervalStart, defaultIntervalSeconds, action, amount, amount)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -356,7 +339,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 		_, err = tx.Exec(db.db.Rebind(`
 			INSERT INTO bucket_bandwidth_rollups
-				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled) 
+				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (bucket_name, project_id, interval_start, action)
 			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?
@@ -380,4 +363,71 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		}
 	}
 	return responses, nil
+}
+
+func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []orders.BandwidthRollup) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(rollups) == 0 {
+		return nil
+	}
+
+	const stmtBegin = `
+		INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES
+	`
+	const stmtEnd = `
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
+		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated, inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline
+	`
+
+	intervalStart = intervalStart.UTC()
+	intervalStart = time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, time.UTC)
+
+	var lastProjectID uuid.UUID
+	var lastBucketName string
+	var projectIDArgNum int
+	var bucketNameArgNum int
+	var args []interface{}
+
+	var stmt strings.Builder
+	stmt.WriteString(stmtBegin)
+
+	args = append(args, intervalStart)
+	for i, rollup := range rollups {
+		if i > 0 {
+			stmt.WriteString(",")
+		}
+		if lastProjectID != rollup.ProjectID {
+			lastProjectID = rollup.ProjectID
+			// take the slice over rollup.ProjectID, because it is going to stay
+			// the same up to the ExecContext call, whereas lastProjectID is likely
+			// to be overwritten
+			args = append(args, rollup.ProjectID[:])
+			projectIDArgNum = len(args)
+		}
+		if lastBucketName != rollup.BucketName {
+			lastBucketName = rollup.BucketName
+			args = append(args, lastBucketName)
+			bucketNameArgNum = len(args)
+		}
+		args = append(args, rollup.Action, rollup.Inline, rollup.Allocated)
+
+		stmt.WriteString(fmt.Sprintf(
+			"($%d,$%d,$1,%d,$%d,$%d,$%d,0)",
+			bucketNameArgNum,
+			projectIDArgNum,
+			defaultIntervalSeconds,
+			len(args)-2,
+			len(args)-1,
+			len(args),
+		))
+	}
+	stmt.WriteString(stmtEnd)
+
+	_, err = db.db.ExecContext(ctx, stmt.String(), args...)
+	if err != nil {
+		db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+	}
+	return err
 }

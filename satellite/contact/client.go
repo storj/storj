@@ -6,9 +6,9 @@ package contact
 import (
 	"context"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 )
 
 type client struct {
@@ -16,8 +16,8 @@ type client struct {
 	client pb.DRPCContactClient
 }
 
-// newClient dials the target contact endpoint
-func newClient(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (*client, error) {
+// dialNode dials the target contact endpoint
+func dialNode(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (*client, error) {
 	conn, err := dialer.DialAddressID(ctx, address, id)
 	if err != nil {
 		return nil, err

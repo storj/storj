@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -44,15 +44,15 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	scope, err := cfg.GetScope()
+	access, err := cfg.GetAccess()
 	if err != nil {
 		return err
 	}
 
-	access := scope.EncryptionAccess
+	encAccess := access.EncryptionAccess
 	if *lsEncryptedFlag {
-		access = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
-		access.Store().EncryptionBypass = true
+		encAccess = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+		encAccess.Store().EncryptionBypass = true
 	}
 
 	// list objects
@@ -66,7 +66,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("no bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), encAccess)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func list(cmd *cobra.Command, args []string) error {
 			for _, bucket := range list.Items {
 				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 				if *lsRecursiveFlag {
-					if err := listFilesFromBucket(ctx, project, bucket.Name, access); err != nil {
+					if err := listFilesFromBucket(ctx, project, bucket.Name, encAccess); err != nil {
 						return err
 					}
 				}

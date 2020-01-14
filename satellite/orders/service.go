@@ -13,11 +13,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/uplink/eestream"
 )
 
 // ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
@@ -27,6 +27,8 @@ var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for downloa
 type Config struct {
 	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
 	SettlementBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
+	FlushBatchSize      int           `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
+	FlushInterval       time.Duration `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 }
 
 // Service for creating order limits.
@@ -88,22 +90,11 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	var action pb.PieceAction
 
 	var bucketAllocation int64
-	var nodesAllocation int64
-	nodes := make([]storj.NodeID, 0, len(addressedOrderLimits))
 
 	for _, addressedOrderLimit := range addressedOrderLimits {
 		if addressedOrderLimit != nil {
 			orderLimit := addressedOrderLimit.Limit
-
-			if nodesAllocation == 0 {
-				nodesAllocation = orderLimit.Limit
-			} else if nodesAllocation != orderLimit.Limit {
-				return Error.New("inconsistent allocations had %d got %d", nodesAllocation, orderLimit.Limit)
-			}
-
-			nodes = append(nodes, orderLimit.StorageNodeId)
 			action = orderLimit.Action
-
 			bucketAllocation += orderLimit.Limit
 		}
 	}
@@ -113,10 +104,6 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 
 	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, action, bucketAllocation, intervalStart); err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err := service.orders.UpdateStoragenodeBandwidthAllocation(ctx, nodes, action, nodesAllocation, intervalStart); err != nil {
 		return Error.Wrap(err)
 	}
 

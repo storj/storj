@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/private/testcontext"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -24,7 +24,7 @@ func TestCouponRepository(t *testing.T) {
 
 		couponsRepo := db.StripeCoinPayments().Coupons()
 		coupon := payments.Coupon{
-			Duration:    time.Hour * 24,
+			Duration:    2,
 			Amount:      10,
 			Status:      payments.CouponActive,
 			Description: "description",
@@ -70,7 +70,7 @@ func TestCouponRepository(t *testing.T) {
 			err := couponsRepo.AddUsage(ctx, stripecoinpayments.CouponUsage{
 				CouponID: coupon.ID,
 				Amount:   1,
-				End:      now,
+				Period:   now,
 			})
 			assert.NoError(t, err)
 			date, err := couponsRepo.GetLatest(ctx, coupon.ID)

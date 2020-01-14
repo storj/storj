@@ -11,16 +11,19 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/errs2"
+	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
-	"storj.io/storj/private/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/uplink"
 )
 
 func TestWorkerSuccess(t *testing.T) {
@@ -35,11 +38,12 @@ func TestWorkerSuccess(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -113,11 +117,12 @@ func TestWorkerTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     successThreshold,
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
 		}
 
 		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -179,5 +184,63 @@ func TestWorkerTimeout(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, exitStatus.ExitFinishedAt)
 		require.False(t, exitStatus.ExitSuccess)
+	})
+}
+
+func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
+	successThreshold := 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 5,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				// Set the required node age to 1 month.
+				config.GracefulExit.NodeMinAgeInMonths = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		rs := &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(successThreshold),
+		}
+
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		spaceUsed, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), spaceUsed)
+		require.NoError(t, err)
+
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				MinBytesPerSecond:      128,
+				MinDownloadTimeout:     2 * time.Minute,
+			})
+		defer ctx.Check(worker.Close)
+
+		err = worker.Run(ctx, func() {})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+
+		result, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
+		require.NoError(t, err)
+		require.Len(t, result, 0)
 	})
 }

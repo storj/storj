@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/admission/admproto"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
 )
 
 // Parser is a PacketDest that sends data to a MetricDest

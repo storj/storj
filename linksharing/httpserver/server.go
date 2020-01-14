@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/errs2"
+	"storj.io/common/errs2"
 )
 
 const (

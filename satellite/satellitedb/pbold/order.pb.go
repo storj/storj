@@ -11,7 +11,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/duration"
 
-	pb "storj.io/storj/pkg/pb"
+	pb "storj.io/common/pb"
 )
 
 //OrderLimit aliases PayerBandwidthAllocation

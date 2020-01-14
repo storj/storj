@@ -10,13 +10,13 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink"
 )
 
 func TestEndpoint_DeleteObjectPieces(t *testing.T) {
@@ -56,11 +56,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,
@@ -71,14 +71,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-					ctx, *projectID, []byte(bucketName), encryptedPath,
-				)
-				require.NoError(t, err)
-
-				// Check that storage nodes don't hold any data after the satellite
-				// delete the pieces
+				// calculate the SNs total used space after data upload
 				var totalUsedSpace int64
 				for _, sn := range planet.StorageNodes {
 					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
@@ -86,13 +79,31 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					totalUsedSpace += usedSpace
 				}
 
-				require.Zero(t, totalUsedSpace, "totalUsedSpace")
+				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
+				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					ctx, *projectID, []byte(bucketName), encryptedPath,
+				)
+				require.NoError(t, err)
+
+				// calculate the SNs used space after delete the pieces
+				var totalUsedSpaceAfterDelete int64
+				for _, sn := range planet.StorageNodes {
+					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+					require.NoError(t, err)
+					totalUsedSpaceAfterDelete += usedSpace
+				}
+
+				// At this point we can only guarantee that the 75% of the SNs pieces
+				// are delete due to the success threshold
+				deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
+				if deletedUsedSpace < 0.75 {
+					t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+				}
 			})
 		}
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
-		t.Skip("TODO: v3-3364")
 		t.Parallel()
 
 		var testCases = []struct {
@@ -100,7 +111,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			objData         []byte
 		}{
 			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
 			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
@@ -128,11 +138,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,
@@ -177,7 +187,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	})
 
 	t.Run("all nodes down", func(t *testing.T) {
-		t.Skip("TODO: v3-3364")
 		t.Parallel()
 
 		var testCases = []struct {
@@ -185,7 +194,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			objData         []byte
 		}{
 			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
 			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
@@ -213,11 +221,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
 				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, uplink.Config{
-					Client: uplink.ClientConfig{
+				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+					Client: cmd.ClientConfig{
 						SegmentSize: 10 * memory.KiB,
 					},
-					RS: uplink.RSConfig{
+					RS: cmd.RSConfig{
 						MinThreshold:     2,
 						RepairThreshold:  2,
 						SuccessThreshold: 4,

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv/schema"
 )
@@ -34,6 +35,8 @@ type Client struct {
 
 // New instantiates a new cockroachkv client given db URL
 func New(dbURL string) (*Client, error) {
+	dbURL = pgutil.CheckApplicationName(dbURL)
+
 	db, err := sql.Open("cockroach", dbURL)
 	if err != nil {
 		return nil, err
@@ -41,7 +44,8 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(db, mon)
 
-	err = schema.PrepareDB(db)
+	// TODO: new shouldn't be taking ctx as argument
+	err = schema.PrepareDB(context.TODO(), db)
 	if err != nil {
 		return nil, err
 	}

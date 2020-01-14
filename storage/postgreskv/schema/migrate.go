@@ -7,6 +7,7 @@
 package schema
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -19,7 +20,7 @@ import (
 
 // PrepareDB applies schema migrations as necessary to the given database to
 // get it up to date.
-func PrepareDB(db *sql.DB, dbURL string) error {
+func PrepareDB(ctx context.Context, db *sql.DB, dbURL string) error {
 	srcDriver, err := bindata.WithInstance(bindata.Resource(AssetNames(), Asset))
 	if err != nil {
 		return err
@@ -30,7 +31,7 @@ func PrepareDB(db *sql.DB, dbURL string) error {
 		return errs.New("error parsing schema: %+v", err)
 	}
 	if schema != "" {
-		err := pgutil.CreateSchema(db, schema)
+		err := pgutil.CreateSchema(ctx, db, schema)
 		if err != nil {
 			return errs.New("error creating schema: %+v", err)
 		}

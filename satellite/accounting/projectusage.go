@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/private/memory"
+	"storj.io/common/memory"
 )
 
 var mon = monkit.Package()
@@ -171,6 +171,13 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 	}
 
 	return limit, nil
+}
+
+// UpdateProjectLimits sets new value for project's bandwidth and storage limit.
+func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	return ErrProjectUsage.Wrap(usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit))
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

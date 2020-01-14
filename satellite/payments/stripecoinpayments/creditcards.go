@@ -8,6 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments"
 )
@@ -126,6 +127,21 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 // Remove is used to remove credit card from payment account.
 func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
+
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return payments.ErrAccountNotSetup.Wrap(err)
+	}
+
+	customer, err := creditCards.service.stripeClient.Customers.Get(customerID, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if customer.InvoiceSettings != nil &&
+		customer.InvoiceSettings.DefaultPaymentMethod != nil &&
+		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID {
+		return Error.Wrap(errs.New("can not detach default payment method."))
+	}
 
 	_, err = creditCards.service.stripeClient.PaymentMethods.Detach(cardID, nil)
 

@@ -16,8 +16,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -33,7 +33,7 @@ var headers = []string{
 // GenerateAttributionCSV creates a report with
 func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
 	log := zap.L().Named("db")
-	db, err := satellitedb.New(log, database)
+	db, err := satellitedb.New(log, database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}

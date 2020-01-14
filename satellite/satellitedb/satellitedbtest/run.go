@@ -6,6 +6,7 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"storj.io/common/testcontext"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
@@ -93,7 +95,7 @@ func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 }
 
 // CreateMasterDB creates a new satellite database for testing
-func CreateMasterDB(t testing.TB, category string, index int, dbInfo Database) (db satellite.DB, err error) {
+func CreateMasterDB(ctx context.Context, t testing.TB, category string, index int, dbInfo Database) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
 		t.Fatalf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -104,7 +106,7 @@ func CreateMasterDB(t testing.TB, category string, index int, dbInfo Database) (
 	log := zaptest.NewLogger(t)
 	schema := SchemaName(t.Name(), category, index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(dbInfo.URL, schema)
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +117,7 @@ func CreateMasterDB(t testing.TB, category string, index int, dbInfo Database) (
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreateMasterDBOnTopOf(log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr)
+	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
@@ -131,7 +133,7 @@ func (db *tempPointerDB) Close() error {
 }
 
 // CreatePointerDB creates a new satellite pointer database for testing
-func CreatePointerDB(t testing.TB, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
+func CreatePointerDB(ctx context.Context, t testing.TB, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
 	if dbInfo.URL == "" {
 		t.Fatalf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -142,17 +144,17 @@ func CreatePointerDB(t testing.TB, category string, index int, dbInfo Database) 
 	log := zaptest.NewLogger(t)
 	schema := SchemaName(t.Name(), category, index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(dbInfo.URL, schema)
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}
 
-	return CreatePointerDBOnTopOf(log.Named("pointerdb"), tempDB)
+	return CreatePointerDBOnTopOf(ctx, log.Named("pointerdb"), tempDB)
 }
 
 // CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
-func CreatePointerDBOnTopOf(log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
+func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), tempDB.ConnStr)
 	return &tempPointerDB{PointerDB: pointerDB, tempDB: tempDB}, err
 }
@@ -165,7 +167,14 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
 			t.Parallel()
 
-			db, err := CreateMasterDB(t, "T", 0, dbInfo.MasterDB)
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			if dbInfo.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
+			}
+
+			db, err := CreateMasterDB(ctx, t, "T", 0, dbInfo.MasterDB)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -176,11 +185,12 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables()
+			err = db.CreateTables(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
 
+			// TODO: pass the ctx down
 			test(t, db)
 		})
 	}
@@ -196,7 +206,10 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			db, err := CreateMasterDB(b, "X", 0, dbInfo.MasterDB)
+			ctx := testcontext.New(b)
+			defer ctx.Cleanup()
+
+			db, err := CreateMasterDB(ctx, b, "X", 0, dbInfo.MasterDB)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -207,11 +220,12 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables()
+			err = db.CreateTables(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}
 
+			// TODO: pass the ctx down
 			bench(b, db)
 		})
 	}

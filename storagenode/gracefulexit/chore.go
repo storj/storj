@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/rpc"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -91,6 +91,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satelliteID))
 					chore.exitingMap.Delete(satelliteID)
 				})
+
 				if err != nil {
 					chore.log.Error("worker failed", zap.Error(err))
 				}

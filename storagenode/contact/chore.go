@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -58,8 +58,6 @@ func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer
 // Run the contact chore on a regular interval with jitter
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Info("Storagenode contact chore starting up")
-
 	var group errgroup.Group
 
 	if !chore.service.initialized.Wait(ctx) {

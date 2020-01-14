@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/fpath"
+	"storj.io/common/fpath"
 )
 
 // UplinkError is class for minio errors

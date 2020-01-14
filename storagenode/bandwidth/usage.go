@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 )
 
 // DB contains information about bandwidth usage.

@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -70,7 +70,6 @@ func TestNodeSelection(t *testing.T) {
 					IsUp:         true,
 					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-					UptimeLambda: 1, UptimeWeight: 1, UptimeDQ: 0.5,
 				})
 				require.NoError(t, err)
 			}
@@ -96,7 +95,6 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 					IsUp:         true,
 					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-					UptimeLambda: 1, UptimeWeight: 1, UptimeDQ: 0.5,
 				}}, 1)
 				require.NoError(t, err)
 			}
@@ -219,7 +217,6 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 					IsUp:         true,
 					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-					UptimeLambda: 1, UptimeWeight: 1, UptimeDQ: 0.5,
 				})
 				require.NoError(t, err)
 			}
@@ -379,9 +376,6 @@ func TestDistinctIPs(t *testing.T) {
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-				UptimeLambda: 1,
-				UptimeWeight: 1,
-				UptimeDQ:     0.5,
 			})
 			assert.NoError(t, err)
 		}
@@ -410,9 +404,6 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-				UptimeLambda: 1,
-				UptimeWeight: 1,
-				UptimeDQ:     0.5,
 			}}, 1)
 			assert.NoError(t, err)
 		}

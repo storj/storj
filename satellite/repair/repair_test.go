@@ -13,17 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/testcontext"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 // TestDataRepair does the following:
@@ -63,11 +62,12 @@ func TestDataRepair(t *testing.T) {
 			minThreshold     = 3
 			successThreshold = 7
 		)
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     minThreshold,
-			RepairThreshold:  5,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: int16(minThreshold),
+			RepairShares:   5,
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -115,7 +115,8 @@ func TestDataRepair(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				disqualifyNode(t, ctx, satellite, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				require.NoError(t, err)
 				continue
 			}
 			if nodesToKill[node.ID()] {
@@ -188,11 +189,12 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -304,11 +306,12 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -416,11 +419,12 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -442,7 +446,9 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			disqualifyNode(t, ctx, satellite, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			require.NoError(t, err)
+
 		}
 
 		// trigger checker to add segment to repair queue
@@ -496,11 +502,12 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -522,7 +529,8 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			disqualifyNode(t, ctx, satellite, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			require.NoError(t, err)
 		}
 
 		// trigger checker to add segment to repair queue
@@ -533,7 +541,9 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		// Kill nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
 		for _, piece := range remotePieces {
-			disqualifyNode(t, ctx, satellite, piece.NodeId)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.NodeId)
+			require.NoError(t, err)
+
 		}
 
 		// Verify that the segment is on the repair queue
@@ -576,11 +586,12 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   5,
+			OptimalShares:  7,
+			TotalShares:    7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -624,7 +635,9 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				disqualifyNode(t, ctx, satellite, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				require.NoError(t, err)
+
 			}
 		}
 
@@ -686,11 +699,12 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  4,
-			SuccessThreshold: 9,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   4,
+			OptimalShares:  9,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -771,11 +785,12 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  6,
-			SuccessThreshold: 9,
-			MaxThreshold:     9,
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   6,
+			OptimalShares:  9,
+			TotalShares:    9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -897,11 +912,12 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			testData = testrand.Bytes(8 * memory.KiB)
 		)
 
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
-			RepairThreshold:  repairThreshold,
-			SuccessThreshold: successThreshold,
-			MaxThreshold:     maxThreshold,
+		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 3,
+			RepairShares:   int16(repairThreshold),
+			OptimalShares:  int16(successThreshold),
+			TotalShares:    int16(maxThreshold),
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -976,29 +992,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			require.NotContains(t, killedNodes, p.NodeId, "there shouldn't be pieces in killed nodes")
 		}
 	})
-}
-
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
-	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
-	require.NoError(t, err)
-
-	return node.Disqualified != nil
-}
-
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-		NodeID:       nodeID,
-		IsUp:         true,
-		AuditSuccess: false,
-		AuditLambda:  0,
-		AuditWeight:  1,
-		AuditDQ:      0.5,
-		UptimeLambda: 1,
-		UptimeWeight: 1,
-		UptimeDQ:     0.5,
-	})
-	require.NoError(t, err)
-	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
 
 // getRemoteSegment returns a remote pointer its path from satellite.

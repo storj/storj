@@ -12,9 +12,11 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-// Custom button component with label
+/**
+ * Custom button component with label.
+ */
 @Component
 export default class VButton extends Vue {
     @Prop({default: 'Default'})
@@ -36,6 +38,7 @@ export default class VButton extends Vue {
         return { width: this.width, height: this.height };
     }
 
+    @Watch('isDisabled')
     public get containerClassName(): string {
         if (this.isDisabled) return 'container disabled';
 
@@ -112,6 +115,10 @@ export default class VButton extends Vue {
 
                 .label {
                     color: #acb0bc !important;
+                }
+
+                &:hover {
+                    cursor: default;
                 }
             }
         }

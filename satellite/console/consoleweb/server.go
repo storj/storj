@@ -306,8 +306,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0)
-	before := time.Unix(beforeStamp, 0)
+	since := time.Unix(sinceStamp, 0).UTC()
+	before := time.Unix(beforeStamp, 0).UTC()
 
 	server.log.Debug("querying bucket usage report",
 		zap.Stringer("projectID", projectID),
@@ -401,6 +401,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var data struct {
+		SatelliteName string
+	}
+
+	data.SatelliteName = server.config.SatelliteName
+
 	switch r.Method {
 	case http.MethodPost:
 		err := r.ParseForm()
@@ -422,12 +428,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if err := server.templates.success.Execute(w, nil); err != nil {
+		if err := server.templates.success.Execute(w, data); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
 	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+		if err := server.templates.resetPassword.Execute(w, data); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
@@ -468,7 +474,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 
 		jsonError.Error = err.Error()
 
-		if err := json.NewEncoder(w).Encode(err); err != nil {
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
 			server.log.Error("error encoding project usage limits error", zap.Error(err))
 		}
 	}

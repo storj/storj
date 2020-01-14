@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/ranger"
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -83,14 +83,14 @@ func (handler *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err e
 		return err
 	}
 
-	scope, bucket, unencPath, err := parseRequestPath(r.URL.Path)
+	access, bucket, unencPath, err := parseRequestPath(r.URL.Path)
 	if err != nil {
 		err = fmt.Errorf("invalid request: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
 	}
 
-	p, err := handler.uplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	p, err := handler.uplink.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
 	if err != nil {
 		handler.handleUplinkErr(w, "open project", err)
 		return err
@@ -101,7 +101,7 @@ func (handler *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err e
 		}
 	}()
 
-	b, err := p.OpenBucket(ctx, bucket, scope.EncryptionAccess)
+	b, err := p.OpenBucket(ctx, bucket, access.EncryptionAccess)
 	if err != nil {
 		handler.handleUplinkErr(w, "open bucket", err)
 		return err
@@ -154,7 +154,7 @@ func parseRequestPath(p string) (*uplink.Scope, string, string, error) {
 	switch len(segments) {
 	case 1:
 		if segments[0] == "" {
-			return nil, "", "", errs.New("missing scope")
+			return nil, "", "", errs.New("missing access")
 		}
 		return nil, "", "", errs.New("missing bucket")
 	case 2:
@@ -164,11 +164,11 @@ func parseRequestPath(p string) (*uplink.Scope, string, string, error) {
 	bucket := segments[1]
 	unencPath := segments[2]
 
-	scope, err := uplink.ParseScope(scopeb58)
+	access, err := uplink.ParseScope(scopeb58)
 	if err != nil {
 		return nil, "", "", err
 	}
-	return scope, bucket, unencPath, nil
+	return access, bucket, unencPath, nil
 }
 
 type objectRanger struct {

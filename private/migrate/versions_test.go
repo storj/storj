@@ -4,6 +4,7 @@
 package migrate_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -16,10 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/testcontext"
+
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {
@@ -27,7 +29,9 @@ func TestBasicMigrationSqliteNoRebind(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, db)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	basicMigration(ctx, t, db, db)
 }
 
 func TestBasicMigrationSqlite(t *testing.T) {
@@ -35,37 +39,40 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db, &sqliteDB{DB: db})
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	basicMigration(ctx, t, db, &sqliteDB{DB: db})
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
-	testBasicMigrationGeneric(t, *pgtest.ConnStr)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	testBasicMigrationGeneric(ctx, t, *pgtest.ConnStr)
 }
 
 func TestBasicMigrationCockroach(t *testing.T) {
 	if *pgtest.CrdbConnStr == "" {
 		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
 	}
-	testBasicMigrationGeneric(t, *pgtest.CrdbConnStr)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	testBasicMigrationGeneric(ctx, t, *pgtest.CrdbConnStr)
 }
 
-func testBasicMigrationGeneric(t *testing.T, connStr string) {
-	db, err := tempdb.OpenUnique(connStr, "create-")
+func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
+	db, err := tempdb.OpenUnique(ctx, connStr, "create-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	basicMigration(t, db.DB, &postgresDB{DB: db.DB})
+	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
 }
 
-func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
+func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB migrate.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
 
@@ -87,21 +94,21 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Move files",
 				Version:     2,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
 			},
 		},
 	}
 
-	dbVersion, err := m.CurrentVersion(nil, testDB)
+	dbVersion, err := m.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, -1)
 
-	err = m.Run(zap.NewNop())
+	err = m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 
-	dbVersion, err = m.CurrentVersion(nil, testDB)
+	dbVersion, err = m.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
@@ -114,7 +121,7 @@ func basicMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 			},
 		},
 	}
-	dbVersion, err = m2.CurrentVersion(nil, testDB)
+	dbVersion, err = m2.CurrentVersion(ctx, nil, testDB)
 	assert.NoError(t, err)
 	assert.Equal(t, dbVersion, 2)
 
@@ -175,7 +182,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -184,7 +191,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 2",
 				Version:     2,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -192,7 +199,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		},
 	}
 
-	err := m.Run(zap.NewNop())
+	err := m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 	assert.Equal(t, 2, steps)
 
@@ -200,12 +207,12 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		DB:          testDB,
 		Description: "Step 3",
 		Version:     3,
-		Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 			steps++
 			return nil
 		}),
 	})
-	err = m.Run(zap.NewNop())
+	err = m.Run(ctx, zap.NewNop())
 	assert.NoError(t, err)
 
 	var version int
@@ -250,14 +257,14 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					return fmt.Errorf("migration failed")
 				}),
 			},
 		},
 	}
 
-	err := m.Run(zap.NewNop())
+	err := m.Run(ctx, zap.NewNop())
 	require.Error(t, err, "migration failed")
 
 	var version sql.NullInt64

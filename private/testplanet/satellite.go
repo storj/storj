@@ -16,18 +16,18 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/common/errs2"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/peertls/extensions"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/errs2"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -96,8 +97,10 @@ type SatelliteSystem struct {
 	}
 
 	Orders struct {
+		DB       orders.DB
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
+		Chore    *orders.Chore
 	}
 
 	Repair struct {
@@ -161,6 +164,12 @@ type SatelliteSystem struct {
 
 	Metrics struct {
 		Chore *metrics.Chore
+	}
+
+	DowntimeTracking struct {
+		DetectionChore  *downtime.DetectionChore
+		EstimationChore *downtime.EstimationChore
+		Service         *downtime.Service
 	}
 }
 
@@ -237,7 +246,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				connStr = *pgtest.CrdbConnStr
 			}
 			var tempDB *dbutil.TempDatabase
-			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
+			tempDB, err = tempdb.OpenUnique(context.TODO(), connStr, fmt.Sprintf("%s.%d", planet.id, i))
 			if err != nil {
 				return nil, err
 			}
@@ -281,20 +290,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
 
-					AuditReputationRepairWeight:  1,
-					AuditReputationUplinkWeight:  1,
-					AuditReputationAlpha0:        1,
-					AuditReputationBeta0:         0,
-					AuditReputationLambda:        0.95,
-					AuditReputationWeight:        1,
-					AuditReputationDQ:            0.6,
-					UptimeReputationRepairWeight: 1,
-					UptimeReputationUplinkWeight: 1,
-					UptimeReputationAlpha0:       2,
-					UptimeReputationBeta0:        0,
-					UptimeReputationLambda:       0.99,
-					UptimeReputationWeight:       1,
-					UptimeReputationDQ:           0.6,
+					AuditReputationRepairWeight: 1,
+					AuditReputationUplinkWeight: 1,
+					AuditReputationAlpha0:       1,
+					AuditReputationBeta0:        0,
+					AuditReputationLambda:       0.95,
+					AuditReputationWeight:       1,
+					AuditReputationDQ:           0.6,
 				},
 				UpdateStatsBatchSize: 100,
 			},
@@ -320,7 +322,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				},
 			},
 			Orders: orders.Config{
-				Expiration: 7 * 24 * time.Hour,
+				Expiration:          7 * 24 * time.Hour,
+				SettlementBatchSize: 10,
+				FlushBatchSize:      10,
+				FlushInterval:       defaultInterval,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
@@ -392,9 +397,15 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				OverallMaxFailuresPercentage: 10,
 				RecvTimeout:                  time.Minute * 1,
 				MaxOrderLimitSendCount:       3,
+				NodeMinAgeInMonths:           0,
 			},
 			Metrics: metrics.Config{
 				ChoreInterval: defaultInterval,
+			},
+			Downtime: downtime.Config{
+				DetectionInterval:   defaultInterval,
+				EstimationInterval:  defaultInterval,
+				EstimationBatchSize: 0,
 			},
 		}
 
@@ -417,19 +428,19 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		planet.databases = append(planet.databases, revocationDB)
 
-		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
 
-		planet.databases = append(planet.databases, liveAccountingCache)
+		planet.databases = append(planet.databases, liveAccounting)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccountingCache, versionInfo, &config)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
 
-		err = db.CreateTables()
+		err = db.CreateTables(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -484,8 +495,10 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
+	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
 	system.Orders.Service = peer.Orders.Service
+	system.Orders.Chore = api.Orders.Chore
 
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
@@ -512,6 +525,10 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	system.Metrics.Chore = peer.Metrics.Chore
+
+	system.DowntimeTracking.DetectionChore = peer.DowntimeTracking.DetectionChore
+	system.DowntimeTracking.EstimationChore = peer.DowntimeTracking.EstimationChore
+	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system
 }

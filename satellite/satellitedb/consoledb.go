@@ -5,9 +5,11 @@ package satellitedb
 
 import (
 	"context"
+	"sync"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/cache"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -17,10 +19,15 @@ var _ console.DB = (*ConsoleDB)(nil)
 
 // ConsoleDB contains access to different satellite databases.
 type ConsoleDB struct {
+	apikeysLRUOptions cache.Options
+
 	db *satelliteDB
 	tx *dbx.Tx
 
 	methods dbx.Methods
+
+	apikeysOnce *sync.Once
+	apikeys     *apikeys
 }
 
 // Users is getter a for Users repository.
@@ -40,7 +47,15 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 
 // APIKeys is a getter for APIKeys repository.
 func (db *ConsoleDB) APIKeys() console.APIKeys {
-	return &apikeys{db.methods, db.db}
+	db.apikeysOnce.Do(func() {
+		db.apikeys = &apikeys{
+			methods: db.methods,
+			lru:     cache.New(db.apikeysLRUOptions),
+			db:      db.db,
+		}
+	})
+
+	return db.apikeys
 }
 
 // RegistrationTokens is a getter for RegistrationTokens repository.
@@ -58,25 +73,28 @@ func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
 }
 
-// BeginTx is a method for opening transaction.
-func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
+// WithTx is a method for executing and retrying transaction.
+func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {
-		return nil, errs.New("DB is not initialized!")
+		return errs.New("DB is not initialized!")
 	}
 
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		dbTx := &DBTx{
+			ConsoleDB: &ConsoleDB{
+				apikeysLRUOptions: db.apikeysLRUOptions,
 
-	return &DBTx{
-		ConsoleDB: &ConsoleDB{
-			// Need to expose dbx.DB for when database methods need access to check database driver type
-			db:      db.db,
-			tx:      tx,
-			methods: tx,
-		},
-	}, nil
+				// Need to expose dbx.DB for when database methods need access to check database driver type
+				db:      db.db,
+				tx:      tx,
+				methods: tx,
+
+				apikeysOnce: db.apikeysOnce,
+				apikeys:     db.apikeys,
+			},
+		}
+		return fn(ctx, dbTx)
+	})
 }
 
 // DBTx extends Database with transaction scope.

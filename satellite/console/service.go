@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"sort"
 	"time"
 
@@ -15,8 +16,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/macaroon"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
@@ -148,10 +149,10 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+	return Error.Wrap(payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
@@ -213,7 +214,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 
 	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	// TODO: add transactions, etc in future
@@ -232,21 +233,56 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 
 	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	for _, info := range txsInfos {
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          info.ID.String(),
+			Description: "STORJ Token Deposit",
+			Amount:      info.AmountCents,
+			Received:    info.ReceivedCents,
+			Status:      info.Status.String(),
+			Link:        info.Link,
+			Start:       info.CreatedAt,
+			End:         info.ExpiresAt,
+			Type:        Transaction,
+		})
+	}
+
+	charges, err := payments.service.accounts.Charges(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, charge := range charges {
+		desc := fmt.Sprintf("Payment(%s %s)", charge.CardInfo.Brand, charge.CardInfo.LastFour)
+
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			ID:          charge.ID,
+			Description: desc,
+			Amount:      charge.Amount,
+			Start:       charge.CreatedAt,
+			Type:        Charge,
+		})
+	}
+
+	coupons, err := payments.service.accounts.Coupons(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, coupon := range coupons {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID:          info.ID.String(),
-				Description: "STORJ Token Deposit",
-				Amount:      info.AmountCents,
-				Received:    info.ReceivedCents,
-				Status:      info.Status.String(),
-				Link:        info.Link,
-				Start:       info.CreatedAt,
-				End:         info.ExpiresAt,
-				Type:        Transaction,
+				ID: coupon.ID.String(),
+				// TODO: update description in future, when there will be more coupon types.
+				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", coupon.Duration),
+				Amount:      coupon.Amount,
+				Status:      "Added to balance",
+				Link:        "",
+				Start:       coupon.Created,
+				Type:        Coupon,
 			},
 		)
 	}
@@ -333,12 +369,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// store data
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		userID, err := uuid.New()
 		if err != nil {
 			return Error.Wrap(err)
@@ -764,12 +795,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	err = withTx(tx, func(tx DBTx) error {
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description: projectInfo.Description,
@@ -879,26 +905,16 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	}
 
 	// add project members in transaction scope
-	tx, err := s.store.BeginTx(ctx)
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, user := range users {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, projectID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	for _, user := range users {
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, projectID)
-
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 	}
 
 	return users, nil
@@ -941,29 +957,17 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	}
 
 	// delete project members in transaction scope
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, uID := range userIDs {
+			err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
-
-		err = tx.Commit()
-	}()
-
-	for _, uID := range userIDs {
-		err = tx.ProjectMembers().Delete(ctx, uID, projectID)
-
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
+		return nil
+	})
+	return Error.Wrap(err)
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
@@ -1089,28 +1093,17 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		return Error.Wrap(err)
 	}
 
-	tx, err := s.store.BeginTx(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, keyToDeleteID := range ids {
+			err = tx.APIKeys().Delete(ctx, keyToDeleteID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 
-		err = tx.Commit()
-	}()
-
-	for _, keyToDeleteID := range ids {
-		err = tx.APIKeys().Delete(ctx, keyToDeleteID)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
+		return nil
+	})
+	return Error.Wrap(err)
 }
 
 // GetAPIKeys returns paged api key list for given Project
@@ -1401,19 +1394,4 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
-}
-
-// withTx is a helper function for executing db operations
-// in transaction scope
-func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
 }

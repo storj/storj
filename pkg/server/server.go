@@ -14,11 +14,11 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/drpc/drpcserver"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/listenmux"
-	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/rpc"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -79,7 +79,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, err
 	}
 	server.public = public{
-		listener: publicListener,
+		listener: wrapListener(publicListener),
 		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
@@ -93,7 +93,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	server.private = private{
-		listener: privateListener,
+		listener: wrapListener(privateListener),
 		drpc:     drpcserver.NewWithOptions(serverOptions),
 		grpc:     grpc.NewServer(),
 	}

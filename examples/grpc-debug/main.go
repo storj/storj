@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
+	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
 var (

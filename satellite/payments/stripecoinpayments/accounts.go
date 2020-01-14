@@ -10,8 +10,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -71,17 +71,39 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	}
 
 	// add all active coupons amount to balance.
-	coupons, err := accounts.service.db.Coupons().ListByUserID(ctx, userID)
+	coupons, err := accounts.service.db.Coupons().ListByUserIDAndStatus(ctx, userID, payments.CouponActive)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	var couponAmount int64 = 0
+	var couponsAmount int64 = 0
 	for _, coupon := range coupons {
-		couponAmount += coupon.Amount
+		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		couponsAmount += coupon.Amount - alreadyUsed
 	}
 
-	return c.Balance + couponAmount, nil
+	return -c.Balance + couponsAmount, nil
+}
+
+// AddCoupon attaches a coupon for payment account.
+func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration int, description string, couponType payments.CouponType) (err error) {
+	defer mon.Task()(&ctx, userID, amount, duration, description, couponType)(&err)
+
+	coupon := payments.Coupon{
+		UserID:      userID,
+		Status:      payments.CouponActive,
+		ProjectID:   projectID,
+		Amount:      amount,
+		Description: description,
+		Duration:    duration,
+		Type:        couponType,
+	}
+
+	return Error.Wrap(accounts.service.db.Coupons().Insert(ctx, coupon))
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
@@ -112,6 +134,53 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 			ObjectCount:  int64(usage.ObjectCount * float64(accounts.service.PerObjectPrice)),
 			StorageGbHrs: int64(usage.Storage*float64(accounts.service.TBhPrice)) / int64(memory.TB),
 		})
+	}
+
+	return charges, nil
+}
+
+// Charges returns list of all credit card charges related to account.
+func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []payments.Charge, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.ChargeListParams{
+		Customer: stripe.String(customerID),
+	}
+	params.Filters.AddFilter("limit", "", "100")
+
+	iter := accounts.service.stripeClient.Charges.List(params)
+
+	var charges []payments.Charge
+	for iter.Next() {
+		charge := iter.Charge()
+
+		// ignore all non credit card charges
+		if charge.PaymentMethodDetails.Type != stripe.ChargePaymentMethodDetailsTypeCard {
+			continue
+		}
+		if charge.PaymentMethodDetails.Card == nil {
+			continue
+		}
+
+		charges = append(charges, payments.Charge{
+			ID:     charge.ID,
+			Amount: charge.Amount,
+			CardInfo: payments.CardInfo{
+				ID:       charge.PaymentMethod,
+				Brand:    string(charge.PaymentMethodDetails.Card.Brand),
+				LastFour: charge.PaymentMethodDetails.Card.Last4,
+			},
+			CreatedAt: time.Unix(charge.Created, 0).UTC(),
+		})
+	}
+
+	if err = iter.Err(); err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return charges, nil

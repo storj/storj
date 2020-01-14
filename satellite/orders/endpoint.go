@@ -6,6 +6,7 @@ package orders
 import (
 	"context"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -13,11 +14,11 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 )
 
 // DB implements saving order after receiving from storage node
@@ -40,8 +41,6 @@ type DB interface {
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
-	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
@@ -52,6 +51,18 @@ type DB interface {
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
 	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
+
+	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
+	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BandwidthRollup) error
+}
+
+// BandwidthRollup contains all the info needed for a bucket bandwidth rollup
+type BandwidthRollup struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	Action     pb.PieceAction
+	Inline     int64
+	Allocated  int64
 }
 
 var (
@@ -83,6 +94,7 @@ type Endpoint struct {
 	satelliteSignee     signing.Signee
 	DB                  DB
 	settlementBatchSize int
+	bigHonkinMutex      sync.Mutex
 }
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -238,10 +250,13 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	endpoint.bigHonkinMutex.Lock()
 	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
 	if err != nil {
+		endpoint.bigHonkinMutex.Unlock()
 		return err
 	}
+	endpoint.bigHonkinMutex.Unlock()
 
 	for _, response := range responses {
 		r := &pb.SettlementResponse{

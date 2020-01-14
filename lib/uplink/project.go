@@ -9,16 +9,16 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/eestream"
-	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/metainfo/kvmetainfo"
-	"storj.io/storj/uplink/storage/segments"
-	"storj.io/storj/uplink/storage/streams"
+	"storj.io/common/encryption"
+	"storj.io/common/memory"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/uplink/ecclient"
+	"storj.io/uplink/eestream"
+	"storj.io/uplink/metainfo"
+	"storj.io/uplink/metainfo/kvmetainfo"
+	"storj.io/uplink/storage/segments"
+	"storj.io/uplink/storage/streams"
 )
 
 // Project represents a specific project access session.
@@ -78,7 +78,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 95
+		cfg.Volatile.RedundancyScheme.TotalShares = 110
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()

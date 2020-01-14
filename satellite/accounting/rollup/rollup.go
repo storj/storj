@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/memory"
-	"storj.io/storj/private/sync2"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
 )
 
@@ -46,7 +46,6 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time
 // Run the Rollup loop
 func (r *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	r.logger.Info("Rollup service starting up")
 	return r.Loop.Run(ctx, func(ctx context.Context) error {
 		err := r.Rollup(ctx)
 		if err != nil {

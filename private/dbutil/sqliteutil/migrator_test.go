@@ -10,8 +10,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/sqliteutil"
-	"storj.io/storj/private/testcontext"
 )
 
 func TestMigrateTablesToDatabase(t *testing.T) {
@@ -35,13 +35,13 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
 
-	destSchema, err := sqliteutil.QuerySchema(destDB)
+	destSchema, err := sqliteutil.QuerySchema(ctx, destDB)
 	require.NoError(t, err)
 
-	destData, err := sqliteutil.QueryData(destDB, destSchema)
+	destData, err := sqliteutil.QueryData(ctx, destDB, destSchema)
 	require.NoError(t, err)
 
-	snapshot, err := sqliteutil.LoadSnapshotFromSQL(query)
+	snapshot, err := sqliteutil.LoadSnapshotFromSQL(ctx, query)
 	require.NoError(t, err)
 
 	require.Equal(t, snapshot.Schema, destSchema)
@@ -71,13 +71,13 @@ func TestKeepTables(t *testing.T) {
 	err := sqliteutil.KeepTables(ctx, db, "table_one")
 	require.NoError(t, err)
 
-	schema, err := sqliteutil.QuerySchema(db)
+	schema, err := sqliteutil.QuerySchema(ctx, db)
 	require.NoError(t, err)
 
-	data, err := sqliteutil.QueryData(db, schema)
+	data, err := sqliteutil.QueryData(ctx, db, schema)
 	require.NoError(t, err)
 
-	snapshot, err := sqliteutil.LoadSnapshotFromSQL(table1SQL)
+	snapshot, err := sqliteutil.LoadSnapshotFromSQL(ctx, table1SQL)
 	require.NoError(t, err)
 
 	require.Equal(t, snapshot.Schema, schema)

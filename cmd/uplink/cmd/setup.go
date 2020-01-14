@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/storj/cmd/internal/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/fpath"
 )
 
 var (
@@ -59,8 +59,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 // cmdSetupNonInteractive sets up uplink non-interactively.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
-	// ensure we're using the scope for the setup
-	scope, err := setupCfg.GetScope()
+	// ensure we're using the access for the setup
+	access, err := setupCfg.GetAccess()
 	if err != nil {
 		return err
 	}
@@ -70,18 +70,18 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
 	if err != nil {
 		return err
 	}
-	scope.SatelliteAddr, err = ApplyDefaultHostAndPortToAddr(
-		scope.SatelliteAddr, vip.GetString("satellite-addr"))
+	access.SatelliteAddr, err = ApplyDefaultHostAndPortToAddr(
+		access.SatelliteAddr, vip.GetString("satellite-addr"))
 	if err != nil {
 		return err
 	}
 
-	scopeData, err := scope.Serialize()
+	accessData, err := access.Serialize()
 	if err != nil {
 		return err
 	}
 	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename),
-		process.SaveConfigWithOverride("scope", scopeData),
+		process.SaveConfigWithOverride("access", accessData),
 		process.SaveConfigRemovingDeprecated()))
 }
 
@@ -137,7 +137,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	scopeData, err := (&libuplink.Scope{
+	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satelliteAddress,
 		APIKey:           apiKey,
 		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
@@ -147,7 +147,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 	}
 
 	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
-		process.SaveConfigWithOverride("scope", scopeData),
+		process.SaveConfigWithOverride("access", accessData),
 		process.SaveConfigRemovingDeprecated())
 	if err != nil {
 		return Error.Wrap(err)

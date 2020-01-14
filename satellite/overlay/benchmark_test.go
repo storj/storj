@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/private/testrand"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -125,7 +125,7 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateUptime", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0, 1, 1, 0.5)
+				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0)
 				require.NoError(b, err)
 			}
 		})
@@ -156,11 +156,8 @@ func BenchmarkOverlay(b *testing.B) {
 					},
 				},
 					now,
-					overlay.NodeSelectionConfig{
-						UptimeReputationLambda: 0.99,
-						UptimeReputationWeight: 1.0,
-						UptimeReputationDQ:     0,
-					})
+					overlay.NodeSelectionConfig{},
+				)
 				require.NoError(b, err)
 			}
 		})

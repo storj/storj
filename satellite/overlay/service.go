@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
 
@@ -64,7 +64,7 @@ type DB interface {
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
@@ -86,6 +86,14 @@ type DB interface {
 
 	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
 	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
+
+	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
+	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+	GetOfflineNodesLimited(ctx context.Context, limit int) ([]NodeLastContact, error)
+
+	// DisqualifyNode disqualifies a storage node.
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -130,12 +138,9 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda  float64
-	AuditWeight  float64
-	AuditDQ      float64
-	UptimeLambda float64
-	UptimeWeight float64
-	UptimeDQ     float64
+	AuditLambda float64
+	AuditWeight float64
+	AuditDQ     float64
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -173,18 +178,24 @@ type NodeDossier struct {
 
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	Latency90             int64
-	AuditSuccessCount     int64
-	AuditCount            int64
-	UptimeSuccessCount    int64
-	UptimeCount           int64
-	LastContactSuccess    time.Time
-	LastContactFailure    time.Time
-	AuditReputationAlpha  float64
-	UptimeReputationAlpha float64
-	AuditReputationBeta   float64
-	UptimeReputationBeta  float64
-	Disqualified          *time.Time
+	Latency90            int64
+	AuditSuccessCount    int64
+	AuditCount           int64
+	UptimeSuccessCount   int64
+	UptimeCount          int64
+	LastContactSuccess   time.Time
+	LastContactFailure   time.Time
+	AuditReputationAlpha float64
+	AuditReputationBeta  float64
+	Disqualified         *time.Time
+}
+
+// NodeLastContact contains the ID, address, and timestamp
+type NodeLastContact struct {
+	ID                 storj.NodeID
+	Address            string
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
 }
 
 // Service is used to store and handle node information
@@ -388,9 +399,6 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditLambda = service.config.Node.AuditReputationLambda
 		request.AuditWeight = service.config.Node.AuditReputationWeight
 		request.AuditDQ = service.config.Node.AuditReputationDQ
-		request.UptimeLambda = service.config.Node.UptimeReputationLambda
-		request.UptimeWeight = service.config.Node.UptimeReputationWeight
-		request.UptimeDQ = service.config.Node.UptimeReputationDQ
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
@@ -402,9 +410,6 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditLambda = service.config.Node.AuditReputationLambda
 	request.AuditWeight = service.config.Node.AuditReputationWeight
 	request.AuditDQ = service.config.Node.AuditReputationDQ
-	request.UptimeLambda = service.config.Node.UptimeReputationLambda
-	request.UptimeWeight = service.config.Node.UptimeReputationWeight
-	request.UptimeDQ = service.config.Node.UptimeReputationDQ
 
 	return service.db.UpdateStats(ctx, request)
 }
@@ -418,17 +423,20 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 // UpdateUptime updates a single storagenode's uptime stats.
 func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+	return service.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+}
+
+// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
+func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
 // GetMissingPieces returns the list of offline nodes
@@ -453,6 +461,12 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 	return missingPieces, nil
 }
 
+// DisqualifyNode disqualifies a storage node.
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.DisqualifyNode(ctx, nodeID)
+}
+
 func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
 	defer mon.Task()(&ctx)(&err)
 	host, _, err := net.SplitHostPort(target)
@@ -464,6 +478,12 @@ func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
 		return net.IPAddr{}, err
 	}
 	return *ipAddr, nil
+}
+
+// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
+func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (offlineNodes []NodeLastContact, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
 // GetNetwork resolves the target address and determines its IP /24 Subnet

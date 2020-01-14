@@ -6,7 +6,7 @@ package overlay
 import (
 	"sync"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
 // KeyLock provides per-key RW locking. Locking is key-specific, meaning lock

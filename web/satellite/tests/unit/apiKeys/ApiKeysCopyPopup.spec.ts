@@ -31,13 +31,13 @@ describe('ApiKeysCopyPopup', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('function onCloseClick works correctly', () => {
+    it('function onCloseClick works correctly', async () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,
         });
 
-        wrapper.vm.onCloseClick();
+        await wrapper.vm.onCloseClick();
 
         expect(wrapper.emitted()).toEqual({'closePopup': [[]]});
     });

@@ -64,16 +64,16 @@ describe('HeaderedInput.vue', () => {
         expect(wrapper.find('.label-container').text()).toMatch(error);
     });
 
-    it('emit setData on input correctly', () => {
+    it('emit setData on input correctly', async () => {
         const testData = 'testData';
 
         const wrapper = mount(HeaderedInput);
 
-        wrapper.find('input').trigger('input');
+        await wrapper.find('input').trigger('input');
 
         expect(wrapper.emitted('setData').length).toEqual(1);
 
-        wrapper.vm.$emit('setData', testData);
+        await wrapper.vm.$emit('setData', testData);
 
         expect(wrapper.emitted('setData')[1][0]).toEqual(testData);
     });
