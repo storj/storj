@@ -34,6 +34,7 @@ type ExitProgress struct {
 	StartingDiskUsage int64
 	BytesDeleted      int64
 	CompletionReceipt []byte
+	Status            int32
 }
 
 // Satellite contains the satellite and status
