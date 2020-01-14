@@ -75,13 +75,6 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	return 0, nil
 }
 
-// AddCoupon creates new coupon for specified user and project.
-func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration int, description string, couponType payments.CouponType) (err error) {
-	defer mon.Task()(&ctx, userID, projectID, amount, duration, couponType)(&err)
-
-	return nil
-}
-
 // ProjectCharges returns how much money current user will be charged for each project.
 func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx, userID)(&err)

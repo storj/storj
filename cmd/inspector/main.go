@@ -95,11 +95,6 @@ var (
 		Short: "Creates stripe invoice line items for not consumed project records",
 		RunE:  createInvoiceItems,
 	}
-	prepareInvoiceCouponsCmd = &cobra.Command{
-		Use:   "prepare-invoice-coupons",
-		Short: "Creates coupon usage for all satellite projects",
-		RunE:  prepareInvoiceCoupons,
-	}
 	createInvoiceCouponsCmd = &cobra.Command{
 		Use:   "create-invoice-coupons",
 		Short: "Creates stripe invoice line items for not consumed coupons",
@@ -501,26 +496,6 @@ func createInvoiceItems(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func prepareInvoiceCoupons(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	_, err = i.paymentsClient.PrepareInvoiceCoupons(ctx,
-		&pb.PrepareInvoiceCouponsRequest{},
-	)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoice coupons")
-	return nil
-}
-
 func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(*Addr, *IdentityPath)
@@ -592,7 +567,6 @@ func init() {
 
 	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
 	paymentsCmd.AddCommand(createInvoiceItemsCmd)
-	paymentsCmd.AddCommand(prepareInvoiceCouponsCmd)
 	paymentsCmd.AddCommand(createInvoiceCouponsCmd)
 	paymentsCmd.AddCommand(createInvoicesCmd)
 

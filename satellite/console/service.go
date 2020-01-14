@@ -17,7 +17,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/macaroon"
-	"storj.io/common/memory"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -153,17 +152,7 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 		return Error.Wrap(err)
 	}
 
-	err = payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = payments.AddPromotionCoupon(ctx, auth.User.ID)
-	if err != nil {
-		payments.service.log.Error(fmt.Sprintf("can not add promotional coupon to user %s", auth.User.Email), zap.Error(err))
-	}
-
-	return nil
+	return Error.Wrap(payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
@@ -318,40 +307,6 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) 
 
 	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 	return tx, errs.Wrap(err)
-}
-
-// AddPromotionCoupon creates new coupon for specified user.
-func (payments PaymentsService) AddPromotionCoupon(ctx context.Context, userID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	projects, err := payments.service.store.Projects().GetByUserID(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	creditCards, err := payments.service.accounts.CreditCards().List(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if len(creditCards) == 0 {
-		return Error.Wrap(errs.New("user don't have credit cards"))
-	}
-
-	coupons, err := payments.service.accounts.Coupons(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if len(coupons) > 0 {
-		return Error.Wrap(errs.New("user already have a coupon"))
-	}
-
-	err = payments.service.accounts.AddCoupon(ctx, userID, projects[0].ID, 50, 2, "promotional coupon", 0)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// TODO: delete coupon if limits can't be updated?
-	return Error.Wrap(payments.service.projectUsage.UpdateProjectLimits(ctx, projects[0].ID, memory.TB))
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -863,11 +818,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	if err != nil {
 		return nil, err
-	}
-
-	err = s.Payments().AddPromotionCoupon(ctx, auth.User.ID)
-	if err != nil {
-		s.log.Error(fmt.Sprintf("can not add promotional coupon to user %s", auth.User.Email), zap.Error(err))
 	}
 
 	return p, nil

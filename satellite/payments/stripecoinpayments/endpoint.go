@@ -44,13 +44,6 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 	return &pb.ApplyInvoiceRecordsResponse{}, nil
 }
 
-// PrepareInvoiceCoupons creates coupon usage for all satellite projects.
-func (endpoint *Endpoint) PrepareInvoiceCoupons(ctx context.Context, req *pb.PrepareInvoiceCouponsRequest) (_ *pb.PrepareInvoiceCouponsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return &pb.PrepareInvoiceCouponsResponse{}, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
 // ApplyInvoiceCoupons creates stripe line items for all unapplied coupons.
 func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.ApplyInvoiceCouponsRequest) (_ *pb.ApplyInvoiceCouponsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
