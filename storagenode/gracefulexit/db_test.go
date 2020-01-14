@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedbtest_test
+package gracefulexit_test
 
 import (
 	"testing"
@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-// TestGracefulExitDB tests the graceful exit database calls
-func TestGracefulExitDB(t *testing.T) { //satelliteID storj.NodeID, finishedAt time.Time, exitStatus satelliteStatus, completionReceipt []byte) (err error) {
+// TestDB tests the graceful exit database calls
+func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
