@@ -121,12 +121,12 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 
 	address, err := s.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
-		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
 	}
 
 	conn, err := s.dialer.DialAddressID(ctx, address, satelliteID)
 	if err != nil {
-		return nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
+		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
 	}
 
 	return &Client{

@@ -93,7 +93,7 @@ func (list *List) fetchEntries(ctx context.Context) (_ []Entry, err error) {
 			entries, ok = list.lookupCache(source)
 			if !ok {
 				sourceLog.Error("Failed to fetch URLs from source", zap.Error(err))
-				return nil, Error.New("failed to fetch from source %q: %v", source.String(), err)
+				return nil, Error.New("failed to fetch from source %q: %w", source.String(), err)
 			}
 			sourceLog.Warn("Failed to fetch URLs from source; used cache", zap.Error(err))
 		} else {

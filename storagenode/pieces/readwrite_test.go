@@ -177,7 +177,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	// GetPieceHeader should error here now
 	header, err = r.GetPieceHeader()
 	require.Error(t, err)
-	assert.Truef(t, pieces.Error.Has(err), "err is not a pieces.Error: %v", err)
+	assert.Truef(t, pieces.Error.Has(err), "err is not a pieces.Error: %w", err)
 	assert.Nil(t, header)
 
 	// check file position again

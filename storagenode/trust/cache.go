@@ -30,7 +30,7 @@ func LoadCache(path string) (*Cache, error) {
 		return nil, Error.New("cache path cannot be empty")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-		return nil, Error.New("unable to make cache parent directory: %v", err)
+		return nil, Error.New("unable to make cache parent directory: %w", err)
 	}
 
 	data, err := LoadCacheData(path)
@@ -93,7 +93,7 @@ func LoadCacheData(path string) (*CacheData, error) {
 
 	data := NewCacheData()
 	if err := json.Unmarshal(dataBytes, data); err != nil {
-		return nil, Error.New("malformed cache: %v", err)
+		return nil, Error.New("malformed cache: %w", err)
 	}
 	// Ensure the entries map is always non-nil on load
 	if data.Entries == nil {
