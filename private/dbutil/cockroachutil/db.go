@@ -48,7 +48,7 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 	}()
 	err = masterDB.Ping()
 	if err != nil {
-		return nil, errs.New("Could not open masterDB at conn %q: %v", connStr, err)
+		return nil, errs.New("Could not open masterDB at conn %q: %w", connStr, err)
 	}
 
 	_, err = masterDB.Exec("CREATE DATABASE " + pq.QuoteIdentifier(schemaName))
