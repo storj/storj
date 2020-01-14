@@ -1,11 +1,12 @@
 //lint:file-ignore * generated file
-
 // Code generated for package schema by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // 2018092201_initial-tables.down.sql
 // 2018092201_initial-tables.up.sql
 // 2019111301_fix_seq_scans_in_list.down.sql
 // 2019111301_fix_seq_scans_in_list.up.sql
+// 2020011301_drop_not_null.down.sql
+// 2020011301_drop_not_null.up.sql
 package schema
 
 import (
@@ -97,7 +98,7 @@ func _2018092201_initialTablesDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2018092201_initial-tables.down.sql", size: 365, mode: os.FileMode(420), modTime: time.Unix(1541110177, 0)}
+	info := bindataFileInfo{name: "2018092201_initial-tables.down.sql", size: 365, mode: os.FileMode(420), modTime: time.Unix(1570720322, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -117,7 +118,7 @@ func _2018092201_initialTablesUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2018092201_initial-tables.up.sql", size: 8069, mode: os.FileMode(420), modTime: time.Unix(1562596799, 0)}
+	info := bindataFileInfo{name: "2018092201_initial-tables.up.sql", size: 8069, mode: os.FileMode(420), modTime: time.Unix(1570720322, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -137,7 +138,7 @@ func _2019111301_fix_seq_scans_in_listDownSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2019111301_fix_seq_scans_in_list.down.sql", size: 2260, mode: os.FileMode(420), modTime: time.Unix(1573664023, 0)}
+	info := bindataFileInfo{name: "2019111301_fix_seq_scans_in_list.down.sql", size: 2260, mode: os.FileMode(420), modTime: time.Unix(1574099983, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -157,7 +158,47 @@ func _2019111301_fix_seq_scans_in_listUpSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2019111301_fix_seq_scans_in_list.up.sql", size: 2378, mode: os.FileMode(420), modTime: time.Unix(1573662794, 0)}
+	info := bindataFileInfo{name: "2019111301_fix_seq_scans_in_list.up.sql", size: 2378, mode: os.FileMode(420), modTime: time.Unix(1574099983, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __2020011301_drop_not_nullDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\xcc\x29\x49\x2d\x52\x28\x49\x4c\xca\x49\x55\x28\x48\x2c\xc9\x48\x49\x2c\x49\x54\x80\x08\x26\xe7\xe7\x94\xe6\xe6\x29\x24\x95\x26\x67\xa7\x96\x28\xa4\x14\xe5\x17\x28\xa4\xa4\xa6\x25\x96\xe6\x94\x58\x73\x01\x02\x00\x00\xff\xff\xbf\xba\x6f\x7f\x37\x00\x00\x00")
+
+func _2020011301_drop_not_nullDownSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__2020011301_drop_not_nullDownSql,
+		"2020011301_drop_not_null.down.sql",
+	)
+}
+
+func _2020011301_drop_not_nullDownSql() (*asset, error) {
+	bytes, err := _2020011301_drop_not_nullDownSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "2020011301_drop_not_null.down.sql", size: 55, mode: os.FileMode(420), modTime: time.Unix(1579028350, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var __2020011301_drop_not_nullUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x4a\xcc\x29\x49\x2d\x52\x28\x49\x4c\xca\x49\x55\x28\x48\x2c\xc9\x48\x49\x2c\x49\x54\x80\x08\x26\xe7\xe7\x94\xe6\xe6\x29\x24\x95\x26\x67\xa7\x96\x28\x14\xa7\x96\x28\xa4\xa4\xa6\x25\x96\xe6\x94\x28\xa8\xab\x5b\x73\x01\x02\x00\x00\xff\xff\x3d\x52\xac\x4e\x39\x00\x00\x00")
+
+func _2020011301_drop_not_nullUpSqlBytes() ([]byte, error) {
+	return bindataRead(
+		__2020011301_drop_not_nullUpSql,
+		"2020011301_drop_not_null.up.sql",
+	)
+}
+
+func _2020011301_drop_not_nullUpSql() (*asset, error) {
+	bytes, err := _2020011301_drop_not_nullUpSqlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "2020011301_drop_not_null.up.sql", size: 57, mode: os.FileMode(420), modTime: time.Unix(1579028433, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -218,6 +259,8 @@ var _bindata = map[string]func() (*asset, error){
 	"2018092201_initial-tables.up.sql":          _2018092201_initialTablesUpSql,
 	"2019111301_fix_seq_scans_in_list.down.sql": _2019111301_fix_seq_scans_in_listDownSql,
 	"2019111301_fix_seq_scans_in_list.up.sql":   _2019111301_fix_seq_scans_in_listUpSql,
+	"2020011301_drop_not_null.down.sql":         _2020011301_drop_not_nullDownSql,
+	"2020011301_drop_not_null.up.sql":           _2020011301_drop_not_nullUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -265,6 +308,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"2018092201_initial-tables.up.sql":          &bintree{_2018092201_initialTablesUpSql, map[string]*bintree{}},
 	"2019111301_fix_seq_scans_in_list.down.sql": &bintree{_2019111301_fix_seq_scans_in_listDownSql, map[string]*bintree{}},
 	"2019111301_fix_seq_scans_in_list.up.sql":   &bintree{_2019111301_fix_seq_scans_in_listUpSql, map[string]*bintree{}},
+	"2020011301_drop_not_null.down.sql":         &bintree{_2020011301_drop_not_nullDownSql, map[string]*bintree{}},
+	"2020011301_drop_not_null.up.sql":           &bintree{_2020011301_drop_not_nullUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
