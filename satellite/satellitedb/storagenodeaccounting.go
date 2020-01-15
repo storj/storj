@@ -13,7 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface

@@ -16,7 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.

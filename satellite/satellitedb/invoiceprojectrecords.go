@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that invoiceProjectRecords implements stripecoinpayments.ProjectRecordsDB.

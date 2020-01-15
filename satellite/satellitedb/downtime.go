@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/storj"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type downtimeTrackingDB struct {

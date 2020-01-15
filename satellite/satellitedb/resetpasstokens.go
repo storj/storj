@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that resetPasswordTokens implements console.ResetPasswordTokens.

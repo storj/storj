@@ -20,7 +20,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
